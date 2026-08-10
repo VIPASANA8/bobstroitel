@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.schemas import (
     PlayerActionRequest, BotSeatRequest, HumanSeatRequest,
-    ProfileCreateRequest, ProfileRenameRequest, SavedTableRequest, BotCooldownRequest,
+    ProfileCreateRequest, ProfileRenameRequest, ProfileTopUpRequest, SavedTableRequest, BotCooldownRequest,
 )
 from poker.engine import PokerEngine, InvalidAction
 from bots.difficulty import DIFFICULTIES
@@ -172,6 +172,24 @@ def rename_profile(profile_id: str, req: ProfileRenameRequest):
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return {"profile": profile, "profiles": store.list_profiles(), "table": store.get_table()}
+
+
+@app.post("/api/profiles/{profile_id}/top-up")
+def top_up_profile(profile_id: str, req: ProfileTopUpRequest):
+    ensure_unlocked("Пополнять баланс можно только между раздачами")
+    try:
+        current = store.get_profile_record(profile_id)
+        new_balance = round(float(current["balance"]) + float(req.amount), 2)
+        store.set_profile_balance(profile_id, new_balance)
+        profile = store.profile(profile_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {
+        "ok": True,
+        "added": round(float(req.amount), 2),
+        "profile": profile,
+        "table": store.get_table(),
+    }
 
 
 @app.get("/api/profiles/{profile_id}/model")
