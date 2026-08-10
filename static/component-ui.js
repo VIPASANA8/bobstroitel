@@ -84,5 +84,12 @@
       v018.dataset.v018Fixes = "1";
       document.body.appendChild(v018);
     }
+
+    if (!document.querySelector('script[data-v019-fixes]')) {
+      const v019 = document.createElement("script");
+      v019.src = "/static/v019-center-polish.js";
+      v019.dataset.v019Fixes = "1";
+      document.body.appendChild(v019);
+    }
   });
 })();
