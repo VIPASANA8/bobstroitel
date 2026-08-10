@@ -140,5 +140,12 @@
       v027.dataset.v027CompactSeatsControls = "1";
       document.body.appendChild(v027);
     }
+
+    if (!document.querySelector('script[data-v028-center-ready]')) {
+      const v028 = document.createElement("script");
+      v028.src = "/static/v028-center-ready.js";
+      v028.dataset.v028CenterReady = "1";
+      document.body.appendChild(v028);
+    }
   });
 })();
