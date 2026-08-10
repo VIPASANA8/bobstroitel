@@ -126,5 +126,12 @@
       v025.dataset.v025ShowdownCompare = "1";
       document.body.appendChild(v025);
     }
+
+    if (!document.querySelector('script[data-v026-seat-status-layout]')) {
+      const v026 = document.createElement("script");
+      v026.src = "/static/v026-seat-status-layout.js";
+      v026.dataset.v026SeatStatusLayout = "1";
+      document.body.appendChild(v026);
+    }
   });
 })();
