@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Poker Trainer v0.14 · Mobile Fill</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="stylesheet" href="/static/mobile.css" media="(max-width: 780px)" />
+  <link rel="stylesheet" href="/static/component-ui.css" />
+</head>
+<body class="neon-ref-v107 v011 v012 v013 v014 component-ui">
+  <header id="mobileGameHeader" class="mobile-game-header">
+    <button id="mobileMenuButton" class="mobile-menu-button" type="button" aria-label="Меню"><span></span><span></span><span></span></button>
+    <div class="mobile-street-pill"><strong id="mobileStreetLabel">СТОЛ</strong><div id="mobileStreetDots" class="mobile-street-dots"><i></i><i></i><i></i><i></i></div></div>
+    <button id="mobilePrimaryAction" class="mobile-primary-action" type="button">Новая раздача</button>
+  </header>
+  <div id="mobileDrawerBackdrop" class="mobile-drawer-backdrop" hidden></div>
+  <aside id="mobileDrawer" class="mobile-drawer" aria-hidden="true">
+    <div class="mobile-drawer-head"><strong>Стол</strong><button id="mobileDrawerClose" type="button">×</button></div>
+    <button id="mobileDrawerNewHand" type="button">Новая раздача</button>
+    <button id="mobileDrawerInfinite" type="button">∞ Бесконечный режим</button>
+    <button id="mobileDrawerPause" type="button">Пауза / продолжить</button>
+    <p>Профили и расширенные настройки доступны на desktop. Свободные места на столе можно нажимать прямо здесь.</p>
+  </aside>
+  <div class="room-ambience" aria-hidden="true"><i class="neon-bar bar-a"></i><i class="neon-bar bar-b"></i><i class="city-glow"></i><i class="room-plant plant-a"></i><i class="room-plant plant-b"></i></div>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand-wrap">
+        <div class="brand-mark">P</div>
+        <div>
+          <div class="eyebrow">ЛОКАЛЬНЫЙ ТРЕНАЖЁР</div>
+          <h1>Poker Trainer <span>v0.13 · Pixel Pass</span></h1>
+        </div>
+      </div>
+      <div class="top-actions">
+        <div class="table-count"><span id="activeCount">2</span> / 7 игроков</div>
+        <button id="infiniteMode" class="btn ghost" title="Автоматически начинать следующую раздачу">∞ Бесконечный: выкл</button>
+        <button id="spectatorPause" class="btn ghost" hidden>⏸ Пауза</button>
+        <button id="abortHand" class="btn danger-soft" hidden>Прервать раздачу</button>
+        <button id="newHand" class="btn primary">Новая раздача</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="left-column">
+        <div class="table-frame">
+          <div class="felt">
+            <div class="table-glow"></div>
+
+            <div id="deckAnchor" class="deck-anchor" aria-hidden="true">
+              <i></i><i></i><i></i>
+            </div>
+            <div id="streetSplash" class="street-splash" aria-hidden="true"></div>
+            <div id="wagerLayer" class="wager-layer" aria-hidden="true"></div>
+
+            <div class="seat seat-0" data-seat="0"></div>
+            <div class="seat seat-1" data-seat="1"></div>
+            <div class="seat seat-2" data-seat="2"></div>
+            <div class="seat seat-3" data-seat="3"></div>
+            <div class="seat seat-4" data-seat="4"></div>
+            <div class="seat seat-5" data-seat="5"></div>
+            <div class="seat seat-6" data-seat="6"></div>
+
+            <div id="mobileTimerCard" class="mobile-hud-card mobile-timer-card">
+              <span>ВАШ ХОД</span><strong id="mobileActionTimer">01:00</strong><div class="mobile-timer-track"><i id="mobileTimerFill"></i></div>
+            </div>
+            <div id="mobileSelectedCard" class="mobile-hud-card mobile-selected-card">
+              <span>ВЫБРАНО</span><strong id="mobileSelectedAction">—</strong><b id="mobileSelectedAmount"></b>
+            </div>
+
+            <div class="table-center">
+              <div id="street" class="street-badge">СТОЛ ГОТОВ</div>
+              <div id="board" class="board-cards"></div>
+              <div id="potChips" class="pot-chips" aria-hidden="true"></div>
+              <div class="pot-total" aria-label="Размер банка">
+                <span class="pot-total-label">Банк</span>
+                <strong id="pot">0.00 ББ</strong>
+              </div>
+              <div id="result" class="result-text">Добавьте ботов и начните раздачу</div>
+            </div>
+          </div>
+        </div>
+
+        <section class="history-card">
+          <div class="section-title-row">
+            <div>
+              <div class="eyebrow">РАЗДАЧА</div>
+              <h2>История действий</h2>
+            </div>
+            <div class="sheet-head-actions">
+              <a id="analysisLink" href="#" target="_blank" class="text-link disabled">Технический анализ ↗</a>
+              <button id="closeHistorySheet" class="mobile-sheet-close" type="button" aria-label="Закрыть историю">×</button>
+            </div>
+          </div>
+          <div id="history" class="history-list">
+            <div class="empty-state">Начните раздачу — все действия появятся здесь.</div>
+          </div>
+        </section>
+      </section>
+
+      <aside class="sidebar">
+        <section class="panel action-panel">
+          <div id="actionPanelKicker" class="panel-kicker">ВАШ ХОД</div>
+          <h2 id="turnTitle">Стол не запущен</h2>
+          <div id="hint" class="hint">Посадите людей или ботов на свободные места.</div>
+
+          <div class="turn-meta">
+            <div id="actionTimer" class="action-timer" hidden>01:00</div>
+            <div id="preActionStatus" class="preaction-status" hidden></div>
+            <button id="clearQueuedAction" class="queue-clear" type="button" hidden>Сбросить маркер</button>
+          </div>
+
+          <div id="actionButtons" class="action-grid"></div>
+          <div class="mobile-turn-tools">
+            <button id="mobileHistoryFromAction" type="button">История</button>
+            <button id="mobileSolverFromAction" type="button">Анализ</button>
+          </div>
+
+          <div id="sizingWrap" class="sizing-wrap" hidden>
+            <label for="amount">Размер</label>
+            <div class="amount-row">
+              <button id="amountMinus" class="amount-step" type="button">−</button>
+              <input id="amount" type="number" min="0" step="0.5" value="2.5" />
+              <button id="amountPlus" class="amount-step" type="button">+</button>
+              <span>ББ</span>
+            </div>
+            <div class="quick-sizes">
+              <button data-sizing="0.33">⅓</button>
+              <button data-sizing="0.50">½</button>
+              <button data-sizing="0.75">¾</button>
+              <button data-sizing="1.00">Банк</button>
+            </div>
+            <div class="bet-slider-row">
+              <span id="sliderMinLabel">МИН</span>
+              <input id="amountSlider" type="range" min="1" max="100" step="0.5" value="2.5" aria-label="Размер ставки" />
+              <span id="sliderMaxLabel">МАКС</span>
+            </div>
+          </div>
+
+          <div id="mobileAutoActionBar" class="mobile-auto-action" aria-live="polite">
+            <span class="mobile-auto-action-icon">i</span>
+            <div>
+              <strong id="mobileAutoActionTitle">Авто-действие: не выбрано</strong>
+              <small id="mobileAutoActionText">Выберите действие заранее — оно выполнится, когда ход дойдёт до вас.</small>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel solver-panel">
+          <div class="section-title-row compact">
+            <div>
+              <div class="panel-kicker">ТРЕНЕР</div>
+              <h3>CFR-lite</h3>
+            </div>
+            <div class="sheet-head-actions">
+              <span class="mini-badge">HU</span>
+              <button id="closeSolverSheet" class="mobile-sheet-close" type="button" aria-label="Закрыть анализ">×</button>
+            </div>
+          </div>
+          <button id="solveSpot" class="btn ghost full" disabled>Подсказка недоступна</button>
+          <div id="solverLoading" class="solver-loading" hidden>Считаю спот…</div>
+          <div id="solverEmpty" class="solver-note">В 7-max версии CFR-lite анализ включается, когда в раздаче остаются два игрока.</div>
+          <div id="solverResult" hidden>
+            <div id="solverSummary"></div>
+            <div id="solverActions" class="solver-actions"></div>
+            <div id="solverWarning" class="solver-warning"></div>
+          </div>
+        </section>
+
+        <section class="panel stats-panel">
+          <div class="section-title-row compact profile-head">
+            <div>
+              <div class="panel-kicker">ПРОФИЛИ И ПАМЯТЬ</div>
+              <h3>Статистика выбранного игрока</h3>
+            </div>
+            <span class="mini-badge">LOCAL</span>
+          </div>
+
+          <div class="profile-controls">
+            <select id="profileSelect" aria-label="Профиль игрока"></select>
+            <button id="newProfile" class="profile-icon-btn" title="Новый профиль">+</button>
+            <button id="renameProfile" class="profile-icon-btn" title="Переименовать профиль">✎</button>
+          </div>
+          <div class="profile-help">Профиль можно посадить на любое место. В hot-seat режиме управление автоматически переходит к игроку, чей сейчас ход.</div>
+
+          <div class="stats-grid profile-stats">
+            <div><span>Баланс</span><strong id="heroBankroll">1000.00 ББ</strong></div>
+            <div><span>Раздач</span><strong id="savedHands">0</strong></div>
+            <div><span>VPIP</span><strong id="vpipStat">0.0%</strong></div>
+            <div><span>PFR</span><strong id="pfrStat">0.0%</strong></div>
+            <div><span>3-bet</span><strong id="threeBetStat">0.0%</strong></div>
+            <div><span>Fold to 3-bet</span><strong id="fold3Stat">0.0%</strong></div>
+            <div><span>Агрессия</span><strong id="aggressionStat">0.00</strong></div>
+            <div><span>EV loss</span><strong id="evLossStat">0.000 ББ</strong></div>
+          </div>
+
+          <div class="model-box">
+            <div class="model-topline">
+              <span>Доверие к модели</span>
+              <strong id="modelConfidence">0%</strong>
+            </div>
+            <div class="confidence-track"><span id="modelConfidenceBar"></span></div>
+            <div id="modelTraits" class="model-traits">
+              <div class="model-empty">Нужно больше раздач для устойчивых выводов.</div>
+            </div>
+          </div>
+
+          <button id="resetBankroll" class="btn danger-soft full">Сбросить все балансы до 1000</button>
+        </section>
+
+        <section class="panel saved-tables-panel">
+          <div class="section-title-row compact">
+            <div>
+              <div class="panel-kicker">СОХРАНЁННЫЕ СТОЛЫ</div>
+              <h3>Составы и сессии</h3>
+            </div>
+            <span class="mini-badge">v0.10</span>
+          </div>
+          <div class="saved-table-create">
+            <input id="savedTableName" class="modal-input" maxlength="40" placeholder="Например, Пятничный стол" />
+            <button id="saveCurrentTable" class="btn primary full">Сохранить текущий стол</button>
+          </div>
+          <div id="savedTablesList" class="saved-tables-list">
+            <div class="model-empty">Сохранённых столов пока нет.</div>
+          </div>
+        </section>
+
+        <section class="panel format-panel">
+          <div class="format-row"><span>Формат</span><strong>NLHE · 2–7 игроков</strong></div>
+          <div class="format-row"><span>Блайнды</span><strong>0.5 / 1 ББ</strong></div>
+          <div class="format-row"><span>Места</span><strong>человек / до 6 ботов / свободно</strong></div>
+          <div class="format-row"><span>Банкролл</span><strong>по профилям</strong></div>
+          <div class="format-row"><span>Режим</span><strong>hot-seat / наблюдение</strong></div>
+          <div class="format-row"><span>∞ Bot-only</span><strong>бот уходит при 0 ББ</strong></div>
+          <div class="format-row bot-speed-row">
+            <span>Темп ботов</span>
+            <select id="botSpeedSelect" class="compact-select" aria-label="Скорость размышления ботов">
+              <option value="fast">Быстро · 1–2 сек</option>
+              <option value="normal" selected>Спокойно · 2–4 сек</option>
+              <option value="slow">Медленно · 4–7 сек</option>
+            </select>
+          </div>
+          <div class="format-note">Задержка немного меняется от сложности бота и улицы. Максимальные боты обычно думают дольше на тёрне и ривере.</div>
+          <div class="format-row cooldown-setting-row">
+            <span>Возврат бота</span>
+            <select id="botCooldownSelect" class="compact-select" aria-label="Тайм-аут выбитого бота">
+              <option value="5">через 5 минут</option>
+              <option value="10" selected>через 10 минут</option>
+              <option value="15">через 15 минут</option>
+            </select>
+          </div>
+          <div class="cooldown-box">
+            <div class="cooldown-box-title">БОТЫ ВНЕ СТОЛА</div>
+            <div id="botCooldownList" class="cooldown-list"><span>Никого</span></div>
+          </div>
+          <div class="format-row"><span>Память</span><strong>SQLite · долгосрочная</strong></div>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <div id="mobileSheetBackdrop" class="mobile-sheet-backdrop" hidden></div>
+  <nav id="mobileDock" class="mobile-dock" aria-label="Быстрые панели">
+    <button id="mobileHistoryButton" type="button"><span>☰</span>История</button>
+    <button id="mobileSolverButton" type="button"><span>◇</span>Анализ</button>
+    <button id="mobileTableButton" type="button"><span>◎</span>Стол</button>
+  </nav>
+
+  <div id="botModal" class="modal-backdrop" hidden>
+    <div class="modal seat-modal">
+      <button id="closeModal" class="modal-close">×</button>
+      <div class="eyebrow">МЕСТО <span id="modalSeatNumber"></span></div>
+      <h2 id="modalTitle">Настроить место</h2>
+
+      <div class="occupant-tabs">
+        <button id="chooseHuman" class="occupant-tab">Человек</button>
+        <button id="chooseBot" class="occupant-tab active">Бот</button>
+      </div>
+
+      <div id="humanSeatFields" hidden>
+        <label class="field-label">Профиль игрока</label>
+        <select id="seatProfileSelect" class="modal-input"></select>
+        <div class="profile-modal-note">Один профиль нельзя посадить на два места одновременно.</div>
+      </div>
+
+      <div id="botSeatFields">
+        <label class="field-label">Имя бота</label>
+        <input id="botName" class="modal-input" maxlength="24" placeholder="Бот" />
+        <label class="field-label">Сложность</label>
+        <div id="difficultyChoices" class="difficulty-grid">
+          <button data-difficulty="easy"><strong>Лёгкий</strong><span>чаще ошибается</span></button>
+          <button data-difficulty="normal"><strong>Нормальный</strong><span>стабильная игра</span></button>
+          <button data-difficulty="hard"><strong>Сложный</strong><span>мало ошибок</span></button>
+          <button data-difficulty="maximum"><strong>Максимальный</strong><span>максимум расчёта</span></button>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button id="removeBot" class="btn danger-soft" hidden>Освободить место</button>
+        <button id="saveBot" class="btn primary">Посадить за стол</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="profileModal" class="modal-backdrop" hidden>
+    <div class="modal profile-modal">
+      <button id="closeProfileModal" class="modal-close">×</button>
+      <div class="eyebrow">ПРОФИЛЬ ИГРОКА</div>
+      <h2 id="profileModalTitle">Новый профиль</h2>
+      <label class="field-label" for="profileName">Имя</label>
+      <input id="profileName" class="modal-input" maxlength="24" placeholder="Например, Артём" />
+      <div class="profile-modal-note">История, баланс и модель этого игрока будут храниться отдельно.</div>
+      <div class="modal-actions">
+        <button id="saveProfile" class="btn primary">Создать профиль</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/component-ui.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>
