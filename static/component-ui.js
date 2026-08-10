@@ -18,10 +18,6 @@
     return human ? Number(human.seat) : 0;
   }
 
-  /*
-   * Converts physical seats into visual seats. Visual 0 is always the viewer,
-   * which means CSS can compose the hero at the bottom independently of the engine.
-   */
   window.syncComponentSeatLayout = function syncComponentSeatLayout(game, tableData) {
     const anchor = viewerSeat(game, tableData);
     const idlePositionByVisualSeat = {
@@ -146,6 +142,13 @@
       v028.src = "/static/v028-center-ready.js";
       v028.dataset.v028CenterReady = "1";
       document.body.appendChild(v028);
+    }
+
+    if (!document.querySelector('script[data-v029-ready-style]')) {
+      const v029 = document.createElement("script");
+      v029.src = "/static/v029-ready-style.js";
+      v029.dataset.v029ReadyStyle = "1";
+      document.body.appendChild(v029);
     }
   });
 })();
