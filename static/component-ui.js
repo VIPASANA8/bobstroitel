@@ -150,5 +150,12 @@
       v029.dataset.v029ReadyStyle = "1";
       document.body.appendChild(v029);
     }
+
+    if (!document.querySelector('script[data-v030-seat-ready-fix]')) {
+      const v030 = document.createElement("script");
+      v030.src = "/static/v030-seat-ready-fix.js";
+      v030.dataset.v030SeatReadyFix = "1";
+      document.body.appendChild(v030);
+    }
   });
 })();
