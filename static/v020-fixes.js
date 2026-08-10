@@ -7,20 +7,31 @@
     return (id && game.players?.[id]) || null;
   }
 
-  function syncMobileTurnLabel() {
+  function syncMobileTurnHud() {
     const card = $("mobileTimerCard");
     const label = card?.querySelector(":scope > span");
-    if (!label) return;
+    const timer = $("mobileActionTimer");
+    const track = card?.querySelector(".mobile-timer-track");
+    if (!card || !label) return;
+
+    const localTurn = Boolean(game && !game.terminal && isLocalHumanTurn());
+    const opponentTurn = Boolean(game && !game.terminal && !localTurn);
+
+    card.classList.toggle("opponent-turn", opponentTurn);
 
     if (!game || game.terminal) {
       label.textContent = "ВАШ ХОД";
       label.removeAttribute("title");
+      if (timer) timer.style.display = "";
+      if (track) track.style.display = "";
       return;
     }
 
-    if (isLocalHumanTurn()) {
+    if (localTurn) {
       label.textContent = "ВАШ ХОД";
       label.removeAttribute("title");
+      if (timer) timer.style.display = "";
+      if (track) track.style.display = "";
       return;
     }
 
@@ -28,12 +39,17 @@
     const name = actor?.name || game.acting_human_name || "ИГРОК";
     label.textContent = `ХОД ${name}`;
     label.title = `Ход: ${name}`;
+
+    // On somebody else's turn we keep only the actor label.
+    // The 01:00 countdown belongs exclusively to the local human turn.
+    if (timer) timer.style.display = "none";
+    if (track) track.style.display = "none";
   }
 
   const originalRenderMobileHud = renderMobileHud;
-  renderMobileHud = function renderMobileHudV020() {
+  renderMobileHud = function renderMobileHudV021() {
     originalRenderMobileHud();
-    syncMobileTurnLabel();
+    syncMobileTurnHud();
   };
 
   function latestHistoryPot() {
@@ -47,7 +63,7 @@
 
   function visualPotAmount(value) {
     const direct = Math.max(0, Number(value || 0));
-    if (!game || game.terminal) return direct;
+    if (!game) return direct;
     return Math.max(direct, latestHistoryPot());
   }
 
@@ -55,19 +71,18 @@
     const n = Math.max(0, Number(value || 0));
     if (!(n > 0)) return "";
 
-    // Make the pot visibly grow as chips arrive. The old renderer kept almost
-    // the same 4–8 visible chips for many different pot sizes, so additions
-    // were easy to miss on a phone screen.
-    const visibleTotal = Math.min(30, Math.max(4, Math.ceil(Math.log2(n + 1) * 6)));
-    const stackCount = Math.min(5, Math.max(1, Math.ceil(visibleTotal / 6)));
-    const palette = chipsForAmount(n, 20);
+    // Use an almost linear visual scale on mobile so every meaningful increase
+    // in the pot adds visible chips instead of producing the same tiny stack.
+    const visibleTotal = Math.min(42, Math.max(2, Math.ceil(n * 2)));
+    const stackCount = Math.min(6, Math.max(1, Math.ceil(visibleTotal / 7)));
+    const palette = chipsForAmount(n, 24);
     const fallback = ["chip-1", "chip-25", "chip-5", "chip-100", "chip-05"];
     const columns = [];
     let remaining = visibleTotal;
 
     for (let col = 0; col < stackCount; col += 1) {
       const colsLeft = stackCount - col;
-      const chipCount = Math.min(7, Math.max(1, Math.ceil(remaining / colsLeft)));
+      const chipCount = Math.min(8, Math.max(1, Math.ceil(remaining / colsLeft)));
       remaining -= chipCount;
       const cls = palette[col % Math.max(1, palette.length)] || fallback[col % fallback.length];
       const chips = Array.from({ length: chipCount }, (_, i) =>
@@ -76,10 +91,10 @@
       columns.push(`<span class="chip-column" style="--col:${col};--cols:${stackCount}">${chips}</span>`);
     }
 
-    return `<div class="chip-cluster pot-cluster v020-growing-pot">${columns.join("")}</div>`;
+    return `<div class="chip-cluster pot-cluster v021-growing-pot">${columns.join("")}</div>`;
   }
 
-  renderPotChips = function renderPotChipsV020(value) {
+  renderPotChips = function renderPotChipsV021(value) {
     const target = $("potChips");
     if (!target) return;
     const visualValue = visualPotAmount(value);
@@ -89,10 +104,9 @@
   };
 
   const style = document.createElement("style");
-  style.id = "v020-mobile-fixes";
+  style.id = "v021-mobile-fixes";
   style.textContent = `
     @media (max-width:780px){
-      /* When it is somebody else's turn, the timer HUD names that player. */
       body.v014 .mobile-timer-card > span{
         display:block !important;
         width:82px !important;
@@ -103,25 +117,41 @@
         text-align:center !important;
       }
 
-      /* The viewer seat should not have a permanent cyan frame. It can still
-         receive the normal active-turn highlight when it is actually your turn. */
-      body.v014 .seat[data-visual-seat="0"] .seat-card.viewer-seat:not(.active-turn){
-        border-color:rgba(75,126,205,.26) !important;
-        box-shadow:0 10px 28px rgba(0,0,0,.30) !important;
+      /* Opponent turn: actor name only, no fake 01:00 and no progress bar. */
+      body.v014 .mobile-timer-card.opponent-turn{
+        min-height:42px !important;
+        height:42px !important;
+        padding:6px 5px !important;
+      }
+      body.v014 .mobile-timer-card.opponent-turn #mobileActionTimer,
+      body.v014 .mobile-timer-card.opponent-turn .mobile-timer-track{
+        display:none !important;
       }
 
-      /* Keep the growing pot itself completely plate-less. */
-      body.v014 .pot-chips .v020-growing-pot,
-      body.v014 .pot-chips .v020-growing-pot .chip-column{
+      /* No permanent outline around the viewer seat when it is not the active turn. */
+      body.v014 .seat[data-visual-seat="0"] .seat-card.viewer-seat:not(.active-turn){
+        border-color:transparent !important;
+        outline:0 !important;
+        box-shadow:none !important;
+      }
+
+      /* Pot chips stay plate-less while the pile grows. */
+      body.v014 .pot-chips,
+      body.v014 .pot-chips .v021-growing-pot,
+      body.v014 .pot-chips .v021-growing-pot .chip-column{
         background:transparent !important;
         border:0 !important;
         outline:0 !important;
         box-shadow:none !important;
+        filter:none !important;
+      }
+      body.v014 .pot-chips .v021-growing-pot{
+        transform-origin:center bottom !important;
       }
     }
   `;
   document.head.appendChild(style);
 
-  syncMobileTurnLabel();
+  syncMobileTurnHud();
   if (game) renderPotChips(game.pot);
 })();
