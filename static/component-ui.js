@@ -133,5 +133,12 @@
       v026.dataset.v026SeatStatusLayout = "1";
       document.body.appendChild(v026);
     }
+
+    if (!document.querySelector('script[data-v027-compact-seats-controls]')) {
+      const v027 = document.createElement("script");
+      v027.src = "/static/v027-compact-seats-controls.js";
+      v027.dataset.v027CompactSeatsControls = "1";
+      document.body.appendChild(v027);
+    }
   });
 })();
