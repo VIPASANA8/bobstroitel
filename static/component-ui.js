@@ -98,5 +98,12 @@
       v020.dataset.v020Fixes = "1";
       document.body.appendChild(v020);
     }
+
+    if (!document.querySelector('script[data-v022-balance-topup]')) {
+      const v022 = document.createElement("script");
+      v022.src = "/static/v022-balance-topup.js";
+      v022.dataset.v022BalanceTopup = "1";
+      document.body.appendChild(v022);
+    }
   });
 })();
