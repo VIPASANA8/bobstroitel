@@ -64,4 +64,14 @@
   window.syncComponentUi = function syncComponentUi(game, tableData) {
     window.syncComponentSeatLayout?.(game, tableData);
   };
+
+  // v0.15 is intentionally loaded after app.js so it can patch the runtime
+  // without duplicating the large application bundle.
+  window.addEventListener("load", () => {
+    if (document.querySelector('script[data-v015-fixes]')) return;
+    const script = document.createElement("script");
+    script.src = "/static/v015-fixes.js";
+    script.dataset.v015Fixes = "1";
+    document.body.appendChild(script);
+  });
 })();
