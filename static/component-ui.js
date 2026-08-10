@@ -105,5 +105,12 @@
       v022.dataset.v022BalanceTopup = "1";
       document.body.appendChild(v022);
     }
+
+    if (!document.querySelector('script[data-v023-brand-balance-fix]')) {
+      const v023 = document.createElement("script");
+      v023.src = "/static/v023-brand-balance-fix.js";
+      v023.dataset.v023BrandBalanceFix = "1";
+      document.body.appendChild(v023);
+    }
   });
 })();
