@@ -216,6 +216,11 @@
         transform:scale(1.08) !important;
         transform-origin:center bottom !important;
         margin-bottom:4px !important;
+        padding:0 !important;
+        background:transparent !important;
+        border:0 !important;
+        outline:0 !important;
+        box-shadow:none !important;
         filter:drop-shadow(0 3px 5px rgba(0,0,0,.72)) !important;
       }
       body.v014 .wager-layer .bet-marker span{
@@ -237,13 +242,17 @@
         white-space:nowrap !important;
       }
       body.v014 .wager-layer .bet-marker.v016-latest-wager .chip-cluster{
-        transform:scale(1.16) !important;
-        filter:drop-shadow(0 0 6px rgba(77,210,255,.72)) drop-shadow(0 4px 5px rgba(0,0,0,.78)) !important;
+        transform:scale(1.10) !important;
+        background:transparent !important;
+        border:0 !important;
+        outline:0 !important;
+        box-shadow:none !important;
+        filter:drop-shadow(0 0 3px rgba(77,210,255,.35)) drop-shadow(0 3px 5px rgba(0,0,0,.72)) !important;
       }
       body.v014 .wager-layer .bet-marker.v016-latest-wager span{
-        border-color:rgba(75,218,255,.92) !important;
-        background:rgba(2,13,29,.98) !important;
-        box-shadow:0 0 10px rgba(51,202,255,.34), 0 4px 11px rgba(0,0,0,.68) !important;
+        border-color:rgba(75,218,255,.54) !important;
+        background:rgba(1,9,20,.95) !important;
+        box-shadow:0 3px 10px rgba(0,0,0,.62), 0 0 5px rgba(51,202,255,.12) !important;
       }
 
       body.v014 .mobile-selected-card.invalid{
