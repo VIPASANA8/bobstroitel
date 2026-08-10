@@ -77,5 +77,12 @@
       v016.dataset.v016Fixes = "1";
       document.body.appendChild(v016);
     }
+
+    if (!document.querySelector('script[data-v018-fixes]')) {
+      const v018 = document.createElement("script");
+      v018.src = "/static/v018-fixes.js";
+      v018.dataset.v018Fixes = "1";
+      document.body.appendChild(v018);
+    }
   });
 })();
