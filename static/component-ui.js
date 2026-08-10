@@ -119,5 +119,12 @@
       v024.dataset.v024ReadyPhase = "1";
       document.body.appendChild(v024);
     }
+
+    if (!document.querySelector('script[data-v025-showdown-compare]')) {
+      const v025 = document.createElement("script");
+      v025.src = "/static/v025-showdown-compare.js";
+      v025.dataset.v025ShowdownCompare = "1";
+      document.body.appendChild(v025);
+    }
   });
 })();
