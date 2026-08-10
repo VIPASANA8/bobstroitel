@@ -112,5 +112,12 @@
       v023.dataset.v023BrandBalanceFix = "1";
       document.body.appendChild(v023);
     }
+
+    if (!document.querySelector('script[data-v024-ready-phase]')) {
+      const v024 = document.createElement("script");
+      v024.src = "/static/v024-ready-phase.js";
+      v024.dataset.v024ReadyPhase = "1";
+      document.body.appendChild(v024);
+    }
   });
 })();
