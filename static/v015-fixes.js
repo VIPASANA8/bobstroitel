@@ -14,15 +14,18 @@
     const seatEl = document.querySelector(`.seat[data-seat="${seatNumber}"]`);
     const visualSeat = Number(seatEl?.dataset.visualSeat ?? seatNumber ?? -1);
 
+    // v0.16 micro-pass: keep each wager visually attached to its seat.
+    // Reducing t from ~.30 to ~.22 shifts markers about 10–15 px away
+    // from the pot/board lane on a 402 px mobile viewport.
     const layout = {
-      0: { t: 0.30, dx: 0, dy: -4 },
-      1: { t: 0.30, dx: 7, dy: -3 },
-      2: { t: 0.30, dx: 10, dy: 0 },
-      3: { t: 0.32, dx: 8, dy: 7 },
-      4: { t: 0.32, dx: -8, dy: 7 },
-      5: { t: 0.30, dx: -10, dy: 0 },
-      6: { t: 0.30, dx: -7, dy: -3 },
-    }[visualSeat] || { t: 0.30, dx: 0, dy: 0 };
+      0: { t: 0.22, dx: 0, dy: -2 },
+      1: { t: 0.22, dx: 6, dy: -2 },
+      2: { t: 0.22, dx: 8, dy: 0 },
+      3: { t: 0.24, dx: 7, dy: 5 },
+      4: { t: 0.24, dx: -7, dy: 5 },
+      5: { t: 0.22, dx: -8, dy: 0 },
+      6: { t: 0.22, dx: -6, dy: -2 },
+    }[visualSeat] || { t: 0.22, dx: 0, dy: 0 };
 
     return {
       x: from.x + (to.x - from.x) * layout.t + layout.dx,
