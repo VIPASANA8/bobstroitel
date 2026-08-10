@@ -157,5 +157,12 @@
       v030.dataset.v030SeatReadyFix = "1";
       document.body.appendChild(v030);
     }
+
+    if (!document.querySelector('script[data-v032-poker8-v2-sixmax]')) {
+      const v032 = document.createElement("script");
+      v032.src = "/static/v032-poker8-v2-mobile-sixmax.js";
+      v032.dataset.v032Poker8V2Sixmax = "1";
+      document.body.appendChild(v032);
+    }
   });
 })();
