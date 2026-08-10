@@ -164,5 +164,12 @@
       v032.dataset.v032Poker8V2Sixmax = "1";
       document.body.appendChild(v032);
     }
+
+    if (!document.querySelector('script[data-v033-poker8-v2-polish]')) {
+      const v033 = document.createElement("script");
+      v033.src = "/static/v033-poker8-v2-polish.js";
+      v033.dataset.v033Poker8V2Polish = "1";
+      document.body.appendChild(v033);
+    }
   });
 })();
