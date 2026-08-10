@@ -3,33 +3,35 @@
 
   const originalWagerPointForPlayer = wagerPointForPlayer;
 
-  wagerPointForPlayer = function wagerPointForPlayerV015(state, playerId) {
+  wagerPointForPlayer = function wagerPointForPlayerV017(state, playerId) {
     if (!isMobileLayout()) return originalWagerPointForPlayer(state, playerId);
 
-    const from = seatPointForPlayer(state, playerId);
-    const to = potPoint();
-    if (!from || !to) return to || from;
+    const felt = feltNode();
+    if (!felt) return originalWagerPointForPlayer(state, playerId);
 
     const seatNumber = state?.players?.[playerId]?.seat;
     const seatEl = document.querySelector(`.seat[data-seat="${seatNumber}"]`);
     const visualSeat = Number(seatEl?.dataset.visualSeat ?? seatNumber ?? -1);
 
-    // v0.16 micro-pass: keep each wager visually attached to its seat.
-    // Reducing t from ~.30 to ~.22 shifts markers about 10–15 px away
-    // from the pot/board lane on a 402 px mobile viewport.
-    const layout = {
-      0: { t: 0.22, dx: 0, dy: -2 },
-      1: { t: 0.22, dx: 6, dy: -2 },
-      2: { t: 0.22, dx: 8, dy: 0 },
-      3: { t: 0.24, dx: 7, dy: 5 },
-      4: { t: 0.24, dx: -7, dy: 5 },
-      5: { t: 0.22, dx: -8, dy: 0 },
-      6: { t: 0.22, dx: -6, dy: -2 },
-    }[visualSeat] || { t: 0.22, dx: 0, dy: 0 };
+    // Fixed wager zones for the mobile composition.
+    // They no longer depend on the line seat -> pot, so a bet cannot drift into
+    // the bank label or back into a player's cards when the table geometry changes.
+    const zones = {
+      0: { x: 0.50, y: 0.64 },
+      1: { x: 0.32, y: 0.62 },
+      2: { x: 0.26, y: 0.43 },
+      3: { x: 0.28, y: 0.28 },
+      4: { x: 0.72, y: 0.28 },
+      5: { x: 0.74, y: 0.43 },
+      6: { x: 0.68, y: 0.62 },
+    };
+
+    const zone = zones[visualSeat];
+    if (!zone) return originalWagerPointForPlayer(state, playerId);
 
     return {
-      x: from.x + (to.x - from.x) * layout.t + layout.dx,
-      y: from.y + (to.y - from.y) * layout.t + layout.dy,
+      x: felt.clientWidth * zone.x,
+      y: felt.clientHeight * zone.y,
     };
   };
 
