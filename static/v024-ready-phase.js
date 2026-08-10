@@ -45,13 +45,6 @@
     return activeSeats().length >= 2;
   }
 
-  function hasViewerHuman() {
-    const seat = document.querySelector('.seat[data-visual-seat="0"]');
-    const physical = Number(seat?.dataset?.seat);
-    const config = activeSeats().find(row => Number(row.seat) === physical);
-    return Boolean(config?.occupant_type === "human");
-  }
-
   function allReady() {
     if (!enoughPlayers()) return false;
     if (!activeHumanSeats().length) return true;
@@ -90,11 +83,16 @@
     }
   }
 
-  function readyButtonText() {
-    if (!enoughPlayers()) return "НУЖНО 2 ИГРОКА";
-    if (!activeHumanSeats().length) return "НАЧАТЬ РАЗДАЧУ";
-    if (!viewerReady) return "ГОТОВ";
-    return allReady() ? "ВСЕ ГОТОВЫ · НАЧАТЬ" : "ОЖИДАНИЕ";
+  function mobileReadyText() {
+    if (!enoughPlayers()) return "НУЖНО 2";
+    if (!activeHumanSeats().length) return "НАЧАТЬ";
+    return viewerReady && allReady() ? "НАЧАТЬ" : "ГОТОВ";
+  }
+
+  function desktopReadyText() {
+    if (!enoughPlayers()) return "Нужно 2 игрока";
+    if (!activeHumanSeats().length) return "Начать раздачу";
+    return viewerReady && allReady() ? "Начать раздачу" : "Готов";
   }
 
   function renderReadyControls() {
@@ -110,26 +108,25 @@
       return;
     }
 
-    const text = readyButtonText();
     const disabled = !enoughPlayers();
     const isAllReady = allReady();
 
     if (mobile) {
-      mobile.textContent = text;
+      mobile.textContent = mobileReadyText();
       mobile.disabled = disabled;
       mobile.classList.add("v024-ready-button");
       mobile.classList.toggle("v024-all-ready", isAllReady);
     }
 
     if (desktop) {
-      desktop.textContent = text;
+      desktop.textContent = desktopReadyText();
       desktop.disabled = disabled;
       desktop.classList.add("v024-ready-button");
       desktop.classList.toggle("v024-all-ready", isAllReady);
     }
 
     if (drawer) {
-      drawer.textContent = text;
+      drawer.textContent = desktopReadyText();
       drawer.disabled = disabled;
     }
   }
@@ -156,7 +153,7 @@
       return result;
     }
 
-    // First press is READY. Second press starts only after the table is ready.
+    // First press is READY. Second press starts after the table shows everyone ready.
     if (!viewerReady) {
       setViewerReady(true);
       renderReadyUi();
@@ -261,7 +258,7 @@
     @media (max-width:780px){
       body.v014 .mobile-primary-action.v024-ready-button{
         font-size:9px !important;
-        letter-spacing:-.02em !important;
+        letter-spacing:.01em !important;
         padding-left:9px !important;
         padding-right:9px !important;
       }
