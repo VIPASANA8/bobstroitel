@@ -24,6 +24,10 @@ class ProfileRenameRequest(BaseModel):
     name: str = Field(min_length=1, max_length=24)
 
 
+class ProfileTopUpRequest(BaseModel):
+    amount: float = Field(gt=0.0, le=1_000_000.0)
+
+
 class SavedTableRequest(BaseModel):
     name: str = Field(min_length=1, max_length=40)
 
