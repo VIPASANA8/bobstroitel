@@ -39,8 +39,6 @@
       const visual = ((physical - anchor) % 7 + 7) % 7;
       seatEl.dataset.visualSeat = String(visual);
 
-      // Outside an active hand app.js uses generic БОТ / ИГРОК badges. For the
-      // composition preview, show the same table positions as the reference.
       const positionChip = seatEl.querySelector(".position-chip");
       const genericPosition = positionChip && /^(БОТ|ИГРОК)$/i.test(positionChip.textContent.trim());
       if (genericPosition) {
@@ -65,13 +63,19 @@
     window.syncComponentSeatLayout?.(game, tableData);
   };
 
-  // v0.15 is intentionally loaded after app.js so it can patch the runtime
-  // without duplicating the large application bundle.
   window.addEventListener("load", () => {
-    if (document.querySelector('script[data-v015-fixes]')) return;
-    const script = document.createElement("script");
-    script.src = "/static/v015-fixes.js";
-    script.dataset.v015Fixes = "1";
-    document.body.appendChild(script);
+    if (!document.querySelector('script[data-v015-fixes]')) {
+      const v015 = document.createElement("script");
+      v015.src = "/static/v015-fixes.js";
+      v015.dataset.v015Fixes = "1";
+      document.body.appendChild(v015);
+    }
+
+    if (!document.querySelector('script[data-v016-fixes]')) {
+      const v016 = document.createElement("script");
+      v016.src = "/static/v016-fixes.js";
+      v016.dataset.v016Fixes = "1";
+      document.body.appendChild(v016);
+    }
   });
 })();
