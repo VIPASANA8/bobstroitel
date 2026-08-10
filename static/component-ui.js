@@ -91,5 +91,12 @@
       v019.dataset.v019Fixes = "1";
       document.body.appendChild(v019);
     }
+
+    if (!document.querySelector('script[data-v020-fixes]')) {
+      const v020 = document.createElement("script");
+      v020.src = "/static/v020-fixes.js";
+      v020.dataset.v020Fixes = "1";
+      document.body.appendChild(v020);
+    }
   });
 })();
