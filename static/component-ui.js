@@ -171,5 +171,12 @@
       v033.dataset.v033Poker8V2Polish = "1";
       document.body.appendChild(v033);
     }
+
+    if (!document.querySelector('script[data-v034-poker8-v2-layout-lock]')) {
+      const v034 = document.createElement("script");
+      v034.src = "/static/v034-poker8-v2-layout-lock.js";
+      v034.dataset.v034Poker8V2LayoutLock = "1";
+      document.body.appendChild(v034);
+    }
   });
 })();
