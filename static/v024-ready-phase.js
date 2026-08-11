@@ -5,6 +5,7 @@
   const TABLE_KEY = "poker8:v024:ready-table";
 
   let viewerReady = sessionStorage.getItem(READY_KEY) === "1";
+  let startInFlight = false;
 
   function preHand() {
     return !game || Boolean(game.terminal);
@@ -49,6 +50,20 @@
     if (!enoughPlayers()) return false;
     if (!activeHumanSeats().length) return true;
     return viewerReady;
+  }
+
+  function setStartBusy(value) {
+    startInFlight = Boolean(value);
+    document.body.classList.toggle("v024-starting-hand", startInFlight);
+    const controls = [
+      $("mobilePrimaryAction"),
+      $("newHand"),
+      $("mobileDrawerNewHand"),
+      document.querySelector(".v028-center-ready-button"),
+    ];
+    controls.forEach(control => {
+      if (control) control.disabled = startInFlight || !enoughPlayers();
+    });
   }
 
   function clearReadyBadges() {
@@ -108,25 +123,25 @@
       return;
     }
 
-    const disabled = !enoughPlayers();
+    const disabled = !enoughPlayers() || startInFlight;
     const isAllReady = allReady();
 
     if (mobile) {
-      mobile.textContent = mobileReadyText();
+      mobile.textContent = startInFlight ? "РАЗДАЁМ…" : mobileReadyText();
       mobile.disabled = disabled;
       mobile.classList.add("v024-ready-button");
       mobile.classList.toggle("v024-all-ready", isAllReady);
     }
 
     if (desktop) {
-      desktop.textContent = desktopReadyText();
+      desktop.textContent = startInFlight ? "Раздаём…" : desktopReadyText();
       desktop.disabled = disabled;
       desktop.classList.add("v024-ready-button");
       desktop.classList.toggle("v024-all-ready", isAllReady);
     }
 
     if (drawer) {
-      drawer.textContent = desktopReadyText();
+      drawer.textContent = startInFlight ? "Раздаём…" : desktopReadyText();
       drawer.disabled = disabled;
     }
   }
@@ -137,8 +152,22 @@
   }
 
   const startNewHand = newHand;
+
+  async function guardedStartNewHand(fromAutomation = false) {
+    if (startInFlight) return;
+    setStartBusy(true);
+    renderReadyControls();
+    try {
+      return await startNewHand(fromAutomation);
+    } finally {
+      setStartBusy(false);
+      if (!game || game.terminal) renderReadyUi();
+    }
+  }
+
   newHand = async function newHandWithReadyPhase(fromAutomation = false) {
-    if (!preHand()) return startNewHand(fromAutomation);
+    if (startInFlight) return;
+    if (!preHand()) return guardedStartNewHand(fromAutomation);
 
     syncReadyTable();
     if (!enoughPlayers()) {
@@ -146,14 +175,12 @@
       return;
     }
 
-    // Bot-only tables do not need a local confirmation step.
     if (!activeHumanSeats().length) {
-      const result = await startNewHand(fromAutomation);
+      const result = await guardedStartNewHand(fromAutomation);
       setViewerReady(false);
       return result;
     }
 
-    // First press is READY. Second press starts after the table shows everyone ready.
     if (!viewerReady) {
       setViewerReady(true);
       renderReadyUi();
@@ -165,7 +192,7 @@
       return;
     }
 
-    const result = await startNewHand(fromAutomation);
+    const result = await guardedStartNewHand(fromAutomation);
     if (game && !game.terminal) {
       setViewerReady(false);
       clearReadyBadges();
@@ -255,6 +282,11 @@
       box-shadow:0 0 16px rgba(65,233,170,.16), inset 0 0 18px rgba(91,255,194,.08) !important;
     }
 
+    body.v014.v024-starting-hand .v028-center-ready-button{
+      opacity:.55!important;
+      pointer-events:none!important;
+    }
+
     @media (max-width:780px){
       body.v014 .mobile-primary-action.v024-ready-button{
         font-size:9px !important;
@@ -270,7 +302,5 @@
   `;
   document.head.appendChild(style);
 
-  // Existing handlers call the global `newHand`, so replacing it above is enough
-  // to insert the readiness step without duplicating button listeners.
   renderReadyUi();
 })();
