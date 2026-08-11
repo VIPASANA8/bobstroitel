@@ -40,7 +40,6 @@
         pointer-events:none!important;
       }
 
-      /* Reserve a clean reveal pocket above every live profile. */
       body.v014.poker8-v2-sixmax .seat:not(.v032-hidden-seat){
         padding-top:38px!important;
         margin-top:-38px!important;
@@ -79,6 +78,19 @@
     const v035 = document.createElement("script");
     v035.src = "/static/v035-poker8-v2-pixel-pass.js";
     v035.dataset.v035Poker8V2PixelPass = "1";
+    v035.addEventListener("load", () => {
+      if (!document.querySelector('script[data-v036-poker8-v2-prehand-pass]')) {
+        const v036 = document.createElement("script");
+        v036.src = "/static/v036-poker8-v2-prehand-pass.js";
+        v036.dataset.v036Poker8V2PrehandPass = "1";
+        document.body.appendChild(v036);
+      }
+    }, { once:true });
     document.body.appendChild(v035);
+  } else if (!document.querySelector('script[data-v036-poker8-v2-prehand-pass]')) {
+    const v036 = document.createElement("script");
+    v036.src = "/static/v036-poker8-v2-prehand-pass.js";
+    v036.dataset.v036Poker8V2PrehandPass = "1";
+    document.body.appendChild(v036);
   }
 })();
