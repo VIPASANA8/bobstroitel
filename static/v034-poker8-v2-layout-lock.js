@@ -74,4 +74,11 @@
     }
   `;
   document.head.appendChild(style);
+
+  if (!document.querySelector('script[data-v035-poker8-v2-pixel-pass]')) {
+    const v035 = document.createElement("script");
+    v035.src = "/static/v035-poker8-v2-pixel-pass.js";
+    v035.dataset.v035Poker8V2PixelPass = "1";
+    document.body.appendChild(v035);
+  }
 })();
