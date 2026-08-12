@@ -29,3 +29,17 @@ def test_single_human_cards_can_be_revealed_during_bot_turn(tmp_path: Path):
     payload = state.to_dict(viewer_player_id=human.id)
     assert payload['players'][human.id]['hole_cards'] != ['??', '??']
     assert payload['players'][bot.id]['hole_cards'] == ['??', '??']
+
+
+def test_v037_reference_table_pass_is_loaded_and_chat_is_decorative():
+    root = Path(__file__).resolve().parents[1]
+    source = (root / 'static' / 'v037-poker8-v2-reference-table.js').read_text(encoding='utf-8')
+    loader = (root / 'static' / 'v036-poker8-v2-prehand-pass.js').read_text(encoding='utf-8')
+
+    assert '/static/v037-poker8-v2-reference-table.js' in loader
+    assert 'data-v037-poker8-v2-reference-table' in loader
+    assert 'id = "mobileChatButton"' in source
+    assert 'setAttribute("aria-label"' in source
+    assert 'type = "button"' in source
+    assert 'addEventListener("click"' not in source
+    assert '@media (max-width:780px)' in source

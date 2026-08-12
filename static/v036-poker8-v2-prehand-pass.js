@@ -94,4 +94,11 @@
     }
   `;
   document.head.appendChild(style);
+
+  if (!document.querySelector('script[data-v037-poker8-v2-reference-table]')) {
+    const v037 = document.createElement("script");
+    v037.src = "/static/v037-poker8-v2-reference-table.js";
+    v037.setAttribute("data-v037-poker8-v2-reference-table", "");
+    document.body.appendChild(v037);
+  }
 })();
