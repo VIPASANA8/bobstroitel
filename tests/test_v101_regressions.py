@@ -42,4 +42,5 @@ def test_v037_reference_table_pass_is_loaded_and_chat_is_decorative():
     assert 'setAttribute("aria-label"' in source
     assert 'type = "button"' in source
     assert 'addEventListener("click"' not in source
+    assert 'window.addEventListener("resize", start)' in source
     assert '@media (max-width:780px)' in source
