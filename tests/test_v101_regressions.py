@@ -62,8 +62,20 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert '.seat-card::after' in source
     assert '.pot-chips .poker-chip' in source
     assert 'calc(100dvh - 50px - var(--p8-hud-h) - var(--p8-bottom-reserve))' in source
-    assert '--seat-3-y:20%' in source
+    assert '--seat-3-y:16%' in source
     assert '[data-visual-seat="3"]{--seat-accent:142' in source
+    assert '--seat-2-x:14%' in source and '--seat-4-x:86%' in source
+    assert '--seat-1-y:64%' in source and '--seat-5-y:64%' in source
+    assert '--board-y:40%' in source and '--pot-chips-y:55%' in source
+    assert 'width:74px!important;height:74px!important' in source
+    assert '.seat-card:has(.player-cards:not(:empty)) .avatar-wrap::before' in source
+    assert 'width:calc(100% - 44px)!important' in source
+    assert 'box-sizing:border-box!important' in source
+    assert 'background:transparent!important' in source
+    assert '.seat-identity{' in source and 'position:absolute!important' in source
+    assert '.position-chip{display:none!important' in source
+    assert '.player-status.status-fold{display:none!important' in source
+    assert 'transform:translateX(-50%) scale(.92)' in source
     assert '.seat-card.v032-active-turn' in source
     assert '.seat-card.v032-folded' in source
     assert '.seat-card.all-in' in source
@@ -72,15 +84,15 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'rotateX(5deg)' in source
     assert '--p8-bottom-reserve:46px' in source
     assert 'grid-template-columns:repeat(5,1fr)' in source
-    assert '--p8-hud-h:260px' in source
+    assert '--p8-hud-h:214px' in source
     assert 'grid-template-columns:repeat(2,minmax(0,1fr))' in source
-    assert 'grid-template-rows:repeat(2,44px)' in source
+    assert 'grid-template-rows:repeat(2,38px)' in source
     assert '.sidebar{transform:none' in source
     assert 'position:absolute!important' in source
     assert 'bottom:4px!important' in source
     assert 'position:fixed!important' not in source
     assert '.action-slot.all-in{display:none' not in source
-    assert '.v038-hud-summary{' in source and 'top:7px!important' in source
+    assert '.v038-hud-summary{' in source and 'top:4px!important' in source
     assert 'configureReferenceActions' in source
     assert 'window.addEventListener("resize", queueSync)' in source
     assert '{ key:"call"' in source
@@ -91,6 +103,7 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert '? "CONFIRM"' in source
     assert 'v038-all-in-armed' in source
     assert 'v038-size-selected' in source
+    assert '.quick-sizes button.v038-max-size{' in source
     assert '#ff3bd5' in source
     assert 'transition:color 180ms' in source
     assert '@media (prefers-reduced-motion:reduce)' in source
