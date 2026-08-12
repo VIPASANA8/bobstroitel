@@ -57,12 +57,30 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert '--profile-avatar-image' in source
     assert '.seat-card::after' in source
     assert '.pot-chips .poker-chip' in source
-    assert 'calc(100dvh - 278px)' in source
+    assert 'calc(100dvh - 50px - var(--p8-hud-h) - var(--p8-bottom-reserve))' in source
     assert '--seat-3-y:20%' in source
     assert '[data-visual-seat="3"]{--seat-accent:142' in source
     assert '.seat-card.v032-active-turn' in source
     assert '.seat-card.v032-folded' in source
     assert '.seat-card.all-in' in source
     assert 'calc(100dvh - 250px)' not in source
+    assert '--p8-perspective:900px' in source
+    assert 'rotateX(5deg)' in source
+    assert '--p8-bottom-reserve:46px' in source
+    assert 'grid-template-columns:repeat(5,1fr)' in source
+    assert 'grid-template-columns:repeat(3,1fr)' in source
+    assert '.sidebar{transform:none' in source
+    assert 'position:absolute!important' in source
+    assert 'bottom:4px!important' in source
+    assert 'position:fixed!important' not in source
+    assert '.action-slot.all-in{display:none' not in source
+    assert '.v038-hud-summary{' in source and 'top:7px!important' in source
+    assert 'configureReferenceActions' in source
+    assert 'window.addEventListener("resize", queueSync)' in source
+    assert '{ key:"call"' in source
+    assert '{ key:"aggressive"' in source
+    assert 'teardownFinalReference' in source
+    assert 'estimatedLocalToCall()' in source
+    assert 'rotate:x -5deg' in source
     assert 'fetch(' not in source
     assert 'addEventListener("click"' not in source
