@@ -64,12 +64,17 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'background-position:center -50px' in source
     assert 'background:transparent!important' in source
     assert '--profile-avatar-image' in source
+    assert 'compactStackLabel' in source
+    assert 'syncSeatStackLabels' in source
+    assert 'syncTableNumberLabels' in source
+    assert '.pot-total strong,.bet-marker span' in source
+    assert 'Math.round(value).toLocaleString("en-US")' in source
     assert '.seat-card::after' in source
     assert '.pot-chips .poker-chip' in source
     assert 'calc(100dvh - 50px - var(--p8-hud-h) - var(--p8-bottom-reserve))' in source
     assert '--seat-3-y:13%' in source
     assert '[data-visual-seat="3"]{--seat-accent:142' in source
-    assert '--seat-2-x:14%' in source and '--seat-4-x:86%' in source
+    assert '--seat-2-x:7%' in source and '--seat-4-x:93%' in source
     assert '--seat-1-y:58%' in source and '--seat-5-y:58%' in source
     assert '--seat-2-y:22%' in source and '--seat-4-y:22%' in source
     assert '--seat-0-y:80%' in source

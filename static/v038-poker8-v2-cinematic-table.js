@@ -18,11 +18,11 @@
         --p8-bottom-reserve:46px;
         --table-stage-h:calc(100dvh - 50px - var(--p8-hud-h) - var(--p8-bottom-reserve))!important;
         --seat-0-x:50%!important;--seat-0-y:80%!important;
-        --seat-1-x:14%!important;--seat-1-y:58%!important;
-        --seat-2-x:14%!important;--seat-2-y:22%!important;
+        --seat-1-x:7%!important;--seat-1-y:58%!important;
+        --seat-2-x:7%!important;--seat-2-y:22%!important;
         --seat-3-x:50%!important;--seat-3-y:13%!important;
-        --seat-4-x:86%!important;--seat-4-y:22%!important;
-        --seat-5-x:86%!important;--seat-5-y:58%!important;
+        --seat-4-x:93%!important;--seat-4-y:22%!important;
+        --seat-5-x:93%!important;--seat-5-y:58%!important;
         --pot-y:25%!important;
         --pot-chips-y:47%!important;
         --board-y:38%!important;
@@ -52,11 +52,11 @@
       }
 
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"]{left:50%!important;top:80%!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="1"]{left:14%!important;top:58%!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="2"]{left:14%!important;top:22%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="1"]{left:7%!important;top:58%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="2"]{left:7%!important;top:22%!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="3"]{left:50%!important;top:13%!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="4"]{left:86%!important;top:22%!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="5"]{left:86%!important;top:58%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="4"]{left:93%!important;top:22%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="5"]{left:93%!important;top:58%!important;}
 
       body.v014.poker8-v2-sixmax .table-frame{
         padding:0 5px 1px!important;
@@ -420,6 +420,34 @@
     if (node && node.textContent !== value) node.textContent = value;
   };
 
+  function compactStackLabel(raw) {
+    const value = Number(String(raw || "").replace(/[^\d.-]/g, ""));
+    if (!Number.isFinite(value)) return raw;
+    if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(value >= 10_000_000 ? 0 : 1).replace(/\.0$/, "")}M`;
+    if (value >= 10_000) return `${(value / 1_000).toFixed(value >= 100_000 ? 0 : 1).replace(/\.0$/, "")}K`;
+    if (value >= 1_000) return Math.round(value).toLocaleString("en-US");
+    return value.toFixed(2).replace(/\.00$/, "");
+  }
+
+  function syncSeatStackLabels() {
+    document.querySelectorAll(".seat-stack").forEach(stack => {
+      if (!stack.dataset.v038FullStack) stack.dataset.v038FullStack = stack.textContent || "";
+      const source = stack.dataset.v038FullStack;
+      setText(stack, compactStackLabel(source));
+      stack.setAttribute("aria-label", source);
+    });
+  }
+
+  function syncTableNumberLabels() {
+    document.querySelectorAll(".pot-total strong,.bet-marker span").forEach(label => {
+      const rendered = label.textContent || "";
+      if (/ББ/i.test(rendered) || !label.dataset.v038FullValue) label.dataset.v038FullValue = rendered;
+      const source = label.dataset.v038FullValue;
+      setText(label, String(source).replace(/\s*ББ\s*$/i, ""));
+      label.setAttribute("aria-label", source);
+    });
+  }
+
   let referenceActive = false;
   let presetSnapshot = null;
   let allInArmedUntil = 0;
@@ -648,6 +676,16 @@
     referenceActive = false;
     clearAllInConfirmation(false);
     clearPresetSelection();
+    document.querySelectorAll(".seat-stack[data-v038-full-stack]").forEach(stack => {
+      setText(stack, stack.dataset.v038FullStack);
+      stack.removeAttribute("data-v038-full-stack");
+      stack.removeAttribute("aria-label");
+    });
+    document.querySelectorAll("[data-v038-full-value]").forEach(label => {
+      setText(label, label.dataset.v038FullValue);
+      label.removeAttribute("data-v038-full-value");
+      label.removeAttribute("aria-label");
+    });
     document.querySelector(".v038-hud-summary")?.remove();
     document.querySelector(".v038-min-size")?.remove();
     presetSnapshot?.forEach(item => {
@@ -671,6 +709,8 @@
     referenceActive = true;
     ensurePresetButtons();
     ensureHudSummary();
+    syncSeatStackLabels();
+    syncTableNumberLabels();
     configureReferenceActions();
   }
 
