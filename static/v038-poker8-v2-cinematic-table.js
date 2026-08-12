@@ -17,13 +17,13 @@
         --p8-hud-h:214px;
         --p8-bottom-reserve:46px;
         --table-stage-h:calc(100dvh - 50px - var(--p8-hud-h) - var(--p8-bottom-reserve))!important;
-        --seat-0-x:50%!important;--seat-0-y:82%!important;
+        --seat-0-x:50%!important;--seat-0-y:86%!important;
         --seat-1-x:14%!important;--seat-1-y:64%!important;
-        --seat-2-x:14%!important;--seat-2-y:29%!important;
-        --seat-3-x:50%!important;--seat-3-y:16%!important;
-        --seat-4-x:86%!important;--seat-4-y:29%!important;
+        --seat-2-x:14%!important;--seat-2-y:24%!important;
+        --seat-3-x:50%!important;--seat-3-y:11%!important;
+        --seat-4-x:86%!important;--seat-4-y:24%!important;
         --seat-5-x:86%!important;--seat-5-y:64%!important;
-        --pot-y:30%!important;
+        --pot-y:22%!important;
         --pot-chips-y:55%!important;
         --board-y:40%!important;
         background:
@@ -40,11 +40,11 @@
         perspective-origin:50% 22%!important;
       }
 
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"]{left:50%!important;top:82%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"]{left:50%!important;top:86%!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="1"]{left:14%!important;top:64%!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="2"]{left:14%!important;top:29%!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="3"]{left:50%!important;top:16%!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="4"]{left:86%!important;top:29%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="2"]{left:14%!important;top:24%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="3"]{left:50%!important;top:11%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="4"]{left:86%!important;top:24%!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="5"]{left:86%!important;top:64%!important;}
 
       body.v014.poker8-v2-sixmax .table-frame{
@@ -59,20 +59,20 @@
         width:calc(100% - 44px)!important;
         box-sizing:border-box!important;
         margin-inline:auto!important;
-        border-width:15px!important;
+        border-width:18px!important;
         border-radius:49% / 36%!important;
         transform:rotateX(5deg) scale(.985,1.025)!important;
         transform-origin:50% 54%!important;
         transform-style:preserve-3d!important;
         background:
-          radial-gradient(circle at 25% 18%,rgba(69,151,103,.12),transparent 27%) padding-box,
-          radial-gradient(circle at 76% 74%,rgba(0,8,5,.30),transparent 34%) padding-box,
-          repeating-radial-gradient(ellipse at 50% 50%,rgba(255,255,255,.012) 0 1px,transparent 1px 5px) padding-box,
-          linear-gradient(145deg,#075234 0%,#003d25 46%,#002c1b 100%) padding-box,
+          radial-gradient(circle at 25% 18%,rgba(54,136,88,.10),transparent 27%) padding-box,
+          radial-gradient(circle at 76% 74%,rgba(0,5,3,.42),transparent 34%) padding-box,
+          repeating-radial-gradient(ellipse at 50% 50%,rgba(255,255,255,.010) 0 1px,transparent 1px 5px) padding-box,
+          linear-gradient(145deg,#02331e 0%,#002819 46%,#001c10 100%) padding-box,
           repeating-linear-gradient(102deg,#1a0b04 0 6px,#713714 7px 13px,#2d1407 14px 20px,#8b4c20 21px 27px,#281106 28px 35px) border-box!important;
         outline:2px solid rgba(4,11,7,.92)!important;
         box-shadow:
-          inset 0 0 86px rgba(0,0,0,.48),
+          inset 0 0 118px rgba(0,0,0,.68),
           inset 0 0 0 2px rgba(47,255,170,.64),
           inset 0 0 0 5px rgba(0,35,22,.92),
           inset 0 0 0 7px rgba(41,255,166,.30),
@@ -173,7 +173,7 @@
       body.v014.poker8-v2-sixmax .bot-level{display:none!important;}
       body.v014.poker8-v2-sixmax .position-chip{display:none!important;font-size:6px!important;padding:1px 3px!important;}
       body.v014.poker8-v2-sixmax .seat-meta{margin-top:3px!important;}
-      body.v014.poker8-v2-sixmax .v024-ready-badge{display:none!important;}
+      body.v014.poker8-v2-sixmax .seat-card > .v024-ready-badge.v026-seat-status{display:none!important;}
       body.v014.poker8-v2-sixmax .player-status.status-fold{display:none!important;}
 
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-card{
@@ -270,7 +270,7 @@
         box-shadow:0 0 0 3px rgba(1,5,5,.92),0 0 18px rgba(238,180,65,.45),inset 0 -10px 18px rgba(0,0,0,.50)!important;
       }
 
-      body.v014.poker8-v2-sixmax .pot-total{top:30%!important;}
+      body.v014.poker8-v2-sixmax .pot-total{top:22%!important;}
       body.v014.poker8-v2-sixmax .board-cards{top:40%!important;}
       body.v014.poker8-v2-sixmax .pot-chips{top:55%!important;}
 
@@ -335,13 +335,13 @@
       body.v014.poker8-v2-sixmax .amount-step{width:32px!important;height:27px!important;}
       body.v014.poker8-v2-sixmax .amount-row input[type=number]{height:27px!important;font-size:16px!important;}
       body.v014.poker8-v2-sixmax .action-grid{
-        order:5;display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-template-rows:repeat(2,38px)!important;gap:5px!important;
-        position:absolute!important;z-index:4;left:8px;right:8px;bottom:4px!important;height:81px!important;
+        order:5;display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-template-rows:repeat(2,44px)!important;gap:5px!important;
+        position:absolute!important;z-index:4;left:8px;right:8px;bottom:4px!important;height:93px!important;
         padding:2px 0!important;background:#010403!important;
       }
       body.v014.poker8-v2-sixmax .action-grid .action-slot{
         --v038-action:#49caff;
-        position:relative;grid-column:auto!important;grid-row:auto!important;width:auto!important;max-width:none!important;min-width:0!important;min-height:38px!important;height:38px!important;border-radius:8px!important;font-size:10px!important;
+        position:relative;grid-column:auto!important;grid-row:auto!important;width:auto!important;max-width:none!important;min-width:0!important;min-height:44px!important;height:44px!important;border-radius:8px!important;font-size:10px!important;
         color:var(--v038-action)!important;border-color:var(--v038-action)!important;background:rgba(1,7,8,.98)!important;
         box-shadow:0 0 10px color-mix(in srgb,var(--v038-action) 38%,transparent),inset 0 0 9px color-mix(in srgb,var(--v038-action) 10%,transparent)!important;
         transition:color 180ms ease,border-color 180ms ease,box-shadow 180ms ease,background 180ms ease,filter 180ms ease!important;

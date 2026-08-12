@@ -62,18 +62,25 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert '.seat-card::after' in source
     assert '.pot-chips .poker-chip' in source
     assert 'calc(100dvh - 50px - var(--p8-hud-h) - var(--p8-bottom-reserve))' in source
-    assert '--seat-3-y:16%' in source
+    assert '--seat-3-y:11%' in source
     assert '[data-visual-seat="3"]{--seat-accent:142' in source
     assert '--seat-2-x:14%' in source and '--seat-4-x:86%' in source
     assert '--seat-1-y:64%' in source and '--seat-5-y:64%' in source
+    assert '--seat-2-y:24%' in source and '--seat-4-y:24%' in source
+    assert '--seat-0-y:86%' in source
+    assert '--pot-y:22%' in source
     assert '--board-y:40%' in source and '--pot-chips-y:55%' in source
     assert 'width:74px!important;height:74px!important' in source
     assert '.seat-card:has(.player-cards:not(:empty)) .avatar-wrap::before' in source
     assert 'width:calc(100% - 44px)!important' in source
     assert 'box-sizing:border-box!important' in source
+    assert 'border-width:18px!important' in source
+    assert '#001c10' in source
+    assert 'inset 0 0 118px rgba(0,0,0,.68)' in source
     assert 'background:transparent!important' in source
     assert '.seat-identity{' in source and 'position:absolute!important' in source
     assert '.position-chip{display:none!important' in source
+    assert '.seat-card > .v024-ready-badge.v026-seat-status{display:none!important' in source
     assert '.player-status.status-fold{display:none!important' in source
     assert 'transform:translateX(-50%) scale(.92)' in source
     assert '.seat-card.v032-active-turn' in source
@@ -86,7 +93,7 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'grid-template-columns:repeat(5,1fr)' in source
     assert '--p8-hud-h:214px' in source
     assert 'grid-template-columns:repeat(2,minmax(0,1fr))' in source
-    assert 'grid-template-rows:repeat(2,38px)' in source
+    assert 'grid-template-rows:repeat(2,44px)' in source
     assert '.sidebar{transform:none' in source
     assert 'position:absolute!important' in source
     assert 'bottom:4px!important' in source
