@@ -62,14 +62,14 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert '.seat-card::after' in source
     assert '.pot-chips .poker-chip' in source
     assert 'calc(100dvh - 50px - var(--p8-hud-h) - var(--p8-bottom-reserve))' in source
-    assert '--seat-3-y:11%' in source
+    assert '--seat-3-y:7%' in source
     assert '[data-visual-seat="3"]{--seat-accent:142' in source
     assert '--seat-2-x:14%' in source and '--seat-4-x:86%' in source
-    assert '--seat-1-y:64%' in source and '--seat-5-y:64%' in source
-    assert '--seat-2-y:24%' in source and '--seat-4-y:24%' in source
-    assert '--seat-0-y:86%' in source
-    assert '--pot-y:22%' in source
-    assert '--board-y:40%' in source and '--pot-chips-y:55%' in source
+    assert '--seat-1-y:60%' in source and '--seat-5-y:60%' in source
+    assert '--seat-2-y:19%' in source and '--seat-4-y:19%' in source
+    assert '--seat-0-y:82%' in source
+    assert '--pot-y:18%' in source
+    assert '--board-y:34%' in source and '--pot-chips-y:47%' in source
     assert 'width:74px!important;height:74px!important' in source
     assert '.seat-card:has(.player-cards:not(:empty)) .avatar-wrap::before' in source
     assert 'width:calc(100% - 44px)!important' in source
@@ -77,6 +77,14 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'border-width:18px!important' in source
     assert '#001c10' in source
     assert 'inset 0 0 118px rgba(0,0,0,.68)' in source
+    assert '.player-avatar::before{' in source
+    assert '.player-avatar::after{' in source
+    assert '.player-avatar span{opacity:0!important' in source
+    assert '.player-avatar[style*="--profile-avatar-image"]::before' in source
+    assert 'overflow:visible!important' in source
+    assert '.mobile-game-header{' in source and 'transparent 38%,transparent 62%' in source
+    assert 'linear-gradient(150deg,#07110d 0%,#010303 100%)!important' in source
+    assert '.pot-chips .chip-column:nth-child(3n+2) .poker-chip' in source
     assert 'background:transparent!important' in source
     assert '.seat-identity{' in source and 'position:absolute!important' in source
     assert '.position-chip{display:none!important' in source

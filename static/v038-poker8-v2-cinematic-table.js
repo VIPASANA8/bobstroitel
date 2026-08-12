@@ -17,35 +17,41 @@
         --p8-hud-h:214px;
         --p8-bottom-reserve:46px;
         --table-stage-h:calc(100dvh - 50px - var(--p8-hud-h) - var(--p8-bottom-reserve))!important;
-        --seat-0-x:50%!important;--seat-0-y:86%!important;
-        --seat-1-x:14%!important;--seat-1-y:64%!important;
-        --seat-2-x:14%!important;--seat-2-y:24%!important;
-        --seat-3-x:50%!important;--seat-3-y:11%!important;
-        --seat-4-x:86%!important;--seat-4-y:24%!important;
-        --seat-5-x:86%!important;--seat-5-y:64%!important;
-        --pot-y:22%!important;
-        --pot-chips-y:55%!important;
-        --board-y:40%!important;
+        --seat-0-x:50%!important;--seat-0-y:82%!important;
+        --seat-1-x:14%!important;--seat-1-y:60%!important;
+        --seat-2-x:14%!important;--seat-2-y:19%!important;
+        --seat-3-x:50%!important;--seat-3-y:7%!important;
+        --seat-4-x:86%!important;--seat-4-y:19%!important;
+        --seat-5-x:86%!important;--seat-5-y:60%!important;
+        --pot-y:18%!important;
+        --pot-chips-y:47%!important;
+        --board-y:34%!important;
         background:
           linear-gradient(90deg,rgba(0,0,0,.55),transparent 20%,transparent 80%,rgba(0,0,0,.55)),
           repeating-linear-gradient(96deg,#080402 0 7px,#180b05 8px 14px,#0c0503 15px 23px)!important;
       }
 
       body.v014.poker8-v2-sixmax .mobile-game-header::after{display:none!important;content:none!important;}
+      body.v014.poker8-v2-sixmax .mobile-game-header{
+        background:linear-gradient(90deg,rgba(0,3,2,.86),transparent 38%,transparent 62%,rgba(0,3,2,.86))!important;
+        border-bottom-color:rgba(29,255,192,.10)!important;
+        box-shadow:0 10px 24px rgba(0,0,0,.44)!important;
+      }
 
       body.v014.poker8-v2-sixmax .table-frame{
         height:var(--table-stage-h)!important;
         min-height:var(--table-stage-h)!important;
         perspective:var(--p8-perspective)!important;
         perspective-origin:50% 22%!important;
+        overflow:visible!important;
       }
 
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"]{left:50%!important;top:86%!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="1"]{left:14%!important;top:64%!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="2"]{left:14%!important;top:24%!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="3"]{left:50%!important;top:11%!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="4"]{left:86%!important;top:24%!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="5"]{left:86%!important;top:64%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"]{left:50%!important;top:82%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="1"]{left:14%!important;top:60%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="2"]{left:14%!important;top:19%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="3"]{left:50%!important;top:7%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="4"]{left:86%!important;top:19%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="5"]{left:86%!important;top:60%!important;}
 
       body.v014.poker8-v2-sixmax .table-frame{
         padding:0 5px 1px!important;
@@ -151,6 +157,7 @@
       body.v014.poker8-v2-sixmax .seat-card:has(.player-cards:not(:empty)) .avatar-wrap::after{opacity:0;}
 
       body.v014.poker8-v2-sixmax .player-avatar{
+        position:relative!important;
         width:74px!important;height:74px!important;
         border:2px solid hsla(var(--seat-accent),100%,70%,.88)!important;
         background-image:var(--profile-avatar-image,radial-gradient(circle at 50% 32%,hsla(var(--seat-accent),62%,46%,.45),transparent 31%),radial-gradient(circle at 50% 78%,#07110e 0 42%,#010303 70%))!important;
@@ -160,6 +167,23 @@
         box-shadow:0 0 0 3px rgba(1,5,5,.92),0 0 16px hsla(var(--seat-accent),96%,58%,.46),inset 0 -10px 18px rgba(0,0,0,.50)!important;
         font-size:13px!important;
       }
+      body.v014.poker8-v2-sixmax .player-avatar span{opacity:0!important;}
+      body.v014.poker8-v2-sixmax .player-avatar::before{
+        content:"";position:absolute;z-index:2;left:16%;right:16%;top:14%;height:52%;border-radius:48% 48% 42% 42% / 54% 54% 32% 32%;
+        background:
+          radial-gradient(ellipse at 50% 45%,rgba(3,10,8,.22) 0 24%,rgba(0,2,2,.90) 55%,#000 76%),
+          linear-gradient(135deg,hsla(var(--seat-accent),58%,24%,.62),#010303 58%);
+        clip-path:polygon(50% 0,84% 16%,100% 72%,76% 92%,63% 68%,50% 61%,37% 68%,24% 92%,0 72%,16% 16%);
+        filter:drop-shadow(0 0 5px hsla(var(--seat-accent),92%,60%,.32));
+      }
+      body.v014.poker8-v2-sixmax .player-avatar::after{
+        content:"";position:absolute;z-index:1;left:7%;right:7%;bottom:-3%;height:54%;border-radius:50% 50% 42% 42%;
+        background:radial-gradient(ellipse at 50% 0,hsla(var(--seat-accent),52%,24%,.30),transparent 50%),linear-gradient(160deg,#07100d,#000 72%);
+        clip-path:polygon(17% 13%,39% 0,61% 0,83% 13%,100% 100%,0 100%);
+      }
+      body.v014.poker8-v2-sixmax .player-avatar[style*="--profile-avatar-image"]::before,
+      body.v014.poker8-v2-sixmax .player-avatar[style*="--profile-avatar-image"]::after{display:none!important;}
+      body.v014.poker8-v2-sixmax .player-avatar[style*="--profile-avatar-image"] span{opacity:1!important;}
 
       body.v014.poker8-v2-sixmax .seat-identity{
         position:absolute!important;z-index:6;left:50%!important;top:70px!important;transform:translateX(-50%)!important;
@@ -212,9 +236,9 @@
       body.v014.poker8-v2-sixmax .board-cards .card{
         width:42px!important;height:59px!important;
         border:1px solid rgba(98,255,170,.82)!important;border-radius:5px!important;
-        background:linear-gradient(150deg,#faf9ee 0%,#deddd1 100%)!important;
-        color:#101b18!important;
-        box-shadow:0 0 9px rgba(48,255,158,.28),0 5px 9px rgba(0,0,0,.48),inset 0 0 0 1px rgba(255,255,255,.60)!important;
+        background:linear-gradient(150deg,#07110d 0%,#010303 100%)!important;
+        color:#ecfff4!important;
+        box-shadow:0 0 10px rgba(48,255,158,.36),0 6px 10px rgba(0,0,0,.58),inset 0 0 12px rgba(32,255,147,.07)!important;
       }
       body.v014.poker8-v2-sixmax .board-cards .card.red{color:#df392c!important;border-color:#ff5f43!important;box-shadow:0 0 9px rgba(255,82,54,.26),0 5px 9px rgba(0,0,0,.48)!important;}
 
@@ -234,6 +258,8 @@
         box-shadow:0 2px 2px rgba(0,0,0,.50),inset 0 2px 0 rgba(255,255,255,.24),inset 0 -3px 0 rgba(0,0,0,.36)!important;
       }
       body.v014.poker8-v2-sixmax .pot-chips .poker-chip::before{left:3px!important;right:3px!important;height:3px!important;}
+      body.v014.poker8-v2-sixmax .pot-chips .chip-column:nth-child(3n+2) .poker-chip{filter:hue-rotate(92deg) saturate(1.45)!important;}
+      body.v014.poker8-v2-sixmax .pot-chips .chip-column:nth-child(3n) .poker-chip{filter:hue-rotate(214deg) saturate(1.35)!important;}
 
       body.v014.poker8-v2-sixmax .bet-marker .chip-cluster.compact{transform:scale(.82)!important;transform-origin:center bottom!important;}
       body.v014.poker8-v2-sixmax .bet-marker span{
@@ -270,9 +296,9 @@
         box-shadow:0 0 0 3px rgba(1,5,5,.92),0 0 18px rgba(238,180,65,.45),inset 0 -10px 18px rgba(0,0,0,.50)!important;
       }
 
-      body.v014.poker8-v2-sixmax .pot-total{top:22%!important;}
-      body.v014.poker8-v2-sixmax .board-cards{top:40%!important;}
-      body.v014.poker8-v2-sixmax .pot-chips{top:55%!important;}
+      body.v014.poker8-v2-sixmax .pot-total{top:18%!important;}
+      body.v014.poker8-v2-sixmax .board-cards{top:34%!important;}
+      body.v014.poker8-v2-sixmax .pot-chips{top:47%!important;}
 
       body.v014.poker8-v2-sixmax .sidebar{transform:none!important;height:var(--p8-hud-h)!important;}
       body.v014.poker8-v2-sixmax .action-panel,
