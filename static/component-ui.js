@@ -162,21 +162,20 @@
       const v032 = document.createElement("script");
       v032.src = "/static/v032-poker8-v2-mobile-sixmax.js";
       v032.dataset.v032Poker8V2Sixmax = "1";
+      v032.addEventListener("load", () => {
+        if (!document.querySelector('script[data-v037-poker8-v2-reference-table]')) {
+          const finalMobile = document.createElement("script");
+          finalMobile.src = "/static/v037-poker8-v2-reference-table.js";
+          finalMobile.dataset.v037Poker8V2ReferenceTable = "1";
+          document.body.appendChild(finalMobile);
+        }
+      }, { once:true });
       document.body.appendChild(v032);
-    }
-
-    if (!document.querySelector('script[data-v033-poker8-v2-polish]')) {
-      const v033 = document.createElement("script");
-      v033.src = "/static/v033-poker8-v2-polish.js";
-      v033.dataset.v033Poker8V2Polish = "1";
-      document.body.appendChild(v033);
-    }
-
-    if (!document.querySelector('script[data-v034-poker8-v2-layout-lock]')) {
-      const v034 = document.createElement("script");
-      v034.src = "/static/v034-poker8-v2-layout-lock.js";
-      v034.dataset.v034Poker8V2LayoutLock = "1";
-      document.body.appendChild(v034);
+    } else if (!document.querySelector('script[data-v037-poker8-v2-reference-table]')) {
+      const finalMobile = document.createElement("script");
+      finalMobile.src = "/static/v037-poker8-v2-reference-table.js";
+      finalMobile.dataset.v037Poker8V2ReferenceTable = "1";
+      document.body.appendChild(finalMobile);
     }
   });
 })();

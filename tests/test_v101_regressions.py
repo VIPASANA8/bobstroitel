@@ -49,9 +49,13 @@ def test_v037_reference_table_pass_is_loaded_and_chat_is_decorative():
 def test_v038_cinematic_table_is_mobile_presentation_only():
     root = Path(__file__).resolve().parents[1]
     loader = (root / 'static' / 'v037-poker8-v2-reference-table.js').read_text(encoding='utf-8')
+    component_loader = (root / 'static' / 'component-ui.js').read_text(encoding='utf-8')
     source = (root / 'static' / 'v038-poker8-v2-cinematic-table.js').read_text(encoding='utf-8')
 
     assert '/static/v038-poker8-v2-cinematic-table.js' in loader
+    assert '/static/v037-poker8-v2-reference-table.js' in component_loader
+    assert '/static/v033-poker8-v2-polish.js' not in component_loader
+    assert '/static/v034-poker8-v2-layout-lock.js' not in component_loader
     assert 'data-v038-poker8-v2-cinematic-table' in loader
     assert '@media (max-width:780px)' in source
     assert '--profile-avatar-image' in source
@@ -68,7 +72,9 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'rotateX(5deg)' in source
     assert '--p8-bottom-reserve:46px' in source
     assert 'grid-template-columns:repeat(5,1fr)' in source
-    assert 'grid-template-columns:repeat(3,1fr)' in source
+    assert '--p8-hud-h:260px' in source
+    assert 'grid-template-columns:repeat(2,minmax(0,1fr))' in source
+    assert 'grid-template-rows:repeat(2,44px)' in source
     assert '.sidebar{transform:none' in source
     assert 'position:absolute!important' in source
     assert 'bottom:4px!important' in source
@@ -78,9 +84,21 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'configureReferenceActions' in source
     assert 'window.addEventListener("resize", queueSync)' in source
     assert '{ key:"call"' in source
+    assert '{ key:"all_in"' in source
+    assert '{ key:leftKey' in source
     assert '{ key:"aggressive"' in source
+    assert 'ALL_IN_CONFIRM_MS = 3000' in source
+    assert '? "CONFIRM"' in source
+    assert 'v038-all-in-armed' in source
+    assert 'v038-size-selected' in source
+    assert '#ff3bd5' in source
+    assert 'transition:color 180ms' in source
+    assert '@media (prefers-reduced-motion:reduce)' in source
     assert 'teardownFinalReference' in source
     assert 'estimatedLocalToCall()' in source
     assert 'rotate:x -5deg' in source
     assert 'fetch(' not in source
-    assert 'addEventListener("click"' not in source
+    assert 'data-v038-all-in-trigger' in source
+    assert 'source === "aggressive"' in source
+    assert 'togglePendingAction("aggressive")' in source
+    assert 'pendingAction?.kind === def.key' in source
