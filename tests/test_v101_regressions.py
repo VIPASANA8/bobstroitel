@@ -109,6 +109,14 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'poker8:ready-snapshot' in ready_source
     assert 'transform:translateX(-50%) scale(.92)' in source
     assert '.seat-card.v032-active-turn' in source
+    assert '.seat-card:is(.v032-in-hand,.v032-active-turn,.all-in)' in source
+    assert 'outline:0!important' in source
+    assert '.v038-turn-indicator' in source
+    assert '.deck-anchor{display:none!important' in source
+    assert '.viewer-seat .player-cards{top:-29px!important' in source
+    assert '.viewer-seat .player-cards .card-suit' in source
+    assert '.player-cards .card:not(.back)' in source
+    assert 'v038-ready-countdown' in source
     assert '.seat-card.v032-folded' in source
     assert '.seat-card.all-in' in source
     assert 'calc(100dvh - 250px)' not in source

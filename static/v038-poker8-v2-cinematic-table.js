@@ -107,7 +107,10 @@
       body.v014.poker8-v2-sixmax .seat-card{
         --seat-neon:hsl(var(--seat-accent),92%,62%);
         width:100%!important;height:100%!important;min-height:0!important;padding:0!important;
-        border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important;
+        border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;outline:0!important;overflow:visible!important;
+      }
+      body.v014.poker8-v2-sixmax .seat-card:is(.v032-in-hand,.v032-active-turn,.all-in){
+        border:0!important;background:transparent!important;box-shadow:none!important;outline:0!important;
       }
 
       body.v014.poker8-v2-sixmax .seat-card::after{
@@ -190,6 +193,16 @@
       body.v014.poker8-v2-sixmax .seat-card > .v024-ready-badge.v026-seat-status{display:none!important;}
       body.v014.poker8-v2-sixmax .player-status.status-fold{display:none!important;}
       body.v014.poker8-v2-sixmax .v028-center-ready{display:none!important;}
+      body.v014.poker8-v2-sixmax .deck-anchor{display:none!important;}
+
+      body.v014.poker8-v2-sixmax .v038-ready-countdown{
+        position:absolute;z-index:74;left:50%;top:55%;transform:translate(-50%,-50%);
+        display:none;place-items:center;width:62px;height:62px;border-radius:50%;
+        border:2px solid #72ffb5;background:rgba(1,20,13,.88);color:#e8fff3;
+        box-shadow:0 0 0 3px rgba(0,5,3,.72),0 0 22px rgba(72,255,169,.58),inset 0 0 18px rgba(70,255,170,.14);
+        font-size:29px;font-weight:950;text-shadow:0 0 10px rgba(98,255,190,.86);pointer-events:none;
+      }
+      body.v014.poker8-v2-sixmax .v038-ready-countdown.visible{display:grid;}
 
       body.v014.poker8-v2-sixmax.v028-prehand-center-ready .seat[data-visual-seat="0"] .avatar-wrap{
         cursor:pointer!important;
@@ -234,14 +247,20 @@
       body.v014.poker8-v2-sixmax .player-cards .card.back:first-child{transform:rotate(-8deg) translateX(2px)!important;}
       body.v014.poker8-v2-sixmax .player-cards .card.back:last-child{transform:rotate(8deg) translateX(-2px)!important;}
 
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .player-cards{top:-13px!important;gap:4px!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .player-cards{top:-29px!important;z-index:9!important;gap:4px!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .player-cards .card{
         width:43px!important;height:61px!important;border-radius:6px!important;
-        background:linear-gradient(150deg,#f7f5e9,#d8d5c9)!important;
-        color:#101b1a!important;border:1px solid #56c8ff!important;
-        box-shadow:0 0 10px rgba(47,184,255,.38),0 5px 10px rgba(0,0,0,.50)!important;
+        background:linear-gradient(150deg,#07110d,#010303)!important;
+        color:#effff7!important;border:1px solid #56c8ff!important;
+        box-shadow:0 0 12px rgba(47,184,255,.54),0 5px 10px rgba(0,0,0,.50),inset 0 0 10px rgba(58,208,255,.08)!important;
       }
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .player-cards .card.red{color:#df3a2d!important;border-color:#ff674d!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .player-cards .card.red{color:#ff6759!important;border-color:#ff674d!important;box-shadow:0 0 12px rgba(255,87,70,.46),0 5px 10px rgba(0,0,0,.50)!important;}
+      body.v014.poker8-v2-sixmax .viewer-seat .player-cards .card-rank{left:5px!important;top:3px!important;font-size:13px!important;font-weight:950!important;}
+      body.v014.poker8-v2-sixmax .viewer-seat .player-cards .card-suit{font-size:24px!important;filter:drop-shadow(0 0 4px currentColor)!important;}
+      body.v014.poker8-v2-sixmax .player-cards .card:not(.back){
+        background:linear-gradient(150deg,#07110d,#010303)!important;color:#edfff7!important;
+        border-color:hsla(var(--seat-accent),100%,70%,.88)!important;box-shadow:0 0 10px hsla(var(--seat-accent),96%,58%,.42)!important;
+      }
 
       body.v014.poker8-v2-sixmax .board-cards{gap:3px!important;}
       body.v014.poker8-v2-sixmax .board-cards .card{
@@ -288,8 +307,7 @@
         box-shadow:0 0 12px hsla(var(--seat-accent),92%,55%,.20),0 8px 17px rgba(0,0,0,.58)!important;
       }
       body.v014.poker8-v2-sixmax .seat .seat-card.v032-active-turn{
-        border-color:rgba(255,166,61,.92)!important;
-        box-shadow:0 0 0 1px rgba(255,157,44,.24),0 0 22px rgba(255,130,20,.38),0 9px 20px rgba(0,0,0,.62)!important;
+        border:0!important;background:transparent!important;box-shadow:none!important;outline:0!important;
       }
       body.v014.poker8-v2-sixmax .seat .seat-card.v032-active-turn .player-avatar{
         border-color:#ffad49!important;
@@ -299,9 +317,16 @@
         opacity:.28!important;filter:saturate(.18) brightness(.68)!important;box-shadow:none!important;
       }
       body.v014.poker8-v2-sixmax .seat .seat-card.all-in{
-        border-color:#e7bb5c!important;
-        box-shadow:0 0 0 1px rgba(231,187,92,.20),0 0 18px rgba(231,161,54,.32),0 9px 20px rgba(0,0,0,.62)!important;
+        border:0!important;background:transparent!important;box-shadow:none!important;outline:0!important;
       }
+      body.v014.poker8-v2-sixmax .v038-turn-indicator{
+        position:absolute;z-index:9;left:50%;top:111px;transform:translateX(-50%);display:none;
+        min-width:42px;padding:3px 8px;border:1px solid #ffad49;border-radius:999px;background:#2b1402;
+        color:#ffd8a2;font-size:7px;font-weight:950;line-height:1;letter-spacing:.10em;text-align:center;
+        box-shadow:0 0 11px rgba(255,143,35,.52);pointer-events:none;
+      }
+      body.v014.poker8-v2-sixmax .seat-card.v032-active-turn .v038-turn-indicator{display:block;animation:v038TurnPulse 1100ms ease-in-out infinite;}
+      @keyframes v038TurnPulse{50%{filter:brightness(1.4);box-shadow:0 0 18px rgba(255,143,35,.82)}}
       body.v014.poker8-v2-sixmax .seat .seat-card.all-in .player-avatar{
         border-color:#f1c867!important;
         box-shadow:0 0 0 3px rgba(1,5,5,.92),0 0 18px rgba(238,180,65,.45),inset 0 -10px 18px rgba(0,0,0,.50)!important;
@@ -500,17 +525,47 @@
     setText(mark.querySelector("small"), String(seconds || 5));
   }
 
+  function syncTurnIndicators() {
+    document.querySelectorAll(".seat-card").forEach(card => {
+      let indicator = card.querySelector(".v038-turn-indicator");
+      if (!indicator) {
+        indicator = document.createElement("span");
+        indicator.className = "v038-turn-indicator";
+        indicator.textContent = "ХОД";
+        card.appendChild(indicator);
+      }
+    });
+  }
+
+  function ensureReadyCountdown() {
+    const felt = document.querySelector(".felt");
+    if (!felt) return null;
+    let countdown = felt.querySelector(".v038-ready-countdown");
+    if (!countdown) {
+      countdown = document.createElement("div");
+      countdown.className = "v038-ready-countdown";
+      countdown.setAttribute("aria-live", "polite");
+      felt.appendChild(countdown);
+    }
+    return countdown;
+  }
+
   function setReadyCountdown(endsAt) {
     readyCountdownEndsAt = Number(endsAt || 0);
     window.clearInterval(readyCountdownTicker);
     readyCountdownTicker = 0;
     syncAvatarReadyControl();
+    const countdown = ensureReadyCountdown();
+    countdown?.classList.toggle("visible", Boolean(readyCountdownEndsAt));
+    setText(countdown, String(Math.max(1, Math.ceil((readyCountdownEndsAt - Date.now()) / 1000))));
     if (!readyCountdownEndsAt) return;
     readyCountdownTicker = window.setInterval(() => {
       syncAvatarReadyControl();
+      setText(countdown, String(Math.max(1, Math.ceil((readyCountdownEndsAt - Date.now()) / 1000))));
       if (Date.now() >= readyCountdownEndsAt) {
         window.clearInterval(readyCountdownTicker);
         readyCountdownTicker = 0;
+        countdown?.classList.remove("visible");
       }
     }, 200);
   }
@@ -779,6 +834,8 @@
     syncSeatStackLabels();
     syncTableNumberLabels();
     syncAvatarReadyControl();
+    syncTurnIndicators();
+    ensureReadyCountdown();
     configureReferenceActions();
   }
 
