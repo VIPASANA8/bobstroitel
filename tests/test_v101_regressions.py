@@ -51,6 +51,7 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     loader = (root / 'static' / 'v037-poker8-v2-reference-table.js').read_text(encoding='utf-8')
     component_loader = (root / 'static' / 'component-ui.js').read_text(encoding='utf-8')
     source = (root / 'static' / 'v038-poker8-v2-cinematic-table.js').read_text(encoding='utf-8')
+    ready_source = (root / 'static' / 'v024-ready-phase.js').read_text(encoding='utf-8')
 
     assert '/static/v038-poker8-v2-cinematic-table.js' in loader
     assert '/static/v037-poker8-v2-reference-table.js' in component_loader
@@ -97,6 +98,15 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert '.position-chip{display:none!important' in source
     assert '.seat-card > .v024-ready-badge.v026-seat-status{display:none!important' in source
     assert '.player-status.status-fold{display:none!important' in source
+    assert '.v028-center-ready{display:none!important' in source
+    assert 'v038-ready-mark' in source
+    assert 'poker8:ready-countdown' in source
+    assert 'poker8:ready-snapshot' in source
+    assert 'READY_COUNTDOWN_MS = 5000' in ready_source
+    assert 'cancelViewerReadyCountdown' in ready_source
+    assert 'toggleViewerReadyCountdown' in ready_source
+    assert 'poker8:ready-countdown' in ready_source
+    assert 'poker8:ready-snapshot' in ready_source
     assert 'transform:translateX(-50%) scale(.92)' in source
     assert '.seat-card.v032-active-turn' in source
     assert '.seat-card.v032-folded' in source

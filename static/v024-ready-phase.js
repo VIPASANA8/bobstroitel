@@ -6,6 +6,43 @@
 
   let viewerReady = sessionStorage.getItem(READY_KEY) === "1";
   let startInFlight = false;
+  let readyCountdownTimer = 0;
+  let readyCountdownEndsAt = 0;
+  const READY_COUNTDOWN_MS = 5000;
+
+  function emitReadyCountdown() {
+    window.dispatchEvent(new CustomEvent("poker8:ready-countdown", {
+      detail:{ ready:viewerReady, endsAt:readyCountdownEndsAt },
+    }));
+  }
+
+  function cancelViewerReadyCountdown(clearReady = true) {
+    window.clearTimeout(readyCountdownTimer);
+    readyCountdownTimer = 0;
+    readyCountdownEndsAt = 0;
+    if (clearReady) setViewerReady(false);
+    emitReadyCountdown();
+    renderReadyUi();
+  }
+
+  function beginViewerReadyCountdown() {
+    setViewerReady(true);
+    readyCountdownEndsAt = Date.now() + READY_COUNTDOWN_MS;
+    emitReadyCountdown();
+    renderReadyUi();
+    readyCountdownTimer = window.setTimeout(async () => {
+      readyCountdownTimer = 0;
+      readyCountdownEndsAt = 0;
+      if (!viewerReady || !preHand() || !allReady()) return;
+      emitReadyCountdown();
+      const result = await guardedStartNewHand(false);
+      if (game && !game.terminal) {
+        setViewerReady(false);
+        clearReadyBadges();
+      }
+      return result;
+    }, READY_COUNTDOWN_MS);
+  }
 
   function preHand() {
     return !game || Boolean(game.terminal);
@@ -52,6 +89,12 @@
     return viewerReady;
   }
 
+  const toggleViewerReadyCountdown = function toggleViewerReadyCountdown() {
+    if (!preHand() || startInFlight || !enoughPlayers() || !activeHumanSeats().length) return;
+    if (viewerReady || readyCountdownTimer) cancelViewerReadyCountdown(true);
+    else beginViewerReadyCountdown();
+  };
+
   function setStartBusy(value) {
     startInFlight = Boolean(value);
     document.body.classList.toggle("v024-starting-hand", startInFlight);
@@ -71,6 +114,12 @@
     document.querySelectorAll(".seat-card.v024-seat-ready, .seat-card.v024-seat-not-ready").forEach(card => {
       card.classList.remove("v024-seat-ready", "v024-seat-not-ready");
     });
+  }
+
+  function publishReadySnapshot() {
+    window.dispatchEvent(new CustomEvent("poker8:ready-snapshot", {
+      detail:{ viewerReady, preHand:preHand() },
+    }));
   }
 
   function renderSeatReadiness() {
@@ -149,6 +198,7 @@
   function renderReadyUi() {
     renderSeatReadiness();
     renderReadyControls();
+    publishReadySnapshot();
   }
 
   const startNewHand = newHand;
@@ -200,10 +250,13 @@
     return result;
   };
 
+  window.addEventListener("poker8:toggle-ready", toggleViewerReadyCountdown);
+
   const originalRenderSeats = renderSeats;
   renderSeats = function renderSeatsWithReadyState() {
     originalRenderSeats();
     renderSeatReadiness();
+    publishReadySnapshot();
   };
 
   const originalRenderMobileHeader = renderMobileHeader;
