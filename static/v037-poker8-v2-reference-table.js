@@ -80,4 +80,11 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
   else start();
   window.addEventListener("resize", start);
+
+  if (!document.querySelector('script[data-v038-poker8-v2-cinematic-table]')) {
+    const v038 = document.createElement("script");
+    v038.src = "/static/v038-poker8-v2-cinematic-table.js";
+    v038.setAttribute("data-v038-poker8-v2-cinematic-table", "");
+    document.body.appendChild(v038);
+  }
 })();

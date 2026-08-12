@@ -44,3 +44,25 @@ def test_v037_reference_table_pass_is_loaded_and_chat_is_decorative():
     assert 'addEventListener("click"' not in source
     assert 'window.addEventListener("resize", start)' in source
     assert '@media (max-width:780px)' in source
+
+
+def test_v038_cinematic_table_is_mobile_presentation_only():
+    root = Path(__file__).resolve().parents[1]
+    loader = (root / 'static' / 'v037-poker8-v2-reference-table.js').read_text(encoding='utf-8')
+    source = (root / 'static' / 'v038-poker8-v2-cinematic-table.js').read_text(encoding='utf-8')
+
+    assert '/static/v038-poker8-v2-cinematic-table.js' in loader
+    assert 'data-v038-poker8-v2-cinematic-table' in loader
+    assert '@media (max-width:780px)' in source
+    assert '--profile-avatar-image' in source
+    assert '.seat-card::after' in source
+    assert '.pot-chips .poker-chip' in source
+    assert 'calc(100dvh - 278px)' in source
+    assert '--seat-3-y:20%' in source
+    assert '[data-visual-seat="3"]{--seat-accent:142' in source
+    assert '.seat-card.v032-active-turn' in source
+    assert '.seat-card.v032-folded' in source
+    assert '.seat-card.all-in' in source
+    assert 'calc(100dvh - 250px)' not in source
+    assert 'fetch(' not in source
+    assert 'addEventListener("click"' not in source
