@@ -17,15 +17,15 @@
         --p8-hud-h:214px;
         --p8-bottom-reserve:46px;
         --table-stage-h:calc(100dvh - 50px - var(--p8-hud-h) - var(--p8-bottom-reserve))!important;
-        --seat-0-x:50%!important;--seat-0-y:82%!important;
-        --seat-1-x:14%!important;--seat-1-y:60%!important;
-        --seat-2-x:14%!important;--seat-2-y:19%!important;
-        --seat-3-x:50%!important;--seat-3-y:7%!important;
-        --seat-4-x:86%!important;--seat-4-y:19%!important;
-        --seat-5-x:86%!important;--seat-5-y:60%!important;
-        --pot-y:18%!important;
+        --seat-0-x:50%!important;--seat-0-y:80%!important;
+        --seat-1-x:14%!important;--seat-1-y:58%!important;
+        --seat-2-x:14%!important;--seat-2-y:22%!important;
+        --seat-3-x:50%!important;--seat-3-y:13%!important;
+        --seat-4-x:86%!important;--seat-4-y:22%!important;
+        --seat-5-x:86%!important;--seat-5-y:58%!important;
+        --pot-y:25%!important;
         --pot-chips-y:47%!important;
-        --board-y:34%!important;
+        --board-y:38%!important;
         background:
           linear-gradient(90deg,rgba(0,0,0,.55),transparent 20%,transparent 80%,rgba(0,0,0,.55)),
           repeating-linear-gradient(96deg,#080402 0 7px,#180b05 8px 14px,#0c0503 15px 23px)!important;
@@ -33,7 +33,12 @@
 
       body.v014.poker8-v2-sixmax .mobile-game-header::after{display:none!important;content:none!important;}
       body.v014.poker8-v2-sixmax .mobile-game-header{
-        background:linear-gradient(90deg,rgba(0,3,2,.86),transparent 38%,transparent 62%,rgba(0,3,2,.86))!important;
+        background-image:
+          linear-gradient(90deg,rgba(0,3,2,.86),transparent 38%,transparent 62%,rgba(0,3,2,.86)),
+          url("/static/assets/poker8-v2-table-mobile.webp")!important;
+        background-size:100% 100%,100vw calc(var(--table-stage-h) + 50px)!important;
+        background-position:center,center top!important;
+        background-repeat:no-repeat!important;
         border-bottom-color:rgba(29,255,192,.10)!important;
         box-shadow:0 10px 24px rgba(0,0,0,.44)!important;
       }
@@ -46,60 +51,45 @@
         overflow:visible!important;
       }
 
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"]{left:50%!important;top:82%!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="1"]{left:14%!important;top:60%!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="2"]{left:14%!important;top:19%!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="3"]{left:50%!important;top:7%!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="4"]{left:86%!important;top:19%!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="5"]{left:86%!important;top:60%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"]{left:50%!important;top:80%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="1"]{left:14%!important;top:58%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="2"]{left:14%!important;top:22%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="3"]{left:50%!important;top:13%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="4"]{left:86%!important;top:22%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="5"]{left:86%!important;top:58%!important;}
 
       body.v014.poker8-v2-sixmax .table-frame{
         padding:0 5px 1px!important;
-        background:
-          radial-gradient(ellipse at 50% 34%,rgba(110,56,18,.22),transparent 58%),
-          repeating-linear-gradient(96deg,rgba(44,20,8,.78) 0 7px,rgba(12,6,3,.94) 8px 15px,rgba(55,25,9,.72) 16px 22px)!important;
-        box-shadow:inset 0 18px 34px rgba(0,0,0,.55),inset 0 -18px 34px rgba(0,0,0,.66)!important;
+        background-image:url("/static/assets/poker8-v2-table-mobile.webp")!important;
+        background-size:100vw calc(var(--table-stage-h) + 50px)!important;
+        background-position:center -50px!important;
+        background-repeat:no-repeat!important;
+        box-shadow:inset 0 10px 20px rgba(0,0,0,.20),inset 0 -10px 22px rgba(0,0,0,.28)!important;
       }
 
       body.v014.poker8-v2-sixmax .felt{
         width:calc(100% - 44px)!important;
         box-sizing:border-box!important;
         margin-inline:auto!important;
-        border-width:18px!important;
+        border:0!important;
         border-radius:49% / 36%!important;
         transform:rotateX(5deg) scale(.985,1.025)!important;
         transform-origin:50% 54%!important;
         transform-style:preserve-3d!important;
-        background:
-          radial-gradient(circle at 25% 18%,rgba(54,136,88,.10),transparent 27%) padding-box,
-          radial-gradient(circle at 76% 74%,rgba(0,5,3,.42),transparent 34%) padding-box,
-          repeating-radial-gradient(ellipse at 50% 50%,rgba(255,255,255,.010) 0 1px,transparent 1px 5px) padding-box,
-          linear-gradient(145deg,#02331e 0%,#002819 46%,#001c10 100%) padding-box,
-          repeating-linear-gradient(102deg,#1a0b04 0 6px,#713714 7px 13px,#2d1407 14px 20px,#8b4c20 21px 27px,#281106 28px 35px) border-box!important;
-        outline:2px solid rgba(4,11,7,.92)!important;
-        box-shadow:
-          inset 0 0 118px rgba(0,0,0,.68),
-          inset 0 0 0 2px rgba(47,255,170,.64),
-          inset 0 0 0 5px rgba(0,35,22,.92),
-          inset 0 0 0 7px rgba(41,255,166,.30),
-          0 0 0 2px rgba(100,51,18,.58),
-          0 0 0 5px rgba(7,3,2,.94),
-          0 0 24px rgba(28,239,167,.20),
-          0 18px 38px rgba(0,0,0,.64)!important;
+        background:transparent!important;
+        outline:0!important;
+        box-shadow:none!important;
       }
 
-      body.v014.poker8-v2-sixmax .felt::before{
-        inset:10px!important;
-        border:1px solid rgba(57,255,179,.62)!important;
-        box-shadow:0 0 9px rgba(40,255,174,.34),inset 0 0 9px rgba(40,255,174,.14)!important;
-      }
+      body.v014.poker8-v2-sixmax .felt::before,
+      body.v014.poker8-v2-sixmax .felt::after{display:none!important;}
 
       body.v014.poker8-v2-sixmax .felt :is(.seat-card,.board-cards .card,.pot-total>*,.pot-chips>*,.bet-marker>*){
         rotate:x -5deg;
       }
 
       body.v014.poker8-v2-sixmax .table-glow{
-        display:block!important;
+        display:none!important;
         inset:10%!important;
         border-radius:50%!important;
         background:radial-gradient(ellipse,rgba(21,121,74,.15),transparent 68%)!important;
@@ -296,8 +286,8 @@
         box-shadow:0 0 0 3px rgba(1,5,5,.92),0 0 18px rgba(238,180,65,.45),inset 0 -10px 18px rgba(0,0,0,.50)!important;
       }
 
-      body.v014.poker8-v2-sixmax .pot-total{top:18%!important;}
-      body.v014.poker8-v2-sixmax .board-cards{top:34%!important;}
+      body.v014.poker8-v2-sixmax .pot-total{top:25%!important;}
+      body.v014.poker8-v2-sixmax .board-cards{top:38%!important;}
       body.v014.poker8-v2-sixmax .pot-chips{top:47%!important;}
 
       body.v014.poker8-v2-sixmax .sidebar{transform:none!important;height:var(--p8-hud-h)!important;}

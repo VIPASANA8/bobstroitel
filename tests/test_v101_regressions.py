@@ -57,26 +57,28 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert '/static/v033-poker8-v2-polish.js' not in component_loader
     assert '/static/v034-poker8-v2-layout-lock.js' not in component_loader
     assert 'data-v038-poker8-v2-cinematic-table' in loader
+    assert (root / 'static' / 'assets' / 'poker8-v2-table-mobile.webp').exists()
     assert '@media (max-width:780px)' in source
+    assert 'url("/static/assets/poker8-v2-table-mobile.webp")' in source
+    assert '100vw calc(var(--table-stage-h) + 50px)' in source
+    assert 'background-position:center -50px' in source
+    assert 'background:transparent!important' in source
     assert '--profile-avatar-image' in source
     assert '.seat-card::after' in source
     assert '.pot-chips .poker-chip' in source
     assert 'calc(100dvh - 50px - var(--p8-hud-h) - var(--p8-bottom-reserve))' in source
-    assert '--seat-3-y:7%' in source
+    assert '--seat-3-y:13%' in source
     assert '[data-visual-seat="3"]{--seat-accent:142' in source
     assert '--seat-2-x:14%' in source and '--seat-4-x:86%' in source
-    assert '--seat-1-y:60%' in source and '--seat-5-y:60%' in source
-    assert '--seat-2-y:19%' in source and '--seat-4-y:19%' in source
-    assert '--seat-0-y:82%' in source
-    assert '--pot-y:18%' in source
-    assert '--board-y:34%' in source and '--pot-chips-y:47%' in source
+    assert '--seat-1-y:58%' in source and '--seat-5-y:58%' in source
+    assert '--seat-2-y:22%' in source and '--seat-4-y:22%' in source
+    assert '--seat-0-y:80%' in source
+    assert '--pot-y:25%' in source
+    assert '--board-y:38%' in source and '--pot-chips-y:47%' in source
     assert 'width:74px!important;height:74px!important' in source
     assert '.seat-card:has(.player-cards:not(:empty)) .avatar-wrap::before' in source
     assert 'width:calc(100% - 44px)!important' in source
     assert 'box-sizing:border-box!important' in source
-    assert 'border-width:18px!important' in source
-    assert '#001c10' in source
-    assert 'inset 0 0 118px rgba(0,0,0,.68)' in source
     assert '.player-avatar::before{' in source
     assert '.player-avatar::after{' in source
     assert '.player-avatar span{opacity:0!important' in source
