@@ -113,7 +113,8 @@
         border:0!important;background:transparent!important;box-shadow:none!important;outline:0!important;
       }
 
-      body.v014.poker8-v2-sixmax .seat-card::after{display:none!important;content:none!important;}
+      body.v014.poker8-v2-sixmax .seat-card::before,
+      body.v014.poker8-v2-sixmax .seat-card::after{display:none!important;content:none!important;background:none!important;box-shadow:none!important;}
 
       body.v014.poker8-v2-sixmax .avatar-wrap{
         position:absolute!important;z-index:4;left:50%!important;top:4px!important;transform:translateX(-50%)!important;
@@ -204,7 +205,7 @@
       }
       body.v014.poker8-v2-sixmax .v038-turn-timer.visible{display:grid;}
       body.v014.poker8-v2-sixmax .v038-turn-timer{
-        left:calc((50% - 41px)/2);width:54px;height:54px;transform:translateX(-50%);place-items:center;border-radius:50%;
+        left:calc(25% - 20.5px);width:54px;height:54px;transform:translateX(-50%);place-items:center;border-radius:50%;
         background:conic-gradient(#ff38c7 var(--timer-progress,100%),rgba(255,56,199,.12) 0);
         filter:drop-shadow(0 0 9px rgba(255,56,199,.66));
       }
@@ -215,11 +216,12 @@
       body.v014.poker8-v2-sixmax .v038-turn-timer small{position:absolute;bottom:-11px;color:#ff87df;font-size:6px;font-weight:900;letter-spacing:.08em;}
       body.v014.poker8-v2-sixmax .v038-turn-context.visible{display:block;}
       body.v014.poker8-v2-sixmax .v038-turn-context{
-        right:12px;width:max-content;min-width:82px;max-width:116px;padding:6px 8px;border:1px solid #2de8df;border-radius:9px;
+        left:calc(75% + 20.5px);transform:translateX(-50%);width:max-content;min-width:82px;max-width:116px;padding:6px 8px;border:1px solid #2de8df;border-radius:9px;
         background:rgba(2,19,18,.92);color:#dffffc;text-align:center;box-shadow:0 0 14px rgba(45,232,223,.38);
       }
       body.v014.poker8-v2-sixmax .v038-turn-context strong{display:block;color:#55fff2;font-size:11px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
       body.v014.poker8-v2-sixmax .v038-turn-context span{display:block;margin-top:3px;color:#ecfffd;font-size:10px;font-weight:850;line-height:1;}
+      body.v014.poker8-v2-sixmax .v038-turn-context span:empty{display:none;}
 
       body.v014.poker8-v2-sixmax.v028-prehand-center-ready .seat[data-visual-seat="0"] .avatar-wrap{
         cursor:pointer!important;
@@ -249,6 +251,35 @@
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-identity{top:84px!important;width:122px!important;min-height:42px!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-name{font-size:10px!important;max-width:92px!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-stack{font-size:13px!important;color:#35c6ff!important;}
+
+      body.v014.poker8-v2-sixmax .seat-card.v038-action-fold .player-avatar{
+        border-color:#ff4d42!important;box-shadow:0 0 0 3px rgba(1,5,5,.92),0 0 20px rgba(255,77,66,.64),inset 0 -10px 18px rgba(0,0,0,.50)!important;
+      }
+      body.v014.poker8-v2-sixmax .seat-card.v038-action-passive .player-avatar{
+        border-color:#55cfff!important;box-shadow:0 0 0 3px rgba(1,5,5,.92),0 0 20px rgba(85,207,255,.62),inset 0 -10px 18px rgba(0,0,0,.50)!important;
+      }
+      body.v014.poker8-v2-sixmax .seat-card.v038-action-aggressive .player-avatar{
+        border-color:#55f16e!important;box-shadow:0 0 0 3px rgba(1,5,5,.92),0 0 20px rgba(85,241,110,.62),inset 0 -10px 18px rgba(0,0,0,.50)!important;
+      }
+      body.v014.poker8-v2-sixmax .seat-card.v038-action-all-in .player-avatar{
+        border-color:#ffc44d!important;box-shadow:0 0 0 3px rgba(1,5,5,.92),0 0 22px rgba(255,196,77,.70),inset 0 -10px 18px rgba(0,0,0,.50)!important;
+      }
+      body.v014.poker8-v2-sixmax .seat-card.v032-folded.v038-action-fold{opacity:.48!important;filter:none!important;}
+
+      body.v014.poker8-v2-sixmax .v038-room-prompt{
+        position:absolute;z-index:72;left:50%;top:55%;transform:translate(-50%,-50%);display:none;width:max-content;max-width:78%;
+        padding:10px 14px;border:1px solid rgba(61,235,190,.58);border-radius:12px;background:rgba(1,18,13,.88);text-align:center;
+        box-shadow:0 0 18px rgba(46,239,186,.22);pointer-events:none;
+      }
+      body.v014.poker8-v2-sixmax .v038-room-prompt.visible{display:block;}
+      body.v014.poker8-v2-sixmax .v038-room-prompt strong{display:block;color:#7dffd0;font-size:13px;line-height:1.05;letter-spacing:.06em;}
+      body.v014.poker8-v2-sixmax .v038-room-prompt span{display:block;margin-top:5px;color:#dfffee;font-size:9px;line-height:1.1;}
+      body.v014.poker8-v2-sixmax.v038-room-awaiting .seat[data-visual-seat="0"] .avatar-wrap:not(.v038-viewer-ready) .player-avatar{
+        animation:v038ReadyPulse 1.7s ease-in-out infinite;
+      }
+      body.v014.poker8-v2-sixmax .felt{transition:opacity 260ms ease,filter 260ms ease!important;}
+      body.v014.poker8-v2-sixmax.v038-room-resetting .felt{opacity:.18!important;filter:brightness(.42) blur(2px)!important;}
+      @keyframes v038ReadyPulse{50%{border-color:#6edcff;box-shadow:0 0 0 3px rgba(1,5,5,.92),0 0 28px rgba(67,199,255,.82),inset 0 -10px 18px rgba(0,0,0,.50)}}
 
       body.v014.poker8-v2-sixmax .player-cards{
         position:absolute!important;z-index:2!important;left:50%!important;top:-13px!important;bottom:auto!important;transform:translateX(-50%)!important;margin:0!important;min-height:0!important;gap:2px!important;
@@ -467,6 +498,8 @@
         body.v014.poker8-v2-sixmax .v038-action-amount.v038-amount-pulse{animation:none!important;}
         body.v014.poker8-v2-sixmax .action-slot.v038-all-in-armed::after{animation:none!important;}
         body.v014.poker8-v2-sixmax .action-slot.v038-all-in-armed::before{content:"CONFIRM · 3 SEC";}
+        body.v014.poker8-v2-sixmax.v038-room-awaiting .player-avatar{animation:none!important;}
+        body.v014.poker8-v2-sixmax .felt{transition-duration:80ms!important;}
       }
       body.v014.poker8-v2-sixmax .app-shell{
         height:100dvh!important;min-height:100dvh!important;overflow:hidden!important;
@@ -531,7 +564,7 @@
       wrap.appendChild(mark);
     }
     const ready = viewerReadySnapshot;
-    const preHand = !game || Boolean(game.terminal);
+    const preHand = !game;
     wrap.classList.toggle("v038-viewer-ready", ready && preHand);
     wrap.toggleAttribute("role", preHand);
     if (preHand) {
@@ -550,6 +583,11 @@
       if (card.closest('.seat[data-visual-seat="0"]')) return;
       const wrap = card.querySelector(".avatar-wrap");
       if (!wrap) return;
+      if (game) {
+        wrap.classList.remove("v038-viewer-ready");
+        wrap.querySelector(".v038-seat-ready-check")?.remove();
+        return;
+      }
       let mark = wrap.querySelector(".v038-seat-ready-check");
       if (!mark) {
         mark = document.createElement("span");
@@ -566,12 +604,23 @@
   let turnVisualTicker = 0;
   const TURN_VISUAL_MS = 30000;
 
-  function latestActionText() {
-    const row = game?.history?.at?.(-1);
-    if (!row) return "ОЖИДАЕТ ДЕЙСТВИЯ";
-    const labels = {fold:"FOLD",check:"CHECK",call:"CALL",bet:"BET",raise:"RAISE",all_in:"ALL IN"};
-    const amount = Number(row.amount || 0);
-    return `${labels[row.action] || String(row.action || "").toUpperCase()}${amount > 0 ? ` · ${compactStackLabel(amount)}` : ""}`;
+  const ACTION_CLASSES = ["v038-action-fold", "v038-action-passive", "v038-action-aggressive", "v038-action-all-in"];
+
+  function syncSeatActionStates() {
+    const latest = new Map();
+    (game?.history || []).forEach(row => latest.set(row.player_id, row.action));
+    document.querySelectorAll('.seat[data-seat]').forEach(seat => {
+      const card = seat.querySelector(".seat-card");
+      if (!card) return;
+      card.classList.remove(...ACTION_CLASSES);
+      const player = Object.values(game?.players || {}).find(item => Number(item?.seat) === Number(seat.dataset.seat));
+      const action = latest.get(player?.id);
+      const family = action === "fold" ? "fold"
+        : ["check", "call"].includes(action) ? "passive"
+        : ["bet", "raise"].includes(action) ? "aggressive"
+        : action === "all_in" ? "all-in" : "";
+      if (family) card.classList.add(`v038-action-${family}`);
+    });
   }
 
   function syncTableTurnHud() {
@@ -608,12 +657,62 @@
     const actor = game.players?.[game.acting_player];
     setText(context.querySelector("strong"), `ХОД · ${actor?.name || "ИГРОК"}`);
     const invested = Number(actor?.street_invested || 0);
-    setText(context.querySelector("span"), invested > 0 ? `ПОСТАВИЛ · ${compactStackLabel(invested)}` : latestActionText());
+    setText(context.querySelector("span"), invested > 0 ? `ПОСТАВИЛ · ${compactStackLabel(invested)}` : "");
     const left = Math.max(0, TURN_VISUAL_MS - (Date.now() - turnVisualStartedAt));
     const seconds = Math.ceil(left / 1000);
     setText(timer.querySelector("b"), String(seconds));
     timer.style.setProperty("--timer-progress", `${left / TURN_VISUAL_MS * 100}%`);
     if (!turnVisualTicker) turnVisualTicker = window.setInterval(syncTableTurnHud, 250);
+  }
+
+  let roomResetTimer = 0;
+  let roomResetHandId = "";
+  const HAND_RESULT_HOLD_MS = 7000;
+  const ROOM_FADE_MS = 260;
+
+  function ensureRoomPrompt() {
+    const felt = document.querySelector(".felt");
+    if (!felt) return null;
+    let prompt = felt.querySelector(".v038-room-prompt");
+    if (!prompt) {
+      prompt = document.createElement("div");
+      prompt.className = "v038-room-prompt";
+      prompt.innerHTML = "<strong>НОВАЯ РАЗДАЧА</strong><span>Нажмите на свою аватарку</span>";
+      felt.appendChild(prompt);
+    }
+    return prompt;
+  }
+
+  function cancelRoomReset() {
+    window.clearTimeout(roomResetTimer);
+    roomResetTimer = 0;
+    roomResetHandId = "";
+    document.body.classList.remove("v038-room-resetting");
+  }
+
+  function syncCompletedHandReset() {
+    const room = !game;
+    document.body.classList.toggle("v038-room-awaiting", room);
+    ensureRoomPrompt()?.classList.toggle("visible", room);
+    if (!game?.terminal) {
+      cancelRoomReset();
+      return;
+    }
+    if (roomResetHandId === game.hand_id) return;
+    cancelRoomReset();
+    roomResetHandId = game.hand_id;
+    if (typeof clearAutomationTimer === "function") clearAutomationTimer();
+    roomResetTimer = window.setTimeout(() => {
+      roomResetTimer = 0;
+      if (!game?.terminal || game.hand_id !== roomResetHandId) return;
+      document.body.classList.add("v038-room-resetting");
+      window.setTimeout(() => {
+        if (!game?.terminal || game.hand_id !== roomResetHandId) return;
+        game = null;
+        document.body.classList.remove("v038-room-resetting");
+        renderGame();
+      }, ROOM_FADE_MS);
+    }, HAND_RESULT_HOLD_MS);
   }
 
   function ensureReadyCountdown() {
@@ -910,8 +1009,12 @@
     window.clearInterval(turnVisualTicker);
     turnVisualTicker = 0;
     turnVisualToken = "";
+    cancelRoomReset();
+    document.body.classList.remove("v038-room-awaiting");
     document.querySelector(".v038-turn-timer")?.remove();
     document.querySelector(".v038-turn-context")?.remove();
+    document.querySelector(".v038-room-prompt")?.remove();
+    document.querySelectorAll(".seat-card").forEach(card => card.classList.remove(...ACTION_CLASSES));
     document.querySelectorAll(".seat-stack[data-v038-full-stack]").forEach(stack => {
       setText(stack, stack.dataset.v038FullStack);
       stack.removeAttribute("data-v038-full-stack");
@@ -949,8 +1052,10 @@
     syncTableNumberLabels();
     syncAvatarReadyControl();
     syncAllSeatReadyMarks();
+    syncSeatActionStates();
     ensureReadyCountdown();
     syncTableTurnHud();
+    syncCompletedHandReset();
     configureReferenceActions();
   }
 
@@ -968,6 +1073,15 @@
   window.syncComponentUi = function syncV038FinalReference(gameState, tableState) {
     previousSync?.(gameState, tableState);
     queueSync();
+  };
+
+  const previousQueueAutomation = queueAutomation;
+  queueAutomation = function queueV038Automation(delay = null) {
+    if (isMobileV2() && game?.terminal) {
+      clearAutomationTimer();
+      return;
+    }
+    return previousQueueAutomation(delay);
   };
 
   const start = () => {
@@ -1000,11 +1114,11 @@
     syncAvatarReadyControl();
   });
   document.addEventListener("click", event => {
-    if (!isMobileV2() || !event.target?.closest?.('.seat[data-visual-seat="0"] .avatar-wrap')) return;
+    if (!isMobileV2() || game || !event.target?.closest?.('.seat[data-visual-seat="0"] .avatar-wrap')) return;
     window.dispatchEvent(new CustomEvent("poker8:toggle-ready"));
   });
   document.addEventListener("keydown", event => {
-    if (!isMobileV2() || !["Enter", " "].includes(event.key) || !event.target?.matches?.('.seat[data-visual-seat="0"] .avatar-wrap')) return;
+    if (!isMobileV2() || game || !["Enter", " "].includes(event.key) || !event.target?.matches?.('.seat[data-visual-seat="0"] .avatar-wrap')) return;
     event.preventDefault();
     window.dispatchEvent(new CustomEvent("poker8:toggle-ready"));
   });

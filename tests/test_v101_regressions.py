@@ -178,6 +178,21 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'scheduleSettledPreset' in source
     assert 'stripHudUnit' in source
     assert '.seat-card::after{display:none!important' in source
+    assert '.seat-card::before,' in source
+    assert 'syncSeatActionStates' in source
+    assert all(token in source for token in ('v038-action-fold', 'v038-action-passive', 'v038-action-aggressive', 'v038-action-all-in'))
+    assert 'left:calc(25% - 20.5px)' in source
+    assert 'left:calc(75% + 20.5px)' in source
+    assert 'invested > 0 ? `ПОСТАВИЛ · ${compactStackLabel(invested)}` : ""' in source
+    assert 'latestActionText' not in source
+    assert 'HAND_RESULT_HOLD_MS = 7000' in source
+    assert 'roomResetHandId' in source
+    assert 'game = null' in source
+    assert 'v038-room-resetting' in source
+    assert 'v038-room-prompt' in source
+    assert 'НОВАЯ РАЗДАЧА' in source
+    assert 'Нажмите на свою аватарку' in source
+    assert 'previousQueueAutomation' in source
     assert 'const host = document.querySelector(".table-frame")' in source
     assert '.v038-turn-context strong{display:block;color:#55fff2;font-size:11px' in source
     assert '.v038-turn-context span{display:block;margin-top:3px;color:#ecfffd;font-size:10px' in source
