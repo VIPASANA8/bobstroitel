@@ -121,6 +121,8 @@
         width:74px!important;height:74px!important;margin:0!important;
         isolation:isolate;
       }
+      body.v014.poker8-v2-sixmax .avatar-wrap::before,
+      body.v014.poker8-v2-sixmax .avatar-wrap::after{display:none!important;}
 
       body.v014.poker8-v2-sixmax .avatar-wrap::before,
       body.v014.poker8-v2-sixmax .avatar-wrap::after{

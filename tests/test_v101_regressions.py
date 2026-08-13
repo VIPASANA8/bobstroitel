@@ -179,6 +179,7 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'stripHudUnit' in source
     assert '.seat-card::after{display:none!important' in source
     assert '.seat-card::before,' in source
+    assert '.avatar-wrap::after{display:none!important;}' in source
     assert 'syncSeatActionStates' in source
     assert all(token in source for token in ('v038-action-fold', 'v038-action-passive', 'v038-action-aggressive', 'v038-action-all-in'))
     assert '.seat-card.v032-active-turn .seat-identity' in source
