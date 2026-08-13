@@ -124,6 +124,7 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'syncTurnIndicators' not in source
     assert '.deck-anchor{display:none!important' in source
     assert '.viewer-seat .player-cards{top:-29px!important' in source
+    assert 'min-height:42px!important;z-index:12!important;' in source
     assert '.viewer-seat .player-cards .card-suit' in source
     assert '.player-cards .card:not(.back)' in source
     assert 'v038-ready-countdown' in source

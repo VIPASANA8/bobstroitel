@@ -251,7 +251,7 @@
       }
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .avatar-wrap{top:9px!important;width:82px!important;height:82px!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .player-avatar{width:82px!important;height:82px!important;border-color:#35bfff!important;font-size:14px!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-identity{top:84px!important;width:122px!important;min-height:42px!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-identity{top:84px!important;width:122px!important;min-height:42px!important;z-index:12!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-name{font-size:10px!important;max-width:92px!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-stack{font-size:13px!important;color:#35c6ff!important;}
 
