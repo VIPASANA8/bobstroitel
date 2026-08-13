@@ -65,6 +65,8 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     ready_source = (root / 'static' / 'v024-ready-phase.js').read_text(encoding='utf-8')
     app_source = (root / 'static' / 'app.js').read_text(encoding='utf-8')
     polish_source = (root / 'static' / 'v033-poker8-v2-polish.js').read_text(encoding='utf-8')
+    wager_source = (root / 'static' / 'v031-pot-cluster-mobile-fix.js').read_text(encoding='utf-8')
+    wager_loader = (root / 'static' / 'v030-seat-ready-fix.js').read_text(encoding='utf-8')
 
     assert '/static/v038-poker8-v2-cinematic-table.js' in loader
     assert '/static/v037-poker8-v2-reference-table.js' in component_loader
@@ -227,3 +229,7 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'mark.querySelector("small")' not in source
     assert "closest?.('.seat[data-visual-seat=\"0\"], .v038-room-prompt')" in source
     assert 'pointer-events:auto;cursor:pointer;' in source
+    assert 'if (mobile && visualSeat === 0)' in wager_source
+    assert 'x: from.x + 66' in wager_source
+    assert 'y: from.y - 30' in wager_source
+    assert 'v031.src = "/static/v031-pot-cluster-mobile-fix.js?v=viewer-wager-1"' in wager_loader

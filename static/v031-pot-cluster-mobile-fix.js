@@ -73,6 +73,13 @@
     const visualSeat = Number(seatEl?.dataset?.visualSeat ?? -1);
     const mobile = window.matchMedia?.("(max-width: 780px)")?.matches;
 
+    if (mobile && visualSeat === 0) {
+      return {
+        x: from.x + 66,
+        y: from.y - 30,
+      };
+    }
+
     if (mobile) {
       if (visualSeat === 2) {
         factor = 0.53;
