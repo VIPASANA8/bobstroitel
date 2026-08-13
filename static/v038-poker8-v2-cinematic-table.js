@@ -145,6 +145,7 @@
       body.v014.poker8-v2-sixmax .player-avatar{
         position:relative!important;
         width:74px!important;height:74px!important;
+        transition:border-color 220ms ease,box-shadow 220ms ease,filter 220ms ease!important;
         border:2px solid hsla(var(--seat-accent),100%,70%,.88)!important;
         background-image:var(--profile-avatar-image,radial-gradient(circle at 50% 32%,hsla(var(--seat-accent),62%,46%,.45),transparent 31%),radial-gradient(circle at 50% 78%,#07110e 0 42%,#010303 70%))!important;
         background-position:center!important;
@@ -174,6 +175,7 @@
       body.v014.poker8-v2-sixmax .seat-identity{
         position:absolute!important;z-index:6;left:50%!important;top:70px!important;transform:translateX(-50%)!important;
         width:96px!important;min-height:38px!important;padding:6px 7px 5px!important;border-radius:9px!important;
+        transition:border-color 220ms ease,box-shadow 220ms ease,filter 220ms ease!important;
         border:1px solid hsla(var(--seat-accent),90%,60%,.72)!important;background:linear-gradient(180deg,rgba(9,8,10,.98),rgba(1,3,4,.995))!important;
         box-shadow:0 0 12px hsla(var(--seat-accent),92%,55%,.24),0 7px 14px rgba(0,0,0,.62)!important;text-align:center!important;
       }
@@ -358,9 +360,19 @@
         border:0!important;background:transparent!important;box-shadow:none!important;outline:0!important;
       }
       body.v014.poker8-v2-sixmax .seat .seat-card.v032-active-turn .player-avatar{
-        border-color:#ffad49!important;
-        box-shadow:0 0 0 3px rgba(1,5,5,.92),0 0 20px rgba(255,143,35,.54),inset 0 -10px 18px rgba(0,0,0,.50)!important;
+        border-color:#55fff2!important;
+        box-shadow:0 0 0 3px rgba(1,5,5,.92),0 0 25px rgba(85,255,242,.78),inset 0 -10px 18px rgba(0,0,0,.50)!important;
       }
+      body.v014.poker8-v2-sixmax .seat .seat-card.v032-active-turn .player-avatar,
+      body.v014.poker8-v2-sixmax .seat .seat-card.v032-active-turn .seat-identity{
+        animation:v038ActiveTurnPulse 1.35s ease-in-out infinite;
+      }
+      body.v014.poker8-v2-sixmax .seat .seat-card.v032-active-turn .seat-identity{
+        border-color:#55fff2!important;
+        box-shadow:0 0 18px rgba(85,255,242,.66)!important;
+      }
+      @keyframes v038ActiveTurnPulse{50%{filter:brightness(1.16);box-shadow:0 0 0 4px rgba(1,5,5,.92),0 0 34px rgba(85,255,242,.94),inset 0 -10px 18px rgba(0,0,0,.50)}}
+      @media (prefers-reduced-motion:reduce){body.v014.poker8-v2-sixmax .seat .seat-card.v032-active-turn :is(.player-avatar,.seat-identity){animation:none!important;}}
       body.v014.poker8-v2-sixmax .seat .seat-card.v032-folded{
         opacity:.28!important;filter:saturate(.18) brightness(.68)!important;box-shadow:none!important;
       }
