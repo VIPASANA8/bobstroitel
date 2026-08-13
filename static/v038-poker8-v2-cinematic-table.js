@@ -142,6 +142,12 @@
       body.v014.poker8-v2-sixmax .avatar-wrap::after{right:-8px;transform:rotate(12deg);transform-origin:bottom left;}
       body.v014.poker8-v2-sixmax .seat-card:has(.player-cards:not(:empty)) .avatar-wrap::before,
       body.v014.poker8-v2-sixmax .seat-card:has(.player-cards:not(:empty)) .avatar-wrap::after{opacity:0;}
+      body.v014.poker8-v2-sixmax.v038-room-awaiting .avatar-wrap::before,
+      body.v014.poker8-v2-sixmax.v038-room-awaiting .avatar-wrap::after,
+      body.v014.poker8-v2-sixmax.v038-room-resetting .avatar-wrap::before,
+      body.v014.poker8-v2-sixmax.v038-room-resetting .avatar-wrap::after,
+      body.v014.poker8-v2-sixmax.v038-hand-complete .avatar-wrap::before,
+      body.v014.poker8-v2-sixmax.v038-hand-complete .avatar-wrap::after{opacity:0!important;}
 
       body.v014.poker8-v2-sixmax .player-avatar{
         position:relative!important;

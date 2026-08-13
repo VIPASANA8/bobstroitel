@@ -69,8 +69,8 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     wager_loader = (root / 'static' / 'v030-seat-ready-fix.js').read_text(encoding='utf-8')
     index_source = (root / 'static' / 'index.html').read_text(encoding='utf-8')
 
-    assert '/static/v038-poker8-v2-cinematic-table.js' in loader
-    assert '/static/v037-poker8-v2-reference-table.js' in component_loader
+    assert '/static/v038-poker8-v2-cinematic-table.js?v=room-cards-1' in loader
+    assert '/static/v037-poker8-v2-reference-table.js?v=room-cards-1' in component_loader
     assert '/static/v033-poker8-v2-polish.js' not in component_loader
     assert '/static/v034-poker8-v2-layout-lock.js' not in component_loader
     assert 'data-v038-poker8-v2-cinematic-table' in loader
@@ -218,6 +218,11 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'game = null' in source
     assert 'v038-room-resetting' in source
     assert 'body.v014.poker8-v2-sixmax.v038-room-resetting .player-cards{opacity:0!important;transform:translateX(-50%) translateY(-12px) scale(.92)!important;}' in source
+    assert 'body.v014.poker8-v2-sixmax.v038-room-awaiting .avatar-wrap::before' in source
+    assert 'body.v014.poker8-v2-sixmax.v038-room-awaiting .avatar-wrap::after' in source
+    assert 'body.v014.poker8-v2-sixmax.v038-room-resetting .avatar-wrap::before' in source
+    assert 'body.v014.poker8-v2-sixmax.v038-hand-complete .avatar-wrap::after' in source
+    assert 'opacity:0!important;' in source
     assert 'v038-room-prompt' in source
     assert '.v038-ready-countdown{\n        position:absolute;z-index:74;left:50%;top:calc(55% - 66px)' in source
     assert 'НОВАЯ РАЗДАЧА' in source
@@ -245,3 +250,4 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'radial-gradient(ellipse at 50% 18%,rgba(255,255,255,.36),transparent 48%)' in (root / 'static' / 'style.css').read_text(encoding='utf-8')
     assert '/static/style.css?v=chip-motion-1' in index_source
     assert '/static/app.js?v=chip-motion-1' in index_source
+    assert '/static/component-ui.js?v=room-cards-1' in index_source
