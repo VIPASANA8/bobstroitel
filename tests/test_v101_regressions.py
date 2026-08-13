@@ -97,6 +97,7 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert '.pot-chips .chip-column:nth-child(3n+2) .poker-chip' in source
     assert 'background:transparent!important' in source
     assert '.seat-identity{' in source and 'position:absolute!important' in source
+    assert '.seat-stack{margin-inline:auto!important' in source
     assert '.position-chip{display:none!important' in source
     assert '.seat-card > .v024-ready-badge{display:none!important' in source
     assert '.player-status:is(.status-fold,.status-turn,.status-thinking){display:none!important' in source

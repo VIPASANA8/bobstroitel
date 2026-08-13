@@ -179,6 +179,8 @@
       body.v014.poker8-v2-sixmax .seat-topline{display:block!important;}
       body.v014.poker8-v2-sixmax .seat-name{max-width:68px!important;font-size:9px!important;line-height:1!important;}
       body.v014.poker8-v2-sixmax .seat-stack{margin-top:3px!important;font-size:12px!important;line-height:1!important;color:var(--seat-neon)!important;}
+      body.v014.poker8-v2-sixmax .seat-name,
+      body.v014.poker8-v2-sixmax .seat-stack{margin-inline:auto!important;}
       body.v014.poker8-v2-sixmax .bot-level{display:none!important;}
       body.v014.poker8-v2-sixmax .position-chip{display:none!important;font-size:6px!important;padding:1px 3px!important;}
       body.v014.poker8-v2-sixmax .seat-meta{margin-top:3px!important;}
