@@ -64,7 +64,7 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert '@media (max-width:780px)' in source
     assert 'url("/static/assets/poker8-v2-table-mobile.webp")' in source
     assert '100vw calc(var(--table-stage-h) + 50px)' in source
-    assert 'background-position:center -50px' in source
+    assert 'background-position:center,center -50px' in source
     assert 'background:transparent!important' in source
     assert '--profile-avatar-image' in source
     assert 'compactStackLabel' in source
@@ -87,6 +87,8 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert '.seat-card:has(.player-cards:not(:empty)) .avatar-wrap::before' in source
     assert 'width:calc(100% - 44px)!important' in source
     assert 'box-sizing:border-box!important' in source
+    assert 'linear-gradient(90deg,transparent 0 6%,rgba(90,255,201,.85) 18%,rgba(10,204,139,.96) 50%,rgba(90,255,201,.85) 82%,transparent 94%)' in source
+    assert 'radial-gradient(ellipse at 50% 48%,rgba(7,126,75,.22),transparent 63%)' in source
     assert '.player-avatar::before{' in source
     assert '.player-avatar::after{' in source
     assert 'clip-path:polygon(50% 0,84% 16%,100% 72%,76% 92%,63% 68%,50% 61%,37% 68%,24% 92%,0 72%,16% 16%);' in source
