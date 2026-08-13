@@ -185,6 +185,7 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert '.seat-card.v032-active-turn .seat-identity' in source
     assert '@keyframes v038ActiveTurnPulse' in source
     assert '.seat .seat-card.v032-in-hand:not(.v032-active-turn){\n        border:0!important;background:transparent!important;box-shadow:none!important;outline:0!important;' in source
+    assert '.bet-marker span{\n        margin-top:-4px!important;padding:2px 6px!important;border:0!important;background:rgba(1,7,6,.84)!important;\n        color:#ecfff5!important;font-size:11px!important;font-weight:900!important;line-height:1!important;' in source
     assert 'left:calc(25% - 20.5px)' in source
     assert 'left:calc(75% + 20.5px)' in source
     assert 'invested > 0 ? `ПОСТАВИЛ · ${compactStackLabel(invested)}` : ""' in source

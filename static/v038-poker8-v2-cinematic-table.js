@@ -342,8 +342,9 @@
 
       body.v014.poker8-v2-sixmax .bet-marker .chip-cluster.compact{transform:scale(.82)!important;transform-origin:center bottom!important;}
       body.v014.poker8-v2-sixmax .bet-marker span{
-        margin-top:-7px!important;padding:1px 4px!important;border:0!important;background:rgba(1,7,6,.76)!important;
-        color:#ecfff5!important;font-size:7px!important;box-shadow:none!important;
+        margin-top:-4px!important;padding:2px 6px!important;border:0!important;background:rgba(1,7,6,.84)!important;
+        color:#ecfff5!important;font-size:11px!important;font-weight:900!important;line-height:1!important;
+        text-shadow:0 0 5px rgba(236,255,245,.42)!important;box-shadow:0 2px 5px rgba(0,0,0,.42)!important;
       }
 
       body.v014.poker8-v2-sixmax .dealer-button{
