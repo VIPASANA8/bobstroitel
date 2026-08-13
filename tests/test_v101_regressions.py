@@ -168,3 +168,11 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'source === "aggressive"' in source
     assert 'togglePendingAction("aggressive")' in source
     assert 'pendingAction?.kind === def.key' in source
+    assert '.amount-row{display:none!important' in source
+    assert 'min-height:39px!important;height:39px!important' in source
+    assert 'linear-gradient(90deg,#21b8ff 0%,#7357ff 34%,#ff39cf 68%,#ffc83d 100%)' in source
+    assert 'width:max-content;min-width:82px;max-width:116px' in source
+    assert 'text-align:center' in source
+    assert 'PRESET_SETTLE_MS = 1000' in source
+    assert 'scheduleSettledPreset' in source
+    assert 'stripHudUnit' in source

@@ -206,11 +206,11 @@
 
       body.v014.poker8-v2-sixmax .v038-turn-timer,
       body.v014.poker8-v2-sixmax .v038-turn-context{
-        position:absolute;z-index:73;bottom:9px;display:none;pointer-events:none;
+        position:absolute;z-index:73;bottom:22px;display:none;pointer-events:none;
       }
       body.v014.poker8-v2-sixmax .v038-turn-timer.visible{display:grid;}
       body.v014.poker8-v2-sixmax .v038-turn-timer{
-        left:22px;width:52px;height:52px;place-items:center;border-radius:50%;
+        left:calc((50% - 41px)/2);width:54px;height:54px;transform:translateX(-50%);place-items:center;border-radius:50%;
         background:conic-gradient(#ff38c7 var(--timer-progress,100%),rgba(255,56,199,.12) 0);
         filter:drop-shadow(0 0 9px rgba(255,56,199,.66));
       }
@@ -221,11 +221,11 @@
       body.v014.poker8-v2-sixmax .v038-turn-timer small{position:absolute;bottom:-11px;color:#ff87df;font-size:6px;font-weight:900;letter-spacing:.08em;}
       body.v014.poker8-v2-sixmax .v038-turn-context.visible{display:block;}
       body.v014.poker8-v2-sixmax .v038-turn-context{
-        right:14px;width:116px;min-height:43px;padding:7px 9px;border:1px solid #2de8df;border-radius:9px;
-        background:rgba(2,19,18,.92);color:#dffffc;text-align:left;box-shadow:0 0 14px rgba(45,232,223,.38);
+        right:12px;width:max-content;min-width:82px;max-width:116px;padding:6px 8px;border:1px solid #2de8df;border-radius:9px;
+        background:rgba(2,19,18,.92);color:#dffffc;text-align:center;box-shadow:0 0 14px rgba(45,232,223,.38);
       }
       body.v014.poker8-v2-sixmax .v038-turn-context strong{display:block;color:#55fff2;font-size:9px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-      body.v014.poker8-v2-sixmax .v038-turn-context span{display:block;margin-top:4px;color:#ecfffd;font-size:8px;font-weight:850;line-height:1;}
+      body.v014.poker8-v2-sixmax .v038-turn-context span{display:block;margin-top:3px;color:#ecfffd;font-size:8px;font-weight:850;line-height:1;}
 
       body.v014.poker8-v2-sixmax.v028-prehand-center-ready .seat[data-visual-seat="0"] .avatar-wrap{
         cursor:pointer!important;
@@ -381,16 +381,16 @@
       body.v014.poker8-v2-sixmax .sizing-wrap{display:contents!important;}
       body.v014.poker8-v2-sixmax .sizing-wrap > label{display:none!important;}
       body.v014.poker8-v2-sixmax .quick-sizes{
-        position:absolute!important;left:8px;right:8px;top:34px!important;height:28px;
+        position:absolute!important;left:8px;right:8px;top:35px!important;height:39px;
         display:grid!important;grid-template-columns:repeat(5,1fr)!important;gap:4px!important;
       }
       body.v014.poker8-v2-sixmax .quick-sizes button{
-        min-height:27px!important;height:27px!important;padding:1px 2px!important;border-radius:6px!important;font-size:7px!important;
+        min-height:39px!important;height:39px!important;padding:3px 2px!important;border-radius:6px!important;font-size:8px!important;
         color:#fff!important;text-shadow:0 0 5px rgba(255,255,255,.48)!important;
         transition:color 180ms ease,border-color 180ms ease,box-shadow 180ms ease,background 180ms ease!important;
       }
-      body.v014.poker8-v2-sixmax .quick-sizes button strong{font-size:8px!important;line-height:1!important;color:#fff!important;}
-      body.v014.poker8-v2-sixmax .quick-sizes button small{font-size:6px!important;line-height:1!important;color:#f4f7ff!important;}
+      body.v014.poker8-v2-sixmax .quick-sizes button strong{display:block;font-size:9px!important;line-height:1!important;color:#fff!important;}
+      body.v014.poker8-v2-sixmax .quick-sizes button small{display:block;margin-top:3px;font-size:8px!important;line-height:1!important;color:#f4f7ff!important;}
       body.v014.poker8-v2-sixmax .quick-sizes button.v038-max-size{
         color:#fff5bd!important;border-color:rgba(255,196,77,.88)!important;background:rgba(45,31,6,.78)!important;
         box-shadow:0 0 11px rgba(255,184,45,.28),inset 0 0 8px rgba(255,196,77,.10)!important;
@@ -399,18 +399,31 @@
         color:#fff!important;border-color:#ff3bd5!important;background:rgba(55,4,47,.94)!important;
         box-shadow:0 0 0 1px rgba(255,59,213,.45),0 0 13px rgba(255,59,213,.72),inset 0 0 10px rgba(255,59,213,.16)!important;
       }
-      body.v014.poker8-v2-sixmax .bet-slider-row{order:3;height:22px!important;padding:0 5px!important;}
       body.v014.poker8-v2-sixmax .bet-slider-row{
-        position:absolute!important;left:8px;right:8px;top:98px!important;height:20px!important;padding:0 5px!important;
+        position:absolute!important;left:10px;right:10px;top:79px!important;height:25px!important;padding:0!important;
+        display:block!important;
       }
-      body.v014.poker8-v2-sixmax #amountSlider{height:18px!important;}
-      body.v014.poker8-v2-sixmax .amount-row{
-        position:absolute!important;left:8px;right:8px;top:64px!important;
-        min-height:31px!important;height:31px!important;margin:0!important;padding:1px!important;border-radius:8px!important;
+      body.v014.poker8-v2-sixmax .bet-slider-row span{display:none!important;}
+      body.v014.poker8-v2-sixmax #amountSlider{
+        width:100%!important;height:25px!important;margin:0!important;appearance:none!important;background:transparent!important;
       }
-      body.v014.poker8-v2-sixmax .amount-row::before{display:none!important;content:none!important;}
-      body.v014.poker8-v2-sixmax .amount-step{width:32px!important;height:27px!important;}
-      body.v014.poker8-v2-sixmax .amount-row input[type=number]{height:27px!important;font-size:16px!important;}
+      body.v014.poker8-v2-sixmax #amountSlider::-webkit-slider-runnable-track{
+        height:6px;border:0;border-radius:999px;background:linear-gradient(90deg,#21b8ff 0%,#7357ff 34%,#ff39cf 68%,#ffc83d 100%);
+        box-shadow:0 0 8px rgba(65,196,255,.55),0 0 10px rgba(255,57,207,.38);
+      }
+      body.v014.poker8-v2-sixmax #amountSlider::-moz-range-track{
+        height:6px;border:0;border-radius:999px;background:linear-gradient(90deg,#21b8ff 0%,#7357ff 34%,#ff39cf 68%,#ffc83d 100%);
+        box-shadow:0 0 8px rgba(65,196,255,.55),0 0 10px rgba(255,57,207,.38);
+      }
+      body.v014.poker8-v2-sixmax #amountSlider::-webkit-slider-thumb{
+        width:17px;height:17px;margin-top:-6px;appearance:none;border:2px solid #fff;border-radius:50%;background:#ff3bd2;
+        box-shadow:0 0 0 2px rgba(255,59,210,.32),0 0 12px #ff3bd2;
+      }
+      body.v014.poker8-v2-sixmax #amountSlider::-moz-range-thumb{
+        width:17px;height:17px;border:2px solid #fff;border-radius:50%;background:#ff3bd2;
+        box-shadow:0 0 0 2px rgba(255,59,210,.32),0 0 12px #ff3bd2;
+      }
+      body.v014.poker8-v2-sixmax .amount-row{display:none!important;}
       body.v014.poker8-v2-sixmax .action-grid{
         order:5;display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-template-rows:repeat(2,44px)!important;gap:5px!important;
         position:absolute!important;z-index:4;left:8px;right:8px;bottom:4px!important;height:93px!important;
@@ -650,15 +663,42 @@
   let allInArmedSource = "";
   let allInArmedFingerprint = "";
   let allInTimer = 0;
+  let presetSettleTimer = 0;
   const ALL_IN_CONFIRM_MS = 3000;
+  const PRESET_SETTLE_MS = 1000;
+
+  const stripHudUnit = value => String(value ?? "").replace(/\s*ББ\s*$/i, "").trim();
 
   function clearPresetSelection() {
     document.querySelectorAll(".quick-sizes .v038-size-selected").forEach(button => button.classList.remove("v038-size-selected"));
   }
 
   function selectPreset(button) {
+    window.clearTimeout(presetSettleTimer);
+    presetSettleTimer = 0;
     clearPresetSelection();
     button?.classList.add("v038-size-selected");
+  }
+
+  function presetAmount(button) {
+    const input = document.getElementById("amount");
+    if (button.classList.contains("v038-min-size")) return Number(input?.min || 0);
+    if (button.classList.contains("v038-max-size")) return Number(input?.max || 0);
+    return presetTarget(Number(button.dataset.sizing || 0));
+  }
+
+  function scheduleSettledPreset() {
+    window.clearTimeout(presetSettleTimer);
+    clearPresetSelection();
+    presetSettleTimer = window.setTimeout(() => {
+      presetSettleTimer = 0;
+      const amount = Number(document.getElementById("amount")?.value || 0);
+      const buttons = [...document.querySelectorAll(".quick-sizes button")];
+      const nearest = buttons.reduce((best, button) => (
+        !best || Math.abs(presetAmount(button) - amount) < Math.abs(presetAmount(best) - amount) ? button : best
+      ), null);
+      selectPreset(nearest);
+    }, PRESET_SETTLE_MS);
   }
 
   function setAmountToBoundary(kind, button) {
@@ -719,6 +759,7 @@
     });
     setText(min, "MIN");
     setText(original[3], "MAX");
+    row.querySelectorAll("button small").forEach(value => setText(value, stripHudUnit(value.textContent)));
   }
 
   function clearAllInConfirmation(render = true) {
@@ -775,15 +816,15 @@
     if (!summary) {
       summary = document.createElement("div");
       summary.className = "v038-hud-summary";
-      summary.innerHTML = '<span>УРАВНЯТЬ<b data-v038-call>0.00 ББ</b></span><span>БАНК<b data-v038-pot>0.00 ББ</b></span><span>СТАВКА<b data-v038-bet>0.00 ББ</b></span>';
+      summary.innerHTML = '<span>УРАВНЯТЬ<b data-v038-call>0.00</b></span><span>БАНК<b data-v038-pot>0.00</b></span><span>СТАВКА<b data-v038-bet>0.00</b></span>';
       panel.prepend(summary);
     }
     const call = typeof estimatedLocalToCall === "function" ? formatBB(estimatedLocalToCall()) : "0.00 ББ";
     const pot = document.getElementById("pot")?.textContent?.trim() || "0.00 ББ";
     const amount = document.getElementById("amount")?.value || "0.00";
-    setText(summary.querySelector("[data-v038-call]"), call);
-    setText(summary.querySelector("[data-v038-pot]"), pot);
-    setText(summary.querySelector("[data-v038-bet]"), `${amount} ББ`);
+    setText(summary.querySelector("[data-v038-call]"), stripHudUnit(call));
+    setText(summary.querySelector("[data-v038-pot]"), stripHudUnit(pot));
+    setText(summary.querySelector("[data-v038-bet]"), stripHudUnit(amount));
   }
 
   function configureReferenceActions() {
@@ -804,10 +845,10 @@
       clearAllInConfirmation(false);
     }
     const defs = [
-      { key:"call", label:"CALL", amount:formatBB(toCall), cls:"call" },
-      { key:"all_in", label:allInArmedSource === "all_in" ? "CONFIRM" : "ALL IN", amount:formatBB(allInTotal), cls:"all-in", allIn:true },
+      { key:"call", label:"CALL", amount:stripHudUnit(formatBB(toCall)), cls:"call" },
+      { key:"all_in", label:allInArmedSource === "all_in" ? "CONFIRM" : "ALL IN", amount:stripHudUnit(formatBB(allInTotal)), cls:"all-in", allIn:true },
       { key:leftKey, label:leftKey === "check" ? "CHECK" : "FOLD", amount:"", cls:leftKey },
-      { key:"aggressive", label:allInArmedSource === "aggressive" ? "CONFIRM" : atMax ? "ALL IN" : aggressiveLabel, amount:formatBB(atMax ? allInTotal : amount), cls:atMax ? "all-in" : "raise", allIn:atMax },
+      { key:"aggressive", label:allInArmedSource === "aggressive" ? "CONFIRM" : atMax ? "ALL IN" : aggressiveLabel, amount:stripHudUnit(formatBB(atMax ? allInTotal : amount)), cls:atMax ? "all-in" : "raise", allIn:atMax },
     ];
     if (current.length !== 4) {
       grid.innerHTML = "";
@@ -872,6 +913,8 @@
     referenceActive = false;
     clearAllInConfirmation(false);
     clearPresetSelection();
+    window.clearTimeout(presetSettleTimer);
+    presetSettleTimer = 0;
     window.clearInterval(turnVisualTicker);
     turnVisualTicker = 0;
     turnVisualToken = "";
@@ -943,7 +986,8 @@
     if (sizing && !sizing.dataset.v038InputSync) {
       sizing.dataset.v038InputSync = "1";
       sizing.addEventListener("input", event => {
-        clearPresetSelection();
+        if (event.target?.matches?.("#amountSlider")) scheduleSettledPreset();
+        else clearPresetSelection();
         clearAllInConfirmation(false);
         queueSync();
       });
