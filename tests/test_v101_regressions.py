@@ -180,3 +180,5 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'const host = document.querySelector(".table-frame")' in source
     assert '.v038-turn-context strong{display:block;color:#55fff2;font-size:11px' in source
     assert '.v038-turn-context span{display:block;margin-top:3px;color:#ecfffd;font-size:10px' in source
+    assert "mark.innerHTML = '<b>✓</b>'" in source
+    assert 'mark.querySelector("small")' not in source

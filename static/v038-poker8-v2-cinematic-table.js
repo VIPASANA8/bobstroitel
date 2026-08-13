@@ -525,7 +525,7 @@
     if (!mark) {
       mark = document.createElement("span");
       mark.className = "v038-ready-mark";
-      mark.innerHTML = '<b>✓</b><small>5</small>';
+      mark.innerHTML = '<b>✓</b>';
       wrap.appendChild(mark);
     }
     const ready = viewerReadySnapshot;
@@ -541,8 +541,6 @@
       wrap.removeAttribute("tabindex");
       wrap.removeAttribute("aria-label");
     }
-    const seconds = Math.max(0, Math.ceil((readyCountdownEndsAt - Date.now()) / 1000));
-    setText(mark.querySelector("small"), String(seconds || 5));
   }
 
   function syncAllSeatReadyMarks() {
