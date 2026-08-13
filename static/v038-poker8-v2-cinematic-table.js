@@ -352,8 +352,7 @@
       }
 
       body.v014.poker8-v2-sixmax .seat .seat-card.v032-in-hand:not(.v032-active-turn){
-        border-color:hsla(var(--seat-accent),90%,60%,.72)!important;
-        box-shadow:0 0 12px hsla(var(--seat-accent),92%,55%,.20),0 8px 17px rgba(0,0,0,.58)!important;
+        border:0!important;background:transparent!important;box-shadow:none!important;outline:0!important;
       }
       body.v014.poker8-v2-sixmax .seat .seat-card.v032-active-turn{
         border:0!important;background:transparent!important;box-shadow:none!important;outline:0!important;
