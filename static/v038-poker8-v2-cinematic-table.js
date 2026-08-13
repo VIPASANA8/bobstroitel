@@ -307,7 +307,7 @@
       body.v014.poker8-v2-sixmax .player-cards .card.back:first-child{transform:rotate(-8deg) translateX(2px)!important;}
       body.v014.poker8-v2-sixmax .player-cards .card.back:last-child{transform:rotate(8deg) translateX(-2px)!important;}
 
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .player-cards{top:-29px!important;z-index:9!important;gap:4px!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .player-cards{top:-47px!important;z-index:9!important;gap:4px!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .player-cards .card{
         width:43px!important;height:61px!important;border-radius:6px!important;
         background:linear-gradient(150deg,#07110d,#010303)!important;
