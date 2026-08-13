@@ -126,15 +126,15 @@
         content:"";
         position:absolute;
         z-index:-2;
-        top:-20px;
-        width:36px;height:48px;
+        top:-23px;
+        width:39px;height:52px;
         border:1px solid hsla(var(--seat-accent),95%,72%,.78);
         border-radius:5px;
         background:
           radial-gradient(circle at 50% 48%,transparent 0 5px,hsla(var(--seat-accent),85%,72%,.35) 5px 6px,transparent 6px),
           repeating-linear-gradient(45deg,hsla(var(--seat-accent),65%,36%,.74) 0 3px,hsla(var(--seat-accent),65%,15%,.96) 3px 6px),
           #050707;
-        box-shadow:inset 0 0 0 2px rgba(0,0,0,.54),0 0 10px hsla(var(--seat-accent),95%,56%,.28),0 5px 9px rgba(0,0,0,.55);
+        box-shadow:inset 0 0 0 2px rgba(0,0,0,.54),0 0 13px hsla(var(--seat-accent),95%,56%,.34),0 6px 10px rgba(0,0,0,.58);
       }
       body.v014.poker8-v2-sixmax .avatar-wrap::before{left:-8px;transform:rotate(-12deg);transform-origin:bottom right;}
       body.v014.poker8-v2-sixmax .avatar-wrap::after{right:-8px;transform:rotate(12deg);transform-origin:bottom left;}
@@ -286,7 +286,7 @@
         position:absolute!important;z-index:2!important;left:50%!important;top:-13px!important;bottom:auto!important;transform:translateX(-50%)!important;margin:0!important;min-height:0!important;gap:2px!important;
       }
       body.v014.poker8-v2-sixmax .player-cards .card.back{
-        width:30px!important;height:42px!important;border-radius:5px!important;
+        width:34px!important;height:48px!important;border-radius:5px!important;
         border:1px solid hsla(var(--seat-accent),95%,75%,.80)!important;
         background:
           radial-gradient(circle at center,transparent 0 6px,hsla(var(--seat-accent),90%,74%,.42) 6px 7px,transparent 7px),
@@ -313,7 +313,7 @@
 
       body.v014.poker8-v2-sixmax .board-cards{gap:3px!important;}
       body.v014.poker8-v2-sixmax .board-cards .card{
-        width:42px!important;height:59px!important;
+        width:45px!important;height:63px!important;
         border:1px solid rgba(98,255,170,.82)!important;border-radius:5px!important;
         background:linear-gradient(150deg,#07110d 0%,#010303 100%)!important;
         color:#ecfff4!important;
@@ -327,16 +327,16 @@
         box-shadow:inset 0 0 12px rgba(57,228,152,.04),0 4px 11px rgba(0,0,0,.34)!important;
       }
       body.v014.poker8-v2-sixmax .pot-total-label{font-size:8px!important;letter-spacing:.08em!important;}
-      body.v014.poker8-v2-sixmax .pot-total strong{font-size:18px!important;line-height:1!important;}
+      body.v014.poker8-v2-sixmax .pot-total strong{font-size:20px!important;line-height:1!important;}
 
-      body.v014.poker8-v2-sixmax .pot-chips .chip-cluster.pot-cluster{height:48px!important;min-width:112px!important;filter:drop-shadow(0 7px 5px rgba(0,0,0,.48))!important;}
-      body.v014.poker8-v2-sixmax .pot-chips .chip-column.pot-stack{width:19px!important;height:44px!important;}
+      body.v014.poker8-v2-sixmax .pot-chips .chip-cluster.pot-cluster{height:52px!important;min-width:124px!important;filter:drop-shadow(0 8px 6px rgba(0,0,0,.54))!important;}
+      body.v014.poker8-v2-sixmax .pot-chips .chip-column.pot-stack{width:22px!important;height:48px!important;}
       body.v014.poker8-v2-sixmax .pot-chips .poker-chip{
-        width:19px!important;height:8px!important;border-width:1px!important;
-        transform:translateX(-50%) translateY(calc(var(--i) * -3.2px))!important;
-        box-shadow:0 2px 2px rgba(0,0,0,.50),inset 0 2px 0 rgba(255,255,255,.24),inset 0 -3px 0 rgba(0,0,0,.36)!important;
+        width:22px!important;height:9px!important;border-width:1px!important;
+        transform:translateX(-50%) translateY(calc(var(--i) * -3.6px))!important;
+        box-shadow:0 2px 3px rgba(0,0,0,.58),inset 0 2px 0 rgba(255,255,255,.28),inset 0 -3px 0 rgba(0,0,0,.40)!important;
       }
-      body.v014.poker8-v2-sixmax .pot-chips .poker-chip::before{left:3px!important;right:3px!important;height:3px!important;}
+      body.v014.poker8-v2-sixmax .pot-chips .poker-chip::before{left:3px!important;right:3px!important;height:4px!important;}
       body.v014.poker8-v2-sixmax .pot-chips .chip-column:nth-child(3n+2) .poker-chip{filter:hue-rotate(92deg) saturate(1.45)!important;}
       body.v014.poker8-v2-sixmax .pot-chips .chip-column:nth-child(3n) .poker-chip{filter:hue-rotate(214deg) saturate(1.35)!important;}
 

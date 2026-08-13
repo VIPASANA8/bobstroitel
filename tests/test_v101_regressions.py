@@ -90,6 +90,10 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert '.player-avatar::before{' in source
     assert '.player-avatar::after{' in source
     assert 'clip-path:polygon(50% 0,84% 16%,100% 72%,76% 92%,63% 68%,50% 61%,37% 68%,24% 92%,0 72%,16% 16%);' in source
+    assert 'width:34px!important;height:48px!important;border-radius:5px!important;' in source
+    assert 'width:45px!important;height:63px!important;' in source
+    assert 'font-size:20px!important;line-height:1!important;' in source
+    assert 'width:22px!important;height:9px!important;border-width:1px!important;' in source
     assert '.player-avatar span{opacity:0!important' in source
     assert '.player-avatar[style*="--profile-avatar-image"]::before' in source
     assert 'overflow:visible!important' in source
