@@ -84,20 +84,7 @@
       }
 
       body.v014.poker8-v2-sixmax .felt::before,
-      body.v014.poker8-v2-sixmax .felt::after{display:block!important;content:""!important;pointer-events:none!important;}
-      body.v014.poker8-v2-sixmax .felt::before{
-        position:absolute!important;z-index:0!important;inset:8px!important;border-radius:inherit!important;
-        border:1px solid rgba(9,132,85,.54)!important;
-        box-shadow:inset 0 0 20px rgba(0,0,0,.40),0 0 18px rgba(16,238,156,.18)!important;
-        background:radial-gradient(ellipse at 50% 48%,rgba(7,126,75,.22),transparent 63%)!important;
-      }
-      body.v014.poker8-v2-sixmax .felt::after{
-        position:absolute!important;z-index:1!important;inset:14px!important;border-radius:inherit!important;
-        border-top:2px solid transparent!important;border-bottom:2px solid transparent!important;
-        border-image:linear-gradient(90deg,transparent 0 6%,rgba(90,255,201,.85) 18%,rgba(10,204,139,.96) 50%,rgba(90,255,201,.85) 82%,transparent 94%) 1!important;
-        box-shadow:0 0 12px rgba(39,255,177,.36),inset 0 0 16px rgba(0,255,166,.08)!important;
-      }
-      body.v014.poker8-v2-sixmax .felt > *{z-index:2!important;}
+      body.v014.poker8-v2-sixmax .felt::after{display:none!important;}
 
       body.v014.poker8-v2-sixmax .felt :is(.seat-card,.board-cards .card,.pot-total>*,.pot-chips>*,.bet-marker>*){
         rotate:x -5deg;
