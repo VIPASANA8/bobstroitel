@@ -154,18 +154,20 @@
         font-size:13px!important;
       }
       body.v014.poker8-v2-sixmax .player-avatar span{opacity:0!important;}
+      /* Fallback avatar: low-poly pigeon, replaced by profile imagery when available. */
       body.v014.poker8-v2-sixmax .player-avatar::before{
-        content:"";position:absolute;z-index:2;left:16%;right:16%;top:14%;height:52%;border-radius:48% 48% 42% 42% / 54% 54% 32% 32%;
+        content:"";position:absolute;z-index:2;inset:5% 10% 3%;
         background:
-          radial-gradient(ellipse at 50% 45%,rgba(3,10,8,.22) 0 24%,rgba(0,2,2,.90) 55%,#000 76%),
-          linear-gradient(135deg,hsla(var(--seat-accent),58%,24%,.62),#010303 58%);
-        clip-path:polygon(50% 0,84% 16%,100% 72%,76% 92%,63% 68%,50% 61%,37% 68%,24% 92%,0 72%,16% 16%);
-        filter:drop-shadow(0 0 5px hsla(var(--seat-accent),92%,60%,.32));
+          linear-gradient(140deg,transparent 0 25%,rgba(126,246,255,.88) 25% 34%,#1b6583 34% 49%,#06131d 49% 66%,#0d3958 66% 79%,transparent 79%),
+          linear-gradient(25deg,transparent 0 34%,#05121c 34% 54%,#175d7c 54% 71%,rgba(133,242,255,.78) 71% 80%,transparent 80%),
+          radial-gradient(ellipse at 50% 31%,#c3fbff 0 8%,#0a2437 9% 22%,transparent 23%);
+        clip-path:polygon(51% 1%,67% 12%,75% 30%,67% 44%,80% 59%,72% 96%,27% 96%,19% 60%,35% 44%,27% 30%,35% 12%);
+        filter:drop-shadow(0 0 5px hsla(var(--seat-accent),92%,60%,.42));
       }
       body.v014.poker8-v2-sixmax .player-avatar::after{
-        content:"";position:absolute;z-index:1;left:7%;right:7%;bottom:-3%;height:54%;border-radius:50% 50% 42% 42%;
-        background:radial-gradient(ellipse at 50% 0,hsla(var(--seat-accent),52%,24%,.30),transparent 50%),linear-gradient(160deg,#07100d,#000 72%);
-        clip-path:polygon(17% 13%,39% 0,61% 0,83% 13%,100% 100%,0 100%);
+        content:"";position:absolute;z-index:1;left:17%;right:17%;bottom:6%;height:31%;
+        background:linear-gradient(145deg,#072238 0 30%,#0f5673 30% 56%,#02090f 56% 76%,#1c7695 76%);
+        clip-path:polygon(50% 0,100% 100%,0 100%);filter:drop-shadow(0 0 5px rgba(66,211,255,.42));
       }
       body.v014.poker8-v2-sixmax .player-avatar[style*="--profile-avatar-image"]::before,
       body.v014.poker8-v2-sixmax .player-avatar[style*="--profile-avatar-image"]::after{display:none!important;}
