@@ -46,6 +46,17 @@ def test_v037_reference_table_pass_is_loaded_and_chat_is_decorative():
     assert '@media (max-width:780px)' in source
 
 
+def test_v025_showdown_modal_is_readable_on_mobile():
+    root = Path(__file__).resolve().parents[1]
+    source = (root / 'static' / 'v025-showdown-compare.js').read_text(encoding='utf-8')
+
+    assert 'grid-template-columns:84px 75px minmax(0,1fr);' in source
+    assert '.v025-who b{display:block;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#eef5ff;font-size:12px;' in source
+    assert 'width:34px;' in source and 'height:46px;' in source
+    assert '.v025-hand{color:#dbe6f5;font-size:11px;' in source
+    assert '.v025-reason{\n        margin-top:5px;' in source
+
+
 def test_v038_cinematic_table_is_mobile_presentation_only():
     root = Path(__file__).resolve().parents[1]
     loader = (root / 'static' / 'v037-poker8-v2-reference-table.js').read_text(encoding='utf-8')
