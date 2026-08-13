@@ -97,7 +97,7 @@
         border-image:linear-gradient(90deg,transparent 0 6%,rgba(90,255,201,.85) 18%,rgba(10,204,139,.96) 50%,rgba(90,255,201,.85) 82%,transparent 94%) 1!important;
         box-shadow:0 0 12px rgba(39,255,177,.36),inset 0 0 16px rgba(0,255,166,.08)!important;
       }
-      body.v014.poker8-v2-sixmax .felt > *{position:relative;z-index:2;}
+      body.v014.poker8-v2-sixmax .felt > *{z-index:2!important;}
 
       body.v014.poker8-v2-sixmax .felt :is(.seat-card,.board-cards .card,.pot-total>*,.pot-chips>*,.bet-marker>*){
         rotate:x -5deg;
