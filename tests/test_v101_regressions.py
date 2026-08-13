@@ -176,3 +176,7 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'PRESET_SETTLE_MS = 1000' in source
     assert 'scheduleSettledPreset' in source
     assert 'stripHudUnit' in source
+    assert '.seat-card::after{display:none!important' in source
+    assert 'const host = document.querySelector(".table-frame")' in source
+    assert '.v038-turn-context strong{display:block;color:#55fff2;font-size:11px' in source
+    assert '.v038-turn-context span{display:block;margin-top:3px;color:#ecfffd;font-size:10px' in source

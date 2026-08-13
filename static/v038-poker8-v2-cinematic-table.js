@@ -113,15 +113,7 @@
         border:0!important;background:transparent!important;box-shadow:none!important;outline:0!important;
       }
 
-      body.v014.poker8-v2-sixmax .seat-card::after{
-        content:"";
-        position:absolute;
-        z-index:2;
-        left:16px;right:16px;top:80px;height:2px;border-radius:100%;
-        background:linear-gradient(90deg,transparent,hsla(var(--seat-accent),100%,78%,.76),transparent);
-        box-shadow:0 0 8px hsla(var(--seat-accent),100%,62%,.62);
-        pointer-events:none;
-      }
+      body.v014.poker8-v2-sixmax .seat-card::after{display:none!important;content:none!important;}
 
       body.v014.poker8-v2-sixmax .avatar-wrap{
         position:absolute!important;z-index:4;left:50%!important;top:4px!important;transform:translateX(-50%)!important;
@@ -206,7 +198,7 @@
 
       body.v014.poker8-v2-sixmax .v038-turn-timer,
       body.v014.poker8-v2-sixmax .v038-turn-context{
-        position:absolute;z-index:73;bottom:22px;display:none;pointer-events:none;
+        position:absolute;z-index:73;bottom:18px;display:none;pointer-events:none;
       }
       body.v014.poker8-v2-sixmax .v038-turn-timer.visible{display:grid;}
       body.v014.poker8-v2-sixmax .v038-turn-timer{
@@ -224,8 +216,8 @@
         right:12px;width:max-content;min-width:82px;max-width:116px;padding:6px 8px;border:1px solid #2de8df;border-radius:9px;
         background:rgba(2,19,18,.92);color:#dffffc;text-align:center;box-shadow:0 0 14px rgba(45,232,223,.38);
       }
-      body.v014.poker8-v2-sixmax .v038-turn-context strong{display:block;color:#55fff2;font-size:9px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-      body.v014.poker8-v2-sixmax .v038-turn-context span{display:block;margin-top:3px;color:#ecfffd;font-size:8px;font-weight:850;line-height:1;}
+      body.v014.poker8-v2-sixmax .v038-turn-context strong{display:block;color:#55fff2;font-size:11px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+      body.v014.poker8-v2-sixmax .v038-turn-context span{display:block;margin-top:3px;color:#ecfffd;font-size:10px;font-weight:850;line-height:1;}
 
       body.v014.poker8-v2-sixmax.v028-prehand-center-ready .seat[data-visual-seat="0"] .avatar-wrap{
         cursor:pointer!important;
@@ -583,21 +575,21 @@
   }
 
   function syncTableTurnHud() {
-    const felt = document.querySelector(".felt");
-    if (!felt) return;
-    let timer = felt.querySelector(".v038-turn-timer");
-    let context = felt.querySelector(".v038-turn-context");
+    const host = document.querySelector(".table-frame");
+    if (!host) return;
+    let timer = host.querySelector(".v038-turn-timer");
+    let context = host.querySelector(".v038-turn-context");
     if (!timer) {
       timer = document.createElement("div");
       timer.className = "v038-turn-timer";
       timer.innerHTML = '<b>30</b><small>СЕК</small>';
-      felt.appendChild(timer);
+      host.appendChild(timer);
     }
     if (!context) {
       context = document.createElement("div");
       context.className = "v038-turn-context";
       context.innerHTML = "<strong></strong><span></span>";
-      felt.appendChild(context);
+      host.appendChild(context);
     }
     const active = Boolean(game && !game.terminal && game.acting_player);
     timer.classList.toggle("visible", active);
