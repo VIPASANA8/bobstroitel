@@ -199,6 +199,7 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'roomResetHandId' in source
     assert 'game = null' in source
     assert 'v038-room-resetting' in source
+    assert 'body.v014.poker8-v2-sixmax.v038-room-resetting .player-cards{opacity:0!important;transform:translateX(-50%) translateY(-12px) scale(.92)!important;}' in source
     assert 'v038-room-prompt' in source
     assert '.v038-ready-countdown{\n        position:absolute;z-index:74;left:50%;top:calc(55% - 66px)' in source
     assert 'НОВАЯ РАЗДАЧА' in source
