@@ -190,6 +190,7 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'game = null' in source
     assert 'v038-room-resetting' in source
     assert 'v038-room-prompt' in source
+    assert '.v038-ready-countdown{\n        position:absolute;z-index:74;left:50%;top:calc(55% - 66px)' in source
     assert 'НОВАЯ РАЗДАЧА' in source
     assert 'Нажмите на свою аватарку' in source
     assert 'previousQueueAutomation' in source

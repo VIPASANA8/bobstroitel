@@ -191,7 +191,7 @@
       body.v014.poker8-v2-sixmax .deck-anchor{display:none!important;}
 
       body.v014.poker8-v2-sixmax .v038-ready-countdown{
-        position:absolute;z-index:74;left:50%;top:55%;transform:translate(-50%,-50%);
+        position:absolute;z-index:74;left:50%;top:calc(55% - 66px);transform:translate(-50%,-50%);
         display:none;place-items:center;width:62px;height:62px;border-radius:50%;
         border:2px solid #72ffb5;background:rgba(1,20,13,.88);color:#e8fff3;
         box-shadow:0 0 0 3px rgba(0,5,3,.72),0 0 22px rgba(72,255,169,.58),inset 0 0 18px rgba(70,255,170,.14);
