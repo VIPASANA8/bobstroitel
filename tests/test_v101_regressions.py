@@ -89,8 +89,7 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'box-sizing:border-box!important' in source
     assert '.player-avatar::before{' in source
     assert '.player-avatar::after{' in source
-    assert '/* Fallback avatar: low-poly pigeon, replaced by profile imagery when available. */' in source
-    assert 'clip-path:polygon(51% 1%,67% 12%,75% 30%,67% 44%,80% 59%,72% 96%,27% 96%,19% 60%,35% 44%,27% 30%,35% 12%);' in source
+    assert 'clip-path:polygon(50% 0,84% 16%,100% 72%,76% 92%,63% 68%,50% 61%,37% 68%,24% 92%,0 72%,16% 16%);' in source
     assert '.player-avatar span{opacity:0!important' in source
     assert '.player-avatar[style*="--profile-avatar-image"]::before' in source
     assert 'overflow:visible!important' in source
