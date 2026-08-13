@@ -225,3 +225,5 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert '.v038-turn-context span{display:block;margin-top:3px;color:#ecfffd;font-size:10px' in source
     assert "mark.innerHTML = '<b>✓</b>'" in source
     assert 'mark.querySelector("small")' not in source
+    assert "closest?.('.seat[data-visual-seat=\"0\"], .v038-room-prompt')" in source
+    assert 'pointer-events:auto;cursor:pointer;' in source

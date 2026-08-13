@@ -272,7 +272,7 @@
       body.v014.poker8-v2-sixmax .v038-room-prompt{
         position:absolute;z-index:72;left:50%;top:55%;transform:translate(-50%,-50%);display:none;width:max-content;max-width:78%;
         padding:10px 14px;border:1px solid rgba(61,235,190,.58);border-radius:12px;background:rgba(1,18,13,.88);text-align:center;
-        box-shadow:0 0 18px rgba(46,239,186,.22);pointer-events:none;
+        box-shadow:0 0 18px rgba(46,239,186,.22);pointer-events:auto;cursor:pointer;
       }
       body.v014.poker8-v2-sixmax .v038-room-prompt.visible{display:block;}
       body.v014.poker8-v2-sixmax .v038-room-prompt strong{display:block;color:#7dffd0;font-size:13px;line-height:1.05;letter-spacing:.06em;}
@@ -694,6 +694,9 @@
       prompt = document.createElement("div");
       prompt.className = "v038-room-prompt";
       prompt.innerHTML = "<strong>НОВАЯ РАЗДАЧА</strong><span>Нажмите на свою аватарку</span>";
+      prompt.setAttribute("role", "button");
+      prompt.setAttribute("tabindex", "0");
+      prompt.setAttribute("aria-label", "Готов к новой раздаче");
       felt.appendChild(prompt);
     }
     return prompt;
@@ -1131,11 +1134,11 @@
     syncAvatarReadyControl();
   });
   document.addEventListener("click", event => {
-    if (!isMobileV2() || game || !event.target?.closest?.('.seat[data-visual-seat="0"] .avatar-wrap')) return;
+    if (!isMobileV2() || game || !event.target?.closest?.('.seat[data-visual-seat="0"], .v038-room-prompt')) return;
     window.dispatchEvent(new CustomEvent("poker8:toggle-ready"));
   });
   document.addEventListener("keydown", event => {
-    if (!isMobileV2() || game || !["Enter", " "].includes(event.key) || !event.target?.matches?.('.seat[data-visual-seat="0"] .avatar-wrap')) return;
+    if (!isMobileV2() || game || !["Enter", " "].includes(event.key) || !event.target?.matches?.('.seat[data-visual-seat="0"] .avatar-wrap, .v038-room-prompt')) return;
     event.preventDefault();
     window.dispatchEvent(new CustomEvent("poker8:toggle-ready"));
   });
