@@ -294,7 +294,11 @@ function chipsForAmount(value, maxChips = 12) {
 
 function visualStackCount(value, compact = false) {
   const n = Math.max(0, Number(value || 0));
-  if (compact) return n >= 18 ? 2 : 1;
+  if (compact) {
+    if (n < 3) return 2;
+    if (n < 25) return 3;
+    return 4;
+  }
   if (n < 3) return 1;
   if (n < 12) return 2;
   if (n < 40) return 3;
@@ -597,15 +601,17 @@ async function flyPacket(from, to, amount, options = {}) {
   el.style.top = `${from.y}px`;
   const dx = to.x - from.x;
   const dy = to.y - from.y;
+  const arcLift = Math.min(18, Math.max(10, Math.abs(dx) * .08 + Math.abs(dy) * .04));
 
-  // v0.10: не «подбрасываем» фишки по дуге. Стопка тяжело скользит по сукну.
+  // Короткая низкая дуга сохраняет ощущение веса, а финальное сжатие обозначает приземление.
   const animation = el.animate([
-    { transform: "translate(-50%, -50%) scale(.94)", opacity: .35, offset: 0 },
-    { transform: `translate(calc(-50% + ${dx * .68}px), calc(-50% + ${dy * .68}px)) scale(1)`, opacity: 1, offset: .68 },
-    { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(.98)`, opacity: 1, offset: 1 },
+    { transform: "translate(-50%, -50%) scale(.86)", opacity: .25, offset: 0 },
+    { transform: `translate(calc(-50% + ${dx * .52}px), calc(-50% + ${dy * .52 - arcLift}px)) scale(1.06)`, opacity: 1, offset: .52 },
+    { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy - 2}px)) scale(1.04,.92)`, opacity: 1, filter: "brightness(1.28) drop-shadow(0 7px 8px rgba(0,0,0,.42))", offset: .86 },
+    { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(1)`, opacity: 1, filter: "brightness(1) drop-shadow(0 7px 8px rgba(0,0,0,.36))", offset: 1 },
   ], {
-    duration: Math.max(260, duration),
-    easing: "cubic-bezier(.22,.68,.22,1)",
+    duration: Math.max(250, duration),
+    easing: "cubic-bezier(.2,.72,.22,1)",
     fill: "forwards",
   });
 

@@ -67,6 +67,7 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     polish_source = (root / 'static' / 'v033-poker8-v2-polish.js').read_text(encoding='utf-8')
     wager_source = (root / 'static' / 'v031-pot-cluster-mobile-fix.js').read_text(encoding='utf-8')
     wager_loader = (root / 'static' / 'v030-seat-ready-fix.js').read_text(encoding='utf-8')
+    index_source = (root / 'static' / 'index.html').read_text(encoding='utf-8')
 
     assert '/static/v038-poker8-v2-cinematic-table.js' in loader
     assert '/static/v037-poker8-v2-reference-table.js' in component_loader
@@ -233,3 +234,14 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'x: from.x + 66' in wager_source
     assert 'y: from.y - 30' in wager_source
     assert 'v031.src = "/static/v031-pot-cluster-mobile-fix.js?v=viewer-wager-1"' in wager_loader
+    assert 'if (compact) {' in app_source
+    assert 'if (n < 3) return 2;' in app_source
+    assert 'if (n < 25) return 3;' in app_source
+    assert 'return 4;' in app_source
+    assert 'const arcLift = Math.min(18, Math.max(10, Math.abs(dx) * .08 + Math.abs(dy) * .04));' in app_source
+    assert '${dy * .52 - arcLift}px' in app_source
+    assert 'filter: "brightness(1.28) drop-shadow(0 7px 8px rgba(0,0,0,.42))"' in app_source
+    assert 'offset: .86' in app_source
+    assert 'radial-gradient(ellipse at 50% 18%,rgba(255,255,255,.36),transparent 48%)' in (root / 'static' / 'style.css').read_text(encoding='utf-8')
+    assert '/static/style.css?v=chip-motion-1' in index_source
+    assert '/static/app.js?v=chip-motion-1' in index_source

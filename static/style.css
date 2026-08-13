@@ -1207,6 +1207,7 @@ body.bot-thinking .action-panel .panel-kicker { color:#6cdbef; }
   height:5px;
   border-radius:50%;
   border:1px dashed rgba(255,255,255,.68);
+  background:radial-gradient(ellipse at 50% 18%,rgba(255,255,255,.36),transparent 48%);
   opacity:.88;
 }
 .poker-chip::after {
@@ -1234,6 +1235,7 @@ body.bot-thinking .action-panel .panel-kicker { color:#6cdbef; }
   width:22px;
   height:39px;
   margin:0 -4px;
+  transform:translateY(calc((var(--col) % 2) * 2px)) rotate(calc((var(--col) - 1.5) * 1.7deg));
 }
 .chip-cluster.compact .poker-chip {
   width:20px;
@@ -1309,6 +1311,7 @@ body.bot-thinking .action-panel .panel-kicker { color:#6cdbef; }
   align-items:flex-end;
   gap:0;
   filter:drop-shadow(0 9px 7px rgba(0,0,0,.38));
+  transform-style:preserve-3d;
 }
 .chip-flight > span {
   margin-left:-5px;
