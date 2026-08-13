@@ -198,6 +198,8 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'latestActionText' not in source
     assert 'HAND_RESULT_HOLD_MS = 7000' in source
     assert 'roomResetHandId' in source
+    assert 'document.body.classList.toggle("v038-hand-complete", Boolean(game?.terminal));' in source
+    assert 'body.v014.poker8-v2-sixmax.v038-hand-complete .player-cards{opacity:0!important;transform:translateX(-50%) translateY(-12px) scale(.92)!important;}' in source
     assert 'game = null' in source
     assert 'v038-room-resetting' in source
     assert 'body.v014.poker8-v2-sixmax.v038-room-resetting .player-cards{opacity:0!important;transform:translateX(-50%) translateY(-12px) scale(.92)!important;}' in source

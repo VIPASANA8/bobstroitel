@@ -289,6 +289,7 @@
         transition:opacity 220ms ease,transform 220ms ease!important;
       }
       body.v014.poker8-v2-sixmax.v038-room-resetting .player-cards{opacity:0!important;transform:translateX(-50%) translateY(-12px) scale(.92)!important;}
+      body.v014.poker8-v2-sixmax.v038-hand-complete .player-cards{opacity:0!important;transform:translateX(-50%) translateY(-12px) scale(.92)!important;}
       body.v014.poker8-v2-sixmax .player-cards .card.back{
         width:34px!important;height:48px!important;border-radius:5px!important;
         border:1px solid hsla(var(--seat-accent),95%,75%,.80)!important;
@@ -707,6 +708,7 @@
 
   function syncCompletedHandReset() {
     const room = !game;
+    document.body.classList.toggle("v038-hand-complete", Boolean(game?.terminal));
     document.body.classList.toggle("v038-room-awaiting", room);
     ensureRoomPrompt()?.classList.toggle("visible", room);
     if (!game?.terminal) {
