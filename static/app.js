@@ -200,7 +200,7 @@ async function maybeAutoFirePendingAction() {
 
 function startActionTimer() {
   stopActionTimer();
-  actionDeadline = Date.now() + 60000;
+  actionDeadline = Date.now() + 30000;
   actionTurnToken = turnToken();
   const el = $("actionTimer");
   if (!el) return;
@@ -215,7 +215,7 @@ function startActionTimer() {
     const mobileTimer = $("mobileActionTimer");
     if (mobileTimer) mobileTimer.textContent = `${mm}:${ss}`;
     const mobileFill = $("mobileTimerFill");
-    if (mobileFill) mobileFill.style.width = `${Math.max(0, Math.min(100, left / 60000 * 100))}%`;
+    if (mobileFill) mobileFill.style.width = `${Math.max(0, Math.min(100, left / 30000 * 100))}%`;
     const timerCard = $("mobileTimerCard");
     timerCard?.classList.toggle("warning", left <= 15000 && left > 5000);
     timerCard?.classList.toggle("danger", left <= 5000);
@@ -239,7 +239,7 @@ function stopActionTimer() {
     el.classList.remove("danger");
   }
   const mobileTimer = $("mobileActionTimer");
-  if (mobileTimer) mobileTimer.textContent = "01:00";
+  if (mobileTimer) mobileTimer.textContent = "00:30";
   const mobileFill = $("mobileTimerFill");
   if (mobileFill) mobileFill.style.width = "100%";
   $("mobileTimerCard")?.classList.remove("warning", "danger");

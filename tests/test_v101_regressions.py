@@ -52,6 +52,8 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     component_loader = (root / 'static' / 'component-ui.js').read_text(encoding='utf-8')
     source = (root / 'static' / 'v038-poker8-v2-cinematic-table.js').read_text(encoding='utf-8')
     ready_source = (root / 'static' / 'v024-ready-phase.js').read_text(encoding='utf-8')
+    app_source = (root / 'static' / 'app.js').read_text(encoding='utf-8')
+    polish_source = (root / 'static' / 'v033-poker8-v2-polish.js').read_text(encoding='utf-8')
 
     assert '/static/v038-poker8-v2-cinematic-table.js' in loader
     assert '/static/v037-poker8-v2-reference-table.js' in component_loader
@@ -96,10 +98,11 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'background:transparent!important' in source
     assert '.seat-identity{' in source and 'position:absolute!important' in source
     assert '.position-chip{display:none!important' in source
-    assert '.seat-card > .v024-ready-badge.v026-seat-status{display:none!important' in source
-    assert '.player-status.status-fold{display:none!important' in source
+    assert '.seat-card > .v024-ready-badge{display:none!important' in source
+    assert '.player-status:is(.status-fold,.status-turn,.status-thinking){display:none!important' in source
     assert '.v028-center-ready{display:none!important' in source
     assert 'v038-ready-mark' in source
+    assert '.v028-prehand-center-ready .avatar-wrap.v038-viewer-ready .v038-ready-mark' in source
     assert 'poker8:ready-countdown' in source
     assert 'poker8:ready-snapshot' in source
     assert 'READY_COUNTDOWN_MS = 5000' in ready_source
@@ -111,12 +114,22 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert '.seat-card.v032-active-turn' in source
     assert '.seat-card:is(.v032-in-hand,.v032-active-turn,.all-in)' in source
     assert 'outline:0!important' in source
-    assert '.v038-turn-indicator' in source
+    assert 'syncTurnIndicators' not in source
     assert '.deck-anchor{display:none!important' in source
     assert '.viewer-seat .player-cards{top:-29px!important' in source
     assert '.viewer-seat .player-cards .card-suit' in source
     assert '.player-cards .card:not(.back)' in source
     assert 'v038-ready-countdown' in source
+    assert 'syncAllSeatReadyMarks' in source
+    assert '.v038-turn-timer' in source
+    assert '.v038-turn-context' in source
+    assert 'syncTableTurnHud' in source
+    assert 'TURN_VISUAL_MS = 30000' in source
+    assert 'minimumFractionDigits: 0' in polish_source
+    assert 'actor?.street_invested' in source
+    assert 'window.clearInterval(turnVisualTicker)' in source
+    assert 'actionDeadline = Date.now() + 30000' in app_source
+    assert 'left / 30000 * 100' in app_source
     assert '.seat-card.v032-folded' in source
     assert '.seat-card.all-in' in source
     assert 'calc(100dvh - 250px)' not in source

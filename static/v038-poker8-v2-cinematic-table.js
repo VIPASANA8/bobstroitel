@@ -190,8 +190,8 @@
       body.v014.poker8-v2-sixmax .bot-level{display:none!important;}
       body.v014.poker8-v2-sixmax .position-chip{display:none!important;font-size:6px!important;padding:1px 3px!important;}
       body.v014.poker8-v2-sixmax .seat-meta{margin-top:3px!important;}
-      body.v014.poker8-v2-sixmax .seat-card > .v024-ready-badge.v026-seat-status{display:none!important;}
-      body.v014.poker8-v2-sixmax .player-status.status-fold{display:none!important;}
+      body.v014.poker8-v2-sixmax .seat-card > .v024-ready-badge{display:none!important;}
+      body.v014.poker8-v2-sixmax .player-status:is(.status-fold,.status-turn,.status-thinking){display:none!important;}
       body.v014.poker8-v2-sixmax .v028-center-ready{display:none!important;}
       body.v014.poker8-v2-sixmax .deck-anchor{display:none!important;}
 
@@ -203,6 +203,29 @@
         font-size:29px;font-weight:950;text-shadow:0 0 10px rgba(98,255,190,.86);pointer-events:none;
       }
       body.v014.poker8-v2-sixmax .v038-ready-countdown.visible{display:grid;}
+
+      body.v014.poker8-v2-sixmax .v038-turn-timer,
+      body.v014.poker8-v2-sixmax .v038-turn-context{
+        position:absolute;z-index:73;bottom:9px;display:none;pointer-events:none;
+      }
+      body.v014.poker8-v2-sixmax .v038-turn-timer.visible{display:grid;}
+      body.v014.poker8-v2-sixmax .v038-turn-timer{
+        left:22px;width:52px;height:52px;place-items:center;border-radius:50%;
+        background:conic-gradient(#ff38c7 var(--timer-progress,100%),rgba(255,56,199,.12) 0);
+        filter:drop-shadow(0 0 9px rgba(255,56,199,.66));
+      }
+      body.v014.poker8-v2-sixmax .v038-turn-timer::before{
+        content:"";position:absolute;inset:4px;border-radius:50%;background:#07100d;border:1px solid rgba(255,95,215,.72);
+      }
+      body.v014.poker8-v2-sixmax .v038-turn-timer b{position:relative;color:#fff;font-size:18px;line-height:1;text-shadow:0 0 7px #ff38c7;}
+      body.v014.poker8-v2-sixmax .v038-turn-timer small{position:absolute;bottom:-11px;color:#ff87df;font-size:6px;font-weight:900;letter-spacing:.08em;}
+      body.v014.poker8-v2-sixmax .v038-turn-context.visible{display:block;}
+      body.v014.poker8-v2-sixmax .v038-turn-context{
+        right:14px;width:116px;min-height:43px;padding:7px 9px;border:1px solid #2de8df;border-radius:9px;
+        background:rgba(2,19,18,.92);color:#dffffc;text-align:left;box-shadow:0 0 14px rgba(45,232,223,.38);
+      }
+      body.v014.poker8-v2-sixmax .v038-turn-context strong{display:block;color:#55fff2;font-size:9px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+      body.v014.poker8-v2-sixmax .v038-turn-context span{display:block;margin-top:4px;color:#ecfffd;font-size:8px;font-weight:850;line-height:1;}
 
       body.v014.poker8-v2-sixmax.v028-prehand-center-ready .seat[data-visual-seat="0"] .avatar-wrap{
         cursor:pointer!important;
@@ -217,7 +240,7 @@
         box-shadow:0 0 0 2px rgba(0,8,5,.72),0 0 18px rgba(72,255,169,.72),inset 0 0 14px rgba(83,255,181,.18);
         font-size:30px;font-weight:950;line-height:1;text-shadow:0 0 10px rgba(104,255,190,.95);pointer-events:none;
       }
-      body.v014.poker8-v2-sixmax .avatar-wrap.v038-viewer-ready .v038-ready-mark{display:grid;}
+      body.v014.poker8-v2-sixmax.v028-prehand-center-ready .avatar-wrap.v038-viewer-ready .v038-ready-mark{display:grid;}
       body.v014.poker8-v2-sixmax .v038-ready-mark small{
         position:absolute;right:-7px;bottom:-5px;display:grid;place-items:center;width:25px;height:25px;border-radius:50%;
         border:1px solid #71ffc1;background:#031b13;color:#fff;font-size:12px;font-weight:950;
@@ -319,14 +342,6 @@
       body.v014.poker8-v2-sixmax .seat .seat-card.all-in{
         border:0!important;background:transparent!important;box-shadow:none!important;outline:0!important;
       }
-      body.v014.poker8-v2-sixmax .v038-turn-indicator{
-        position:absolute;z-index:9;left:50%;top:111px;transform:translateX(-50%);display:none;
-        min-width:42px;padding:3px 8px;border:1px solid #ffad49;border-radius:999px;background:#2b1402;
-        color:#ffd8a2;font-size:7px;font-weight:950;line-height:1;letter-spacing:.10em;text-align:center;
-        box-shadow:0 0 11px rgba(255,143,35,.52);pointer-events:none;
-      }
-      body.v014.poker8-v2-sixmax .seat-card.v032-active-turn .v038-turn-indicator{display:block;animation:v038TurnPulse 1100ms ease-in-out infinite;}
-      @keyframes v038TurnPulse{50%{filter:brightness(1.4);box-shadow:0 0 18px rgba(255,143,35,.82)}}
       body.v014.poker8-v2-sixmax .seat .seat-card.all-in .player-avatar{
         border-color:#f1c867!important;
         box-shadow:0 0 0 3px rgba(1,5,5,.92),0 0 18px rgba(238,180,65,.45),inset 0 -10px 18px rgba(0,0,0,.50)!important;
@@ -525,16 +540,75 @@
     setText(mark.querySelector("small"), String(seconds || 5));
   }
 
-  function syncTurnIndicators() {
+  function syncAllSeatReadyMarks() {
     document.querySelectorAll(".seat-card").forEach(card => {
-      let indicator = card.querySelector(".v038-turn-indicator");
-      if (!indicator) {
-        indicator = document.createElement("span");
-        indicator.className = "v038-turn-indicator";
-        indicator.textContent = "ХОД";
-        card.appendChild(indicator);
+      if (card.closest('.seat[data-visual-seat="0"]')) return;
+      const wrap = card.querySelector(".avatar-wrap");
+      if (!wrap) return;
+      let mark = wrap.querySelector(".v038-seat-ready-check");
+      if (!mark) {
+        mark = document.createElement("span");
+        mark.className = "v038-ready-mark v038-seat-ready-check";
+        mark.innerHTML = "<b>✓</b>";
+        wrap.appendChild(mark);
       }
+      wrap.classList.add("v038-viewer-ready");
     });
+  }
+
+  let turnVisualToken = "";
+  let turnVisualStartedAt = 0;
+  let turnVisualTicker = 0;
+  const TURN_VISUAL_MS = 30000;
+
+  function latestActionText() {
+    const row = game?.history?.at?.(-1);
+    if (!row) return "ОЖИДАЕТ ДЕЙСТВИЯ";
+    const labels = {fold:"FOLD",check:"CHECK",call:"CALL",bet:"BET",raise:"RAISE",all_in:"ALL IN"};
+    const amount = Number(row.amount || 0);
+    return `${labels[row.action] || String(row.action || "").toUpperCase()}${amount > 0 ? ` · ${compactStackLabel(amount)}` : ""}`;
+  }
+
+  function syncTableTurnHud() {
+    const felt = document.querySelector(".felt");
+    if (!felt) return;
+    let timer = felt.querySelector(".v038-turn-timer");
+    let context = felt.querySelector(".v038-turn-context");
+    if (!timer) {
+      timer = document.createElement("div");
+      timer.className = "v038-turn-timer";
+      timer.innerHTML = '<b>30</b><small>СЕК</small>';
+      felt.appendChild(timer);
+    }
+    if (!context) {
+      context = document.createElement("div");
+      context.className = "v038-turn-context";
+      context.innerHTML = "<strong></strong><span></span>";
+      felt.appendChild(context);
+    }
+    const active = Boolean(game && !game.terminal && game.acting_player);
+    timer.classList.toggle("visible", active);
+    context.classList.toggle("visible", active);
+    if (!active) {
+      window.clearInterval(turnVisualTicker);
+      turnVisualTicker = 0;
+      turnVisualToken = "";
+      return;
+    }
+    const token = `${game.hand_id}:${game.street}:${game.acting_player}:${game.history?.length || 0}`;
+    if (turnVisualToken !== token) {
+      turnVisualToken = token;
+      turnVisualStartedAt = Date.now();
+    }
+    const actor = game.players?.[game.acting_player];
+    setText(context.querySelector("strong"), `ХОД · ${actor?.name || "ИГРОК"}`);
+    const invested = Number(actor?.street_invested || 0);
+    setText(context.querySelector("span"), invested > 0 ? `ПОСТАВИЛ · ${compactStackLabel(invested)}` : latestActionText());
+    const left = Math.max(0, TURN_VISUAL_MS - (Date.now() - turnVisualStartedAt));
+    const seconds = Math.ceil(left / 1000);
+    setText(timer.querySelector("b"), String(seconds));
+    timer.style.setProperty("--timer-progress", `${left / TURN_VISUAL_MS * 100}%`);
+    if (!turnVisualTicker) turnVisualTicker = window.setInterval(syncTableTurnHud, 250);
   }
 
   function ensureReadyCountdown() {
@@ -798,6 +872,11 @@
     referenceActive = false;
     clearAllInConfirmation(false);
     clearPresetSelection();
+    window.clearInterval(turnVisualTicker);
+    turnVisualTicker = 0;
+    turnVisualToken = "";
+    document.querySelector(".v038-turn-timer")?.remove();
+    document.querySelector(".v038-turn-context")?.remove();
     document.querySelectorAll(".seat-stack[data-v038-full-stack]").forEach(stack => {
       setText(stack, stack.dataset.v038FullStack);
       stack.removeAttribute("data-v038-full-stack");
@@ -834,8 +913,9 @@
     syncSeatStackLabels();
     syncTableNumberLabels();
     syncAvatarReadyControl();
-    syncTurnIndicators();
+    syncAllSeatReadyMarks();
     ensureReadyCountdown();
+    syncTableTurnHud();
     configureReferenceActions();
   }
 

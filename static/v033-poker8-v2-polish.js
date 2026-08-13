@@ -20,7 +20,7 @@
     const abs = Math.abs(n);
     if (abs < 10_000) {
       return n.toLocaleString("en-US", {
-        minimumFractionDigits: Number.isInteger(n) ? 0 : 1,
+        minimumFractionDigits: 0,
         maximumFractionDigits: n < 100 ? 1 : 0,
       });
     }
