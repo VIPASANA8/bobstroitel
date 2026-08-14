@@ -34,12 +34,12 @@ class PlanStep:
 class PlanTask:
     number: int
     title: str
-    files: dict[str, tuple[str, ...]]
+    files: tuple[str, ...]
     steps: tuple[PlanStep, ...]
 
     @property
     def declared_files(self) -> list[str]:
-        return [p for values in self.files.values() for p in values]
+        return list(self.files)
 
 
 class ProjectRepository:
@@ -79,11 +79,11 @@ class ProjectRepository:
         tasks = []
         for i, match in enumerate(matches):
             section = text[match.end(): matches[i+1].start() if i + 1 < len(matches) else len(text)]
-            files: dict[str, list[str]] = {"Create": [], "Modify": [], "Test": []}
+            files: list[str] = []
             fm = re.search(r"\*\*Files:\*\*(.*?)(?=\n###|\n\*\*|\Z)", section, re.S)
             if fm:
                 for kind, path in re.findall(r"[-*]\s*(Create|Modify|Test):\s*`([^`]+)`", fm.group(1)):
-                    files[kind].append(path)
+                    files.append(path)
             sm = list(re.finditer(r"^\s*- \[([ xX])\] \*\*Step\s+(\d+):\s*(.+?)\*\*\s*$", section, re.M))
             steps = []
             for j, s in enumerate(sm):
@@ -93,7 +93,7 @@ class ProjectRepository:
                 for block in re.findall(r"```(?:powershell|bash|sh)\s*\n(.*?)```", body, re.I | re.S):
                     commands.extend(line.strip() for line in block.splitlines() if line.strip() and not line.strip().startswith("#"))
                 steps.append(PlanStep(int(s.group(2)), s.group(3).strip(), body, s.group(1).lower() == "x", tuple(commands)))
-            tasks.append(PlanTask(int(match.group(1)), match.group(2).strip(), {k: tuple(v) for k,v in files.items()}, tuple(steps)))
+            tasks.append(PlanTask(int(match.group(1)), match.group(2).strip(), tuple(files), tuple(steps)))
         return tuple(tasks)
 
     _STATUS_RE = re.compile(r"<!-- poker8-project-state\s+(.*?)\s*-->", re.S)
@@ -118,7 +118,8 @@ class ProjectRepository:
             and isinstance(data.get("last_confirmed_commit"), str)
             and isinstance(data.get("note"), str) and isinstance(data.get("updated_at"), str)
             and isinstance(data.get("evidence"), list) and all(isinstance(item, str) for item in data.get("evidence", [])))
-        if not isinstance(data, dict) or data.get("schema_version") != 1 or set(data) != self._STATUS_KEYS or not valid_types:
+        schema_ok = isinstance(data, dict) and isinstance(data.get("schema_version"), int) and not isinstance(data.get("schema_version"), bool) and data.get("schema_version") == 1
+        if not schema_ok or not isinstance(data, dict) or set(data) != self._STATUS_KEYS or not valid_types:
             raise ProjectStateError("invalid_status", "unsupported status schema")
         return data
 

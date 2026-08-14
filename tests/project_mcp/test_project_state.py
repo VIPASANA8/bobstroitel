@@ -102,3 +102,23 @@ def test_completed_state_cannot_be_activated(project_root: Path) -> None:
     with pytest.raises(ProjectStateError) as error:
         repository.set_active_task("active.md", 1, state="completed")
     assert error.value.code == "invalid_state"
+
+
+def test_status_schema_version_requires_exact_integer(project_root: Path) -> None:
+    repository = ProjectRepository(project_root)
+    (project_root / "docs" / "superpowers" / "plans" / "active.md").write_text("### Task 1: Work\n\n- [ ] **Step 1: Start**\n", encoding="utf-8")
+    repository.initialize_status("active.md", 1, 1, "abc")
+    for value in (True, 1.0):
+        repository.initialize_status("active.md", 1, 1, "abc")
+        status = repository.read_status(); status["schema_version"] = value
+        repository._atomic_write("docs/project/status.md", repository._render_status(status))
+        with pytest.raises(ProjectStateError) as error:
+            repository.read_status()
+        assert error.value.code == "invalid_status"
+
+
+def test_plan_files_preserve_declaration_order(project_root: Path) -> None:
+    plan = project_root / "docs" / "superpowers" / "plans" / "active.md"
+    plan.write_text("### Task 1: Config\n\n**Files:**\n- Create: `online/config.py`\n- Test: `tests/online/test_config.py`\n\n- [ ] **Step 1: Build**\n", encoding="utf-8")
+    task = ProjectRepository(project_root).parse_plan("active.md")[0]
+    assert task.files == ("online/config.py", "tests/online/test_config.py")
