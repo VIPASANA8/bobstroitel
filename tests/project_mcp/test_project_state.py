@@ -145,3 +145,80 @@ def test_completed_next_task_without_steps_is_safe(project_root: Path) -> None:
     repository._atomic_write("docs/project/status.md", repository._render_status(status))
     result = repository.get_next_step()
     assert result["task"] == 2 and result["step"] is None
+
+
+def _ready_repository(project_root: Path) -> ProjectRepository:
+    (project_root / "docs" / "superpowers" / "plans" / "active.md").write_text(
+        "### Task 1: Work\n\n- [ ] **Step 1: Start**\n", encoding="utf-8"
+    )
+    repository = ProjectRepository(project_root)
+    repository.initialize_status("active.md", 1, 1, "")
+    return repository
+
+
+def test_record_decision_assigns_sequential_ids_and_supersedes(project_root: Path) -> None:
+    repository = _ready_repository(project_root)
+    first = repository.record_decision("Boundary", "Keep writes narrow", "Safety")
+    second = repository.record_decision("Refinement", "Use atomic writes", "Integrity", supersedes=first["id"])
+    assert first["id"] == "P8-DEC-0002"
+    assert second["id"] == "P8-DEC-0003"
+    assert second["supersedes"] == first["id"]
+
+
+@pytest.mark.parametrize("args", [("", "d", "r"), ("t", "", "r"), ("t", "d", "")])
+def test_record_decision_rejects_empty_fields(project_root: Path, args: tuple[str, str, str]) -> None:
+    with pytest.raises(ProjectStateError) as error:
+        _ready_repository(project_root).record_decision(*args)
+    assert error.value.code == "invalid_decision"
+
+
+def test_record_decision_rejects_unknown_supersedes(project_root: Path) -> None:
+    with pytest.raises(ProjectStateError) as error:
+        _ready_repository(project_root).record_decision("t", "d", "r", supersedes="P8-DEC-9999")
+    assert error.value.code == "invalid_decision"
+
+
+def test_malformed_decision_log_fails_closed_without_write(project_root: Path) -> None:
+    repository = _ready_repository(project_root)
+    path = project_root / "docs" / "project" / "decisions.md"
+    original = "# Decisions\n\nP8-DEC-0002\n"
+    path.write_text(original, encoding="utf-8")
+    with pytest.raises(ProjectStateError) as error:
+        repository.record_decision("t", "d", "r")
+    assert error.value.code == "invalid_decision_log"
+    assert path.read_text(encoding="utf-8") == original
+
+
+def test_completion_requires_evidence(project_root: Path) -> None:
+    with pytest.raises(ProjectStateError) as error:
+        _ready_repository(project_root).confirm_task_completed(" ")
+    assert error.value.code == "invalid_evidence"
+    with pytest.raises(ProjectStateError) as error:
+        _ready_repository(project_root).confirm_task_completed(["tests"])
+    assert error.value.code == "invalid_evidence"
+
+
+def test_completion_rejects_invalid_commit_ref(project_root: Path) -> None:
+    with pytest.raises(ProjectStateError) as error:
+        _ready_repository(project_root).confirm_task_completed("tests", commit="not-a-commit")
+    assert error.value.code == "invalid_commit"
+
+
+def test_completion_accepts_local_commit_and_updates_status(project_root: Path) -> None:
+    git("config", "user.email", "test@example.com", cwd=project_root)
+    git("config", "user.name", "Test", cwd=project_root)
+    (project_root / "seed.txt").write_text("seed", encoding="utf-8")
+    git("add", ".", cwd=project_root); git("commit", "-m", "seed", cwd=project_root)
+    commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=project_root, check=True, capture_output=True, text=True).stdout.strip()
+    repository = _ready_repository(project_root)
+    result = repository.confirm_task_completed("pytest", commit=commit)
+    assert result["state"] == "completed" and result["evidence"] == ["pytest"] and result["last_confirmed_commit"] == commit
+
+
+def test_completion_unknown_commit_leaves_status_unchanged(project_root: Path) -> None:
+    repository = _ready_repository(project_root)
+    before = repository.read_status()
+    with pytest.raises(ProjectStateError) as error:
+        repository.confirm_task_completed("tests", commit="0123456")
+    assert error.value.code == "invalid_commit"
+    assert repository.read_status() == before

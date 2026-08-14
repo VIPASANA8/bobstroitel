@@ -157,6 +157,85 @@ class ProjectRepository:
         evidence = "\n".join(f"- {e}" for e in data["evidence"]) or "- (none)"
         return (f"# Project Status\n\nPlan: `{data['active_plan']}`\nTask: {data['active_task']}\nStep: {data['active_step']}\nState: `{data['state']}`\nCommit: `{data['last_confirmed_commit']}`\nNote: {data['note']}\nEvidence:\n{evidence}\n\n<!-- poker8-project-state {machine} -->\n")
 
+    _DECISION_ID_RE = re.compile(r"^P8-DEC-(\d{4})$")
+
+    @staticmethod
+    def _initial_decisions() -> str:
+        return ("# Project Decisions\n\n"
+                "Policy: append-only; decisions are never edited or deleted.\n\n"
+                "## P8-DEC-0001: Project boundary\n"
+                "Decision: Project state writes are limited to approved status and decision documents.\n"
+                "Rationale: Keep the MCP write boundary explicit and auditable.\n")
+
+    def _read_decisions(self) -> tuple[str, list[dict]]:
+        path = self._safe_path("docs/project/decisions.md")
+        if not self._is_regular_file(path):
+            return self._initial_decisions(), [{"id": "P8-DEC-0001", "title": "Project boundary",
+                "decision": "Project state writes are limited to approved status and decision documents.",
+                "rationale": "Keep the MCP write boundary explicit and auditable.", "supersedes": None}]
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as exc:
+            raise ProjectStateError("invalid_decision_log", "decision log unavailable") from exc
+        matches = list(re.finditer(r"^## (P8-DEC-\d{4})\s*(?::|—)\s*(.+?)\s*$", text, re.M))
+        entries = []
+        for i, match in enumerate(matches):
+            section = text[match.end(): matches[i + 1].start() if i + 1 < len(matches) else len(text)]
+            dm = re.search(r"^Decision:\s*(.+?)\s*$", section, re.M) or re.search(r"### Decision\s*\n\s*(.+?)(?=\n\s*### Rationale|\Z)", section, re.S)
+            rm = re.search(r"^Rationale:\s*(.+?)\s*$", section, re.M) or re.search(r"### Rationale\s*\n\s*(.+?)(?=\n\s*## |\Z)", section, re.S)
+            sm = re.search(r"^Supersedes:\s*(P8-DEC-\d{4})\s*$", section, re.M)
+            entries.append({"id": match.group(1), "title": match.group(2).strip(),
+                            "decision": dm.group(1).strip() if dm else "",
+                            "rationale": rm.group(1).strip() if rm else "",
+                            "supersedes": sm.group(1) if sm else None})
+        if not entries or any(self._DECISION_ID_RE.fullmatch(e["id"]) is None for e in entries):
+            raise ProjectStateError("invalid_decision_log", "malformed decision log")
+        for index, entry in enumerate(entries, 1):
+            if entry["id"] != f"P8-DEC-{index:04d}" or not entry["title"] or not entry["decision"] or not entry["rationale"]:
+                raise ProjectStateError("invalid_decision_log", "gapped or malformed decision log")
+            if entry["supersedes"] and entry["supersedes"] not in {x["id"] for x in entries[:index - 1]}:
+                raise ProjectStateError("invalid_decision_log", "invalid decision supersedes reference")
+        return text, entries
+
+    def record_decision(self, title: str, decision: str, rationale: str, supersedes: str | None = None) -> dict:
+        values = (title, decision, rationale)
+        if any(not isinstance(value, str) or not value.strip() for value in values):
+            raise ProjectStateError("invalid_decision", "title, decision, and rationale are required")
+        text, entries = self._read_decisions()
+        if supersedes is not None and supersedes not in {entry["id"] for entry in entries}:
+            raise ProjectStateError("invalid_decision", "supersedes must reference an existing decision")
+        entry = {"id": f"P8-DEC-{len(entries) + 1:04d}", "title": title.strip(), "decision": decision.strip(),
+                 "rationale": rationale.strip(), "supersedes": supersedes}
+        suffix = f"\n## {entry['id']}: {entry['title']}\nDecision: {entry['decision']}\nRationale: {entry['rationale']}\n"
+        if supersedes:
+            suffix += f"Supersedes: {supersedes}\n"
+        self._atomic_write("docs/project/decisions.md", text.rstrip() + "\n" + suffix)
+        return entry
+
+    def confirm_task_completed(self, evidence: str, commit: str | None = None) -> dict:
+        if not isinstance(evidence, str) or not evidence.strip():
+            raise ProjectStateError("invalid_evidence", "evidence must be non-empty")
+        evidence = evidence.strip()
+        if commit is not None:
+            if not isinstance(commit, str) or re.fullmatch(r"[0-9a-fA-F]{7,40}", commit) is None:
+                raise ProjectStateError("invalid_commit", "commit must be a hexadecimal local revision")
+            try:
+                result = subprocess.run(["git", "rev-parse", "--verify", f"{commit}^{{commit}}"], cwd=self.root,
+                                        shell=False, capture_output=True, text=True, timeout=5)
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                raise ProjectStateError("invalid_commit", "commit cannot be verified") from exc
+            if result.returncode != 0:
+                raise ProjectStateError("invalid_commit", "commit cannot be verified")
+            commit = result.stdout.strip()
+        status = self.read_status()
+        status["state"] = "completed"
+        status["evidence"] = [evidence]
+        if commit is not None:
+            status["last_confirmed_commit"] = commit
+        status["updated_at"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        self._atomic_write("docs/project/status.md", self._render_status(status))
+        return status
+
     def initialize_status(self, active_plan: str, active_task: int, active_step: int, last_confirmed_commit: str) -> dict:
         data = {"schema_version":1,"active_plan":active_plan,"active_task":active_task,"active_step":active_step,"state":"planned","last_confirmed_commit":last_confirmed_commit,"evidence":[],"note":"","updated_at":datetime.now(timezone.utc).isoformat().replace("+00:00","Z")}
         self._validate_selection(active_plan, active_task, active_step)
