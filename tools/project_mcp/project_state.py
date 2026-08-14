@@ -20,8 +20,9 @@ IGNORED_USER_PATTERNS = (
 )
 RUNTIME_PREFIXES = ("app/", "online/", "static/")
 FORBIDDEN_ADDITION = re.compile(
-    r"(?i)\b(CASH_USDT|deposit|withdraw(?:al)?|KYC|blockchain|"
-    r"play[-_ ]to[-_ ]cash|cash[-_ ]wallet|payment(?:[-_ ]endpoint)?)"
+    r"(?i)(?<![a-z0-9])(?:CASH_USDT|deposit(?:[-_ ]endpoint)?|"
+    r"withdraw(?:al)?(?:[-_ ]endpoint)?|KYC|blockchain|play[-_ ]to[-_ ]cash|"
+    r"cash[-_ ]wallet|payment[-_ ]endpoint)(?![a-z0-9])"
 )
 
 
@@ -455,6 +456,30 @@ class ProjectRepository:
             "limitations": "Deterministic path and added-line checks; semantic review remains required.",
         }
 
+    def get_project_overview(self) -> dict[str, object]:
+        status = self.read_status()
+        task = self._task(str(status["active_plan"]), int(status["active_task"]))
+        alignment = self.check_current_diff()
+        return {
+            "objective": "Deliver the approved multiplayer play-money Poker8 MVP.",
+            "excluded": ["real-money runtime", "USDT payments", "KYC", "blockchain"],
+            "active_plan": status["active_plan"],
+            "active_task": status["active_task"],
+            "task_title": task.title,
+            "state": status["state"],
+            "last_confirmed_commit": status["last_confirmed_commit"],
+            "evidence": status["evidence"],
+            "branch": self._git("branch", "--show-current").stdout.strip(),
+            "git": {
+                "result": alignment["result"],
+                "staged_count": len(alignment["staged"]),
+                "unstaged_count": len(alignment["unstaged"]),
+                "untracked_count": len(alignment["untracked"]),
+                "ignored_user_changes": alignment["ignored_user_changes"],
+            },
+            "next": self.get_next_step(),
+        }
+
     @staticmethod
     def _is_link(path: Path) -> bool:
         is_junction = getattr(path, "is_junction", None)
@@ -480,6 +505,15 @@ class ProjectRepository:
             resolved.relative_to(self.root)
         except ValueError as exc:
             raise ProjectStateError("unsafe_path", f"path escapes project root: {relative}") from exc
+        return candidate
+
+    def _safe_regular_file(self, relative: Path) -> Path:
+        relative = Path(relative)
+        if relative.is_absolute() or ".." in relative.parts:
+            raise ProjectStateError("invalid_resource", "Path is outside the approved catalogue")
+        candidate = self._safe_path(relative.as_posix())
+        if not self._is_regular_file(candidate):
+            raise ProjectStateError("invalid_resource", "Approved path is not a regular file")
         return candidate
 
     @staticmethod

@@ -314,3 +314,20 @@ def test_untracked_forbidden_text_is_reported_but_never_opened(project_root: Pat
     result = repository.check_current_diff()
     assert result["result"] == "warning"
     assert result["blocked_evidence"] == []
+
+
+def test_project_overview_contains_alignment_and_next_step(project_root: Path) -> None:
+    plan = project_root / "docs" / "superpowers" / "plans" / "active.md"
+    plan.write_text(
+        "### Task 1: Work\n\n**Files:**\n- Create: `online/config.py`\n\n"
+        "- [ ] **Step 1: Start**\n",
+        encoding="utf-8",
+    )
+    repository = ProjectRepository(project_root)
+    _initialize_active_status(repository, project_root)
+    overview = repository.get_project_overview()
+    assert overview["active_plan"] == "active.md"
+    assert overview["active_task"] == 1
+    assert overview["task_title"] == "Work"
+    assert overview["git"]["result"] == "warning"
+    assert overview["next"]["step"] == 1

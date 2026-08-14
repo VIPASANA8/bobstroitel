@@ -45,6 +45,17 @@ def test_symlinked_approved_document_is_rejected(tmp_path: Path) -> None:
     assert error.value.code == "unsafe_path"
 
 
+def test_safe_regular_file_rejects_paths_outside_approved_root(tmp_path: Path) -> None:
+    root = make_project(tmp_path)
+    repository = ProjectRepository(root)
+    assert repository._safe_regular_file(
+        Path("docs/superpowers/specs/2026-08-14-online-network-mvp-design.md")
+    ).is_file()
+    with pytest.raises(ProjectStateError) as error:
+        repository._safe_regular_file(Path("../.env"))
+    assert error.value.code == "invalid_resource"
+
+
 def test_write_boundary_rejects_source_and_preserves_atomic_original(tmp_path: Path) -> None:
     root = make_project(tmp_path)
     repository = ProjectRepository(root)
