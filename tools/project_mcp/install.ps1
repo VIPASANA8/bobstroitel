@@ -18,8 +18,13 @@ if (-not (Test-Path -LiteralPath $requirements -PathType Leaf)) {
 
 # A successful lookup means the operator has an existing registration.  Do
 # not overwrite it: removal is an explicit, reversible operator action.
-$null = & codex mcp get poker8_project 2>$null
-if ($LASTEXITCODE -eq 0) {
+# Capture stderr in the normal output stream.  With newer PowerShell native
+# command handling, redirecting stderr to `$null` while ErrorActionPreference
+# is Stop can terminate before LASTEXITCODE is available for this expected
+# negative lookup.
+$existing = & codex mcp get poker8_project 2>&1
+$existingExitCode = $LASTEXITCODE
+if ($existingExitCode -eq 0) {
     throw "MCP registration 'poker8_project' already exists; remove it explicitly before reinstalling."
 }
 
