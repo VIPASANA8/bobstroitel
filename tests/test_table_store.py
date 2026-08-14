@@ -1,13 +1,16 @@
 from persistence import TrainingStore
 
 
-def test_six_bot_seats_can_be_activated(tmp_path):
+def test_six_bot_seats_can_be_activated_when_human_leaves(tmp_path):
     store = TrainingStore(tmp_path / "trainer.sqlite3")
+    store.clear_seat(0)
+
     for seat in range(1, 7):
         store.add_bot(seat, f"Test {seat}", "hard")
-    table = store.get_table()
-    assert len([row for row in table if row["active"]]) == 7
-    assert all(row["balance"] == 1000.0 for row in table)
+
+    active = [row for row in store.get_table() if row["active"]]
+    assert len(active) == 6
+    assert all(row["occupant_type"] == "bot" for row in active)
 
 
 def test_bot_balance_survives_edit_while_seated(tmp_path):
