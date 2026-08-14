@@ -46,9 +46,25 @@ def _resource_result(call: Callable[[], object]) -> str:
         )
 
 
+def _document_result(call: Callable[[], str]) -> str:
+    """Return approved Markdown verbatim, or a non-secret diagnostic JSON."""
+    try:
+        return call()
+    except ProjectStateError as exc:
+        return json.dumps(
+            {"ok": False, "error": {"code": exc.code, "message": str(exc)}},
+            ensure_ascii=False,
+        )
+
+
 def build_server(root: Path) -> MCPServer:
     """Build an in-memory-capable server rooted at one validated worktree."""
     repository = ProjectRepository(root)
+    # Freeze the approved names at startup.  A new untracked Markdown file
+    # must not become a readable MCP resource merely by appearing later in
+    # an otherwise approved directory.
+    approved_specs = frozenset(repository.spec_catalogue())
+    approved_plans = frozenset(repository.plan_catalogue())
     mcp = MCPServer("poker8_project")
 
     @mcp.resource("poker8://project/overview")
@@ -57,23 +73,37 @@ def build_server(root: Path) -> MCPServer:
 
     @mcp.resource("poker8://project/status")
     def project_status_resource() -> str:
-        return repository._safe_regular_file(
-            Path("docs/project/status.md")
-        ).read_text(encoding="utf-8")
+        return _document_result(
+            lambda: repository._safe_regular_file(
+                Path("docs/project/status.md")
+            ).read_text(encoding="utf-8")
+        )
 
     @mcp.resource("poker8://project/decisions")
     def project_decisions_resource() -> str:
-        return repository._safe_regular_file(
-            Path("docs/project/decisions.md")
-        ).read_text(encoding="utf-8")
+        return _document_result(
+            lambda: repository._safe_regular_file(
+                Path("docs/project/decisions.md")
+            ).read_text(encoding="utf-8")
+        )
 
     @mcp.resource("poker8://specs/{name}")
     def approved_spec(name: str) -> str:
-        return repository.read_spec(name)
+        def read() -> str:
+            if name not in approved_specs:
+                raise ProjectStateError("invalid_resource", f"Unknown spec: {name}")
+            return repository.read_spec(name)
+
+        return _document_result(read)
 
     @mcp.resource("poker8://plans/{name}")
     def approved_plan(name: str) -> str:
-        return repository.read_plan(name)
+        def read() -> str:
+            if name not in approved_plans:
+                raise ProjectStateError("invalid_resource", f"Unknown plan: {name}")
+            return repository.read_plan(name)
+
+        return _document_result(read)
 
     read_only = ToolAnnotations(read_only_hint=True, open_world_hint=False)
 

@@ -113,3 +113,19 @@ async def test_valid_manager_tool_changes_only_status(tmp_path: Path):
         text=True,
     ).stdout.strip()
     assert changed == "docs/project/status.md"
+
+
+@pytest.mark.anyio
+async def test_resource_catalogue_is_frozen_and_never_reads_new_markdown(
+    tmp_path: Path,
+):
+    root = ready_project(tmp_path)
+    (root / "docs" / "superpowers" / "specs" / "secret.md").write_text(
+        "TOKEN=must-not-be-read", encoding="utf-8"
+    )
+    server = build_server(root)
+    async with Client(server, raise_exceptions=True) as client:
+        result = await client.read_resource("poker8://specs/secret.md")
+    payload = result.contents[0].text
+    assert "TOKEN=must-not-be-read" not in payload
+    assert '"code": "invalid_resource"' in payload

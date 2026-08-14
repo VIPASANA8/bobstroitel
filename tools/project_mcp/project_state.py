@@ -24,6 +24,11 @@ FORBIDDEN_ADDITION = re.compile(
     r"withdraw(?:al)?(?:[-_ ]endpoint)?|KYC|blockchain|play[-_ ]to[-_ ]cash|"
     r"cash[-_ ]wallet|payment[-_ ]endpoint)(?![a-z0-9])"
 )
+# Document resources are approved project Markdown only.  Secret-looking
+# names are excluded even when they happen to live below an approved folder.
+SECRET_DOCUMENT_NAME = re.compile(
+    r"(?i)(?:^|[._-])(?:env|secret|secrets|password|passwd|token|credential|credentials|private)(?:[._-]|$)"
+)
 
 
 class ProjectStateError(RuntimeError):
@@ -535,6 +540,8 @@ class ProjectRepository:
         for entry in entries:
             if entry.suffix != ".md":
                 continue
+            if SECRET_DOCUMENT_NAME.search(entry.name.removesuffix(".md")):
+                continue
             if not self._is_regular_file(entry):
                 raise ProjectStateError("unsafe_path", f"document is not a regular file: {entry.name}")
             names.append(entry.name)
@@ -550,6 +557,10 @@ class ProjectRepository:
         if not isinstance(name, str) or not name or name != Path(name).name or Path(name).suffix != ".md":
             raise ProjectStateError("invalid_resource", f"invalid document name: {name!r}")
         try:
+            if SECRET_DOCUMENT_NAME.search(Path(name).stem):
+                raise ProjectStateError("invalid_resource", f"document name is not approved: {name}")
+            if name not in self._catalogue(relative_dir):
+                raise ProjectStateError("invalid_resource", f"unknown document: {name}")
             try:
                 directory = self._safe_path(relative_dir)
             except ProjectStateError as exc:
