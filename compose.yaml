@@ -1,0 +1,35 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: poker8
+      POSTGRES_USER: poker8
+      POSTGRES_PASSWORD: poker8
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U poker8 -d poker8"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+    volumes:
+      - poker8_pgdata:/var/lib/postgresql/data
+
+  postgres_test:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: poker8_test
+      POSTGRES_USER: poker8
+      POSTGRES_PASSWORD: poker8
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U poker8 -d poker8_test"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+    tmpfs:
+      - /var/lib/postgresql/data
+
+volumes:
+  poker8_pgdata:
