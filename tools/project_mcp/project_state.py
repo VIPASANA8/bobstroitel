@@ -49,7 +49,14 @@ class ProjectRepository:
     @staticmethod
     def _is_link(path: Path) -> bool:
         is_junction = getattr(path, "is_junction", None)
-        return path.is_symlink() or (is_junction is not None and is_junction())
+        if path.is_symlink() or (is_junction is not None and is_junction()):
+            return True
+        # Python versions without Path.is_junction still expose the Windows
+        # reparse-point bit through stat_result.file_attributes.
+        try:
+            return bool(getattr(path.stat(follow_symlinks=False), "st_file_attributes", 0) & 0x400)
+        except OSError:
+            return False
 
     def _safe_path(self, relative: str) -> Path:
         """Resolve a repository-relative path without traversing links."""
