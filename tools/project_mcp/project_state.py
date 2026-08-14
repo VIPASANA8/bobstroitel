@@ -121,6 +121,10 @@ class ProjectRepository:
         schema_ok = isinstance(data, dict) and isinstance(data.get("schema_version"), int) and not isinstance(data.get("schema_version"), bool) and data.get("schema_version") == 1
         if not schema_ok or not isinstance(data, dict) or set(data) != self._STATUS_KEYS or not valid_types:
             raise ProjectStateError("invalid_status", "unsupported status schema")
+        try:
+            self._validate_selection(data["active_plan"], data["active_task"], data["active_step"])
+        except ProjectStateError as exc:
+            raise ProjectStateError("invalid_status", "status selection is stale or invalid") from exc
         return data
 
     def _atomic_write(self, relative: str, content: str) -> None:
@@ -187,8 +191,12 @@ class ProjectRepository:
                 return {"plan": status["active_plan"], "task": None, "task_title": None,
                         "step": None, "step_title": None, "files": [], "body": "",
                         "commands": [], "recommendation": "no next task"}
-            step = task.steps[0]
+            step = task.steps[0] if task.steps else None
             recommendation = f"Switch explicitly to Task {task.number}: {task.title}"
+            if step is None:
+                return {"plan": status["active_plan"], "task": task.number, "task_title": task.title,
+                        "step": None, "step_title": None, "files": task.declared_files, "body": "",
+                        "commands": [], "recommendation": recommendation}
         else:
             step = next((s for s in task.steps if not s.checked), None)
             if step is None:

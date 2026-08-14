@@ -122,3 +122,26 @@ def test_plan_files_preserve_declaration_order(project_root: Path) -> None:
     plan.write_text("### Task 1: Config\n\n**Files:**\n- Create: `online/config.py`\n- Test: `tests/online/test_config.py`\n\n- [ ] **Step 1: Build**\n", encoding="utf-8")
     task = ProjectRepository(project_root).parse_plan("active.md")[0]
     assert task.files == ("online/config.py", "tests/online/test_config.py")
+
+
+def test_read_status_rejects_stale_selection(project_root: Path) -> None:
+    plan = project_root / "docs" / "superpowers" / "plans" / "active.md"
+    plan.write_text("### Task 1: Work\n\n- [ ] **Step 1: Start**\n", encoding="utf-8")
+    repository = ProjectRepository(project_root)
+    repository.initialize_status("active.md", 1, 1, "abc")
+    status = repository.read_status(); status["active_step"] = 99
+    repository._atomic_write("docs/project/status.md", repository._render_status(status))
+    with pytest.raises(ProjectStateError) as error:
+        repository.read_status()
+    assert error.value.code == "invalid_status"
+
+
+def test_completed_next_task_without_steps_is_safe(project_root: Path) -> None:
+    plan = project_root / "docs" / "superpowers" / "plans" / "active.md"
+    plan.write_text("### Task 1: Done\n\n- [ ] **Step 1: Finish**\n\n### Task 2: Placeholder\n", encoding="utf-8")
+    repository = ProjectRepository(project_root)
+    repository.initialize_status("active.md", 1, 1, "abc")
+    status = repository.read_status(); status["state"] = "completed"
+    repository._atomic_write("docs/project/status.md", repository._render_status(status))
+    result = repository.get_next_step()
+    assert result["task"] == 2 and result["step"] is None
