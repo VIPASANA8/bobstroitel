@@ -64,3 +64,31 @@ def test_unknown_and_traversal_names_are_rejected(project_root: Path, name: str)
     with pytest.raises(ProjectStateError) as error:
         repository.read_spec(name)
     assert error.value.code == "invalid_resource"
+
+
+def test_selection_unknown_plan_is_invalid_plan(project_root: Path) -> None:
+    repository = ProjectRepository(project_root)
+    with pytest.raises(ProjectStateError) as error:
+        repository.set_active_task("missing.md", 1)
+    assert error.value.code == "invalid_plan"
+
+
+def test_set_active_task_fails_closed_without_status(project_root: Path) -> None:
+    repository = ProjectRepository(project_root)
+    (project_root / "docs" / "superpowers" / "plans" / "active.md").write_text(
+        "### Task 1: Work\n\n- [ ] **Step 1: Start**\n", encoding="utf-8"
+    )
+    (project_root / "docs" / "project").mkdir()
+    with pytest.raises(ProjectStateError) as error:
+        repository.set_active_task("active.md", 1)
+    assert error.value.code == "invalid_status"
+
+
+def test_completed_status_has_no_next_task_recommendation(project_root: Path) -> None:
+    plan = project_root / "docs" / "superpowers" / "plans" / "active.md"
+    plan.write_text("### Task 1: Done\n\n**Files:**\n- Modify: `x.py`\n\n- [x] **Step 1: Finish**\n", encoding="utf-8")
+    repository = ProjectRepository(project_root)
+    repository.initialize_status("active.md", 1, 1, "abc")
+    status = repository.read_status(); status["state"] = "completed"
+    repository._atomic_write("docs/project/status.md", repository._render_status(status))
+    assert repository.get_next_step()["recommendation"] == "no next task"

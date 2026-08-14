@@ -151,7 +151,15 @@ class ProjectRepository:
         self._atomic_write("docs/project/status.md", self._render_status(data)); return data
 
     def _validate_selection(self, plan: str, task: int, step: int) -> tuple[PlanTask, PlanStep]:
-        tasks = self.parse_plan(plan); t = next((x for x in tasks if x.number == task), None)
+        try:
+            tasks = self.parse_plan(plan)
+        except ProjectStateError as exc:
+            if exc.code == "invalid_resource":
+                raise ProjectStateError("invalid_plan", "plan not found") from exc
+            raise
+        if not tasks:
+            raise ProjectStateError("invalid_plan", "plan has no tasks")
+        t = next((x for x in tasks if x.number == task), None)
         if t is None: raise ProjectStateError("invalid_task", "task not found")
         s = next((x for x in t.steps if x.number == step), None)
         if s is None: raise ProjectStateError("invalid_step", "step not found")
@@ -160,17 +168,20 @@ class ProjectRepository:
     def set_active_task(self, plan: str, task_number: int, step_number: int = 1, state: str = "planned", note: str = "") -> dict:
         if state not in {"planned","in_progress","awaiting_confirmation"}: raise ProjectStateError("invalid_status", "completed state cannot be activated")
         self._validate_selection(plan, task_number, step_number)
-        if self._is_regular_file(self._status_path()):
-            old = self.read_status()
-        else:
-            old = {"evidence":[],"last_confirmed_commit":""}
+        old = self.read_status()
         switched = old.get("active_plan") != plan or old.get("active_task") != task_number
         data = {"schema_version":1,"active_plan":plan,"active_task":task_number,"active_step":step_number,"state":state,"last_confirmed_commit":old.get("last_confirmed_commit",""),"evidence":[] if switched else old.get("evidence",[]),"note":note,"updated_at":datetime.now(timezone.utc).isoformat().replace("+00:00","Z")}
         self._atomic_write("docs/project/status.md", self._render_status(data)); return data
 
     def get_next_step(self) -> dict:
         status = self.read_status(); tasks = self.parse_plan(status["active_plan"]); task = next(t for t in tasks if t.number == status["active_task"])
-        if status["state"] == "completed": task = next((t for t in tasks if t.number > task.number), task); step = task.steps[0]
+        if status["state"] == "completed":
+            task = next((t for t in tasks if t.number > task.number), None)
+            if task is None:
+                return {"plan": status["active_plan"], "task": None, "task_title": None,
+                        "step": None, "step_title": None, "files": [], "body": "",
+                        "commands": [], "recommendation": "no next task"}
+            step = task.steps[0]
         else: step = next(s for s in task.steps if s.number == status["active_step"])
         return {"plan":status["active_plan"],"task":task.number,"task_title":task.title,"step":step.number,"step_title":step.title,"files":task.declared_files,"body":step.body,"commands":list(step.commands)}
 
