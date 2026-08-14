@@ -14,6 +14,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
+IGNORED_USER_PATTERNS = (
+    re.compile(r"^data/.*\.sqlite3(?:-wal|-shm)?$"),
+    re.compile(r"^\.superpowers(?:/|$)"),
+)
+RUNTIME_PREFIXES = ("app/", "online/", "static/")
+FORBIDDEN_ADDITION = re.compile(
+    r"(?i)\b(CASH_USDT|deposit|withdraw(?:al)?|KYC|blockchain|"
+    r"play[-_ ]to[-_ ]cash|cash[-_ ]wallet|payment(?:[-_ ]endpoint)?)"
+)
+
+
 class ProjectStateError(RuntimeError):
     """A validation or document-access failure."""
 
@@ -50,7 +61,7 @@ class ProjectRepository:
         "docs/superpowers/specs/2026-08-14-poker8-product-vision.md",
     )
 
-    def __init__(self, root: Path) -> None:
+    def __init__(self, root: Path, *, replace=os.replace) -> None:
         self.root = Path(root).expanduser().resolve()
         if not self.root.is_dir():
             raise ProjectStateError("invalid_root", "project root is not a directory")
@@ -72,6 +83,30 @@ class ProjectRepository:
             if not self._is_regular_file(path):
                 raise ProjectStateError("missing_anchor", f"required anchor is missing or unsafe: {relative}")
         self._write_lock = threading.Lock()
+        self._replace = replace
+
+    def _git(self, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
+        """Run one fixed, read-only Git command in the validated worktree."""
+        if any(not isinstance(arg, str) or not arg for arg in args):
+            raise ProjectStateError("git_unavailable", "invalid Git command")
+        try:
+            result = subprocess.run(
+                ["git", *args], cwd=self.root, shell=False, capture_output=True,
+                text=True, timeout=5,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise ProjectStateError("git_unavailable", "Git is unavailable or timed out") from exc
+        if check and result.returncode != 0:
+            raise ProjectStateError("git_unavailable", "Git command failed")
+        return result
+
+    def _task(self, plan: str, number: int) -> PlanTask:
+        if plan not in self.plan_catalogue():
+            raise ProjectStateError("invalid_plan", f"Unknown plan: {plan}")
+        for task in self.parse_plan(plan):
+            if task.number == number:
+                return task
+        raise ProjectStateError("invalid_task", f"Unknown task: {number}")
 
     def parse_plan(self, name: str) -> tuple[PlanTask, ...]:
         text = self.read_plan(name)
@@ -144,7 +179,7 @@ class ProjectRepository:
                 try:
                     with os.fdopen(fd, "w", encoding="utf-8", newline="") as handle:
                         handle.write(content); handle.flush(); os.fsync(handle.fileno())
-                    os.replace(temp, path)
+                    self._replace(temp, path)
                 except OSError as exc:
                     try: os.unlink(temp)
                     except OSError: pass
@@ -298,6 +333,127 @@ class ProjectRepository:
         result = {"plan":status["active_plan"],"task":task.number,"task_title":task.title,"step":step.number,"step_title":step.title,"files":task.declared_files,"body":step.body,"commands":list(step.commands)}
         if status["state"] == "completed": result["recommendation"] = recommendation
         return result
+
+    @staticmethod
+    def _normal_path(raw: str) -> str:
+        value = raw.strip().strip('"').replace("\\", "/")
+        if " -> " in value:
+            value = value.split(" -> ", 1)[1]
+        path = Path(value)
+        if path.is_absolute() or ".." in path.parts:
+            raise ProjectStateError("unsafe_git_path", "Git returned an unsafe path")
+        return path.as_posix()
+
+    def _name_only(self, cached: bool) -> set[str]:
+        args = ["diff"]
+        if cached:
+            args.append("--cached")
+        args.append("--name-only")
+        return {
+            self._normal_path(line)
+            for line in self._git(*args).stdout.splitlines()
+            if line.strip()
+        }
+
+    def _untracked(self) -> set[str]:
+        paths: set[str] = set()
+        for line in self._git("status", "--porcelain=v1").stdout.splitlines():
+            if line.startswith("?? "):
+                paths.add(self._normal_path(line[3:]))
+        return paths
+
+    def _expand_untracked(self, paths: set[str]) -> set[str]:
+        """Expand Git's directory marker using names only, never file contents."""
+        expanded: set[str] = set()
+        for path in paths:
+            if path != "data":
+                expanded.add(path)
+                continue
+            directory = self.root / "data"
+            if self._is_link(directory):
+                expanded.add(path)
+                continue
+            try:
+                entries = directory.iterdir()
+            except OSError:
+                expanded.add(path)
+                continue
+            found = False
+            for entry in entries:
+                found = True
+                expanded.add(f"data/{entry.name}")
+            if not found:
+                expanded.add(path)
+        return expanded
+
+    @staticmethod
+    def _ignored_user_path(path: str) -> bool:
+        return any(pattern.match(path) for pattern in IGNORED_USER_PATTERNS)
+
+    def _patch(self, paths: set[str], cached: bool) -> str:
+        if not paths:
+            return ""
+        args = ["diff"]
+        if cached:
+            args.append("--cached")
+        args.extend(["--no-ext-diff", "--unified=0", "--", *sorted(paths)])
+        return self._git(*args).stdout
+
+    def check_current_diff(self) -> dict[str, object]:
+        """Compare fixed Git path/diff output with the active task scope."""
+        status = self.read_status()
+        task = self._task(str(status["active_plan"]), int(status["active_task"]))
+        unstaged = self._name_only(False)
+        staged = self._name_only(True)
+        untracked = self._expand_untracked(self._untracked())
+        all_paths = unstaged | staged | untracked
+        ignored_raw = {path for path in all_paths if self._ignored_user_path(path)}
+        ignored_display = {
+            ".superpowers/" if path == ".superpowers" or path.startswith(".superpowers/") else path
+            for path in ignored_raw
+        }
+        relevant = all_paths - ignored_raw
+        expected = set(task.files)
+        extra = sorted(relevant - expected)
+        missing = sorted(expected - relevant)
+        evidence: list[dict[str, str]] = []
+        for patch in (
+            self._patch(unstaged - ignored_raw, False),
+            self._patch(staged - ignored_raw, True),
+        ):
+            current_path = ""
+            for line in patch.splitlines():
+                if line.startswith("+++ b/"):
+                    current_path = self._normal_path(line[6:])
+                elif (
+                    current_path.startswith(RUNTIME_PREFIXES)
+                    and line.startswith("+")
+                    and not line.startswith("+++")
+                    and (match := FORBIDDEN_ADDITION.search(line[1:]))
+                ):
+                    evidence.append({
+                        "path": current_path,
+                        "term": match.group(0),
+                        "line": line[1:],
+                    })
+        if evidence:
+            result = "blocked"
+        elif extra or missing or relevant & untracked:
+            result = "warning"
+        else:
+            result = "aligned"
+        return {
+            "result": result,
+            "active_task_files": sorted(expected),
+            "staged": sorted(staged - ignored_raw),
+            "unstaged": sorted(unstaged - ignored_raw),
+            "untracked": sorted(untracked - ignored_raw),
+            "extra": extra,
+            "missing": missing,
+            "blocked_evidence": evidence,
+            "ignored_user_changes": sorted(ignored_display),
+            "limitations": "Deterministic path and added-line checks; semantic review remains required.",
+        }
 
     @staticmethod
     def _is_link(path: Path) -> bool:

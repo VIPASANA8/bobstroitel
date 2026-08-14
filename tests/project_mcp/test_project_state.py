@@ -248,3 +248,69 @@ def test_completion_unknown_commit_leaves_status_unchanged(project_root: Path) -
         repository.confirm_task_completed("tests", commit="0123456")
     assert error.value.code == "invalid_commit"
     assert repository.read_status() == before
+
+
+def _initialize_active_status(repository: ProjectRepository, root: Path) -> None:
+    git("add", "docs/superpowers", cwd=root)
+    git("commit", "-m", "plan fixture", cwd=root)
+    (root / "docs" / "project").mkdir(exist_ok=True)
+    repository.initialize_status("active.md", 1, 1, "")
+    git("add", "docs/project/status.md", cwd=root)
+    git("commit", "-m", "status fixture", cwd=root)
+
+
+def test_alignment_covers_staged_unstaged_blocked_and_ignored(project_root: Path) -> None:
+    plan = project_root / "docs" / "superpowers" / "plans" / "active.md"
+    plan.write_text(
+        "### Task 1: Work\n\n**Files:**\n- Create: `online/config.py`\n\n"
+        "- [ ] **Step 1: Start**\n",
+        encoding="utf-8",
+    )
+    repository = ProjectRepository(project_root)
+    _initialize_active_status(repository, project_root)
+    online = project_root / "online"
+    online.mkdir()
+    config = online / "config.py"
+    config.write_text("VALUE = 1\n", encoding="utf-8")
+    git("add", "online/config.py", cwd=project_root)
+    assert repository.check_current_diff()["result"] == "aligned"
+
+    (project_root / "README.md").write_text("outside task\n", encoding="utf-8")
+    assert repository.check_current_diff()["result"] == "warning"
+
+    git("add", "README.md", cwd=project_root)
+    git("commit", "-m", "tracked fixture", cwd=project_root)
+    config.write_text("def deposit_endpoint():\n    return 'USDT'\n", encoding="utf-8")
+    result = repository.check_current_diff()
+    assert result["result"] == "blocked"
+    assert result["blocked_evidence"]
+    assert result["blocked_evidence"][0]["path"] == "online/config.py"
+
+    data = project_root / "data"
+    data.mkdir()
+    (data / "poker_trainer.sqlite3").write_bytes(b"do not inspect")
+    (data / "poker_trainer.sqlite3-wal").write_bytes(b"do not inspect")
+    superpowers = project_root / ".superpowers"
+    superpowers.mkdir()
+    (superpowers / "marker").write_text("browser", encoding="utf-8")
+    result = repository.check_current_diff()
+    assert sorted(result["ignored_user_changes"]) == [
+        ".superpowers/", "data/poker_trainer.sqlite3", "data/poker_trainer.sqlite3-wal",
+    ]
+
+
+def test_untracked_forbidden_text_is_reported_but_never_opened(project_root: Path) -> None:
+    plan = project_root / "docs" / "superpowers" / "plans" / "active.md"
+    plan.write_text(
+        "### Task 1: Work\n\n**Files:**\n- Create: `online/config.py`\n\n"
+        "- [ ] **Step 1: Start**\n",
+        encoding="utf-8",
+    )
+    repository = ProjectRepository(project_root)
+    _initialize_active_status(repository, project_root)
+    untracked = project_root / "online" / "config.py"
+    untracked.parent.mkdir()
+    untracked.write_text("deposit_endpoint = 'must not be inspected'\n", encoding="utf-8")
+    result = repository.check_current_diff()
+    assert result["result"] == "warning"
+    assert result["blocked_evidence"] == []
