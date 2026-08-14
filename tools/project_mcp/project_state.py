@@ -111,7 +111,14 @@ class ProjectRepository:
         if len(blocks) != 1: raise ProjectStateError("invalid_status", "status block missing or duplicated")
         try: data = json.loads(blocks[0])
         except json.JSONDecodeError as exc: raise ProjectStateError("invalid_status", "malformed status") from exc
-        if not isinstance(data, dict) or data.get("schema_version") != 1 or set(data) != self._STATUS_KEYS or not isinstance(data.get("evidence"), list) or data.get("state") not in self._STATES:
+        valid_types = (isinstance(data, dict) and isinstance(data.get("active_plan"), str)
+            and isinstance(data.get("active_task"), int) and not isinstance(data.get("active_task"), bool)
+            and isinstance(data.get("active_step"), int) and not isinstance(data.get("active_step"), bool)
+            and isinstance(data.get("state"), str) and data.get("state") in self._STATES
+            and isinstance(data.get("last_confirmed_commit"), str)
+            and isinstance(data.get("note"), str) and isinstance(data.get("updated_at"), str)
+            and isinstance(data.get("evidence"), list) and all(isinstance(item, str) for item in data.get("evidence", [])))
+        if not isinstance(data, dict) or data.get("schema_version") != 1 or set(data) != self._STATUS_KEYS or not valid_types:
             raise ProjectStateError("invalid_status", "unsupported status schema")
         return data
 
@@ -154,9 +161,7 @@ class ProjectRepository:
         try:
             tasks = self.parse_plan(plan)
         except ProjectStateError as exc:
-            if exc.code == "invalid_resource":
-                raise ProjectStateError("invalid_plan", "plan not found") from exc
-            raise
+            raise ProjectStateError("invalid_plan", "plan not found or cannot be parsed") from exc
         if not tasks:
             raise ProjectStateError("invalid_plan", "plan has no tasks")
         t = next((x for x in tasks if x.number == task), None)
@@ -182,7 +187,12 @@ class ProjectRepository:
                         "step": None, "step_title": None, "files": [], "body": "",
                         "commands": [], "recommendation": "no next task"}
             step = task.steps[0]
-        else: step = next(s for s in task.steps if s.number == status["active_step"])
+        else:
+            step = next((s for s in task.steps if not s.checked), None)
+            if step is None:
+                return {"plan": status["active_plan"], "task": task.number, "task_title": task.title,
+                        "step": None, "step_title": None, "files": task.declared_files, "body": "",
+                        "commands": [], "recommendation": "no unconfirmed steps"}
         return {"plan":status["active_plan"],"task":task.number,"task_title":task.title,"step":step.number,"step_title":step.title,"files":task.declared_files,"body":step.body,"commands":list(step.commands)}
 
     @staticmethod
