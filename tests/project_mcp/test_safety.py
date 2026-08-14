@@ -50,7 +50,7 @@ def test_write_boundary_rejects_source_and_preserves_atomic_original(tmp_path: P
     repository = ProjectRepository(root)
     with pytest.raises(ProjectStateError) as forbidden:
         repository._atomic_write("app/main.py", "changed")
-    assert forbidden.value.code == "write_failed"
+    assert forbidden.value.code == "write_forbidden"
 
     project_dir = root / "docs" / "project"
     project_dir.mkdir()
@@ -116,5 +116,5 @@ def test_symlinked_manager_target_is_rejected(tmp_path: Path) -> None:
     repository = ProjectRepository(root)
     with pytest.raises(ProjectStateError) as error:
         repository._atomic_write("docs/project/status.md", "replacement")
-    assert error.value.code == "write_failed"
+    assert error.value.code == "unsafe_path"
     assert outside.read_text(encoding="utf-8") == "outside"

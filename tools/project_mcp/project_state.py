@@ -164,16 +164,16 @@ class ProjectRepository:
 
     def _atomic_write(self, relative: str, content: str) -> None:
         if relative not in {"docs/project/status.md", "docs/project/decisions.md"}:
-            raise ProjectStateError("write_failed", "write target is not approved")
+            raise ProjectStateError("write_forbidden", "MCP may write only status and decisions")
         try:
             path = self._safe_path(relative)
-        except ProjectStateError as exc:
-            raise ProjectStateError("write_failed", "target is unsafe") from exc
+        except ProjectStateError:
+            raise
         parent = path.parent
         try:
             parent.mkdir(parents=True, exist_ok=True)
-            if path.exists() and not self._is_regular_file(path): raise ProjectStateError("write_failed", "target is unsafe")
-            if self._is_link(parent): raise ProjectStateError("write_failed", "parent is unsafe")
+            if path.exists() and not self._is_regular_file(path): raise ProjectStateError("unsafe_path", "target is unsafe")
+            if self._is_link(parent): raise ProjectStateError("unsafe_path", "parent is unsafe")
             with self._write_lock:
                 fd, temp = tempfile.mkstemp(prefix=f".{path.name}.", dir=str(parent))
                 try:
