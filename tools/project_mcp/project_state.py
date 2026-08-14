@@ -177,17 +177,20 @@ class ProjectRepository:
             text = path.read_text(encoding="utf-8")
         except (OSError, UnicodeError) as exc:
             raise ProjectStateError("invalid_decision_log", "decision log unavailable") from exc
+        raw_headings = list(re.finditer(r"^##\s+P8-DEC-(\S+).*?$", text, re.M))
         matches = list(re.finditer(r"^## (P8-DEC-\d{4})\s*(?::|—)\s*(.+?)\s*$", text, re.M))
+        if len(raw_headings) != len(matches):
+            raise ProjectStateError("invalid_decision_log", "malformed decision log")
         entries = []
         for i, match in enumerate(matches):
             section = text[match.end(): matches[i + 1].start() if i + 1 < len(matches) else len(text)]
             dm = re.search(r"^Decision:\s*(.+?)\s*$", section, re.M) or re.search(r"### Decision\s*\n\s*(.+?)(?=\n\s*### Rationale|\Z)", section, re.S)
             rm = re.search(r"^Rationale:\s*(.+?)\s*$", section, re.M) or re.search(r"### Rationale\s*\n\s*(.+?)(?=\n\s*## |\Z)", section, re.S)
-            sm = re.search(r"^Supersedes:\s*(P8-DEC-\d{4})\s*$", section, re.M)
+            sm = re.search(r"^-?\s*Supersedes:\s*(P8-DEC-\d{4}|none)\s*$", section, re.M)
             entries.append({"id": match.group(1), "title": match.group(2).strip(),
                             "decision": dm.group(1).strip() if dm else "",
                             "rationale": rm.group(1).strip() if rm else "",
-                            "supersedes": sm.group(1) if sm else None})
+                            "supersedes": (None if not sm or sm.group(1) == "none" else sm.group(1))})
         if not entries or any(self._DECISION_ID_RE.fullmatch(e["id"]) is None for e in entries):
             raise ProjectStateError("invalid_decision_log", "malformed decision log")
         for index, entry in enumerate(entries, 1):
@@ -209,7 +212,8 @@ class ProjectRepository:
         suffix = f"\n## {entry['id']}: {entry['title']}\nDecision: {entry['decision']}\nRationale: {entry['rationale']}\n"
         if supersedes:
             suffix += f"Supersedes: {supersedes}\n"
-        self._atomic_write("docs/project/decisions.md", text.rstrip() + "\n" + suffix)
+        separator = "" if text.endswith("\n") else "\n"
+        self._atomic_write("docs/project/decisions.md", text + separator + suffix.lstrip("\n"))
         return entry
 
     def confirm_task_completed(self, evidence: str, commit: str | None = None) -> dict:

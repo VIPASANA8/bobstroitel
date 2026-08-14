@@ -189,6 +189,20 @@ def test_malformed_decision_log_fails_closed_without_write(project_root: Path) -
     assert path.read_text(encoding="utf-8") == original
 
 
+@pytest.mark.parametrize("original", [
+    "# Decisions\n\n## P8-DEC-XYZ: Broken\nDecision: d\nRationale: r\n",
+    "# Decisions\n\n## P8-DEC-0001 — Boundary\n- Supersedes: P8-DEC-0099\n### Decision\nD\n### Rationale\nR\n",
+])
+def test_decision_log_malformed_heading_or_bullet_reference_fails_closed(project_root: Path, original: str) -> None:
+    repository = _ready_repository(project_root)
+    path = project_root / "docs" / "project" / "decisions.md"
+    path.write_text(original, encoding="utf-8")
+    with pytest.raises(ProjectStateError) as error:
+        repository.record_decision("t", "d", "r")
+    assert error.value.code == "invalid_decision_log"
+    assert path.read_text(encoding="utf-8") == original
+
+
 def test_completion_requires_evidence(project_root: Path) -> None:
     with pytest.raises(ProjectStateError) as error:
         _ready_repository(project_root).confirm_task_completed(" ")
