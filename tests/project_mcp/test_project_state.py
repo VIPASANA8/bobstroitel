@@ -35,6 +35,21 @@ def test_non_git_root_is_rejected(tmp_path: Path) -> None:
         ProjectRepository(tmp_path)
 
 
+def test_symlinked_document_parent_is_rejected(project_root: Path, tmp_path: Path) -> None:
+    outside = tmp_path.parent / "outside-specs"
+    outside.mkdir()
+    specs = project_root / "docs" / "superpowers" / "specs"
+    original = project_root / "docs" / "superpowers" / "specs-real"
+    specs.rename(original)
+    try:
+        specs.symlink_to(outside, target_is_directory=True)
+    except OSError as exc:
+        original.rename(specs)
+        pytest.skip(f"symlinks unavailable: {exc}")
+    with pytest.raises(ProjectStateError):
+        ProjectRepository(project_root)
+
+
 def test_catalogue_and_reads(project_root: Path) -> None:
     repository = ProjectRepository(project_root)
     assert repository.spec_catalogue() == sorted([*ANCHORS, "approved.md"])
@@ -48,4 +63,3 @@ def test_unknown_and_traversal_names_are_rejected(project_root: Path, name: str)
     repository = ProjectRepository(project_root)
     with pytest.raises(ProjectStateError):
         repository.read_spec(name)
-

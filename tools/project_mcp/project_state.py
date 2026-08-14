@@ -7,7 +7,7 @@ import subprocess
 from pathlib import Path
 
 
-class ProjectStateError(Exception):
+class ProjectStateError(RuntimeError):
     """A validation or document-access failure."""
 
     def __init__(self, code: str, message: str) -> None:
@@ -42,20 +42,40 @@ class ProjectRepository:
         if result.returncode != 0 or result.stdout.strip() != "true":
             raise ProjectStateError("not_git_repository", "project root is not a Git work tree")
         for relative in self._ANCHORS:
-            path = self.root / relative
+            path = self._safe_path(relative)
             if not self._is_regular_file(path):
                 raise ProjectStateError("missing_anchor", f"required anchor is missing or unsafe: {relative}")
 
     @staticmethod
+    def _is_link(path: Path) -> bool:
+        is_junction = getattr(path, "is_junction", None)
+        return path.is_symlink() or (is_junction is not None and is_junction())
+
+    def _safe_path(self, relative: str) -> Path:
+        """Resolve a repository-relative path without traversing links."""
+        candidate = self.root / relative
+        try:
+            current = self.root
+            for part in Path(relative).parts:
+                current = current / part
+                if self._is_link(current):
+                    raise ProjectStateError("unsafe_path", f"symlink or junction in approved path: {relative}")
+            resolved = candidate.resolve(strict=False)
+            resolved.relative_to(self.root)
+        except ValueError as exc:
+            raise ProjectStateError("unsafe_path", f"path escapes project root: {relative}") from exc
+        return candidate
+
+    @staticmethod
     def _is_regular_file(path: Path) -> bool:
         try:
-            return not path.is_symlink() and stat.S_ISREG(path.stat(follow_symlinks=False).st_mode)
+            return not ProjectRepository._is_link(path) and stat.S_ISREG(path.stat(follow_symlinks=False).st_mode)
         except OSError:
             return False
 
     def _catalogue(self, relative_dir: str) -> list[str]:
-        directory = self.root / relative_dir
-        if not directory.is_dir() or directory.is_symlink():
+        directory = self._safe_path(relative_dir)
+        if not directory.is_dir():
             raise ProjectStateError("invalid_document_directory", f"document directory is unavailable: {relative_dir}")
         names: list[str] = []
         try:
@@ -66,7 +86,7 @@ class ProjectRepository:
             if entry.suffix != ".md":
                 continue
             if not self._is_regular_file(entry):
-                raise ProjectStateError("unsafe_document", f"document is not a regular file: {entry.name}")
+                raise ProjectStateError("unsafe_path", f"document is not a regular file: {entry.name}")
             names.append(entry.name)
         return sorted(names)
 
@@ -79,12 +99,13 @@ class ProjectRepository:
     def _read(self, relative_dir: str, name: str) -> str:
         if not isinstance(name, str) or not name or name != Path(name).name or Path(name).suffix != ".md":
             raise ProjectStateError("invalid_document_name", f"invalid document name: {name!r}")
-        directory = self.root / relative_dir
+        directory = self._safe_path(relative_dir)
         candidate = directory / name
         try:
+            self._safe_path(f"{relative_dir}/{name}")
             candidate_resolved = candidate.resolve(strict=False)
             if candidate_resolved.parent != directory.resolve() or not self._is_regular_file(candidate):
-                raise ProjectStateError("unsafe_document", f"document is not an approved regular file: {name}")
+                raise ProjectStateError("unsafe_path", f"document is not an approved regular file: {name}")
             return candidate.read_text(encoding="utf-8")
         except ProjectStateError:
             raise
