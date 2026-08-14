@@ -38,9 +38,33 @@ if ($existingExitCode -eq 0) {
     throw "MCP registration 'poker8_project' already exists; remove it explicitly before reinstalling."
 }
 
-& $python -m pip install -r $requirements
-if ($LASTEXITCODE -ne 0) {
-    throw "MCP dependency installation failed."
+# Some checked-in Poker8 environments intentionally omit pip from the venv.
+# Prefer that interpreter's pip, then use the Python launcher to target the
+# same venv without silently installing into a global interpreter.
+$previousErrorActionPreference = $ErrorActionPreference
+try {
+    $ErrorActionPreference = "Continue"
+    $null = & $python -c "import pip" 2>$null
+    $hasPip = ($LASTEXITCODE -eq 0)
+}
+finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+}
+
+if ($hasPip) {
+    & $python -m pip install -r $requirements
+    if ($LASTEXITCODE -ne 0) {
+        throw "MCP dependency installation failed."
+    }
+}
+else {
+    if (-not (Get-Command py -ErrorAction SilentlyContinue)) {
+        throw "The project virtual environment has no pip and the 'py' launcher is unavailable."
+    }
+    & py -m pip --python $python install -r $requirements
+    if ($LASTEXITCODE -ne 0) {
+        throw "MCP dependency installation via 'py --python' failed."
+    }
 }
 
 & codex mcp add poker8_project -- $python $server --root $repoRoot
