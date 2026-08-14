@@ -92,3 +92,13 @@ def test_completed_status_has_no_next_task_recommendation(project_root: Path) ->
     status = repository.read_status(); status["state"] = "completed"
     repository._atomic_write("docs/project/status.md", repository._render_status(status))
     assert repository.get_next_step()["recommendation"] == "no next task"
+
+
+def test_completed_state_cannot_be_activated(project_root: Path) -> None:
+    plan = project_root / "docs" / "superpowers" / "plans" / "active.md"
+    plan.write_text("### Task 1: Done\n\n- [ ] **Step 1: Finish**\n", encoding="utf-8")
+    repository = ProjectRepository(project_root)
+    repository.initialize_status("active.md", 1, 1, "abc")
+    with pytest.raises(ProjectStateError) as error:
+        repository.set_active_task("active.md", 1, state="completed")
+    assert error.value.code == "invalid_state"

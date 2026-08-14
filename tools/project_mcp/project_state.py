@@ -171,7 +171,7 @@ class ProjectRepository:
         return t, s
 
     def set_active_task(self, plan: str, task_number: int, step_number: int = 1, state: str = "planned", note: str = "") -> dict:
-        if state not in {"planned","in_progress","awaiting_confirmation"}: raise ProjectStateError("invalid_status", "completed state cannot be activated")
+        if state not in {"planned","in_progress","awaiting_confirmation"}: raise ProjectStateError("invalid_state", "completed state cannot be activated")
         self._validate_selection(plan, task_number, step_number)
         old = self.read_status()
         switched = old.get("active_plan") != plan or old.get("active_task") != task_number
@@ -187,13 +187,16 @@ class ProjectRepository:
                         "step": None, "step_title": None, "files": [], "body": "",
                         "commands": [], "recommendation": "no next task"}
             step = task.steps[0]
+            recommendation = f"Switch explicitly to Task {task.number}: {task.title}"
         else:
             step = next((s for s in task.steps if not s.checked), None)
             if step is None:
                 return {"plan": status["active_plan"], "task": task.number, "task_title": task.title,
                         "step": None, "step_title": None, "files": task.declared_files, "body": "",
                         "commands": [], "recommendation": "no unconfirmed steps"}
-        return {"plan":status["active_plan"],"task":task.number,"task_title":task.title,"step":step.number,"step_title":step.title,"files":task.declared_files,"body":step.body,"commands":list(step.commands)}
+        result = {"plan":status["active_plan"],"task":task.number,"task_title":task.title,"step":step.number,"step_title":step.title,"files":task.declared_files,"body":step.body,"commands":list(step.commands)}
+        if status["state"] == "completed": result["recommendation"] = recommendation
+        return result
 
     @staticmethod
     def _is_link(path: Path) -> bool:
