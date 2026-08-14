@@ -38,9 +38,9 @@ class ProjectRepository:
                 timeout=5,
             )
         except (OSError, subprocess.TimeoutExpired) as exc:
-            raise ProjectStateError("not_git_repository", "project root is not a Git work tree") from exc
+            raise ProjectStateError("not_git_repository", "project root is not a Git worktree") from exc
         if result.returncode != 0 or result.stdout.strip() != "true":
-            raise ProjectStateError("not_git_repository", "project root is not a Git work tree")
+            raise ProjectStateError("not_git_repository", "project root is not a Git worktree")
         for relative in self._ANCHORS:
             path = self._safe_path(relative)
             if not self._is_regular_file(path):
@@ -105,19 +105,25 @@ class ProjectRepository:
 
     def _read(self, relative_dir: str, name: str) -> str:
         if not isinstance(name, str) or not name or name != Path(name).name or Path(name).suffix != ".md":
-            raise ProjectStateError("invalid_document_name", f"invalid document name: {name!r}")
-        directory = self._safe_path(relative_dir)
-        candidate = directory / name
+            raise ProjectStateError("invalid_resource", f"invalid document name: {name!r}")
         try:
-            self._safe_path(f"{relative_dir}/{name}")
+            try:
+                directory = self._safe_path(relative_dir)
+            except ProjectStateError as exc:
+                raise ProjectStateError("invalid_resource", f"invalid document resource: {name}") from exc
+            candidate = directory / name
+            try:
+                self._safe_path(f"{relative_dir}/{name}")
+            except ProjectStateError as exc:
+                raise ProjectStateError("invalid_resource", f"invalid document resource: {name}") from exc
             candidate_resolved = candidate.resolve(strict=False)
             if candidate_resolved.parent != directory.resolve() or not self._is_regular_file(candidate):
-                raise ProjectStateError("unsafe_path", f"document is not an approved regular file: {name}")
+                raise ProjectStateError("invalid_resource", f"document is not an approved regular file: {name}")
             return candidate.read_text(encoding="utf-8")
         except ProjectStateError:
             raise
         except (OSError, UnicodeError) as exc:
-            raise ProjectStateError("document_not_found", f"document is unavailable: {name}") from exc
+            raise ProjectStateError("invalid_resource", f"document is unavailable: {name}") from exc
 
     def read_spec(self, name: str) -> str:
         return self._read("docs/superpowers/specs", name)

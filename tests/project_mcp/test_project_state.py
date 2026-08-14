@@ -31,7 +31,7 @@ def project_root(tmp_path: Path) -> Path:
 
 
 def test_non_git_root_is_rejected(tmp_path: Path) -> None:
-    with pytest.raises(ProjectStateError):
+    with pytest.raises(ProjectStateError, match="Git worktree"):
         ProjectRepository(tmp_path)
 
 
@@ -61,5 +61,6 @@ def test_catalogue_and_reads(project_root: Path) -> None:
 @pytest.mark.parametrize("name", ["../../.env", "../spec.md", "/tmp/spec.md", "unknown.md", "active.txt"])
 def test_unknown_and_traversal_names_are_rejected(project_root: Path, name: str) -> None:
     repository = ProjectRepository(project_root)
-    with pytest.raises(ProjectStateError):
+    with pytest.raises(ProjectStateError) as error:
         repository.read_spec(name)
+    assert error.value.code == "invalid_resource"
