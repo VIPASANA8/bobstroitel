@@ -163,9 +163,10 @@ class ProjectRepository:
     def _initial_decisions() -> str:
         return ("# Project Decisions\n\n"
                 "Policy: append-only; decisions are never edited or deleted.\n\n"
-                "## P8-DEC-0001: Project boundary\n"
-                "Decision: Project state writes are limited to approved status and decision documents.\n"
-                "Rationale: Keep the MCP write boundary explicit and auditable.\n")
+                "## P8-DEC-0001 — Project boundary\n\n"
+                "- Date: 2026-08-14T00:00:00Z\n- Supersedes: none\n\n"
+                "### Decision\n\nProject state writes are limited to approved status and decision documents.\n\n"
+                "### Rationale\n\nKeep the MCP write boundary explicit and auditable.\n")
 
     def _read_decisions(self) -> tuple[str, list[dict]]:
         path = self._safe_path("docs/project/decisions.md")
@@ -174,7 +175,8 @@ class ProjectRepository:
                 "decision": "Project state writes are limited to approved status and decision documents.",
                 "rationale": "Keep the MCP write boundary explicit and auditable.", "supersedes": None}]
         try:
-            text = path.read_text(encoding="utf-8")
+            with path.open("r", encoding="utf-8", newline="") as handle:
+                text = handle.read()
         except (OSError, UnicodeError) as exc:
             raise ProjectStateError("invalid_decision_log", "decision log unavailable") from exc
         raw_headings = list(re.finditer(r"^##\s+P8-DEC-(\S+).*?$", text, re.M))
@@ -186,6 +188,9 @@ class ProjectRepository:
             section = text[match.end(): matches[i + 1].start() if i + 1 < len(matches) else len(text)]
             dm = re.search(r"^Decision:\s*(.+?)\s*$", section, re.M) or re.search(r"### Decision\s*\n\s*(.+?)(?=\n\s*### Rationale|\Z)", section, re.S)
             rm = re.search(r"^Rationale:\s*(.+?)\s*$", section, re.M) or re.search(r"### Rationale\s*\n\s*(.+?)(?=\n\s*## |\Z)", section, re.S)
+            any_sm = re.search(r"^-?\s*Supersedes:\s*(\S+)\s*$", section, re.M)
+            if any_sm and any_sm.group(1) != "none" and self._DECISION_ID_RE.fullmatch(any_sm.group(1)) is None:
+                raise ProjectStateError("invalid_decision_log", "malformed decision supersedes reference")
             sm = re.search(r"^-?\s*Supersedes:\s*(P8-DEC-\d{4}|none)\s*$", section, re.M)
             entries.append({"id": match.group(1), "title": match.group(2).strip(),
                             "decision": dm.group(1).strip() if dm else "",
@@ -209,11 +214,15 @@ class ProjectRepository:
             raise ProjectStateError("invalid_decision", "supersedes must reference an existing decision")
         entry = {"id": f"P8-DEC-{len(entries) + 1:04d}", "title": title.strip(), "decision": decision.strip(),
                  "rationale": rationale.strip(), "supersedes": supersedes}
-        suffix = f"\n## {entry['id']}: {entry['title']}\nDecision: {entry['decision']}\nRationale: {entry['rationale']}\n"
-        if supersedes:
-            suffix += f"Supersedes: {supersedes}\n"
-        separator = "" if text.endswith("\n") else "\n"
-        self._atomic_write("docs/project/decisions.md", text + separator + suffix.lstrip("\n"))
+        newline = "\r\n" if "\r\n" in text else "\n"
+        suffix = (f"{newline}## {entry['id']} — {entry['title']}{newline}{newline}"
+                  f"- Date: {datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')}{newline}"
+                  f"- Supersedes: {supersedes or 'none'}{newline}{newline}"
+                  f"### Decision{newline}{newline}{entry['decision']}{newline}{newline}"
+                  f"### Rationale{newline}{newline}{entry['rationale']}{newline}")
+        separator = "" if text.endswith(("\n", "\r")) else newline
+        self._atomic_write("docs/project/decisions.md", text + separator + suffix.lstrip("\r\n"))
+        entry["supersedes"] = supersedes or "none"
         return entry
 
     def confirm_task_completed(self, evidence: str, commit: str | None = None) -> dict:

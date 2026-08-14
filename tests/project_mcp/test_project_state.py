@@ -192,6 +192,7 @@ def test_malformed_decision_log_fails_closed_without_write(project_root: Path) -
 @pytest.mark.parametrize("original", [
     "# Decisions\n\n## P8-DEC-XYZ: Broken\nDecision: d\nRationale: r\n",
     "# Decisions\n\n## P8-DEC-0001 — Boundary\n- Supersedes: P8-DEC-0099\n### Decision\nD\n### Rationale\nR\n",
+    "# Decisions\n\n## P8-DEC-0001: Boundary\n- Supersedes: P8-DEC-XYZ\nDecision: D\nRationale: R\n",
 ])
 def test_decision_log_malformed_heading_or_bullet_reference_fails_closed(project_root: Path, original: str) -> None:
     repository = _ready_repository(project_root)
@@ -201,6 +202,17 @@ def test_decision_log_malformed_heading_or_bullet_reference_fails_closed(project
         repository.record_decision("t", "d", "r")
     assert error.value.code == "invalid_decision_log"
     assert path.read_text(encoding="utf-8") == original
+
+
+def test_record_decision_preserves_crlf_existing_bytes(project_root: Path) -> None:
+    repository = _ready_repository(project_root)
+    path = project_root / "docs" / "project" / "decisions.md"
+    original = "# Decisions\r\n\r\n## P8-DEC-0001: Boundary\r\nDecision: D\r\nRationale: R\r\n"
+    path.write_bytes(original.encode("utf-8"))
+    repository.record_decision("Next", "D2", "R2")
+    result = path.read_bytes().decode("utf-8")
+    assert result.startswith(original)
+    assert "\r\n## P8-DEC-0002: Next\r\n" in result
 
 
 def test_completion_requires_evidence(project_root: Path) -> None:
