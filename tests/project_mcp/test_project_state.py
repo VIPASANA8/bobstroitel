@@ -212,7 +212,7 @@ def test_record_decision_preserves_crlf_existing_bytes(project_root: Path) -> No
     repository.record_decision("Next", "D2", "R2")
     result = path.read_bytes().decode("utf-8")
     assert result.startswith(original)
-    assert "\r\n## P8-DEC-0002: Next\r\n" in result
+    assert "\r\n## P8-DEC-0002 — Next\r\n" in result
 
 
 def test_completion_requires_evidence(project_root: Path) -> None:
