@@ -220,6 +220,8 @@ class TableRuntimeManager:
                 try:
                     self.engine.apply_action(loaded.state, participant_id, engine_action, engine_amount)
                     loaded.revision += 1
+                    if loaded.state.terminal:
+                        loaded.phase = "result"
                     snapshot = self._snapshot_for_state(loaded, participant_id)
                     result = RuntimeActionResult(
                         command_id=command_id,
@@ -270,6 +272,31 @@ class TableRuntimeManager:
         return RuntimeActionResult(
             result.command_id, result.table_id, result.revision, result.action, [item.value for item in legal], result.snapshot
         )
+
+    async def timeout_current_actor(self, table_id: str, now: datetime) -> RuntimeActionResult | None:
+        async with self._lock(table_id):
+            loaded = await self._load_locked(table_id)
+            if loaded is None or loaded.state.terminal or loaded.state.acting_player is None:
+                return None
+            actor = loaded.state.acting_player
+            legal = self.engine.legal_actions(loaded.state, actor)
+            timeout_action = ActionType.CHECK if ActionType.CHECK in legal else ActionType.FOLD
+            command_id = f"timeout:{loaded.state.hand_id}:{loaded.revision}"
+            revision = loaded.revision
+            user_id = actor
+        return await self.action(table_id, user_id, command_id, revision, timeout_action.value, 0)
+
+    async def prepare_next_hand(self, table_id: str) -> None:
+        async with self._lock(table_id):
+            loaded = await self._load_locked(table_id)
+            if loaded is None:
+                raise RuntimeErrorBase("table runtime not found")
+            loaded.phase = "waiting"
+            async with self.session_factory() as session:
+                async with session.begin():
+                    await session.execute(
+                        update(table_runtimes).where(table_runtimes.c.table_id == table_id).values(phase="waiting")
+                    )
 
     async def finish_and_settle(self, table_id: str):
         async with self._lock(table_id):
