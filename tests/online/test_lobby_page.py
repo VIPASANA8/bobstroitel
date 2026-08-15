@@ -57,3 +57,12 @@ def test_online_table_uses_existing_poker8_visual_dom():
     assert "window.Poker8LegacyView" in app_source
     assert 'app.js?v=online-legacy-1' in index_source
     assert 'online-table.js?v=online-legacy-1' in index_source
+
+
+def test_online_mobile_chat_does_not_cover_table_actions():
+    source = Path("static/online-table.js").read_text(encoding="utf-8")
+    assert "mobileChatButton" in source
+    assert "is-open" in source
+    assert "if (chat) chat.hidden = false;" not in source
+
+    assert ".poker8-online .online-chat-panel.is-open" in source

@@ -299,7 +299,8 @@ class SeatingService:
         for row in rows:
             if row["occupant_kind"] == "user" and row["user_id"]:
                 await self.ledger.return_stack(
-                    row["user_id"], table_id, f"return:{row['id']}:{row['user_id']}", session=session
+                    row["user_id"], table_id, f"return:{row['id']}:{row['user_id']}",
+                    amount_units=row["stack_units"], session=session
                 )
             elif row["occupant_kind"] == "system" and row["system_player_id"]:
                 await self.ledger.release_system_seat(

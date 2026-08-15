@@ -69,6 +69,37 @@ async def test_terminal_hand_posts_one_balanced_settlement(settlement_context):
 
 
 @pytest.mark.anyio
+async def test_seated_user_can_play_the_next_hand_without_double_payout(settlement_context):
+    runtime, ledger = settlement_context
+    await runtime.start_hand("t1")
+
+    while not runtime._tables["t1"].state.terminal:
+        state = runtime._tables["t1"].state
+        actor = state.acting_player
+        if actor == "u1":
+            snapshot = await runtime.public_snapshot("t1", "u1")
+            await runtime.action("t1", "u1", f"fold:{snapshot['revision']}", snapshot["revision"], "fold", 0)
+        else:
+            await runtime.system_step("t1")
+    await runtime.finish_and_settle("t1")
+
+    await runtime.prepare_next_hand("t1")
+    await runtime.start_hand("t1")
+    while not runtime._tables["t1"].state.terminal:
+        state = runtime._tables["t1"].state
+        actor = state.acting_player
+        if actor == "u1":
+            snapshot = await runtime.public_snapshot("t1", "u1")
+            await runtime.action("t1", "u1", f"fold:next:{snapshot['revision']}", snapshot["revision"], "fold", 0)
+        else:
+            await runtime.system_step("t1")
+    await runtime.finish_and_settle("t1")
+
+    assert await ledger.available_units("u1") == 0
+    assert sum(await ledger.escrow_balances("t1")) == 200_000
+
+
+@pytest.mark.anyio
 async def test_positive_net_counts_as_win_but_tie_does_not(db_session_factory):
     async with db_session_factory() as session:
         await session.execute(insert(tenants).values(id="tenant", slug="poker8", name="Poker8"))

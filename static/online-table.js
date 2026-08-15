@@ -21,8 +21,8 @@
     @media(max-width:780px){
       .poker8-online .online-state-panel{position:fixed;left:10px;right:10px;bottom:calc(94px + env(safe-area-inset-bottom));z-index:120;box-shadow:0 10px 30px rgba(0,0,0,.42)}
       .poker8-online .online-state-panel button{white-space:nowrap}
-      .poker8-online .online-chat-panel{position:fixed;left:10px;right:10px;bottom:calc(92px + env(safe-area-inset-bottom));z-index:130;margin:0}
-      .poker8-online .online-chat-panel[hidden]{display:none!important}
+      .poker8-online .online-chat-panel{display:none!important;position:fixed;left:10px;right:10px;bottom:calc(92px + env(safe-area-inset-bottom));z-index:130;margin:0}
+      .poker8-online .online-chat-panel.is-open{display:block!important}
       .poker8-online .online-connection-status{right:10px;bottom:8px}
     }
   `;
@@ -81,7 +81,10 @@
       }
     }
     const chat = $("chatPanel");
-    if (chat) chat.hidden = false;
+    if (chat) {
+      const mobile = window.matchMedia?.("(max-width:780px)")?.matches;
+      chat.hidden = Boolean(mobile && !chat.classList.contains("is-open"));
+    }
     ["infiniteMode", "spectatorPause", "abortHand", "newHand", "mobilePrimaryAction"].forEach(id => {
       if ($(id)) $(id).classList.add("local-only-control");
     });
@@ -118,6 +121,15 @@
 
   function bindControls() {
     $("mobileMenuButton")?.addEventListener("click", () => { location.href = "/"; });
+    $("mobileChatButton")?.addEventListener("click", () => {
+      const chat = $("chatPanel");
+      const button = $("mobileChatButton");
+      if (!chat) return;
+      const open = !chat.classList.contains("is-open");
+      chat.classList.toggle("is-open", open);
+      chat.hidden = !open;
+      button?.setAttribute("aria-expanded", String(open));
+    });
     $("readyButton")?.addEventListener("click", () => ready().catch(error => { alert(error.message); }));
     $("chatForm")?.addEventListener("submit", async event => {
       event.preventDefault();

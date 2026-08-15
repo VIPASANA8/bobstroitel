@@ -369,14 +369,17 @@ class TableRuntimeManager:
                     ).mappings().all()
                     by_participant = {self._participant_id(seat): seat for seat in seats}
                     transfers: dict[tuple[str, str, str], int] = {}
-                    user_start_total = 0
+                    user_net_total = 0
                     for participant_id, player in loaded.state.players.items():
                         seat = by_participant[participant_id]
                         start_units = round(loaded.state.starting_stacks[participant_id] * table["big_blind_units"])
                         end_units = round(player.stack * table["big_blind_units"])
                         if seat["occupant_kind"] == "user":
-                            user_start_total += start_units
-                            transfers[("user", participant_id, "wallet")] = end_units
+                            # A seated user's stack stays in the table escrow between
+                            # hands. Only the net change against system players moves
+                            # through the shared table account; paying the full stack
+                            # to the wallet here would double-count it on the next hand.
+                            user_net_total += end_units - start_units
                         else:
                             transfers[("system", participant_id, "escrow")] = end_units - start_units
                         await session.execute(
@@ -405,7 +408,7 @@ class TableRuntimeManager:
                                 wins=profile_table.c.wins + (1 if end_units > start_units else 0),
                             )
                         )
-                    transfers[("table", table_id, "escrow")] = -user_start_total
+                    transfers[("table", table_id, "escrow")] = user_net_total
                     settlement = await self.ledger.settle_hand_transfers(
                         loaded.state.hand_id, transfers, session=session
                     )

@@ -151,7 +151,8 @@ class PlayLedger:
         return await self._run(operation, session)
 
     async def return_stack(
-        self, user_id: str, table_id: str, idempotency_key: str, *, session: AsyncSession | None = None
+        self, user_id: str, table_id: str, idempotency_key: str, *, amount_units: int | None = None,
+        session: AsyncSession | None = None
     ) -> LedgerResult:
         async def operation(db: AsyncSession) -> LedgerResult:
             available_owner = ("user", user_id, "wallet")
@@ -159,7 +160,11 @@ class PlayLedger:
             if existing:
                 return existing
             account = await self._find_account(db, "table", table_id, "escrow", lock=True)
-            amount = int(account["balance_units"]) if account else 0
+            amount = int(account["balance_units"]) if amount_units is None else int(amount_units)
+            if amount < 0:
+                raise ValueError("amount_units cannot be negative")
+            if account and amount > int(account["balance_units"]):
+                raise InsufficientPlayBalance("insufficient table escrow")
             if amount <= 0:
                 return LedgerResult("", idempotency_key, await self._balance(db, *available_owner))
             return await self._transfer_in_session(
