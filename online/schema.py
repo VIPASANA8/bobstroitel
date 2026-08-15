@@ -9,6 +9,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    JSON,
     MetaData,
     String,
     Table,
@@ -188,3 +189,91 @@ Index(
     postgresql_where=table_seats.c.system_player_id.is_not(None) & _active_seat_states,
     sqlite_where=table_seats.c.system_player_id.is_not(None) & _active_seat_states,
 )
+
+table_runtimes = Table(
+    "table_runtimes", metadata,
+    Column("table_id", String(64), ForeignKey("poker_tables.id"), primary_key=True),
+    Column("revision", BIGINT, nullable=False, server_default=text("0")),
+    Column("phase", String(32), nullable=False, server_default=text("'waiting'")),
+    Column("private_state_json", JSON),
+    Column("public_payload_json", JSON),
+    Column("action_deadline", timestamp),
+    Column("result_clear_at", timestamp),
+    Column("next_hand_at", timestamp),
+    Column("paused_reason", String(200)),
+    Column("updated_at", timestamp, **created_at),
+    CheckConstraint("phase IN ('waiting', 'active', 'result', 'countdown', 'paused')"),
+)
+
+game_commands = Table(
+    "game_commands", metadata,
+    Column("table_id", String(64), ForeignKey("poker_tables.id"), primary_key=True),
+    Column("command_id", String(128), primary_key=True),
+    Column("user_id", String(64), ForeignKey("users.id")),
+    Column("expected_revision", BIGINT, nullable=False),
+    Column("command_type", String(64), nullable=False),
+    Column("payload_json", JSON, nullable=False),
+    Column("status", String(32), nullable=False),
+    Column("result_json", JSON),
+    Column("created_at", timestamp, **created_at),
+    CheckConstraint("status IN ('accepted', 'rejected')"),
+)
+
+hands = Table(
+    "hands", metadata,
+    Column("id", String(64), primary_key=True),
+    Column("table_id", String(64), ForeignKey("poker_tables.id"), nullable=False),
+    Column("revision_started", BIGINT, nullable=False),
+    Column("button_seat", Integer, nullable=False),
+    Column("board_json", JSON, nullable=False),
+    Column("result_json", JSON),
+    Column("started_at", timestamp, **created_at),
+    Column("completed_at", timestamp),
+    Column("terminal", Boolean, nullable=False, server_default=text("0")),
+)
+
+hand_players = Table(
+    "hand_players", metadata,
+    Column("hand_id", String(64), ForeignKey("hands.id"), primary_key=True),
+    Column("participant_id", String(64), primary_key=True),
+    Column("user_id", String(64), ForeignKey("users.id")),
+    Column("system_player_id", String(64), ForeignKey("system_players.id")),
+    Column("seat_no", Integer, nullable=False),
+    Column("position", String(32), nullable=False),
+    Column("start_stack_units", BIGINT, nullable=False),
+    Column("end_stack_units", BIGINT),
+    Column("hole_cards_json", JSON),
+    Column("shown", Boolean, nullable=False, server_default=text("0")),
+    Column("folded", Boolean, nullable=False, server_default=text("0")),
+    Column("net_units", BIGINT),
+)
+
+hand_actions = Table(
+    "hand_actions", metadata,
+    Column("hand_id", String(64), ForeignKey("hands.id"), primary_key=True),
+    Column("sequence", Integer, primary_key=True),
+    Column("participant_id", String(64), nullable=False),
+    Column("street", String(32), nullable=False),
+    Column("action", String(32), nullable=False),
+    Column("amount_units", BIGINT, nullable=False),
+    Column("pot_before_units", BIGINT, nullable=False),
+    Column("pot_after_units", BIGINT, nullable=False),
+    Column("to_call_before_units", BIGINT, nullable=False),
+    Column("created_at", timestamp, **created_at),
+)
+
+integrity_events = Table(
+    "integrity_events", metadata,
+    Column("id", String(64), primary_key=True),
+    Column("tenant_id", String(64), ForeignKey("tenants.id")),
+    Column("table_id", String(64), ForeignKey("poker_tables.id")),
+    Column("hand_id", String(64), ForeignKey("hands.id")),
+    Column("user_id", String(64), ForeignKey("users.id")),
+    Column("event_type", String(64), nullable=False),
+    Column("public_payload_json", JSON, nullable=False),
+    Column("created_at", timestamp, **created_at),
+)
+
+Index("ix_table_runtimes_action_deadline", table_runtimes.c.action_deadline)
+Index("ix_hands_table_terminal", hands.c.table_id, hands.c.terminal)
+Index("ix_integrity_events_user_time", integrity_events.c.user_id, integrity_events.c.created_at)
