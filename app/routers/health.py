@@ -21,6 +21,11 @@ async def ready(request: Request):
                 revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
                 if revision != request.app.state.expected_migration_revision:
                     raise RuntimeError("migration revision mismatch")
+            if not getattr(request.app.state, "restore_completed", True):
+                raise RuntimeError("runtime restore is incomplete")
+            runtimes = getattr(request.app.state, "runtime", None)
+            if runtimes and any(table.phase == "paused" for table in runtimes._tables.values()):
+                raise RuntimeError("a table runtime is paused")
     except Exception as exc:
         raise HTTPException(status_code=503, detail="service not ready") from exc
     return {"status": "ready"}
