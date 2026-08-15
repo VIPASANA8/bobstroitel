@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#07100f" />
+  <title>Poker8 Network</title>
+  <link rel="stylesheet" href="/static/network.css" />
+</head>
+<body>
+  <a class="skip-link" href="#tableGrid">К столам</a>
+  <div class="network-shell">
+    <header class="network-header">
+      <a class="network-brand" href="/" aria-label="Poker8 Network">
+        <span class="brand-chip">P8</span><span><b>Poker8</b><small>NETWORK TABLES</small></span>
+      </a>
+      <div class="header-actions"><span id="wallet" class="wallet-pill">— PLAY</span><a class="text-link" href="/static/profile.html">Профиль</a></div>
+    </header>
+    <main>
+      <section class="lobby-hero">
+        <div><p class="eyebrow">SIX TABLES · ONE NETWORK</p><h1>Твой стол<br /><em>уже ждёт.</em></h1><p class="hero-copy">Люди и системные игроки сидят в одном онлайне. Выбирай лимит — остальное сделает Quick Play.</p></div>
+        <button id="quickPlay" class="quick-play" type="button"><span>Быстрый вход</span><strong>→</strong></button>
+      </section>
+      <section class="section-heading"><div><p class="eyebrow">PUBLIC ROOMS</p><h2>Шесть столов</h2></div><span id="loadStatus" class="status-dot">● LIVE</span></section>
+      <section id="tableGrid" class="table-grid" aria-live="polite" aria-label="Доступные столы"></section>
+      <section class="network-footer"><span>Виртуальные фишки · без реальных денег</span><span>Powered by Poker8</span></section>
+    </main>
+  </div>
+  <dialog id="buyInDialog" class="buyin-dialog"><form method="dialog" id="buyInForm"><button class="dialog-close" value="cancel" aria-label="Закрыть">×</button><p class="eyebrow">READY TO SIT</p><h2>Выбери бай-ин</h2><p id="buyInTable" class="dialog-muted"></p><label for="buyInUnits">Фишки</label><input id="buyInUnits" type="number" min="4000" step="100" value="4000" /><p class="dialog-hint">40–100 BB · виртуальный баланс</p><button id="confirmReady" class="quick-play" value="default" type="submit">Готов →</button></form></dialog>
+  <script src="/static/auth-client.js"></script><script src="/static/lobby.js"></script>
+</body>
+</html>
