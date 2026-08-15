@@ -8,7 +8,7 @@ from typing import Awaitable, Callable, Mapping
 from sqlalchemy import desc, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from online.schema import play_accounts, play_entries, play_transactions
+from online.schema import play_accounts, play_entries, play_transactions, table_seats
 
 
 ASSET = "PLAY"
@@ -194,6 +194,51 @@ class PlayLedger:
             available_owner=entries[0] if entries else FAUCET_OWNER,
             session=session,
         )
+
+    async def settle_hand_transfers(
+        self,
+        hand_id: str,
+        transfers: Mapping[tuple[str, str, str], int],
+        *,
+        session: AsyncSession | None = None,
+    ) -> LedgerResult:
+        """Post a balanced terminal hand using explicit wallet/escrow accounts."""
+        amounts = [int(value) for value in transfers.values()]
+        if not transfers or sum(amounts) != 0:
+            raise ValueError("hand settlement must be balanced")
+        entries = list(transfers)
+        return await self._transfer(
+            kind="settlement",
+            reference_type="hand",
+            reference_id=hand_id,
+            idempotency_key=f"settlement:{hand_id}",
+            entries=entries,
+            amounts=amounts,
+            available_owner=entries[0],
+            session=session,
+        )
+
+    async def escrow_balances(self, table_id: str, *, session: AsyncSession | None = None) -> list[int]:
+        """Return all balances participating in a table's escrow conservation check."""
+        async def operation(db: AsyncSession) -> list[int]:
+            owners: list[tuple[str, str, str]] = [("table", table_id, "escrow")]
+            seats = (
+                await db.execute(
+                    select(table_seats.c.user_id, table_seats.c.system_player_id)
+                    .where(table_seats.c.table_id == table_id)
+                )
+            ).all()
+            for user_id, system_player_id in seats:
+                if user_id:
+                    owners.append(("user", user_id, "wallet"))
+                if system_player_id:
+                    owners.append(("system", system_player_id, "escrow"))
+            balances = []
+            for owner_kind, owner_id, account_kind in owners:
+                balances.append(await self._balance(db, owner_kind, owner_id, account_kind))
+            return balances
+
+        return await self._run(operation, session)
 
     async def journal(
         self,

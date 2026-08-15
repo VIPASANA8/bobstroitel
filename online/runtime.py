@@ -155,7 +155,7 @@ class TableRuntimeManager:
                             system_player_id=seat["system_player_id"],
                             seat_no=player.seat,
                             position=player.position,
-                            start_stack_units=round(player.stack * table["big_blind_units"]),
+                            start_stack_units=round(state.starting_stacks[participant_id] * table["big_blind_units"]),
                         ))
                     await append_integrity_event(
                         session, event_type="hand_started", table_id=table_id, hand_id=state.hand_id,
@@ -270,6 +270,82 @@ class TableRuntimeManager:
         return RuntimeActionResult(
             result.command_id, result.table_id, result.revision, result.action, [item.value for item in legal], result.snapshot
         )
+
+    async def finish_and_settle(self, table_id: str):
+        async with self._lock(table_id):
+            loaded = await self._load_locked(table_id)
+            if loaded is None:
+                raise RuntimeErrorBase("table runtime not found")
+            if not loaded.state.terminal:
+                raise RuntimeErrorBase("hand is not terminal")
+            async with self.session_factory() as session:
+                async with session.begin():
+                    table = await self._table(session, table_id)
+                    seats = (
+                        await session.execute(
+                            select(table_seats).where(table_seats.c.table_id == table_id).order_by(table_seats.c.seat_no)
+                        )
+                    ).mappings().all()
+                    by_participant = {self._participant_id(seat): seat for seat in seats}
+                    transfers: dict[tuple[str, str, str], int] = {}
+                    user_start_total = 0
+                    for participant_id, player in loaded.state.players.items():
+                        seat = by_participant[participant_id]
+                        start_units = round(loaded.state.starting_stacks[participant_id] * table["big_blind_units"])
+                        end_units = round(player.stack * table["big_blind_units"])
+                        if seat["occupant_kind"] == "user":
+                            user_start_total += start_units
+                            transfers[("user", participant_id, "wallet")] = end_units
+                        else:
+                            transfers[("system", participant_id, "escrow")] = end_units - start_units
+                        await session.execute(
+                            update(hand_players)
+                            .where(
+                                hand_players.c.hand_id == loaded.state.hand_id,
+                                hand_players.c.participant_id == participant_id,
+                            )
+                            .values(end_stack_units=end_units, net_units=end_units - start_units, shown=not player.folded)
+                        )
+                        await session.execute(
+                            update(table_seats).where(table_seats.c.id == seat["id"]).values(stack_units=end_units)
+                        )
+                        profile_table = users if seat["occupant_kind"] == "user" else system_players
+                        profile_id = seat["user_id"] or seat["system_player_id"]
+                        await session.execute(
+                            update(profile_table)
+                            .where(profile_table.c.id == profile_id)
+                            .values(
+                                hands_played=profile_table.c.hands_played + 1,
+                                wins=profile_table.c.wins + (1 if end_units > start_units else 0),
+                            )
+                        )
+                    transfers[("table", table_id, "escrow")] = -user_start_total
+                    settlement = await self.ledger.settle_hand_transfers(
+                        loaded.state.hand_id, transfers, session=session
+                    )
+                    completed_at = datetime.now(timezone.utc)
+                    await session.execute(
+                        update(hands).where(hands.c.id == loaded.state.hand_id).values(
+                            board_json=loaded.state.board,
+                            result_json=loaded.state.to_dict(),
+                            terminal=True,
+                            completed_at=completed_at,
+                        )
+                    )
+                    loaded.phase = "result"
+                    await session.execute(
+                        update(table_runtimes).where(table_runtimes.c.table_id == table_id).values(
+                            phase="result",
+                            private_state_json=serialize_state(loaded.state),
+                            public_payload_json=loaded.state.to_dict(),
+                            updated_at=completed_at,
+                        )
+                    )
+                    await append_integrity_event(
+                        session, event_type="hand_settled", table_id=table_id,
+                        hand_id=loaded.state.hand_id, payload={"revision": loaded.revision},
+                    )
+                    return settlement
 
     def engine_action_count(self, table_id: str) -> int:
         return self._action_counts.get(table_id, 0)
