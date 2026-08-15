@@ -27,6 +27,8 @@ class LedgerResult:
 
 
 class PlayLedger:
+    ASSET = ASSET
+
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self.session_factory = session_factory
 
