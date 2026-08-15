@@ -15,7 +15,6 @@ POSITION_MAP = {
     4: ["BTN", "SB", "BB", "CO"],
     5: ["BTN", "SB", "BB", "HJ", "CO"],
     6: ["BTN", "SB", "BB", "UTG", "HJ", "CO"],
-    7: ["BTN", "SB", "BB", "UTG", "UTG+1", "HJ", "CO"],
 }
 
 
@@ -53,10 +52,10 @@ class PokerEngine:
         hero_stack: float | None = None,
         bot_stack: float | None = None,
     ) -> GameState:
-        """Create a 2-7 player hand.
+        """Create a 2-6 player hand.
 
         `button/hero_stack/bot_stack` are retained for the old HU tests and
-        CFR-lite components. New 7-max code passes `seats` directly.
+        CFR-lite components. Online code passes `seats` directly.
         """
         if seats is None:
             hero_stack = self.STARTING_STACK if hero_stack is None else float(hero_stack)
@@ -68,8 +67,8 @@ class PokerEngine:
             button_seat = 1 if button == "bot" else 0
 
         occupied = sorted(seats, key=lambda row: int(row["seat"]))
-        if not 2 <= len(occupied) <= 7:
-            raise InvalidAction("За столом должно быть от 2 до 7 игроков")
+        if not 2 <= len(occupied) <= 6:
+            raise InvalidAction("A Poker8 hand requires 2 to 6 players")
 
         for row in occupied:
             if float(row.get("stack", row.get("balance", 0.0))) < self.BIG_BLIND:

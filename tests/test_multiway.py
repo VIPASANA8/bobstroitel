@@ -3,24 +3,23 @@ from poker.models import ActionType, Street
 from bots.multiway import MultiwayBot
 
 
-def seats(n=7, stack=1000.0):
+def seats(n=6, stack=1000.0):
     rows = [{"id": "hero", "name": "Вы", "seat": 0, "stack": stack, "is_bot": False, "difficulty": "normal"}]
     for i in range(1, n):
         rows.append({"id": f"bot_{i}", "name": f"Бот {i}", "seat": i, "stack": stack, "is_bot": True, "difficulty": "normal"})
     return rows
 
 
-def test_7max_positions_and_blinds():
+def test_6max_positions_and_blinds():
     engine = PokerEngine()
-    state = engine.new_hand(seats(7), button_seat=0)
+    state = engine.new_hand(seats(6), button_seat=0)
 
     assert state.players["hero"].position == "BTN"
     assert state.players["bot_1"].position == "SB"
     assert state.players["bot_2"].position == "BB"
     assert state.players["bot_3"].position == "UTG"
-    assert state.players["bot_4"].position == "UTG+1"
-    assert state.players["bot_5"].position == "HJ"
-    assert state.players["bot_6"].position == "CO"
+    assert state.players["bot_4"].position == "HJ"
+    assert state.players["bot_5"].position == "CO"
     assert state.acting_player == "bot_3"
     assert state.pot == 1.5
 
@@ -87,7 +86,7 @@ def test_side_pot_distribution_conserves_chips():
 def test_multiway_bot_returns_legal_action():
     engine = PokerEngine()
     bot = MultiwayBot(engine)
-    state = engine.new_hand(seats(7), button_seat=0)
+    state = engine.new_hand(seats(6), button_seat=0)
     pid = state.acting_player
     assert state.players[pid].is_bot
     decision = bot.decide(state, pid)

@@ -7,7 +7,13 @@ SUITS = "shdc"
 class Deck:
     def __init__(self):
         self.cards = [rank + suit for rank in RANKS for suit in SUITS]
-        random.shuffle(self.cards)
+        random.SystemRandom().shuffle(self.cards)
+
+    @classmethod
+    def from_remaining(cls, cards: list[str]) -> "Deck":
+        deck = cls.__new__(cls)
+        deck.cards = list(cards)
+        return deck
 
     def draw(self, n: int = 1):
         if n == 1:
