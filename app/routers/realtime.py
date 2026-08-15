@@ -78,6 +78,7 @@ async def table_socket(websocket: WebSocket, table_id: str) -> None:
     hub: ConnectionHub = websocket.app.state.connection_hub
     hub.add(table_id, websocket, user)
     websocket.state.user_id = user.user_id
+    await websocket.app.state.seating.reconnect(user.user_id, table_id)
     try:
         snapshot = await websocket.app.state.runtime.public_snapshot(table_id, user.user_id)
         await websocket.send_json(_snapshot_message(snapshot, "connected"))

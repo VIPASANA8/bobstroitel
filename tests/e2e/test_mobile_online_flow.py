@@ -56,6 +56,7 @@ def test_mobile_online_flow(online_server: str):
 
         page.evaluate("window.Poker8Transport.disconnect(); window.Poker8Transport.reconnect();")
         page.wait_for_function("document.querySelector('#onlineConnection')?.textContent === 'connected'", timeout=10000)
+        page.wait_for_function("document.querySelector('#onlineSurface')?.dataset.viewerState === 'seated'", timeout=10000)
 
         page.wait_for_timeout(3500)
         assert page.locator("#onlinePhase").inner_text() in {"RESULT", "COUNTDOWN"}
