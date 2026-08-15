@@ -7,11 +7,13 @@ router = APIRouter(prefix="/api/config", tags=["config"])
 @router.get("")
 async def public_config(request: Request):
     settings = request.app.state.settings
-    branding = settings.tenant_configs.get(settings.default_tenant_slug, {})
+    host = request.headers.get("host", "").split(":", 1)[0].lower()
+    tenant_slug = getattr(request.app.state, "tenant_hosts", {}).get(host, settings.default_tenant_slug)
+    branding = settings.tenant_configs.get(tenant_slug, {})
     return {
         "network_brand": "Poker8",
         "tenant": {
-            "slug": settings.default_tenant_slug,
+            "slug": tenant_slug,
             "name": branding.get("name", "Poker8"),
             "support_url": branding.get("support_url"),
             "branding": branding.get("branding", {}),
