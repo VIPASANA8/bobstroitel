@@ -1,3 +1,4 @@
+const ONLINE_TABLE_ID = new URLSearchParams(location.search).get("table");
 let game = null;
 let tableData = null;
 let solverPreview = null;
@@ -1577,6 +1578,7 @@ function renderSolverPanel() {
 }
 
 async function loadTable(render = true) {
+  if (ONLINE_TABLE_ID) return;
   const res = await fetch("/api/table");
   tableData = await res.json();
 
