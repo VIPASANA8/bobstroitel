@@ -66,3 +66,9 @@ def test_online_mobile_chat_does_not_cover_table_actions():
     assert "if (chat) chat.hidden = false;" not in source
 
     assert ".poker8-online .online-chat-panel.is-open" in source
+
+
+def test_online_table_does_not_repaint_legacy_view_for_same_snapshot():
+    source = Path("static/online-table.js").read_text(encoding="utf-8")
+    assert "lastRenderKey" in source
+    assert "if (key === lastRenderKey) return;" in source

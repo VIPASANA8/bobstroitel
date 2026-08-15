@@ -38,6 +38,7 @@
   let viewerState = "spectator";
   let latestState = null;
   let pollTimer = null;
+  let lastRenderKey = null;
 
   function setText(id, value) {
     const node = $(id);
@@ -90,9 +91,30 @@
     });
   }
 
+  function snapshotRenderKey(state) {
+    const players = Object.values(state?.players || {})
+      .map(player => [player.id, player.seat, player.stack, player.folded, player.street_invested]);
+    return JSON.stringify([
+      viewerState,
+      state?.hand_id,
+      state?.phase,
+      state?.revision,
+      state?.street,
+      state?.acting_player,
+      state?.pot,
+      state?.action_deadline,
+      state?.result_clear_at,
+      state?.next_hand_at,
+      players,
+    ]);
+  }
+
   function renderSnapshot(state) {
     latestState = state;
     renderOnlineChrome(state);
+    const key = snapshotRenderKey(state);
+    if (key === lastRenderKey) return;
+    lastRenderKey = key;
     window.Poker8LegacyView?.renderSnapshot({ table, state, viewerState });
   }
 
