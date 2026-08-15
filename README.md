@@ -1,5 +1,20 @@
 # Poker Trainer v0.11 · Component UI
 
+## Poker8 Online MVP
+
+The network product is a Telegram Mini App with six public 6-max tables, virtual PLAY balances, authoritative server hands, reconnectable WebSockets, FIFO seating, chat, profile/history, and tenant branding. It has no deposits, withdrawals, KYC, USDT/TRC20, blockchain, or real-money API.
+
+Local development:
+
+```powershell
+uv pip install -r requirements.txt
+$env:POKER8_DATABASE_URL='sqlite+aiosqlite:///./data/poker8_online_dev.sqlite3'
+.venv\Scripts\python.exe -m alembic upgrade head
+.venv\Scripts\uvicorn.exe app.production:app --reload
+```
+
+Production requires PostgreSQL, `POKER8_DEFAULT_BOT_TOKEN`, exact tenant host bindings, and Telegram `initData` authentication. Open `/` for the lobby, `/table?table=<id>` for the table, and `/static/profile.html` for the profile. The complete operational procedure is in `docs/runbooks/online-mvp.md`.
+
 > Сборка создана на базе `poker_trainer_v011_ru(1).zip`. Компонентная геометрия вынесена в `static/component-ui.css`. Подробности — `UI_COMPONENTS.md`.
 
 # Poker Trainer v0.9.2 RU — профили, сохранённые столы и bot-only режим
