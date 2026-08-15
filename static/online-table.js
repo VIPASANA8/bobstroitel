@@ -7,6 +7,7 @@
   const tablePageStyle = document.createElement("style");
   tablePageStyle.textContent = `
     .poker8-online .online-state-panel{display:flex;align-items:center;gap:14px;margin:0 0 12px;padding:12px 14px;border:1px solid rgba(64,237,167,.28);border-radius:14px;background:rgba(2,29,17,.82)}
+    .poker8-online .online-state-panel[hidden]{display:none!important}
     .poker8-online .online-state-panel strong{color:#8ff2c0;font-size:13px}
     .poker8-online .online-state-panel span{flex:1;color:#9aada3;font-size:12px}
     .poker8-online .online-state-panel button{padding:10px 14px;border:1px solid rgba(64,237,167,.5);border-radius:10px;background:#0a3b2b;color:#b8ffda;font-weight:850;cursor:pointer}
@@ -39,6 +40,7 @@
   let latestState = null;
   let pollTimer = null;
   let lastRenderKey = null;
+  let readyInFlight = false;
 
   function setText(id, value) {
     const node = $(id);
@@ -73,7 +75,7 @@
     const ready = $("readyPanel");
     const waiting = phase === "waiting";
     if (ready) {
-      ready.hidden = !waiting;
+      ready.hidden = !waiting || !["spectator", "waiting"].includes(viewerState);
       setText("queueStatus", viewerState === "waiting" ? "Место занято — ждём свободный вход между раздачами" : "Выберите свободное место и бай-ин от 40 BB");
       const button = $("readyButton");
       if (button) {
@@ -128,10 +130,24 @@
   }
 
   async function ready() {
+    if (readyInFlight || viewerState === "seated" || viewerState === "held" || viewerState === "leaving") return;
+    readyInFlight = true;
+    const button = $("readyButton");
+    if (button) button.disabled = true;
     const buyInUnits = units(table?.big_blind_units) * 40;
-    const result = await window.Poker8Transport.ready(firstOpenSeat(latestState), buyInUnits);
-    viewerState = result.queue_state === "waiting" ? "waiting" : viewerState;
-    await refreshState();
+    try {
+      const result = await window.Poker8Transport.ready(firstOpenSeat(latestState), buyInUnits);
+      viewerState = result.queue_state === "waiting" ? "waiting" : viewerState;
+      await refreshState();
+    } catch (error) {
+      if (String(error.message || "").includes("already has a network seat")) {
+        await refreshState();
+        return;
+      }
+      throw error;
+    } finally {
+      readyInFlight = false;
+    }
   }
 
   async function loadChat() {

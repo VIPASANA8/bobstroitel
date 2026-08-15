@@ -56,7 +56,7 @@ def test_online_table_uses_existing_poker8_visual_dom():
     assert "onlineSurface" not in online_source
     assert "window.Poker8LegacyView" in app_source
     assert 'app.js?v=online-legacy-1' in index_source
-    assert 'online-table.js?v=online-legacy-3' in index_source
+    assert 'online-table.js?v=online-legacy-4' in index_source
 
 
 def test_online_mobile_chat_does_not_cover_table_actions():
@@ -72,3 +72,10 @@ def test_online_table_does_not_repaint_legacy_view_for_same_snapshot():
     source = Path("static/online-table.js").read_text(encoding="utf-8")
     assert "lastRenderKey" in source
     assert "if (key === lastRenderKey) return;" in source
+
+
+def test_online_ready_panel_is_hidden_for_seated_users_and_duplicate_clicks():
+    source = Path("static/online-table.js").read_text(encoding="utf-8")
+    assert ".online-state-panel[hidden]" in source
+    assert '["spectator", "waiting"].includes(viewerState)' in source
+    assert "readyInFlight" in source
