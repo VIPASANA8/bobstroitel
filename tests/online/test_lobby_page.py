@@ -56,7 +56,7 @@ def test_online_table_uses_existing_poker8_visual_dom():
     assert "onlineSurface" not in online_source
     assert "window.Poker8LegacyView" in app_source
     assert 'app.js?v=online-legacy-1' in index_source
-    assert 'online-table.js?v=online-legacy-1' in index_source
+    assert 'online-table.js?v=online-legacy-2' in index_source
 
 
 def test_online_mobile_chat_does_not_cover_table_actions():
