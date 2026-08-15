@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import os
 
 from alembic import context
@@ -8,6 +7,7 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+from online.asyncio_runner import run as run_async
 from online.schema import metadata
 
 
@@ -48,7 +48,7 @@ async def run_async_migrations() -> None:
 
 
 def run_migrations_online() -> None:
-    asyncio.run(run_async_migrations())
+    run_async(run_async_migrations())
 
 
 if context.is_offline_mode():

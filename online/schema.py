@@ -39,7 +39,7 @@ tenant_bots = Table(
     Column("tenant_id", String(64), ForeignKey("tenants.id"), nullable=False),
     Column("telegram_bot_id", BIGINT, nullable=False),
     Column("secret_ref", String(200), nullable=False),
-    Column("enabled", Boolean, nullable=False, server_default=text("1")),
+    Column("enabled", Boolean, nullable=False, server_default=text("true")),
     Column("created_at", timestamp, **created_at),
 )
 
@@ -83,7 +83,7 @@ system_players = Table(
     Column("difficulty", String(32), nullable=False),
     Column("wins", Integer, nullable=False, server_default=text("0")),
     Column("hands_played", Integer, nullable=False, server_default=text("0")),
-    Column("active", Boolean, nullable=False, server_default=text("1")),
+    Column("active", Boolean, nullable=False, server_default=text("true")),
     Column("created_at", timestamp, **created_at),
     CheckConstraint("difficulty IN ('easy', 'normal', 'hard', 'maximum')"),
 )
@@ -243,7 +243,7 @@ hands = Table(
     Column("result_json", JSON),
     Column("started_at", timestamp, **created_at),
     Column("completed_at", timestamp),
-    Column("terminal", Boolean, nullable=False, server_default=text("0")),
+    Column("terminal", Boolean, nullable=False, server_default=text("false")),
 )
 
 hand_players = Table(
@@ -257,8 +257,8 @@ hand_players = Table(
     Column("start_stack_units", BIGINT, nullable=False),
     Column("end_stack_units", BIGINT),
     Column("hole_cards_json", JSON),
-    Column("shown", Boolean, nullable=False, server_default=text("0")),
-    Column("folded", Boolean, nullable=False, server_default=text("0")),
+    Column("shown", Boolean, nullable=False, server_default=text("false")),
+    Column("folded", Boolean, nullable=False, server_default=text("false")),
     Column("net_units", BIGINT),
 )
 
