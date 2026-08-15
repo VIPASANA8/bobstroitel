@@ -6,6 +6,7 @@
   let retry = 0;
   let reconnectTimer = null;
   let intentionalClose = false;
+  const requestId = () => crypto.randomUUID?.() || `guest-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
   const request = (url, options = {}) => fetch(url, {credentials: 'same-origin', ...options})
     .then(async response => {
@@ -41,7 +42,7 @@
   }
 
   function sendAction(action, amountUnits = 0) {
-    const command_id = crypto.randomUUID();
+    const command_id = requestId();
     socket?.send(JSON.stringify({type: 'action', command_id, expected_revision: revision, action, amount_units: amountUnits}));
     return command_id;
   }
@@ -68,14 +69,14 @@
     connect, disconnect, reconnect, resync, sendAction,
     ready: (seatNo, buyInUnits) => request(`/api/tables/${id()}/ready`, {
       method: 'POST', headers: {'content-type': 'application/json'},
-      body: JSON.stringify({seat_no: seatNo, buy_in_units: buyInUnits, request_id: crypto.randomUUID()}),
+      body: JSON.stringify({seat_no: seatNo, buy_in_units: buyInUnits, request_id: requestId()}),
     }),
     cancelReady: () => request(`/api/tables/${id()}/ready/cancel`, {method: 'POST'}),
     observe: () => request(`/api/tables/${id()}/observe`, {method: 'POST'}),
     leave: () => request(`/api/tables/${id()}/leave`, {method: 'POST'}),
     addOn: amountUnits => request(`/api/tables/${id()}/add-on`, {
       method: 'POST', headers: {'content-type': 'application/json'},
-      body: JSON.stringify({amount_units: amountUnits, request_id: crypto.randomUUID()}),
+      body: JSON.stringify({amount_units: amountUnits, request_id: requestId()}),
     }),
     loadChat: () => request(`/api/tables/${id()}/chat`),
     sendChat: text => request(`/api/tables/${id()}/chat`, {

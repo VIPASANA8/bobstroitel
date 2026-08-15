@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -28,3 +30,19 @@ def test_public_config_contains_branding_but_no_bot_token(client):
     assert payload["tenant"]["slug"] == "poker8"
     assert payload["network_brand"] == "Poker8"
     assert "token" not in str(payload).lower()
+
+
+def test_lobby_join_has_http_safe_request_id_fallback():
+    source = Path("static/lobby.js").read_text(encoding="utf-8")
+    assert "crypto.randomUUID?.()" in source
+
+
+def test_table_transport_has_http_safe_request_id_fallback():
+    source = Path("static/online-transport.js").read_text(encoding="utf-8")
+    assert "const requestId = () => crypto.randomUUID?.()" in source
+    assert "command_id = requestId()" in source
+
+
+def test_lobby_cards_render_buy_in_from_unit_values():
+    source = Path("static/lobby.js").read_text(encoding="utf-8")
+    assert "table.min_buy_in_units / table.big_blind_units" in source
