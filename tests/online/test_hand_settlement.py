@@ -63,6 +63,9 @@ async def test_terminal_hand_posts_one_balanced_settlement(settlement_context):
     assert again.idempotency_key == f"settlement:{completed.hand_id}"
     assert first.transaction_id == again.transaction_id
     assert sum(await ledger.escrow_balances(completed.table_id)) == completed.starting_total_units
+    history = await HistoryService(runtime.session_factory).last_hands("u1")
+    own = next(player for player in history[0]["players"] if player["participant_id"] == "u1")
+    assert len(own["hole_cards"]) == 2
 
 
 @pytest.mark.anyio

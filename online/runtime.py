@@ -382,7 +382,12 @@ class TableRuntimeManager:
                                 hand_players.c.hand_id == loaded.state.hand_id,
                                 hand_players.c.participant_id == participant_id,
                             )
-                            .values(end_stack_units=end_units, net_units=end_units - start_units, shown=not player.folded)
+                            .values(
+                                end_stack_units=end_units,
+                                net_units=end_units - start_units,
+                                hole_cards_json=list(player.hole_cards),
+                                shown=not player.folded,
+                            )
                         )
                         await session.execute(
                             update(table_seats).where(table_seats.c.id == seat["id"]).values(stack_units=end_units)
