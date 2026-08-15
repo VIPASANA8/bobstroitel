@@ -8,12 +8,14 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, text
 
-from app.routers import auth, health, lobby, profiles
+from app.routers import auth, health, lobby, profiles, realtime
 from online.auth import AuthService
 from online.catalogue import Catalogue
 from online.config import Settings
 from online.database import create_database
 from online.ledger import PlayLedger
+from online.runtime import TableRuntimeManager
+from online.seating import SeatingService
 from online.schema import metadata, tenant_bots, tenants
 
 
@@ -81,6 +83,10 @@ def create_app(settings: Settings) -> FastAPI:
         await catalogue.seed_defaults()
         app.state.ledger = ledger
         app.state.catalogue = catalogue
+        app.state.runtime = TableRuntimeManager(session_factory, ledger)
+        app.state.seating = SeatingService(session_factory, ledger)
+        await app.state.runtime.restore_all()
+        app.state.connection_hub = realtime.ConnectionHub()
         app.state.tenant_hosts = {}
         app.state.auth_service = AuthService(
             session_factory,
@@ -100,6 +106,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(lobby.router)
     app.include_router(profiles.router)
     app.include_router(health.router)
+    app.include_router(realtime.router)
 
     @app.get("/")
     async def index():
