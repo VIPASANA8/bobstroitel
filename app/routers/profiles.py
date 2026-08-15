@@ -6,6 +6,7 @@ from sqlalchemy import select
 
 from app.dependencies import AuthenticatedUser, get_current_user
 from online.schema import table_seats, users
+from online.history import HistoryService
 
 
 router = APIRouter(prefix="/api/profile", tags=["profile"])
@@ -43,6 +44,8 @@ async def _profile(request: Request, user: AuthenticatedUser) -> dict[str, objec
         "level": level_for_wins(row["wins"]),
         "available_units": await request.app.state.ledger.available_units(user.user_id),
         "active_table_stack_units": sum(stack_units),
+        "avatar_asset_key": f"level-{level_for_wins(row['wins'])}",
+        "active_table_id": None,
     }
 
 
@@ -58,6 +61,15 @@ async def play_journal(
     user: AuthenticatedUser = Depends(get_current_user),
 ):
     return {"entries": await request.app.state.ledger.journal("user", user.user_id, limit=limit)}
+
+
+@router.get("/hands")
+async def hand_history(
+    request: Request,
+    limit: int = Query(20, ge=1, le=20),
+    user: AuthenticatedUser = Depends(get_current_user),
+):
+    return {"hands": await request.app.state.history.last_hands(user.user_id, limit=limit)}
 
 
 @router.post("/play-top-up")
