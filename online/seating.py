@@ -1,0 +1,363 @@
+from __future__ import annotations
+
+import uuid
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+
+from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from online.ledger import PlayLedger
+from online.schema import play_accounts, poker_tables, seat_queue, system_players, table_runtimes, table_seats
+
+
+class SeatingError(ValueError):
+    pass
+
+
+class AlreadySeated(SeatingError):
+    pass
+
+
+@dataclass(frozen=True)
+class SeatingRequest:
+    id: str
+    table_id: str
+    user_id: str
+    seat_no: int
+    requested_buy_in_units: int
+    state: str
+    position_seq: int
+
+
+@dataclass(frozen=True)
+class BoundaryResult:
+    seated_user_ids: list[str]
+    removed_system_player_ids: list[str]
+
+
+class SeatingService:
+    def __init__(
+        self, session_factory: async_sessionmaker[AsyncSession], ledger: PlayLedger
+    ) -> None:
+        self.session_factory = session_factory
+        self.ledger = ledger
+
+    async def ready(self, user_id: str, table_id: str, seat_no: int, buy_in_units: int) -> SeatingRequest:
+        async with self.session_factory() as session:
+            async with session.begin():
+                table = await self._table(session, table_id)
+                if not 0 <= seat_no <= 5:
+                    raise SeatingError("seat_no must be between 0 and 5")
+                minimum = table["big_blind_units"] * table["min_buy_in_bb"]
+                maximum = table["big_blind_units"] * table["max_buy_in_bb"]
+                if not minimum <= buy_in_units <= maximum:
+                    raise SeatingError("buy-in must be between 40 and 100 BB")
+                occupied = (
+                    await session.execute(
+                        select(table_seats.c.id).where(
+                            table_seats.c.user_id == user_id,
+                            table_seats.c.state.in_(("seated", "held", "leaving")),
+                        )
+                    )
+                ).scalar_one_or_none()
+                if occupied:
+                    raise AlreadySeated("user already has a network seat")
+                existing = (
+                    await session.execute(
+                        select(seat_queue).where(
+                            seat_queue.c.table_id == table_id,
+                            seat_queue.c.user_id == user_id,
+                            seat_queue.c.state == "waiting",
+                        )
+                    )
+                ).mappings().first()
+                if existing:
+                    return self._request(existing)
+                position = (
+                    await session.execute(
+                        select(seat_queue.c.position_seq)
+                        .where(seat_queue.c.table_id == table_id)
+                        .order_by(seat_queue.c.position_seq.desc())
+                        .limit(1)
+                    )
+                ).scalar_one_or_none()
+                request = {
+                    "id": uuid.uuid4().hex,
+                    "table_id": table_id,
+                    "user_id": user_id,
+                    "requested_buy_in_units": buy_in_units,
+                    "state": "waiting",
+                    "position_seq": int(position or 0) + 1,
+                    "seat_no": seat_no,
+                }
+                await session.execute(seat_queue.insert().values(
+                    id=request["id"],
+                    table_id=table_id,
+                    user_id=user_id,
+                    seat_no=seat_no,
+                    requested_buy_in_units=buy_in_units,
+                    state="waiting",
+                    position_seq=request["position_seq"],
+                ))
+                return SeatingRequest(**request)
+
+    async def cancel_ready(self, user_id: str, table_id: str) -> None:
+        async with self.session_factory() as session:
+            async with session.begin():
+                await session.execute(
+                    update(seat_queue)
+                    .where(
+                        seat_queue.c.table_id == table_id,
+                        seat_queue.c.user_id == user_id,
+                        seat_queue.c.state == "waiting",
+                    )
+                    .values(state="cancelled")
+                )
+
+    async def process_boundary(self, table_id: str) -> BoundaryResult:
+        async with self.session_factory() as session:
+            async with session.begin():
+                table = await self._table(session, table_id, lock=True)
+                await self._process_leaving(session, table_id)
+                await self._fill_system_seats(session, table)
+                requests = (
+                    await session.execute(
+                        select(seat_queue)
+                        .where(seat_queue.c.table_id == table_id, seat_queue.c.state == "waiting")
+                        .order_by(seat_queue.c.position_seq)
+                        .with_for_update()
+                    )
+                ).mappings().all()
+                seated: list[str] = []
+                removed: list[str] = []
+                for request in requests:
+                    if await self.ledger.available_units(request["user_id"], session=session) < request["requested_buy_in_units"]:
+                        await session.execute(
+                            update(seat_queue).where(seat_queue.c.id == request["id"]).values(state="cancelled")
+                        )
+                        continue
+                    seat = await self._choose_seat(session, table_id, request["seat_no"])
+                    if seat is None:
+                        continue
+                    if seat["occupant_kind"] == "system":
+                        await self.ledger.release_system_seat(
+                            seat["system_player_id"], table_id, f"release:{request['id']}", session=session
+                        )
+                        removed.append(seat["system_player_id"])
+                        await self._clear_seat(session, seat["id"])
+                    await self.ledger.reserve_buy_in(
+                        request["user_id"], table_id, request["requested_buy_in_units"],
+                        f"buyin:{request['id']}", session=session,
+                    )
+                    escrow_id = await self._escrow_id(session, table_id)
+                    if seat["id"] is None:
+                        await session.execute(table_seats.insert().values(
+                            id=uuid.uuid4().hex,
+                            table_id=table_id,
+                            seat_no=request["seat_no"],
+                            occupant_kind="user",
+                            user_id=request["user_id"],
+                            escrow_account_id=escrow_id,
+                            stack_units=request["requested_buy_in_units"],
+                            state="seated",
+                        ))
+                    else:
+                        await session.execute(
+                            update(table_seats).where(table_seats.c.id == seat["id"]).values(
+                                occupant_kind="user",
+                                user_id=request["user_id"],
+                                system_player_id=None,
+                                escrow_account_id=escrow_id,
+                                stack_units=request["requested_buy_in_units"],
+                                state="seated",
+                                disconnected_at=None,
+                                hold_until=None,
+                            )
+                        )
+                    await session.execute(
+                        update(seat_queue).where(seat_queue.c.id == request["id"]).values(state="seated")
+                    )
+                    seated.append(request["user_id"])
+                return BoundaryResult(seated, removed)
+
+    async def mark_disconnected(self, user_id: str, table_id: str, now: datetime) -> None:
+        async with self.session_factory() as session:
+            async with session.begin():
+                await session.execute(
+                    update(table_seats)
+                    .where(table_seats.c.table_id == table_id, table_seats.c.user_id == user_id)
+                    .values(state="held", disconnected_at=now, hold_until=now + timedelta(seconds=30))
+                )
+
+    async def reconnect(self, user_id: str, table_id: str) -> None:
+        async with self.session_factory() as session:
+            async with session.begin():
+                await session.execute(
+                    update(table_seats)
+                    .where(
+                        table_seats.c.table_id == table_id,
+                        table_seats.c.user_id == user_id,
+                        table_seats.c.state == "held",
+                    )
+                    .values(state="seated", disconnected_at=None, hold_until=None)
+                )
+
+    async def request_observe(self, user_id: str, table_id: str) -> None:
+        await self.request_leave(user_id, table_id)
+
+    async def request_leave(self, user_id: str, table_id: str) -> None:
+        async with self.session_factory() as session:
+            async with session.begin():
+                await session.execute(
+                    update(table_seats)
+                    .where(table_seats.c.table_id == table_id, table_seats.c.user_id == user_id)
+                    .values(state="leaving")
+                )
+
+    async def add_on(self, user_id: str, table_id: str, amount_units: int) -> None:
+        async with self.session_factory() as session:
+            async with session.begin():
+                table = await self._table(session, table_id, lock=True)
+                runtime_phase = (
+                    await session.execute(
+                        select(table_runtimes.c.phase).where(table_runtimes.c.table_id == table_id)
+                    )
+                ).scalar_one_or_none()
+                if runtime_phase == "active":
+                    raise SeatingError("add-on is unavailable during an active hand")
+                seat = await self._user_seat(session, user_id, table_id)
+                if not seat:
+                    raise SeatingError("user is not seated")
+                maximum = table["big_blind_units"] * table["max_buy_in_bb"]
+                if seat["stack_units"] + amount_units > maximum:
+                    raise SeatingError("stack cannot exceed 100 BB")
+                await self.ledger.add_on(user_id, table_id, amount_units, f"addon:{user_id}:{table_id}:{seat['id']}", session=session)
+                await session.execute(
+                    update(table_seats).where(table_seats.c.id == seat["id"]).values(stack_units=seat["stack_units"] + amount_units)
+                )
+
+    async def expire_holds(self, table_id: str, now: datetime) -> None:
+        async with self.session_factory() as session:
+            async with session.begin():
+                await session.execute(
+                    update(table_seats)
+                    .where(
+                        table_seats.c.table_id == table_id,
+                        table_seats.c.state == "held",
+                        table_seats.c.hold_until <= now,
+                    )
+                    .values(state="leaving")
+                )
+
+    async def _process_leaving(self, session: AsyncSession, table_id: str) -> None:
+        rows = (
+            await session.execute(
+                select(table_seats).where(table_seats.c.table_id == table_id, table_seats.c.state == "leaving")
+            )
+        ).mappings().all()
+        for row in rows:
+            if row["occupant_kind"] == "user" and row["user_id"]:
+                await self.ledger.return_stack(row["user_id"], table_id, f"return:{row['id']}", session=session)
+            elif row["occupant_kind"] == "system" and row["system_player_id"]:
+                await self.ledger.release_system_seat(row["system_player_id"], table_id, f"release:{row['id']}", session=session)
+            await self._clear_seat(session, row["id"])
+
+    async def _fill_system_seats(self, session: AsyncSession, table) -> None:
+        rows = (
+            await session.execute(
+                select(table_seats).where(table_seats.c.table_id == table["id"], table_seats.c.state != "empty")
+            )
+        ).mappings().all()
+        occupied_seats = {row["seat_no"] for row in rows}
+        active_system_ids = {row["system_player_id"] for row in rows if row["system_player_id"]}
+        candidates = (
+            await session.execute(select(system_players).where(system_players.c.active == True))
+        ).mappings().all()
+        available = [row for row in candidates if row["id"] not in active_system_ids]
+        for seat_no, player in zip((seat for seat in range(6) if seat not in occupied_seats), available):
+            amount = table["big_blind_units"] * 100
+            await self.ledger.fund_system_seat(
+                player["id"], table["id"], amount, f"system:{table['id']}:{player['id']}", session=session
+            )
+            escrow_id = await self._escrow_id(session, table["id"])
+            await session.execute(table_seats.insert().values(
+                id=uuid.uuid4().hex,
+                table_id=table["id"],
+                seat_no=seat_no,
+                occupant_kind="system",
+                system_player_id=player["id"],
+                escrow_account_id=escrow_id,
+                stack_units=amount,
+                state="seated",
+            ))
+
+    async def _choose_seat(self, session: AsyncSession, table_id: str, requested_seat: int):
+        rows = (
+            await session.execute(select(table_seats).where(table_seats.c.table_id == table_id))
+        ).mappings().all()
+        by_seat = {row["seat_no"]: row for row in rows if row["state"] != "empty"}
+        requested = by_seat.get(requested_seat)
+        if requested and requested["occupant_kind"] == "system":
+            return requested
+        if requested is None:
+            return {"seat_no": requested_seat, "id": None, "occupant_kind": "empty"}
+        return next((by_seat.get(seat) for seat in range(6) if seat not in by_seat), None)
+
+    async def _table(self, session: AsyncSession, table_id: str, lock: bool = False):
+        query = select(poker_tables).where(poker_tables.c.id == table_id)
+        if lock:
+            query = query.with_for_update()
+        row = (await session.execute(query)).mappings().first()
+        if row is None:
+            raise SeatingError("table not found")
+        return row
+
+    async def _user_seat(self, session: AsyncSession, user_id: str, table_id: str):
+        return (
+            await session.execute(
+                select(table_seats).where(
+                    table_seats.c.table_id == table_id,
+                    table_seats.c.user_id == user_id,
+                    table_seats.c.state.in_(("seated", "held", "leaving")),
+                )
+            )
+        ).mappings().first()
+
+    async def _escrow_id(self, session: AsyncSession, table_id: str):
+        return (
+            await session.execute(
+                select(play_accounts.c.id).where(
+                    play_accounts.c.owner_kind == "table",
+                    play_accounts.c.owner_id == table_id,
+                    play_accounts.c.account_kind == "escrow",
+                )
+            )
+        ).scalar_one_or_none()
+
+    @staticmethod
+    async def _clear_seat(session: AsyncSession, seat_id: str) -> None:
+        await session.execute(
+            update(table_seats).where(table_seats.c.id == seat_id).values(
+                occupant_kind="empty",
+                user_id=None,
+                system_player_id=None,
+                escrow_account_id=None,
+                stack_units=0,
+                state="empty",
+                disconnected_at=None,
+                hold_until=None,
+            )
+        )
+
+    @staticmethod
+    def _request(row) -> SeatingRequest:
+        return SeatingRequest(
+            id=row["id"],
+            table_id=row["table_id"],
+            user_id=row["user_id"],
+            seat_no=row["seat_no"],
+            requested_buy_in_units=row["requested_buy_in_units"],
+            state=row["state"],
+            position_seq=row["position_seq"],
+        )

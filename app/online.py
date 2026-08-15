@@ -19,7 +19,7 @@ from online.schema import metadata, tenant_bots, tenants
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
-EXPECTED_MIGRATION_REVISION = "20260814_0001"
+EXPECTED_MIGRATION_REVISION = "20260814_0003"
 
 
 async def _ensure_foundation(session_factory, settings: Settings) -> None:

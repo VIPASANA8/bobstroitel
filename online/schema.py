@@ -169,12 +169,14 @@ seat_queue = Table(
     Column("id", String(64), primary_key=True),
     Column("table_id", String(64), ForeignKey("poker_tables.id"), nullable=False),
     Column("user_id", String(64), ForeignKey("users.id"), nullable=False),
+    Column("seat_no", Integer, nullable=False, server_default=text("0")),
     Column("requested_buy_in_units", BIGINT, nullable=False),
     Column("state", String(32), nullable=False, server_default=text("'waiting'")),
     Column("position_seq", BIGINT, nullable=False),
     Column("created_at", timestamp, **created_at),
     Column("expires_at", timestamp),
     UniqueConstraint("table_id", "user_id"),
+    CheckConstraint("seat_no >= 0 AND seat_no <= 5"),
     CheckConstraint("state IN ('waiting', 'cancelled', 'seated', 'expired')"),
 )
 
