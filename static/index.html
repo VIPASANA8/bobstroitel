@@ -42,6 +42,8 @@
     </header>
 
     <main class="layout">
+      <section id="readyPanel" class="online-state-panel" hidden aria-live="polite"><strong>Готовы к игре?</strong><span id="queueStatus">Наблюдатель</span><button id="readyButton" type="button">Готов</button></section>
+      <div id="connectionStatus" class="online-connection-status" aria-live="polite">Соединение устанавливается…</div>
       <section class="left-column">
         <div class="table-frame">
           <div class="felt">
@@ -97,6 +99,8 @@
           </div>
         </section>
       </section>
+      <aside id="chatPanel" class="online-chat-panel" hidden aria-label="Чат стола"><h2>Чат стола</h2><div id="chatMessages"></div><form id="chatForm"><input id="chatInput" maxlength="300" autocomplete="off" aria-label="Сообщение" /><button type="submit">Отправить</button></form></aside>
+      <div id="newHandCountdown" class="online-countdown" hidden aria-live="assertive"></div>
 
       <aside class="sidebar">
         <section class="panel action-panel">
@@ -316,6 +320,7 @@
     </div>
   </div>
 
+  <script src="/static/online-transport.js"></script>
   <script src="/static/component-ui.js?v=viewer-cards-1"></script>
   <script src="/static/app.js?v=chip-motion-1"></script>
 </body>

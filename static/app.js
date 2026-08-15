@@ -1659,10 +1659,11 @@ async function newHand(fromAutomation = false) {
 
 async function sendAction(action, amount = 0) {
   if (!game || animationBusy) return;
+  if (window.Poker8OnlineTable && window.Poker8Transport) return Poker8Transport.sendAction(action, Math.round(Number(amount || 0) * 100));
   if (isLocalHumanTurn()) clearPendingAction(false);
   solverPreview = null;
   document.querySelectorAll("#actionButtons button").forEach(b => b.disabled = true);
-  const res = await fetch(`/api/game/${game.hand_id}/action`, {
+  const res = await fetch("/api/game/" + encodeURIComponent(game.hand_id) + "/action", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action, amount }),
