@@ -5,6 +5,7 @@
 ```powershell
 uv pip install -r requirements.txt
 $env:POKER8_DATABASE_URL='sqlite+aiosqlite:///./data/poker8_online_dev.sqlite3'
+$env:POKER8_COORDINATOR_ENABLED='1'
 .venv\Scripts\python.exe -m alembic upgrade head
 .venv\Scripts\uvicorn.exe app.production:app --host 127.0.0.1 --port 8000
 ```
@@ -34,8 +35,15 @@ Inspect `/health/ready`, paused runtimes and `integrity_events` before reopening
 ```powershell
 .venv\Scripts\python.exe -m pytest -q
 .venv\Scripts\python.exe -m pytest -m postgres -q
+.venv\Scripts\python.exe -m pytest tests/e2e -m e2e -q
 node --check static/app.js
 node --check static/online-transport.js
 node --check static/lobby.js
 node --check static/profile.js
+
+# Test-only 100-connection / 20-table WebSocket gate.
+$env:POKER8_ENV='test'
+$env:POKER8_TEST_DATABASE_URL='postgresql+psycopg://poker8:poker8@127.0.0.1:5433/poker8_test'
+.venv\Scripts\python.exe tests/load/seed_load_tables.py --manifest $env:TEMP\poker8-load-manifest.json --tables 20 --connections 100
+.venv\Scripts\python.exe tests/load/online_mvp_load.py --base-url http://127.0.0.1:8000 --connections 100 --tables 20 --duration 120 --manifest $env:TEMP\poker8-load-manifest.json
 ```

@@ -9,6 +9,7 @@ Local development:
 ```powershell
 uv pip install -r requirements.txt
 $env:POKER8_DATABASE_URL='sqlite+aiosqlite:///./data/poker8_online_dev.sqlite3'
+$env:POKER8_COORDINATOR_ENABLED='1'
 .venv\Scripts\python.exe -m alembic upgrade head
 .venv\Scripts\uvicorn.exe app.production:app --reload
 ```
