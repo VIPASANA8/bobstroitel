@@ -249,5 +249,5 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'offset: .86' in app_source
     assert 'radial-gradient(ellipse at 50% 18%,rgba(255,255,255,.36),transparent 48%)' in (root / 'static' / 'style.css').read_text(encoding='utf-8')
     assert '/static/style.css?v=chip-motion-1' in index_source
-    assert '/static/app.js?v=chip-motion-1' in index_source
+    assert '/static/app.js?v=online-legacy-1' in index_source
     assert '/static/component-ui.js?v=viewer-cards-1' in index_source
