@@ -70,11 +70,17 @@ const ACTION_LABELS = {
 
 function localViewerPlayer() {
   if (!game) return null;
-  return Object.values(game.players || {}).find(p => p.profile_id && p.profile_id === game.active_profile_id) || null;
+  return Object.values(game.players || {}).find(p =>
+    (game.viewer_player_id && p.id === game.viewer_player_id)
+    || (p.profile_id && p.profile_id === game.active_profile_id)
+  ) || null;
 }
 
 function isLocalHumanTurn() {
-  return Boolean(game && !game.terminal && game.acting_human_profile_id && game.acting_human_profile_id === game.active_profile_id);
+  return Boolean(game && !game.terminal && (
+    (game.acting_human_profile_id && game.acting_human_profile_id === game.active_profile_id)
+    || (game.acting_human_player_id && game.acting_human_player_id === game.viewer_player_id)
+  ));
 }
 
 function localPlayerAlive() {
@@ -830,7 +836,7 @@ function avatarHue(seat, isBot = false) {
 }
 
 function seatHtml(config, player) {
-  const locked = Boolean(game && !game.terminal);
+  const locked = Boolean(ONLINE_TABLE_ID) || Boolean(game && !game.terminal);
   if (!config) return "";
 
   if (!config.active || config.occupant_type === "empty") {
@@ -1483,6 +1489,61 @@ renderMobileHud();
   renderRunControls();
   queueMicrotask(() => { maybeAutoFirePendingAction(); });
 }
+
+window.Poker8LegacyView = {
+  renderSnapshot({ table, state, viewerState }) {
+    const players = Object.values(state?.players || {});
+    const viewer = players.find(player =>
+      !player.is_bot && (player.hole_cards || []).some(card => card && card !== "??")
+    ) || null;
+    const seats = Array.from({ length: 6 }, (_, seat) => {
+      const player = players.find(row => Number(row.seat) === seat);
+      return {
+        seat,
+        active: Boolean(player),
+        occupant_type: player?.is_bot ? "bot" : "human",
+        profile_id: player?.profile_id || null,
+        name: player?.name || `Место ${seat + 1}`,
+        balance: Number(player?.stack || 0),
+        difficulty: player?.difficulty || "normal",
+      };
+    });
+    const phase = state?.phase || "waiting";
+    const live = phase === "active" || phase === "result";
+    const actor = state?.players?.[state?.acting_player];
+    const onlineGame = live && state ? {
+      ...state,
+      viewer_player_id: viewer?.id || null,
+      active_profile_id: viewer?.profile_id || null,
+      acting_human_player_id: actor && !actor.is_bot ? state.acting_player : null,
+      acting_human_profile_id: actor && !actor.is_bot ? actor.profile_id : null,
+      acting_human_name: actor && !actor.is_bot ? actor.name : null,
+      human_legal_actions: viewer?.id === state.acting_player ? (state.legal_actions || []) : [],
+      human_to_call: viewer?.id === state.acting_player
+        ? Math.max(0, Number(state.current_bet || 0) - Number(viewer.street_invested || 0))
+        : 0,
+      human_min_raise_to: viewer?.id === state.acting_player
+        ? Number(state.current_bet || 0) + Number(state.min_raise_size || 1)
+        : 0,
+      player_count: players.length,
+      human_count: players.filter(player => !player.is_bot).length,
+      spectator_only: viewerState !== "seated",
+    } : null;
+    tableData = {
+      ...(tableData || {}),
+      id: table?.id,
+      name: table?.name,
+      seats,
+      locked: live,
+      active_profile_id: viewer?.profile_id || null,
+      spectator_only: viewerState !== "seated",
+      profile: null,
+      profiles: [],
+    };
+    game = onlineGame;
+    renderGame();
+  },
+};
 
 function renderHistory() {
   const target = $("history");

@@ -46,3 +46,11 @@ def test_table_transport_has_http_safe_request_id_fallback():
 def test_lobby_cards_render_buy_in_from_unit_values():
     source = Path("static/lobby.js").read_text(encoding="utf-8")
     assert "table.min_buy_in_units / table.big_blind_units" in source
+
+
+def test_online_table_uses_existing_poker8_visual_dom():
+    online_source = Path("static/online-table.js").read_text(encoding="utf-8")
+    app_source = Path("static/app.js").read_text(encoding="utf-8")
+    assert "window.Poker8LegacyView?.renderSnapshot" in online_source
+    assert "onlineSurface" not in online_source
+    assert "window.Poker8LegacyView" in app_source
