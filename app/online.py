@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from app.routers import auth, chat, config, health, lobby, profiles, realtime, t
 from online.auth import AuthService
 from online.catalogue import Catalogue
 from online.config import Settings
+from online.coordinator import OnlineCoordinator
 from online.database import create_database
 from online.ledger import PlayLedger
 from online.runtime import TableRuntimeManager
@@ -79,6 +81,10 @@ def create_app(settings: Settings) -> FastAPI:
         app.state.runtime = TableRuntimeManager(session_factory, ledger)
         app.state.seating = SeatingService(session_factory, ledger)
         await app.state.runtime.restore_all()
+        app.state.coordinator = OnlineCoordinator(app.state.runtime, app.state.seating, catalogue)
+        app.state.coordinator_task = None
+        if settings.coordinator_enabled:
+            app.state.coordinator_task = asyncio.create_task(app.state.coordinator.run())
         app.state.restore_completed = True
         app.state.connection_hub = realtime.ConnectionHub()
         app.state.tenant_hosts = {
@@ -100,6 +106,13 @@ def create_app(settings: Settings) -> FastAPI:
         try:
             yield
         finally:
+            if app.state.coordinator_task is not None:
+                await app.state.coordinator.stop()
+                app.state.coordinator_task.cancel()
+                try:
+                    await app.state.coordinator_task
+                except asyncio.CancelledError:
+                    pass
             await engine.dispose()
 
     app = FastAPI(title="Poker8 Online", version="1.0.0", lifespan=lifespan)

@@ -208,7 +208,15 @@ class PlayLedger:
         amounts = [int(value) for value in transfers.values()]
         if not transfers or sum(amounts) != 0:
             raise ValueError("hand settlement must be balanced")
-        entries = list(transfers)
+        nonzero = [(entry, amount) for entry, amount in zip(transfers, amounts) if amount]
+        if not nonzero:
+            async def operation(db: AsyncSession) -> LedgerResult:
+                owner = next(iter(transfers))
+                return LedgerResult("", f"settlement:{hand_id}", await self._balance(db, *owner))
+
+            return await self._run(operation, session)
+        entries = [entry for entry, _ in nonzero]
+        amounts = [amount for _, amount in nonzero]
         return await self._transfer(
             kind="settlement",
             reference_type="hand",

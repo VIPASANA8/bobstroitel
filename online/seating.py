@@ -46,6 +46,7 @@ class SeatingService:
     async def ready(self, user_id: str, table_id: str, seat_no: int, buy_in_units: int) -> SeatingRequest:
         async with self.session_factory() as session:
             async with session.begin():
+                now = datetime.now(timezone.utc)
                 table = await self._table(session, table_id)
                 if not 0 <= seat_no <= 5:
                     raise SeatingError("seat_no must be between 0 and 5")
@@ -68,12 +69,15 @@ class SeatingService:
                         select(seat_queue).where(
                             seat_queue.c.table_id == table_id,
                             seat_queue.c.user_id == user_id,
-                            seat_queue.c.state == "waiting",
+                            seat_queue.c.state.in_(("waiting", "cancelled", "expired")),
                         )
                     )
                 ).mappings().first()
                 if existing:
-                    return self._request(existing)
+                    if existing["state"] == "waiting" and (
+                        existing["expires_at"] is None or existing["expires_at"] > now
+                    ):
+                        return self._request(existing)
                 position = (
                     await session.execute(
                         select(seat_queue.c.position_seq)
@@ -91,15 +95,20 @@ class SeatingService:
                     "position_seq": int(position or 0) + 1,
                     "seat_no": seat_no,
                 }
-                await session.execute(seat_queue.insert().values(
-                    id=request["id"],
-                    table_id=table_id,
-                    user_id=user_id,
-                    seat_no=seat_no,
-                    requested_buy_in_units=buy_in_units,
-                    state="waiting",
-                    position_seq=request["position_seq"],
-                ))
+                values = {
+                    "table_id": table_id,
+                    "user_id": user_id,
+                    "seat_no": seat_no,
+                    "requested_buy_in_units": buy_in_units,
+                    "state": "waiting",
+                    "position_seq": request["position_seq"],
+                    "expires_at": now + timedelta(seconds=10),
+                }
+                if existing:
+                    await session.execute(update(seat_queue).where(seat_queue.c.id == existing["id"]).values(**values))
+                    request["id"] = existing["id"]
+                else:
+                    await session.execute(seat_queue.insert().values(id=request["id"], **values))
                 return SeatingRequest(**request)
 
     async def cancel_ready(self, user_id: str, table_id: str) -> None:
@@ -115,10 +124,31 @@ class SeatingService:
                     .values(state="cancelled")
                 )
 
-    async def process_boundary(self, table_id: str) -> BoundaryResult:
+    async def process_boundary(self, table_id: str, now: datetime | None = None) -> BoundaryResult:
+        now = now or datetime.now(timezone.utc)
         async with self.session_factory() as session:
             async with session.begin():
                 table = await self._table(session, table_id, lock=True)
+                await session.execute(
+                    update(seat_queue)
+                    .where(
+                        seat_queue.c.table_id == table_id,
+                        seat_queue.c.state == "waiting",
+                        seat_queue.c.expires_at.is_not(None),
+                        seat_queue.c.expires_at <= now,
+                    )
+                    .values(state="expired")
+                )
+                await session.execute(
+                    update(table_seats)
+                    .where(
+                        table_seats.c.table_id == table_id,
+                        table_seats.c.occupant_kind == "system",
+                        table_seats.c.state == "seated",
+                        table_seats.c.stack_units < table["big_blind_units"],
+                    )
+                    .values(state="leaving")
+                )
                 await self._process_leaving(session, table_id)
                 await self._fill_system_seats(session, table)
                 requests = (
@@ -180,6 +210,16 @@ class SeatingService:
                     )
                     seated.append(request["user_id"])
                 return BoundaryResult(seated, removed)
+
+    async def active_seat_count(self, table_id: str) -> int:
+        async with self.session_factory() as session:
+            return len((await session.execute(
+                select(table_seats.c.id).where(
+                    table_seats.c.table_id == table_id,
+                    table_seats.c.state == "seated",
+                    table_seats.c.occupant_kind.in_(("user", "system")),
+                )
+            )).scalars().all())
 
     async def mark_disconnected(self, user_id: str, table_id: str, now: datetime) -> None:
         async with self.session_factory() as session:
@@ -266,10 +306,11 @@ class SeatingService:
     async def _fill_system_seats(self, session: AsyncSession, table) -> None:
         rows = (
             await session.execute(
-                select(table_seats).where(table_seats.c.table_id == table["id"], table_seats.c.state != "empty")
+                select(table_seats).where(table_seats.c.table_id == table["id"])
             )
         ).mappings().all()
-        occupied_seats = {row["seat_no"] for row in rows}
+        occupied_seats = {row["seat_no"] for row in rows if row["state"] != "empty"}
+        empty_by_seat = {row["seat_no"]: row for row in rows if row["state"] == "empty"}
         active_system_ids = {row["system_player_id"] for row in rows if row["system_player_id"]}
         candidates = (
             await session.execute(select(system_players).where(system_players.c.active == True))
@@ -281,16 +322,24 @@ class SeatingService:
                 player["id"], table["id"], amount, f"system:{table['id']}:{player['id']}", session=session
             )
             escrow_id = await self._escrow_id(session, table["id"])
-            await session.execute(table_seats.insert().values(
-                id=uuid.uuid4().hex,
-                table_id=table["id"],
-                seat_no=seat_no,
-                occupant_kind="system",
-                system_player_id=player["id"],
-                escrow_account_id=escrow_id,
-                stack_units=amount,
-                state="seated",
-            ))
+            values = {
+                "occupant_kind": "system",
+                "user_id": None,
+                "system_player_id": player["id"],
+                "escrow_account_id": escrow_id,
+                "stack_units": amount,
+                "state": "seated",
+                "disconnected_at": None,
+                "hold_until": None,
+            }
+            if seat_no in empty_by_seat:
+                await session.execute(
+                    update(table_seats).where(table_seats.c.id == empty_by_seat[seat_no]["id"]).values(**values)
+                )
+            else:
+                await session.execute(table_seats.insert().values(
+                    id=uuid.uuid4().hex, table_id=table["id"], seat_no=seat_no, **values,
+                ))
 
     async def _choose_seat(self, session: AsyncSession, table_id: str, requested_seat: int):
         rows = (

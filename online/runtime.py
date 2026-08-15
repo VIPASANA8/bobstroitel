@@ -135,6 +135,8 @@ class TableRuntimeManager:
                         "public_payload_json": state.to_dict(),
                         "paused_reason": None,
                         "action_deadline": action_deadline,
+                        "result_clear_at": None,
+                        "next_hand_at": None,
                     }
                     existing_runtime = (
                         await session.execute(
@@ -319,7 +321,27 @@ class TableRuntimeManager:
             async with self.session_factory() as session:
                 async with session.begin():
                     await session.execute(
-                        update(table_runtimes).where(table_runtimes.c.table_id == table_id).values(phase="waiting")
+                        update(table_runtimes).where(table_runtimes.c.table_id == table_id).values(
+                            phase="waiting", result_clear_at=None, next_hand_at=None,
+                            action_deadline=None,
+                        )
+                    )
+            loaded.result_clear_at = None
+            loaded.next_hand_at = None
+            loaded.action_deadline = None
+
+    async def mark_countdown(self, table_id: str) -> None:
+        async with self._lock(table_id):
+            loaded = await self._load_locked(table_id)
+            if loaded is None or loaded.phase != "result":
+                return
+            loaded.phase = "countdown"
+            async with self.session_factory() as session:
+                async with session.begin():
+                    await session.execute(
+                        update(table_runtimes).where(table_runtimes.c.table_id == table_id).values(
+                            phase="countdown", updated_at=self._now()
+                        )
                     )
 
     async def finish_and_settle(self, table_id: str):
@@ -374,7 +396,9 @@ class TableRuntimeManager:
                     settlement = await self.ledger.settle_hand_transfers(
                         loaded.state.hand_id, transfers, session=session
                     )
-                    completed_at = datetime.now(timezone.utc)
+                    completed_at = self._now()
+                    loaded.result_clear_at = completed_at + timedelta(seconds=4)
+                    loaded.next_hand_at = completed_at + timedelta(seconds=7)
                     await session.execute(
                         update(hands).where(hands.c.id == loaded.state.hand_id).values(
                             board_json=loaded.state.board,
@@ -389,6 +413,8 @@ class TableRuntimeManager:
                             phase="result",
                             private_state_json=serialize_state(loaded.state),
                             public_payload_json=loaded.state.to_dict(),
+                            result_clear_at=loaded.result_clear_at,
+                            next_hand_at=loaded.next_hand_at,
                             updated_at=completed_at,
                         )
                     )
