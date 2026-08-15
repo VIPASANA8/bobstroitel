@@ -3,3 +3,4 @@ __pycache__/
 .pytest_cache/
 *.pyc
 .env
+data/poker8_online_dev.sqlite3
