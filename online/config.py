@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+import json
+from dataclasses import dataclass, field
 from typing import Mapping
 
 
@@ -14,6 +15,7 @@ class Settings:
     session_ttl_seconds: int
     telegram_auth_max_age_seconds: int
     dev_profiles: dict[int, str]
+    tenant_configs: dict[str, dict[str, object]] = field(default_factory=dict)
 
     @classmethod
     def from_mapping(cls, source: Mapping[str, str]) -> "Settings":
@@ -32,13 +34,32 @@ class Settings:
             raw_id, name = item.split(":", 1)
             profiles[int(raw_id.strip())] = name.strip()
 
+        default_slug = source.get("POKER8_DEFAULT_TENANT", "poker8").strip()
+        raw_tenants = source.get("POKER8_TENANTS_JSON", "").strip()
+        tenant_configs: dict[str, dict[str, object]] = {}
+        if raw_tenants:
+            for item in json.loads(raw_tenants):
+                slug = str(item["slug"])
+                token_env = str(item.get("token_env", ""))
+                tenant_configs[slug] = {
+                    "hosts": list(item.get("hosts", [])),
+                    "name": str(item.get("name", slug)),
+                    "support_url": item.get("support_url"),
+                    "branding": dict(item.get("branding", {})),
+                    "token": source.get(token_env, "") if token_env else "",
+                }
+        if not tenant_configs:
+            tenant_configs[default_slug] = {
+                "hosts": [], "name": "Poker8", "support_url": None, "branding": {}, "token": bot_token or "",
+            }
         return cls(
             environment=environment,
             database_url=database_url,
-            default_tenant_slug=source.get("POKER8_DEFAULT_TENANT", "poker8").strip(),
+            default_tenant_slug=default_slug,
             default_bot_token=bot_token,
             session_cookie_name="poker8_session",
             session_ttl_seconds=7 * 24 * 60 * 60,
             telegram_auth_max_age_seconds=15 * 60,
             dev_profiles=profiles,
+            tenant_configs=tenant_configs,
         )
