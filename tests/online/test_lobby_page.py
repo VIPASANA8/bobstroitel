@@ -51,6 +51,9 @@ def test_lobby_cards_render_buy_in_from_unit_values():
 def test_online_table_uses_existing_poker8_visual_dom():
     online_source = Path("static/online-table.js").read_text(encoding="utf-8")
     app_source = Path("static/app.js").read_text(encoding="utf-8")
+    index_source = Path("static/index.html").read_text(encoding="utf-8")
     assert "window.Poker8LegacyView?.renderSnapshot" in online_source
     assert "onlineSurface" not in online_source
     assert "window.Poker8LegacyView" in app_source
+    assert 'app.js?v=online-legacy-1' in index_source
+    assert 'online-table.js?v=online-legacy-1' in index_source
