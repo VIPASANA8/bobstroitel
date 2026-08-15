@@ -7,7 +7,7 @@ uv pip install -r requirements.txt
 $env:POKER8_DATABASE_URL='sqlite+aiosqlite:///./data/poker8_online_dev.sqlite3'
 $env:POKER8_COORDINATOR_ENABLED='1'
 .venv\Scripts\python.exe -m alembic upgrade head
-.venv\Scripts\uvicorn.exe app.production:app --host 127.0.0.1 --port 8000
+.venv\Scripts\uvicorn.exe app.main:app --host 127.0.0.1 --port 8000
 ```
 
 Production uses PostgreSQL, a Telegram bot token in an environment variable, and exact tenant host bindings. Browser responses never contain bot tokens.

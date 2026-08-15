@@ -11,7 +11,7 @@ uv pip install -r requirements.txt
 $env:POKER8_DATABASE_URL='sqlite+aiosqlite:///./data/poker8_online_dev.sqlite3'
 $env:POKER8_COORDINATOR_ENABLED='1'
 .venv\Scripts\python.exe -m alembic upgrade head
-.venv\Scripts\uvicorn.exe app.production:app --reload
+.venv\Scripts\uvicorn.exe app.main:app --reload
 ```
 
 Production requires PostgreSQL, `POKER8_DEFAULT_BOT_TOKEN`, exact tenant host bindings, and Telegram `initData` authentication. Open `/` for the lobby, `/table?table=<id>` for the table, and `/static/profile.html` for the profile. The complete operational procedure is in `docs/runbooks/online-mvp.md`.

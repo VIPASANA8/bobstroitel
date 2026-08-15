@@ -51,7 +51,27 @@ async def table_snapshot(
             "phase": "waiting", "revision": 0, "occupancy": 0,
             "legal_actions": [], "players": {}, "action_deadline": None,
         }
-    return {"table": dict(row), "state": state}
+    async with request.app.state.session_factory() as session:
+        seat = (
+            await session.execute(
+                select(table_seats.c.state).where(
+                    table_seats.c.table_id == table_id,
+                    table_seats.c.user_id == user.user_id,
+                    table_seats.c.state.in_(("seated", "held", "leaving")),
+                )
+            )
+        ).scalar_one_or_none()
+        queue = (
+            await session.execute(
+                select(seat_queue.c.state).where(
+                    seat_queue.c.table_id == table_id,
+                    seat_queue.c.user_id == user.user_id,
+                    seat_queue.c.state == "waiting",
+                )
+            )
+        ).scalar_one_or_none()
+    viewer_state = "seated" if seat in ("seated", "held", "leaving") else "waiting" if queue else "spectator"
+    return {"table": dict(row), "state": state, "viewer_state": viewer_state, "queue_state": queue}
 
 
 @router.post("/{table_id}/ready")

@@ -25,12 +25,12 @@ def online_server(tmp_path_factory):
         "POKER8_ENV": "development",
         "POKER8_COORDINATOR_ENABLED": "1",
         "POKER8_DATABASE_URL": f"sqlite+aiosqlite:///{database}",
-        "POKER8_DEV_PROFILES": "101:Dev Player",
+        "POKER8_DEV_PROFILES": "101:Dev Player,202:Observer",
     })
     log_path = database.with_suffix(".log")
     log_handle = log_path.open("w+", encoding="utf-8")
     process = subprocess.Popen(
-        [sys.executable, "-m", "uvicorn", "app.production:app", "--host", "127.0.0.1", "--port", str(port)],
+        [sys.executable, "-m", "uvicorn", "tests.e2e.server:app", "--host", "127.0.0.1", "--port", str(port)],
         cwd=os.getcwd(), env=env, stdout=log_handle, stderr=subprocess.STDOUT,
     )
     base_url = f"http://127.0.0.1:{port}"

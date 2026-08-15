@@ -591,6 +591,8 @@ class TableRuntimeManager:
             "revision": loaded.revision,
             "legal_actions": legal,
             "action_deadline": loaded.action_deadline.isoformat() if loaded.action_deadline else None,
+            "result_clear_at": loaded.result_clear_at.isoformat() if loaded.result_clear_at else None,
+            "next_hand_at": loaded.next_hand_at.isoformat() if loaded.next_hand_at else None,
             "occupancy": len(loaded.state.players),
         })
         return state

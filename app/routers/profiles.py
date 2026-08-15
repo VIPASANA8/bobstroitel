@@ -35,6 +35,14 @@ async def _profile(request: Request, user: AuthenticatedUser) -> dict[str, objec
                 )
             )
         ).scalars().all()
+        active_table_id = (
+            await session.execute(
+                select(table_seats.c.table_id).where(
+                    table_seats.c.user_id == user.user_id,
+                    table_seats.c.state.in_(("seated", "held", "leaving")),
+                ).limit(1)
+            )
+        ).scalar_one_or_none()
     return {
         "user_id": row["id"],
         "telegram_user_id": row["telegram_user_id"],
@@ -45,7 +53,7 @@ async def _profile(request: Request, user: AuthenticatedUser) -> dict[str, objec
         "available_units": await request.app.state.ledger.available_units(user.user_id),
         "active_table_stack_units": sum(stack_units),
         "avatar_asset_key": f"level-{level_for_wins(row['wins'])}",
-        "active_table_id": None,
+        "active_table_id": active_table_id,
     }
 
 

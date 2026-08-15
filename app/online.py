@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Awaitable, Callable
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
@@ -52,7 +53,11 @@ async def _ensure_foundation(session_factory, settings: Settings) -> None:
                         ))
 
 
-def create_app(settings: Settings) -> FastAPI:
+def create_app(
+    settings: Settings,
+    *,
+    fixture: Callable[[FastAPI], Awaitable[None]] | None = None,
+) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         engine, session_factory = create_database(settings.database_url)
@@ -81,6 +86,8 @@ def create_app(settings: Settings) -> FastAPI:
         app.state.runtime = TableRuntimeManager(session_factory, ledger)
         app.state.seating = SeatingService(session_factory, ledger)
         await app.state.runtime.restore_all()
+        if fixture is not None:
+            await fixture(app)
         app.state.coordinator = OnlineCoordinator(app.state.runtime, app.state.seating, catalogue)
         app.state.coordinator_task = None
         if settings.coordinator_enabled:

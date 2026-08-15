@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-import app.main as main
+import app.legacy as main
 from bots.multiway import MultiwayBot
 from persistence.store import TrainingStore
 
