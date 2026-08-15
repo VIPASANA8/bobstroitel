@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import delete, insert, select, update
@@ -56,6 +56,9 @@ class _LoadedTable:
     revision: int
     phase: str
     state: GameState
+    action_deadline: datetime | None = None
+    result_clear_at: datetime | None = None
+    next_hand_at: datetime | None = None
 
 
 class TableRuntimeManager:
@@ -66,10 +69,12 @@ class TableRuntimeManager:
         session_factory: async_sessionmaker[AsyncSession],
         ledger: PlayLedger,
         engine: PokerEngine | None = None,
+        now=None,
     ) -> None:
         self.session_factory = session_factory
         self.ledger = ledger
         self.engine = engine or PokerEngine()
+        self.clock = now or (lambda: datetime.now(timezone.utc))
         self._locks: dict[str, asyncio.Lock] = {}
         self._tables: dict[str, _LoadedTable] = {}
         self._action_counts: dict[str, int] = {}
@@ -118,12 +123,18 @@ class TableRuntimeManager:
                     )
                     payload = serialize_state(state)
                     revision = 1
+                    action_deadline = (
+                        self._now() + timedelta(seconds=30)
+                        if state.acting_player and not state.players[state.acting_player].is_bot
+                        else None
+                    )
                     runtime_values = {
                         "revision": revision,
                         "phase": "active",
                         "private_state_json": payload,
                         "public_payload_json": state.to_dict(),
                         "paused_reason": None,
+                        "action_deadline": action_deadline,
                     }
                     existing_runtime = (
                         await session.execute(
@@ -161,7 +172,7 @@ class TableRuntimeManager:
                         session, event_type="hand_started", table_id=table_id, hand_id=state.hand_id,
                         payload={"revision": revision, "players": len(state.players)},
                     )
-                    loaded = _LoadedTable(revision, "active", state)
+                    loaded = _LoadedTable(revision, "active", state, action_deadline=action_deadline)
                     self._tables[table_id] = loaded
                     self._action_counts[table_id] = 0
                     return self._snapshot_for_state(loaded, None)
@@ -174,6 +185,12 @@ class TableRuntimeManager:
             raise RuntimeErrorBase("table runtime not found")
         participant_id = await self._participant_for_user(table_id, viewer_user_id) if viewer_user_id else None
         return self._snapshot_for_state(loaded, participant_id)
+
+    async def private_snapshot(self, table_id: str) -> dict[str, Any]:
+        loaded = self._tables.get(table_id) or await self._load_locked(table_id)
+        if loaded is None:
+            raise RuntimeErrorBase("table runtime not found")
+        return serialize_state(loaded.state)
 
     async def action(
         self,
@@ -222,6 +239,13 @@ class TableRuntimeManager:
                     loaded.revision += 1
                     if loaded.state.terminal:
                         loaded.phase = "result"
+                        loaded.action_deadline = None
+                    else:
+                        loaded.action_deadline = (
+                            self._now() + timedelta(seconds=30)
+                            if loaded.state.acting_player and not loaded.state.players[loaded.state.acting_player].is_bot
+                            else None
+                        )
                     snapshot = self._snapshot_for_state(loaded, participant_id)
                     result = RuntimeActionResult(
                         command_id=command_id,
@@ -383,7 +407,24 @@ class TableRuntimeManager:
         restored = []
         for row in rows:
             state = deserialize_state(row["private_state_json"])
-            self._tables[row["table_id"]] = _LoadedTable(row["revision"], row["phase"], state)
+            action_deadline = self._utc(row["action_deadline"])
+            if row["phase"] == "active" and action_deadline is not None:
+                grace = self._now() + timedelta(seconds=10)
+                if action_deadline < grace:
+                    action_deadline = grace
+                    async with self.session_factory() as session:
+                        async with session.begin():
+                            await session.execute(
+                                update(table_runtimes).where(table_runtimes.c.table_id == row["table_id"]).values(
+                                    action_deadline=action_deadline,
+                                )
+                            )
+            self._tables[row["table_id"]] = _LoadedTable(
+                row["revision"], row["phase"], state,
+                action_deadline=action_deadline,
+                result_clear_at=self._utc(row["result_clear_at"]),
+                next_hand_at=self._utc(row["next_hand_at"]),
+            )
             self._locks.setdefault(row["table_id"], asyncio.Lock())
             restored.append(row["table_id"])
         return restored
@@ -406,6 +447,7 @@ class TableRuntimeManager:
                 private_state_json=payload,
                 public_payload_json=loaded.state.to_dict(),
                 phase="result" if loaded.state.terminal else "active",
+                action_deadline=loaded.action_deadline,
                 updated_at=datetime.now(timezone.utc),
             )
         )
@@ -459,7 +501,12 @@ class TableRuntimeManager:
             ).mappings().first()
         if row is None:
             return None
-        loaded = _LoadedTable(row["revision"], row["phase"], deserialize_state(row["private_state_json"]))
+        loaded = _LoadedTable(
+            row["revision"], row["phase"], deserialize_state(row["private_state_json"]),
+            action_deadline=self._utc(row["action_deadline"]),
+            result_clear_at=self._utc(row["result_clear_at"]),
+            next_hand_at=self._utc(row["next_hand_at"]),
+        )
         self._tables[table_id] = loaded
         self._locks.setdefault(table_id, asyncio.Lock())
         return loaded
@@ -517,7 +564,7 @@ class TableRuntimeManager:
             "phase": loaded.phase,
             "revision": loaded.revision,
             "legal_actions": legal,
-            "action_deadline": None,
+            "action_deadline": loaded.action_deadline.isoformat() if loaded.action_deadline else None,
             "occupancy": len(loaded.state.players),
         })
         return state
@@ -540,3 +587,12 @@ class TableRuntimeManager:
             action=payload["action"], legal_actions=list(payload.get("legal_actions", [])),
             snapshot=payload["snapshot"],
         )
+
+    def _now(self) -> datetime:
+        return self.clock() if callable(self.clock) else self.clock.now()
+
+    @staticmethod
+    def _utc(value: datetime | None) -> datetime | None:
+        if value is None or value.tzinfo is not None:
+            return value
+        return value.replace(tzinfo=timezone.utc)
