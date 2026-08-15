@@ -10,6 +10,16 @@ def test_production_requires_database_and_bot_token():
         Settings.from_mapping({"POKER8_ENV": "production"})
 
 
+def test_open_access_is_not_allowed_in_production():
+    settings = Settings.from_mapping({
+        "POKER8_ENV": "production",
+        "POKER8_DATABASE_URL": "postgresql+psycopg://poker8:poker8@db/poker8",
+        "POKER8_DEFAULT_BOT_TOKEN": "token",
+        "POKER8_OPEN_ACCESS": "1",
+    })
+    assert settings.open_access is False
+
+
 def test_development_accepts_named_profiles_without_bot_token():
     settings = Settings.from_mapping({
         "POKER8_ENV": "development",

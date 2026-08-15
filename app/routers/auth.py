@@ -72,6 +72,17 @@ async def telegram_login(payload: TelegramAuthRequest, request: Request):
     return await _finish_login(request, result)
 
 
+@router.post("/guest")
+async def guest_login(request: Request):
+    if not request.app.state.settings.open_access:
+        raise HTTPException(status_code=404, detail="Guest access is disabled")
+    try:
+        result = await request.app.state.auth_service.authenticate_guest(_tenant_slug(request))
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    return await _finish_login(request, result)
+
+
 @router.post("/dev/{telegram_user_id}")
 async def dev_login(telegram_user_id: int, request: Request):
     settings = request.app.state.settings

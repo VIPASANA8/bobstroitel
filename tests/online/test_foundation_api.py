@@ -11,6 +11,7 @@ def client(tmp_path):
         "POKER8_ENV": "development",
         "POKER8_DATABASE_URL": f"sqlite+aiosqlite:///{tmp_path / 'online.sqlite3'}",
         "POKER8_DEV_PROFILES": "101:Dev Player,202:Second Player",
+        "POKER8_OPEN_ACCESS": "1",
     })
     with TestClient(create_app(settings)) as test_client:
         yield test_client
@@ -28,6 +29,14 @@ def test_dev_login_returns_same_global_profile_and_six_tables(client):
     lobby = client.get("/api/lobby/tables")
     assert lobby.status_code == 200
     assert len(lobby.json()["tables"]) == 6
+
+
+def test_guest_login_creates_random_named_session_and_six_tables(client):
+    login = client.post("/api/auth/guest")
+    assert login.status_code == 200
+    assert login.json()["display_name"].startswith("Guest-")
+    assert login.json()["available_units"] == 100_000
+    assert client.get("/api/lobby/tables").status_code == 200
 
 
 def test_repeated_login_does_not_repeat_welcome_grant(client):

@@ -14,6 +14,10 @@ window.Poker8Auth = (() => {
       const response = await fetch(`/api/auth/dev/${chosen.telegram_user_id}`, {method:'POST'});
       if (response.ok) return response.json();
     }
+    if (config.open_access) {
+      const response = await fetch('/api/auth/guest', {method:'POST'});
+      if (response.ok) return response.json();
+    }
     throw new Error('Откройте приложение внутри Telegram');
   }
   return {ensureSession};

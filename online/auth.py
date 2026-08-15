@@ -98,6 +98,23 @@ class AuthService:
                 session, tenant_row, telegram_user_id, display_name
             )
 
+    async def authenticate_guest(self, tenant_slug: str) -> AuthResult:
+        async with self.session_factory() as session:
+            tenant_row = await self._tenant(session, tenant_slug)
+            for _ in range(10):
+                guest_telegram_id = -secrets.randbelow(9_000_000_000_000_000_000) - 1
+                exists = await session.execute(
+                    select(users.c.id).where(users.c.telegram_user_id == guest_telegram_id)
+                )
+                if exists.scalar_one_or_none() is None:
+                    return await self._authenticate_identity(
+                        session,
+                        tenant_row,
+                        guest_telegram_id,
+                        f"Guest-{secrets.token_hex(3).upper()}",
+                    )
+        raise AuthenticationError("could not allocate a guest identity")
+
     async def revoke_session(self, token: str) -> None:
         now = datetime.now(timezone.utc)
         async with self.session_factory() as session:

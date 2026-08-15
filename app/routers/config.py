@@ -12,6 +12,7 @@ async def public_config(request: Request):
     branding = settings.tenant_configs.get(tenant_slug, {})
     return {
         "network_brand": "Poker8",
+        "open_access": settings.open_access,
         "tenant": {
             "slug": tenant_slug,
             "name": branding.get("name", "Poker8"),
