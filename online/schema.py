@@ -28,6 +28,8 @@ tenants = Table(
     Column("slug", String(100), nullable=False, unique=True),
     Column("name", String(200), nullable=False),
     Column("status", String(32), nullable=False, server_default=text("'active'")),
+    Column("branding_json", JSON, nullable=False, server_default=text("'{}'")),
+    Column("support_url", String(500)),
     Column("created_at", timestamp, **created_at),
 )
 
@@ -179,6 +181,16 @@ seat_queue = Table(
     CheckConstraint("seat_no >= 0 AND seat_no <= 5"),
     CheckConstraint("state IN ('waiting', 'cancelled', 'seated', 'expired')"),
 )
+
+chat_messages = Table(
+    "chat_messages", metadata,
+    Column("id", String(64), primary_key=True),
+    Column("table_id", String(64), ForeignKey("poker_tables.id"), nullable=False),
+    Column("user_id", String(64), ForeignKey("users.id"), nullable=False),
+    Column("text", String(300), nullable=False),
+    Column("created_at", timestamp, **created_at),
+)
+Index("ix_chat_messages_table_time", chat_messages.c.table_id, chat_messages.c.created_at)
 
 _active_seat_states = table_seats.c.state.in_(("seated", "held", "leaving"))
 Index(
