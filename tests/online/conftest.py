@@ -8,6 +8,11 @@ from online.schema import metadata
 
 
 @pytest.fixture
+def anyio_backend():
+    return "asyncio"
+
+
+@pytest.fixture
 def db_session_factory():
     engine = create_async_engine(
         "sqlite+aiosqlite://",
