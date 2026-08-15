@@ -14,6 +14,8 @@ COPY migrations ./migrations
 COPY online ./online
 COPY app ./app
 COPY static ./static
+COPY bots ./bots
+COPY poker ./poker
 
 EXPOSE 8000
 
