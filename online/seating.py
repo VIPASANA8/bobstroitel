@@ -311,15 +311,26 @@ class SeatingService:
         ).mappings().all()
         occupied_seats = {row["seat_no"] for row in rows if row["state"] != "empty"}
         empty_by_seat = {row["seat_no"]: row for row in rows if row["state"] == "empty"}
-        active_system_ids = {row["system_player_id"] for row in rows if row["system_player_id"]}
+        active_system_ids = {
+            row["system_player_id"]
+            for row in (await session.execute(
+                select(table_seats).where(
+                    table_seats.c.occupant_kind == "system",
+                    table_seats.c.state != "empty",
+                )
+            )).mappings().all()
+            if row["system_player_id"]
+        }
         candidates = (
             await session.execute(select(system_players).where(system_players.c.active == True))
         ).mappings().all()
         available = [row for row in candidates if row["id"] not in active_system_ids]
         for seat_no, player in zip((seat for seat in range(6) if seat not in occupied_seats), available):
             amount = table["big_blind_units"] * 100
+            seat_id = empty_by_seat.get(seat_no, {}).get("id") or uuid.uuid4().hex
             await self.ledger.fund_system_seat(
-                player["id"], table["id"], amount, f"system:{table['id']}:{player['id']}", session=session
+                player["id"], table["id"], amount,
+                f"system:{table['id']}:{player['id']}:{uuid.uuid4().hex}", session=session,
             )
             escrow_id = await self._escrow_id(session, table["id"])
             values = {
@@ -338,7 +349,7 @@ class SeatingService:
                 )
             else:
                 await session.execute(table_seats.insert().values(
-                    id=uuid.uuid4().hex, table_id=table["id"], seat_no=seat_no, **values,
+                    id=seat_id, table_id=table["id"], seat_no=seat_no, **values,
                 ))
 
     async def _choose_seat(self, session: AsyncSession, table_id: str, requested_seat: int):

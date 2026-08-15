@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import datetime, timezone
 
 from online.catalogue import Catalogue
 from online.runtime import TableRuntimeManager
 from online.seating import SeatingService
+
+
+logger = logging.getLogger(__name__)
 
 
 class OnlineCoordinator:
@@ -71,7 +75,12 @@ class OnlineCoordinator:
 
     async def run(self) -> None:
         while not self._stop.is_set():
-            await self.tick()
+            try:
+                await self.tick()
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.exception("online coordinator tick failed")
             try:
                 await asyncio.wait_for(self._stop.wait(), timeout=self.interval_seconds)
             except asyncio.TimeoutError:
