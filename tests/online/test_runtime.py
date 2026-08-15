@@ -98,3 +98,29 @@ async def test_system_step_is_legal_at_every_difficulty(runtime, difficulty):
     await runtime.start_hand("t1", button_seat=1)
     result = await runtime.system_step("t1")
     assert result.action in result.legal_actions
+
+
+@pytest.mark.anyio
+async def test_system_step_gives_bot_only_a_sanitized_view(runtime, monkeypatch):
+    await runtime.start_hand("t1", button_seat=1)
+    captured = {}
+
+    class SpyBot:
+        def __init__(self, engine):
+            self.engine = engine
+
+        def decide(self, state, actor):
+            captured["state"] = state
+            return type("Decision", (), {"action": self.engine.legal_actions(state, actor)[0], "amount": 0.0})()
+
+    monkeypatch.setattr("online.runtime.MultiwayBot", SpyBot)
+    await runtime.system_step("t1")
+
+    view = captured["state"]
+    actor = view.acting_player
+    assert view.deck is None
+    assert all(
+        player.hole_cards == ["??", "??"]
+        for participant_id, player in view.players.items()
+        if participant_id != actor
+    )

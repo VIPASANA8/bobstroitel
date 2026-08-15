@@ -278,7 +278,12 @@ class TableRuntimeManager:
                 raise InvalidAction("system player is not acting")
             legal = self.engine.legal_actions(loaded.state, actor)
             bot = MultiwayBot(engine=self.engine)
-            decision = bot.decide(loaded.state, actor)
+            bot_view_payload = serialize_state(loaded.state)
+            bot_view_payload["deck_cards"] = None
+            for participant_id, player in bot_view_payload["players"].items():
+                if participant_id != actor:
+                    player["hole_cards"] = ["??", "??"]
+            decision = bot.decide(deserialize_state(bot_view_payload), actor)
             if decision.action not in legal:
                 decision.action = legal[0]
             async with self.session_factory() as session:
