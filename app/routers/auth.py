@@ -26,7 +26,7 @@ def _tenant_slug(request: Request) -> str:
         raise HTTPException(status_code=404, detail="Unknown tenant host") from exc
 
 
-def _public_auth(result) -> dict[str, object]:
+def _public_auth(result, available_units: int) -> dict[str, object]:
     return {
         "user_id": result.user_id,
         "tenant_id": result.tenant_id,
@@ -34,6 +34,7 @@ def _public_auth(result) -> dict[str, object]:
         "display_name": result.display_name,
         "acquisition_tenant_slug": result.acquisition_tenant_slug,
         "access_tenant_slug": result.access_tenant_slug,
+        "available_units": available_units,
     }
 
 
@@ -50,6 +51,16 @@ def _set_session_cookie(response: JSONResponse, request: Request, token: str) ->
     )
 
 
+async def _finish_login(request: Request, result):
+    ledger = request.app.state.ledger
+    await ledger.ensure_user_wallet(result.user_id)
+    await ledger.grant(result.user_id, 100_000, f"welcome:{result.user_id}")
+    available_units = await ledger.available_units(result.user_id)
+    response = JSONResponse(_public_auth(result, available_units))
+    _set_session_cookie(response, request, result.token)
+    return response
+
+
 @router.post("/telegram")
 async def telegram_login(payload: TelegramAuthRequest, request: Request):
     try:
@@ -58,9 +69,7 @@ async def telegram_login(payload: TelegramAuthRequest, request: Request):
         )
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
-    response = JSONResponse(_public_auth(result))
-    _set_session_cookie(response, request, result.token)
-    return response
+    return await _finish_login(request, result)
 
 
 @router.post("/dev/{telegram_user_id}")
@@ -78,9 +87,7 @@ async def dev_login(telegram_user_id: int, request: Request):
         )
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
-    response = JSONResponse(_public_auth(result))
-    _set_session_cookie(response, request, result.token)
-    return response
+    return await _finish_login(request, result)
 
 
 @router.post("/logout")

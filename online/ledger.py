@@ -30,6 +30,13 @@ class PlayLedger:
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self.session_factory = session_factory
 
+    async def ensure_faucet(self, *, session: AsyncSession | None = None) -> str:
+        async def operation(db: AsyncSession) -> str:
+            account = await self._ensure_account(db, *FAUCET_OWNER)
+            return account["id"]
+
+        return await self._run(operation, session)
+
     async def ensure_user_wallet(
         self, user_id: str, *, session: AsyncSession | None = None
     ) -> str:
