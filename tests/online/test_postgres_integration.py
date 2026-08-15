@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import sys
 import uuid
 
 import pytest
@@ -63,4 +64,8 @@ def test_play_balances_survive_a_new_postgres_session():
             assert escrow == 4_000
         await engine.dispose()
 
-    asyncio.run(run())
+        if sys.platform == "win32":
+            with asyncio.Runner(loop_factory=asyncio.SelectorEventLoop) as runner:
+                runner.run(run())
+        else:
+            asyncio.run(run())
