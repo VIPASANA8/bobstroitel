@@ -12,6 +12,8 @@ $env:POKER8_COORDINATOR_ENABLED='1'
 
 Production uses PostgreSQL, a Telegram bot token in an environment variable, and exact tenant host bindings. Browser responses never contain bot tokens.
 
+For temporary IP-only staging, set `POKER8_ENV=staging` and `POKER8_OPEN_ACCESS=1`. The browser then receives a short-lived guest identity with a random `Guest-XXXXXX` nickname. This mode is intentionally disabled in production and must be set back to `0` before enabling Telegram-only access.
+
 ## Docker/PostgreSQL
 
 ```powershell
