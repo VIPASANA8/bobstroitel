@@ -88,12 +88,14 @@ async def table_socket(websocket: WebSocket, table_id: str) -> None:
                 await websocket.send_json({"type": "pong", "sent_at": message.get("sent_at")})
                 continue
             if message_type == "disconnect":
+                websocket.state.disconnect_handled = True
                 previous = hub.user_connections(table_id, user.user_id)
                 hub.connections.get(table_id, {}).pop(websocket, None)
                 if previous == 1 and hasattr(websocket.app.state, "seating"):
                     await websocket.app.state.seating.mark_disconnected(
                         user.user_id, table_id, datetime.now(timezone.utc)
                     )
+                await websocket.send_json({"type": "presence", "status": "disconnected", "remaining": max(0, previous - 1)})
                 await websocket.close(code=1000)
                 return
             if message_type == "resync":
@@ -128,6 +130,8 @@ async def table_socket(websocket: WebSocket, table_id: str) -> None:
     except WebSocketDisconnect:
         pass
     finally:
+        if getattr(websocket.state, "disconnect_handled", False):
+            return
         previous = hub.user_connections(table_id, user.user_id)
         hub.connections.get(table_id, {}).pop(websocket, None)
         if previous == 1 and hasattr(websocket.app.state, "seating"):
