@@ -1,11 +1,11 @@
 import asyncio
 
 import pytest
-from sqlalchemy import insert
+from sqlalchemy import insert, select
 
 from online.ledger import PlayLedger
 from online.runtime import StaleRevision, TableRuntimeManager
-from online.schema import poker_tables, system_players, table_seats, tenants, users
+from online.schema import game_commands, poker_tables, system_players, table_seats, tenants, users
 
 
 @pytest.fixture
@@ -98,6 +98,16 @@ async def test_system_step_is_legal_at_every_difficulty(runtime, difficulty):
     await runtime.start_hand("t1", button_seat=1)
     result = await runtime.system_step("t1")
     assert result.action in result.legal_actions
+
+
+@pytest.mark.anyio
+async def test_system_command_audit_does_not_reference_user_foreign_key(runtime):
+    await runtime.start_hand("t1", button_seat=1)
+    await runtime.system_step("t1")
+
+    async with runtime.session_factory() as session:
+        command = (await session.execute(select(game_commands))).mappings().one()
+    assert command["user_id"] is None
 
 
 @pytest.mark.anyio

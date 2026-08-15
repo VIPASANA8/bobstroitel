@@ -257,7 +257,10 @@ class TableRuntimeManager:
                         legal_actions=legal_before,
                         snapshot=snapshot,
                     )
-                    await self._persist_action(session, loaded, result, expected_revision, user_id, amount_units)
+                    audit_user_id = None if loaded.state.players[participant_id].is_bot else user_id
+                    await self._persist_action(
+                        session, loaded, result, expected_revision, audit_user_id, amount_units
+                    )
                     await session.commit()
                     self._action_counts[table_id] = self._action_counts.get(table_id, 0) + 1
                     return result
@@ -471,7 +474,7 @@ class TableRuntimeManager:
         loaded: _LoadedTable,
         result: RuntimeActionResult,
         expected_revision: int,
-        user_id: str,
+        user_id: str | None,
         amount_units: int,
     ) -> None:
         payload = serialize_state(loaded.state)
