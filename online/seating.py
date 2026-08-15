@@ -298,9 +298,14 @@ class SeatingService:
         ).mappings().all()
         for row in rows:
             if row["occupant_kind"] == "user" and row["user_id"]:
-                await self.ledger.return_stack(row["user_id"], table_id, f"return:{row['id']}", session=session)
+                await self.ledger.return_stack(
+                    row["user_id"], table_id, f"return:{row['id']}:{row['user_id']}", session=session
+                )
             elif row["occupant_kind"] == "system" and row["system_player_id"]:
-                await self.ledger.release_system_seat(row["system_player_id"], table_id, f"release:{row['id']}", session=session)
+                await self.ledger.release_system_seat(
+                    row["system_player_id"], table_id,
+                    f"release:{row['id']}:{row['system_player_id']}", session=session,
+                )
             await self._clear_seat(session, row["id"])
 
     async def _fill_system_seats(self, session: AsyncSession, table) -> None:
