@@ -149,6 +149,16 @@ class SeatingService:
                     )
                     .values(state="leaving")
                 )
+                await session.execute(
+                    update(table_seats)
+                    .where(
+                        table_seats.c.table_id == table_id,
+                        table_seats.c.occupant_kind == "user",
+                        table_seats.c.state.in_(("seated", "held")),
+                        table_seats.c.stack_units < table["big_blind_units"],
+                    )
+                    .values(state="leaving")
+                )
                 await self._process_leaving(session, table_id)
                 await self._fill_system_seats(session, table)
                 requests = (

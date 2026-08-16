@@ -1,10 +1,10 @@
 import asyncio
 
 import pytest
-from sqlalchemy import insert
+from sqlalchemy import insert, select, update
 
 from online.ledger import PlayLedger
-from online.schema import poker_tables, system_players, tenants, users
+from online.schema import poker_tables, system_players, table_seats, tenants, users
 from online.seating import AlreadySeated, SeatingService
 
 
@@ -84,3 +84,26 @@ async def test_same_user_cannot_hold_two_network_seats(seating, user_a, table_id
     await seating.process_boundary(table_id)
     with pytest.raises(AlreadySeated):
         await seating.ready(user_a, second_table_id, seat_no=1, buy_in_units=4_000)
+
+
+@pytest.mark.anyio
+async def test_boundary_removes_zero_stack_user_so_they_can_rejoin(seating, db_session_factory, user_a, table_id, second_table_id):
+    await seating.ready(user_a, table_id, seat_no=2, buy_in_units=4_000)
+    await seating.process_boundary(table_id)
+    async with db_session_factory() as session:
+        async with session.begin():
+            await session.execute(
+                update(table_seats)
+                .where(table_seats.c.table_id == table_id, table_seats.c.user_id == user_a)
+                .values(stack_units=0, state="held")
+            )
+
+    await seating.process_boundary(table_id)
+
+    async with db_session_factory() as session:
+        row = (await session.execute(
+            select(table_seats.c.state, table_seats.c.user_id)
+            .where(table_seats.c.table_id == table_id, table_seats.c.seat_no == 2)
+        )).mappings().one()
+    assert row["user_id"] is None
+    assert (await seating.ready(user_a, second_table_id, seat_no=1, buy_in_units=4_000)).state == "waiting"
