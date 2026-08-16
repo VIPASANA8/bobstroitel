@@ -36,3 +36,22 @@ def test_table_snapshot_never_exposes_private_runtime_json(client):
     response = client.get(f"/api/tables/{table_id}")
     assert response.status_code == 200
     assert "private_state_json" not in response.text
+
+
+def test_already_seated_error_points_at_the_blocking_table():
+    from app.routers.tables import _error
+    from online.seating import AlreadySeated
+
+    detail = _error(AlreadySeated("user already has a network seat", "t9", "seated")).detail
+
+    assert detail["code"] == "already_seated"
+    assert detail["table_id"] == "t9"
+    assert detail["seat_state"] == "seated"
+
+
+def test_lobby_sends_a_blocked_player_to_their_table():
+    from pathlib import Path
+
+    source = Path("static/lobby.js").read_text(encoding="utf-8")
+    assert "already_seated" in source
+    assert "openTable(detail.table_id)" in source

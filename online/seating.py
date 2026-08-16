@@ -11,12 +11,23 @@ from online.ledger import PlayLedger
 from online.schema import play_accounts, poker_tables, seat_queue, system_players, table_runtimes, table_seats
 
 
+# A ready request has to survive the hand that is running when it is made,
+# otherwise it expires before the boundary that would seat the player.
+READY_TTL = timedelta(minutes=3)
+HOLD_WINDOW = timedelta(seconds=30)
+
+
 class SeatingError(ValueError):
     pass
 
 
 class AlreadySeated(SeatingError):
-    pass
+    """Carries the blocking seat so the caller can send the player to it."""
+
+    def __init__(self, message: str, table_id: str, seat_state: str) -> None:
+        super().__init__(message)
+        self.table_id = table_id
+        self.seat_state = seat_state
 
 
 @dataclass(frozen=True)
@@ -56,20 +67,25 @@ class SeatingService:
                     raise SeatingError("buy-in must be between 40 and 100 BB")
                 occupied = (
                     await session.execute(
-                        select(table_seats.c.id).where(
+                        select(table_seats.c.table_id, table_seats.c.state).where(
                             table_seats.c.user_id == user_id,
                             table_seats.c.state.in_(("seated", "held", "leaving")),
                         )
                     )
-                ).scalar_one_or_none()
+                ).mappings().first()
                 if occupied:
-                    raise AlreadySeated("user already has a network seat")
+                    raise AlreadySeated(
+                        "user already has a network seat",
+                        table_id=occupied["table_id"],
+                        seat_state=occupied["state"],
+                    )
+                # One row per (table, user) exists at most, whatever its state:
+                # a previous "seated" row must be reused, not inserted over.
                 existing = (
                     await session.execute(
                         select(seat_queue).where(
                             seat_queue.c.table_id == table_id,
                             seat_queue.c.user_id == user_id,
-                            seat_queue.c.state.in_(("waiting", "cancelled", "expired")),
                         )
                     )
                 ).mappings().first()
@@ -102,7 +118,7 @@ class SeatingService:
                     "requested_buy_in_units": buy_in_units,
                     "state": "waiting",
                     "position_seq": request["position_seq"],
-                    "expires_at": now + timedelta(seconds=10),
+                    "expires_at": now + READY_TTL,
                 }
                 if existing:
                     await session.execute(update(seat_queue).where(seat_queue.c.id == existing["id"]).values(**values))
@@ -138,6 +154,15 @@ class SeatingService:
                         seat_queue.c.expires_at <= now,
                     )
                     .values(state="expired")
+                )
+                await session.execute(
+                    update(table_seats)
+                    .where(
+                        table_seats.c.table_id == table_id,
+                        table_seats.c.state == "held",
+                        table_seats.c.hold_until <= now,
+                    )
+                    .values(state="leaving")
                 )
                 await session.execute(
                     update(table_seats)
@@ -195,7 +220,7 @@ class SeatingService:
                         await session.execute(table_seats.insert().values(
                             id=uuid.uuid4().hex,
                             table_id=table_id,
-                            seat_no=request["seat_no"],
+                            seat_no=seat["seat_no"],
                             occupant_kind="user",
                             user_id=request["user_id"],
                             escrow_account_id=escrow_id,
@@ -236,8 +261,23 @@ class SeatingService:
             async with session.begin():
                 await session.execute(
                     update(table_seats)
-                    .where(table_seats.c.table_id == table_id, table_seats.c.user_id == user_id)
-                    .values(state="held", disconnected_at=now, hold_until=now + timedelta(seconds=30))
+                    .where(
+                        table_seats.c.table_id == table_id,
+                        table_seats.c.user_id == user_id,
+                        table_seats.c.state == "seated",
+                    )
+                    .values(state="held", disconnected_at=now, hold_until=now + HOLD_WINDOW)
+                )
+
+    async def hold_all_users(self, now: datetime) -> None:
+        """No socket survives a restart, so hold every occupied seat: players
+        who are still there reconnect, the rest are released at the boundary."""
+        async with self.session_factory() as session:
+            async with session.begin():
+                await session.execute(
+                    update(table_seats)
+                    .where(table_seats.c.occupant_kind == "user", table_seats.c.state == "seated")
+                    .values(state="held", disconnected_at=now, hold_until=now + HOLD_WINDOW)
                 )
 
     async def reconnect(self, user_id: str, table_id: str) -> None:
@@ -285,19 +325,6 @@ class SeatingService:
                 await self.ledger.add_on(user_id, table_id, amount_units, f"addon:{user_id}:{table_id}:{seat['id']}", session=session)
                 await session.execute(
                     update(table_seats).where(table_seats.c.id == seat["id"]).values(stack_units=seat["stack_units"] + amount_units)
-                )
-
-    async def expire_holds(self, table_id: str, now: datetime) -> None:
-        async with self.session_factory() as session:
-            async with session.begin():
-                await session.execute(
-                    update(table_seats)
-                    .where(
-                        table_seats.c.table_id == table_id,
-                        table_seats.c.state == "held",
-                        table_seats.c.hold_until <= now,
-                    )
-                    .values(state="leaving")
                 )
 
     async def _process_leaving(self, session: AsyncSession, table_id: str) -> None:
@@ -372,13 +399,29 @@ class SeatingService:
         rows = (
             await session.execute(select(table_seats).where(table_seats.c.table_id == table_id))
         ).mappings().all()
-        by_seat = {row["seat_no"]: row for row in rows if row["state"] != "empty"}
-        requested = by_seat.get(requested_seat)
-        if requested and requested["occupant_kind"] == "system":
-            return requested
-        if requested is None:
-            return {"seat_no": requested_seat, "id": None, "occupant_kind": "empty"}
-        return next((by_seat.get(seat) for seat in range(6) if seat not in by_seat), None)
+        by_seat = {row["seat_no"]: row for row in rows}
+
+        def free(seat_no: int):
+            row = by_seat.get(seat_no)
+            if row is not None and row["state"] != "empty":
+                return None
+            # Reuse the cleared row when there is one; its seat_no is taken.
+            return row or {"seat_no": seat_no, "id": None, "occupant_kind": "empty"}
+
+        seat = free(requested_seat)
+        if seat is not None:
+            return seat
+        if by_seat[requested_seat]["occupant_kind"] == "system":
+            return by_seat[requested_seat]
+        # Requested seat belongs to another user. Bots fill the table, so a
+        # genuinely free seat is rare -- displace a system player instead.
+        for seat_no in range(6):
+            seat = free(seat_no)
+            if seat is not None:
+                return seat
+        return next(
+            (row for _, row in sorted(by_seat.items()) if row["occupant_kind"] == "system"), None
+        )
 
     async def _table(self, session: AsyncSession, table_id: str, lock: bool = False):
         query = select(poker_tables).where(poker_tables.c.id == table_id)

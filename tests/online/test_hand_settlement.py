@@ -78,7 +78,9 @@ async def test_seated_user_can_play_the_next_hand_without_double_payout(settleme
         actor = state.acting_player
         if actor == "u1":
             snapshot = await runtime.public_snapshot("t1", "u1")
-            await runtime.action("t1", "u1", f"fold:{snapshot['revision']}", snapshot["revision"], "fold", 0)
+            # The button rotates, so u1 is not always the player facing a bet.
+            action = "fold" if "fold" in snapshot["legal_actions"] else "check"
+            await runtime.action("t1", "u1", f"fold:{snapshot['revision']}", snapshot["revision"], action, 0)
         else:
             await runtime.system_step("t1")
     await runtime.finish_and_settle("t1")
@@ -90,7 +92,9 @@ async def test_seated_user_can_play_the_next_hand_without_double_payout(settleme
         actor = state.acting_player
         if actor == "u1":
             snapshot = await runtime.public_snapshot("t1", "u1")
-            await runtime.action("t1", "u1", f"fold:next:{snapshot['revision']}", snapshot["revision"], "fold", 0)
+            # The button rotates, so u1 is not always the player facing a bet.
+            action = "fold" if "fold" in snapshot["legal_actions"] else "check"
+            await runtime.action("t1", "u1", f"fold:next:{snapshot['revision']}", snapshot["revision"], action, 0)
         else:
             await runtime.system_step("t1")
     await runtime.finish_and_settle("t1")

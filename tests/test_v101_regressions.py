@@ -69,8 +69,8 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     wager_loader = (root / 'static' / 'v030-seat-ready-fix.js').read_text(encoding='utf-8')
     index_source = (root / 'static' / 'index.html').read_text(encoding='utf-8')
 
-    assert '/static/v038-poker8-v2-cinematic-table.js?v=viewer-cards-1' in loader
-    assert '/static/v037-poker8-v2-reference-table.js?v=viewer-cards-1' in component_loader
+    assert '/static/v038-poker8-v2-cinematic-table.js?v=online-controls-2' in loader
+    assert '/static/v037-poker8-v2-reference-table.js?v=online-controls-2' in component_loader
     assert '/static/v033-poker8-v2-polish.js' not in component_loader
     assert '/static/v034-poker8-v2-layout-lock.js' not in component_loader
     assert 'data-v038-poker8-v2-cinematic-table' in loader
@@ -250,4 +250,4 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'radial-gradient(ellipse at 50% 18%,rgba(255,255,255,.36),transparent 48%)' in (root / 'static' / 'style.css').read_text(encoding='utf-8')
     assert '/static/style.css?v=chip-motion-1' in index_source
     assert '/static/app.js?v=online-legacy-1' in index_source
-    assert '/static/component-ui.js?v=viewer-cards-1' in index_source
+    assert '/static/component-ui.js?v=online-controls-2' in index_source

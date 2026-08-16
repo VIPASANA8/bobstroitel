@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Awaitable, Callable
 
@@ -86,6 +87,7 @@ def create_app(
         app.state.runtime = TableRuntimeManager(session_factory, ledger)
         app.state.seating = SeatingService(session_factory, ledger)
         await app.state.runtime.restore_all()
+        await app.state.seating.hold_all_users(datetime.now(timezone.utc))
         if fixture is not None:
             await fixture(app)
         app.state.coordinator = OnlineCoordinator(app.state.runtime, app.state.seating, catalogue)

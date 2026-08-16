@@ -117,10 +117,11 @@ class TableRuntimeManager:
                             "profile_id": seat["user_id"],
                             "difficulty": details[participant_id]["difficulty"],
                         })
-                    state = self.engine.new_hand(
-                        engine_seats,
-                        button_seat=seats[0]["seat_no"] if button_seat is None else button_seat,
-                    )
+                    if button_seat is None:
+                        button_seat = self._next_button_seat(
+                            table["button_seat"], [seat["seat_no"] for seat in seats]
+                        )
+                    state = self.engine.new_hand(engine_seats, button_seat=button_seat)
                     payload = serialize_state(state)
                     revision = 1
                     action_deadline = (
@@ -149,6 +150,11 @@ class TableRuntimeManager:
                         )
                     else:
                         await session.execute(table_runtimes.insert().values(table_id=table_id, **runtime_values))
+                    await session.execute(
+                        update(poker_tables).where(poker_tables.c.id == table_id).values(
+                            button_seat=state.players[state.button].seat
+                        )
+                    )
                     await session.execute(hands.insert().values(
                         id=state.hand_id,
                         table_id=table_id,
@@ -571,6 +577,13 @@ class TableRuntimeManager:
             for row in bot_rows
         })
         return {self._participant_id(seat): details[self._participant_id(seat)] for seat in seats}
+
+    @staticmethod
+    def _next_button_seat(previous: int | None, seated: list[int]) -> int:
+        """Move the button to the next seated player, so the blinds rotate."""
+        if previous is None:
+            return seated[0]
+        return next((seat for seat in sorted(seated) if seat > previous), min(seated))
 
     @staticmethod
     def _participant_id(seat) -> str:
