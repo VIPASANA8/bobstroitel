@@ -1,4 +1,5 @@
 import asyncio
+from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import insert, select
@@ -160,3 +161,19 @@ async def test_button_rotates_between_hands(runtime):
     second = await runtime.start_hand("t1")
 
     assert second["players"][second["button"]]["seat"] != first["players"][first["button"]]["seat"]
+
+
+@pytest.mark.anyio
+async def test_undersized_bot_raise_does_not_pause_the_table(runtime, monkeypatch):
+    from bots.multiway import MultiwayBot
+    from poker.models import ActionType
+
+    await runtime.start_hand("t1", button_seat=1)
+
+    def tiny_raise(self, state, player_id):
+        return SimpleNamespace(action=ActionType.RAISE, amount=0.01)
+
+    monkeypatch.setattr(MultiwayBot, "decide", tiny_raise)
+    await runtime.system_step("t1")
+
+    assert (await runtime.load("t1")).phase != "paused"

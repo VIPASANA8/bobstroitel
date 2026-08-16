@@ -295,6 +295,13 @@ class TableRuntimeManager:
             decision = bot.decide(deserialize_state(bot_view_payload), actor)
             if decision.action not in legal:
                 decision.action = legal[0]
+            # An under-sized bot raise is rejected by the engine, and a rejected
+            # action pauses the table for good. Keep the amount in range.
+            if decision.action in (ActionType.RAISE, ActionType.BET):
+                player = loaded.state.players[actor]
+                ceiling = player.street_invested + player.stack
+                floor = min(self.engine.min_raise_to(loaded.state, actor), ceiling)
+                decision.amount = min(max(decision.amount, floor), ceiling)
             async with self.session_factory() as session:
                 table = await self._table(session, table_id)
                 amount_units = round(decision.amount * table["big_blind_units"])
