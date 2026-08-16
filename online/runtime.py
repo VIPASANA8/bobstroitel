@@ -374,12 +374,13 @@ class TableRuntimeManager:
                         )
                     ).mappings().all()
                     by_participant = {self._participant_id(seat): seat for seat in seats}
+                    starts, ends = self._settlement_units(loaded.state, table["big_blind_units"])
                     transfers: dict[tuple[str, str, str], int] = {}
                     user_net_total = 0
                     for participant_id, player in loaded.state.players.items():
                         seat = by_participant[participant_id]
-                        start_units = round(loaded.state.starting_stacks[participant_id] * table["big_blind_units"])
-                        end_units = round(player.stack * table["big_blind_units"])
+                        start_units = starts[participant_id]
+                        end_units = ends[participant_id]
                         if seat["occupant_kind"] == "user":
                             # A seated user's stack stays in the table escrow between
                             # hands. Only the net change against system players moves
@@ -577,6 +578,24 @@ class TableRuntimeManager:
             for row in bot_rows
         })
         return {self._participant_id(seat): details[self._participant_id(seat)] for seat in seats}
+
+    @staticmethod
+    def _settlement_units(state: GameState, big_blind_units: int) -> tuple[dict[str, int], dict[str, int]]:
+        """Chip counts in units, conserved.
+
+        The engine keeps stacks as floats in big blinds, so a split pot lands
+        on thirds. Rounding each stack on its own then loses or invents a unit
+        and settle_hand_transfers refuses the whole hand, which wedges the
+        table forever. The odd unit goes to the biggest stack instead.
+        """
+        starts = {
+            pid: round(state.starting_stacks[pid] * big_blind_units) for pid in state.players
+        }
+        ends = {pid: round(player.stack * big_blind_units) for pid, player in state.players.items()}
+        residue = sum(starts.values()) - sum(ends.values())
+        if residue:
+            ends[max(ends, key=lambda pid: ends[pid])] += residue
+        return starts, ends
 
     @staticmethod
     def _next_button_seat(previous: int | None, seated: list[int]) -> int:

@@ -133,3 +133,22 @@ async def test_positive_net_counts_as_win_but_tie_does_not(db_session_factory):
     first = next(item for item in hands if item["hand_id"] == "hand-1")
     opponent = next(item for item in first["players"] if item["participant_id"] == "u2")
     assert opponent.get("hole_cards") is None
+
+
+def test_split_pot_rounding_cannot_unbalance_a_settlement():
+    from types import SimpleNamespace
+
+    from online.runtime import TableRuntimeManager
+
+    # A three-way tie lands the stacks on thirds of a big blind.
+    pot = 3.0 + 1.0 + 1.0
+    players = {
+        "a": SimpleNamespace(stack=10.0 - 3.0 + pot / 3),
+        "b": SimpleNamespace(stack=10.0 - 1.0 + pot / 3),
+        "c": SimpleNamespace(stack=10.0 - 1.0 + pot / 3),
+    }
+    state = SimpleNamespace(players=players, starting_stacks={"a": 10.0, "b": 10.0, "c": 10.0})
+
+    starts, ends = TableRuntimeManager._settlement_units(state, 100)
+
+    assert sum(ends[pid] - starts[pid] for pid in players) == 0
