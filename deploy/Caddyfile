@@ -2,7 +2,7 @@
 # Домен заменить на реальный. Caddy проксирует WebSocket (/ws/) прозрачно,
 # отдельная секция не нужна.
 
-poker8.play2go.cloud {
+buritoboss.com {
     encode zstd gzip
 
     reverse_proxy app:8000 {
