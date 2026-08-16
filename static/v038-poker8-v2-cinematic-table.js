@@ -708,6 +708,16 @@
     return prompt;
   }
 
+  function syncOnlineRoomPrompt(prompt) {
+    const seated = !tableData?.spectator_only;
+    prompt.innerHTML = seated
+      ? "<strong>НОВАЯ РАЗДАЧА СКОРО</strong><span>Стол запускается автоматически</span>"
+      : "<strong>ВЫ НАБЛЮДАЕТЕ</strong><span>Откройте лобби, чтобы занять место</span>";
+    prompt.setAttribute("role", "status");
+    prompt.removeAttribute("tabindex");
+    prompt.setAttribute("aria-live", "polite");
+  }
+
   function cancelRoomReset() {
     window.clearTimeout(roomResetTimer);
     roomResetTimer = 0;
@@ -719,7 +729,14 @@
     const room = !game;
     document.body.classList.toggle("v038-hand-complete", Boolean(game?.terminal));
     document.body.classList.toggle("v038-room-awaiting", room);
-    ensureRoomPrompt()?.classList.toggle("visible", room);
+    const prompt = ensureRoomPrompt();
+    if (window.Poker8OnlineTable) {
+      syncOnlineRoomPrompt(prompt);
+      prompt?.classList.toggle("visible", room);
+      cancelRoomReset();
+      return;
+    }
+    prompt?.classList.toggle("visible", room);
     if (!game?.terminal) {
       cancelRoomReset();
       return;
@@ -1140,10 +1157,12 @@
     syncAvatarReadyControl();
   });
   document.addEventListener("click", event => {
+    if (window.Poker8OnlineTable) return;
     if (!isMobileV2() || game || !event.target?.closest?.('.seat[data-visual-seat="0"], .v038-room-prompt')) return;
     window.dispatchEvent(new CustomEvent("poker8:toggle-ready"));
   });
   document.addEventListener("keydown", event => {
+    if (window.Poker8OnlineTable) return;
     if (!isMobileV2() || game || !["Enter", " "].includes(event.key) || !event.target?.matches?.('.seat[data-visual-seat="0"] .avatar-wrap, .v038-room-prompt')) return;
     event.preventDefault();
     window.dispatchEvent(new CustomEvent("poker8:toggle-ready"));

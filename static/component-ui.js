@@ -111,7 +111,7 @@
 
     if (!document.querySelector('script[data-v024-ready-phase]')) {
       const v024 = document.createElement("script");
-      v024.src = "/static/v024-ready-phase.js";
+      v024.src = "/static/v024-ready-phase.js?v=online-controls-2";
       v024.dataset.v024ReadyPhase = "1";
       document.body.appendChild(v024);
     }
@@ -165,7 +165,7 @@
       v032.addEventListener("load", () => {
         if (!document.querySelector('script[data-v037-poker8-v2-reference-table]')) {
           const finalMobile = document.createElement("script");
-          finalMobile.src = "/static/v037-poker8-v2-reference-table.js?v=viewer-cards-1";
+          finalMobile.src = "/static/v037-poker8-v2-reference-table.js?v=online-controls-2";
           finalMobile.dataset.v037Poker8V2ReferenceTable = "1";
           document.body.appendChild(finalMobile);
         }
@@ -173,7 +173,7 @@
       document.body.appendChild(v032);
     } else if (!document.querySelector('script[data-v037-poker8-v2-reference-table]')) {
       const finalMobile = document.createElement("script");
-      finalMobile.src = "/static/v037-poker8-v2-reference-table.js?v=viewer-cards-1";
+      finalMobile.src = "/static/v037-poker8-v2-reference-table.js?v=online-controls-2";
       finalMobile.dataset.v037Poker8V2ReferenceTable = "1";
       document.body.appendChild(finalMobile);
     }

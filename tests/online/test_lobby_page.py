@@ -56,7 +56,7 @@ def test_online_table_uses_existing_poker8_visual_dom():
     assert "onlineSurface" not in online_source
     assert "window.Poker8LegacyView" in app_source
     assert 'app.js?v=online-legacy-1' in index_source
-    assert 'online-table.js?v=online-legacy-4' in index_source
+    assert 'online-table.js?v=online-legacy-5' in index_source
 
 
 def test_online_mobile_chat_does_not_cover_table_actions():
@@ -79,3 +79,16 @@ def test_online_ready_panel_is_hidden_for_seated_users_and_duplicate_clicks():
     assert ".online-state-panel[hidden]" in source
     assert '["spectator", "waiting"].includes(viewerState)' in source
     assert "readyInFlight" in source
+
+
+def test_online_waiting_prompt_does_not_offer_local_avatar_start():
+    source = Path("static/v038-poker8-v2-cinematic-table.js").read_text(encoding="utf-8")
+    assert "window.Poker8OnlineTable" in source
+    assert "Стол запускается автоматически" in source
+
+
+def test_online_mode_disables_legacy_ready_badges():
+    index = Path("static/index.html").read_text(encoding="utf-8")
+    source = Path("static/v024-ready-phase.js").read_text(encoding="utf-8")
+    assert "window.Poker8OnlineTable" in index
+    assert "isOnlineTable() || !preHand()" in source

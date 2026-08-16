@@ -9,6 +9,7 @@
   let readyCountdownTimer = 0;
   let readyCountdownEndsAt = 0;
   const READY_COUNTDOWN_MS = 5000;
+  const isOnlineTable = () => Boolean(window.Poker8OnlineTable);
 
   function emitReadyCountdown() {
     window.dispatchEvent(new CustomEvent("poker8:ready-countdown", {
@@ -90,6 +91,7 @@
   }
 
   const toggleViewerReadyCountdown = function toggleViewerReadyCountdown() {
+    if (isOnlineTable()) return;
     if (!preHand() || startInFlight || !enoughPlayers() || !activeHumanSeats().length) return;
     if (viewerReady || readyCountdownTimer) cancelViewerReadyCountdown(true);
     else beginViewerReadyCountdown();
@@ -124,7 +126,7 @@
 
   function renderSeatReadiness() {
     clearReadyBadges();
-    if (!preHand()) return;
+    if (isOnlineTable() || !preHand()) return;
 
     syncReadyTable();
 
@@ -166,7 +168,7 @@
     const desktop = $("newHand");
     const drawer = $("mobileDrawerNewHand");
 
-    if (!preHand()) {
+    if (isOnlineTable() || !preHand()) {
       mobile?.classList.remove("v024-ready-button", "v024-all-ready");
       desktop?.classList.remove("v024-ready-button", "v024-all-ready");
       return;
@@ -216,6 +218,7 @@
   }
 
   newHand = async function newHandWithReadyPhase(fromAutomation = false) {
+    if (isOnlineTable()) return;
     if (startInFlight) return;
     if (!preHand()) return guardedStartNewHand(fromAutomation);
 
