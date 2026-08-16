@@ -1,0 +1,14 @@
+# Poker8 — Caddy reverse-proxy с автоматическим TLS (Let's Encrypt).
+# Домен заменить на реальный. Caddy проксирует WebSocket (/ws/) прозрачно,
+# отдельная секция не нужна.
+
+poker8.play2go.cloud {
+    encode zstd gzip
+
+    reverse_proxy app:8000 {
+        # долгоживущие WebSocket-соединения стола
+        transport http {
+            read_timeout 3600s
+        }
+    }
+}

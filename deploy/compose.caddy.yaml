@@ -1,0 +1,23 @@
+# Оверрайд: добавляет Caddy перед app и убирает публичный порт 8000.
+# Запуск: docker compose -f compose.server.yaml -f deploy/compose.caddy.yaml up -d --build
+services:
+  app:
+    # порт 8000 больше не публикуем наружу — доступ только через Caddy
+    ports: !reset []
+
+  caddy:
+    image: caddy:2-alpine
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
