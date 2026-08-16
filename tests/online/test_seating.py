@@ -1,11 +1,12 @@
 import asyncio
+from datetime import datetime, timedelta, timezone
 
 import pytest
-from sqlalchemy import insert
+from sqlalchemy import insert, select
 
 from online.ledger import PlayLedger
-from online.schema import poker_tables, system_players, tenants, users
-from online.seating import AlreadySeated, SeatingService
+from online.schema import poker_tables, seat_queue, system_players, table_seats, tenants, users
+from online.seating import READY_TTL, AlreadySeated, SeatingService
 
 
 @pytest.fixture
@@ -74,7 +75,8 @@ async def test_boundary_seats_first_request_and_replaces_system_player(seating, 
     await seating.ready(user_a, table_id, seat_no=2, buy_in_units=4_000)
     await seating.ready(user_b, table_id, seat_no=2, buy_in_units=4_000)
     result = await seating.process_boundary(table_id)
-    assert result.seated_user_ids == [user_a]
+    # FIFO: the first request wins seat 2, the second falls back to another seat.
+    assert result.seated_user_ids == [user_a, user_b]
     assert result.removed_system_player_ids
 
 
@@ -84,3 +86,91 @@ async def test_same_user_cannot_hold_two_network_seats(seating, user_a, table_id
     await seating.process_boundary(table_id)
     with pytest.raises(AlreadySeated):
         await seating.ready(user_a, second_table_id, seat_no=1, buy_in_units=4_000)
+
+
+async def seat_states(session_factory, user_id):
+    async with session_factory() as session:
+        return (
+            await session.execute(select(table_seats.c.state).where(table_seats.c.user_id == user_id))
+        ).scalars().all()
+
+
+@pytest.mark.anyio
+async def test_boundary_releases_a_seat_whose_hold_expired(seating, db_session_factory, user_a, table_id):
+    await seating.ready(user_a, table_id, seat_no=2, buy_in_units=4_000)
+    await seating.process_boundary(table_id)
+    now = datetime.now(timezone.utc)
+    await seating.mark_disconnected(user_a, table_id, now - timedelta(minutes=5))
+
+    await seating.process_boundary(table_id, now=now)
+
+    assert await seat_states(db_session_factory, user_a) == []
+
+
+@pytest.mark.anyio
+async def test_disconnect_does_not_undo_a_pending_leave(seating, db_session_factory, user_a, table_id):
+    await seating.ready(user_a, table_id, seat_no=2, buy_in_units=4_000)
+    await seating.process_boundary(table_id)
+    await seating.request_leave(user_a, table_id)
+    await seating.mark_disconnected(user_a, table_id, datetime.now(timezone.utc))
+
+    assert await seat_states(db_session_factory, user_a) == ["leaving"]
+
+
+@pytest.mark.anyio
+async def test_user_can_sit_down_again_after_leaving(seating, user_a, table_id):
+    await seating.ready(user_a, table_id, seat_no=2, buy_in_units=4_000)
+    await seating.process_boundary(table_id)
+    await seating.request_leave(user_a, table_id)
+    await seating.process_boundary(table_id)
+
+    request = await seating.ready(user_a, table_id, seat_no=2, buy_in_units=4_000)
+
+    assert request.state == "waiting"
+
+
+@pytest.mark.anyio
+async def test_ready_request_outlives_a_running_hand(seating, db_session_factory, user_a, table_id):
+    await seating.ready(user_a, table_id, seat_no=2, buy_in_units=4_000)
+    boundary = datetime.now(timezone.utc) + READY_TTL - timedelta(seconds=1)
+
+    await seating.process_boundary(table_id, now=boundary)
+
+    async with db_session_factory() as session:
+        assert (await session.execute(select(seat_queue.c.state))).scalars().all() == ["seated"]
+
+
+@pytest.mark.anyio
+async def test_request_for_a_taken_seat_falls_back(seating, db_session_factory, user_a, user_b, table_id):
+    await seating.ready(user_b, table_id, seat_no=2, buy_in_units=4_000)
+    await seating.process_boundary(table_id)
+    await seating.ready(user_a, table_id, seat_no=2, buy_in_units=4_000)
+
+    result = await seating.process_boundary(table_id)
+
+    assert result.seated_user_ids == [user_a]
+    assert await seat_states(db_session_factory, user_a) == ["seated"]
+
+
+@pytest.mark.anyio
+async def test_restart_holds_seats_so_they_can_be_released(seating, db_session_factory, user_a, table_id):
+    await seating.ready(user_a, table_id, seat_no=2, buy_in_units=4_000)
+    await seating.process_boundary(table_id)
+    now = datetime.now(timezone.utc)
+
+    await seating.hold_all_users(now)
+    await seating.process_boundary(table_id, now=now + timedelta(minutes=1))
+
+    assert await seat_states(db_session_factory, user_a) == []
+
+
+@pytest.mark.anyio
+async def test_blocked_ready_reports_where_the_user_is_seated(seating, user_a, table_id, second_table_id):
+    await seating.ready(user_a, table_id, seat_no=2, buy_in_units=4_000)
+    await seating.process_boundary(table_id)
+
+    with pytest.raises(AlreadySeated) as error:
+        await seating.ready(user_a, second_table_id, seat_no=1, buy_in_units=4_000)
+
+    assert error.value.table_id == table_id
+    assert error.value.seat_state == "seated"

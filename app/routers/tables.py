@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from app.dependencies import AuthenticatedUser, get_current_user
 from online.schema import poker_tables, seat_queue, table_seats
-from online.seating import SeatingError
+from online.seating import AlreadySeated, SeatingError
 
 
 router = APIRouter(prefix="/api/tables", tags=["tables"])
@@ -33,6 +33,14 @@ async def _table(request: Request, table_id: str):
 
 def _error(exc: Exception) -> HTTPException:
     message = str(exc)
+    if isinstance(exc, AlreadySeated):
+        # The lobby needs somewhere to send the player, not just a refusal.
+        return HTTPException(status_code=409, detail={
+            "code": "already_seated",
+            "message": message,
+            "table_id": exc.table_id,
+            "seat_state": exc.seat_state,
+        })
     code = "between_hands_only" if "active hand" in message else "invalid_seating_request"
     return HTTPException(status_code=409, detail={"code": code, "message": message})
 

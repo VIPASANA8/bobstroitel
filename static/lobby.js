@@ -14,7 +14,18 @@
     document.querySelectorAll('[data-table]').forEach(button => button.addEventListener('click', () => openBuyIn(tables.find(table => table.id === button.dataset.table))));
   }
   function openBuyIn(table) { selected = table; $('buyInTable').textContent = `${table.name} · ${format(table.small_blind_units)} / ${format(table.big_blind_units)} BB`; $('buyInUnits').value = table.min_buy_in_units; $('buyInDialog').showModal(); }
-  $('buyInForm').addEventListener('submit', async event => { event.preventDefault(); if (!selected) return; const response = await fetch(`/api/tables/${selected.id}/ready`, {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({seat_no:2, buy_in_units:Number($('buyInUnits').value), request_id:requestId()})}); if (response.ok) window.location.href = `/table?table=${encodeURIComponent(selected.id)}`; else alert((await response.json()).detail?.message || 'Не удалось встать в очередь'); $('buyInDialog').close(); });
+  const openTable = id => { window.location.href = `/table?table=${encodeURIComponent(id)}`; };
+  $('buyInForm').addEventListener('submit', async event => {
+    event.preventDefault();
+    if (!selected) return;
+    const response = await fetch(`/api/tables/${selected.id}/ready`, {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({seat_no:2, buy_in_units:Number($('buyInUnits').value), request_id:requestId()})});
+    $('buyInDialog').close();
+    if (response.ok) return openTable(selected.id);
+    const detail = (await response.json()).detail || {};
+    // Already seated somewhere: take the player there instead of refusing.
+    if (detail.code === 'already_seated' && detail.seat_state !== 'leaving') return openTable(detail.table_id);
+    alert(detail.seat_state === 'leaving' ? 'Вы встаёте из-за стола — попробуйте через несколько секунд' : detail.message || 'Не удалось встать в очередь');
+  });
   $('quickPlay').addEventListener('click', async () => { const response = await fetch('/api/lobby/quick-play', {method:'POST'}); if (!response.ok) return; openBuyIn((await response.json()).table); });
   load().catch(error => { $('loadStatus').textContent = 'OFFLINE'; console.error(error); });
 })();

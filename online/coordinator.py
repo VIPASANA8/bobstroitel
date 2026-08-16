@@ -41,7 +41,6 @@ class OnlineCoordinator:
         now = self.now()
         loaded = await self.runtime.load(table_id)
         if loaded is None or loaded.phase == "waiting":
-            await self.seating.expire_holds(table_id, now)
             await self.seating.process_boundary(table_id, now=now)
             loaded = await self.runtime.load(table_id)
             if loaded is None or loaded.phase == "waiting":

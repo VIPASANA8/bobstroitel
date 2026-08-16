@@ -5,7 +5,15 @@ from sqlalchemy import insert, select
 
 from online.ledger import PlayLedger
 from online.runtime import StaleRevision, TableRuntimeManager
-from online.schema import game_commands, poker_tables, system_players, table_seats, tenants, users
+from online.schema import (
+    game_commands,
+    poker_tables,
+    system_players,
+    table_runtimes,
+    table_seats,
+    tenants,
+    users,
+)
 
 
 @pytest.fixture
@@ -134,3 +142,21 @@ async def test_system_step_gives_bot_only_a_sanitized_view(runtime, monkeypatch)
         for participant_id, player in view.players.items()
         if participant_id != actor
     )
+
+
+@pytest.mark.anyio
+async def test_button_rotates_between_hands(runtime):
+    first = await runtime.start_hand("t1")
+    async with runtime.session_factory() as session:
+        stored = (
+            await session.execute(select(poker_tables.c.button_seat).where(poker_tables.c.id == "t1"))
+        ).scalar_one()
+    assert stored == first["players"][first["button"]]["seat"]
+
+    runtime._tables.pop("t1")
+    async with runtime.session_factory() as session:
+        await session.execute(table_runtimes.delete())
+        await session.commit()
+    second = await runtime.start_hand("t1")
+
+    assert second["players"][second["button"]]["seat"] != first["players"][first["button"]]["seat"]

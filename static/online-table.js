@@ -66,16 +66,16 @@
   }
 
   function renderOnlineChrome(state) {
-    const phase = state?.phase || "waiting";
     setText("mobileStreetLabel", phaseLabel(state));
     setText("newHandCountdown", countdownText(state));
     const countdown = $("newHandCountdown");
     if (countdown) countdown.hidden = !countdownText(state);
 
     const ready = $("readyPanel");
-    const waiting = phase === "waiting";
     if (ready) {
-      ready.hidden = !waiting || !["spectator", "waiting"].includes(viewerState);
+      // The queue seats players at the next hand boundary, so the panel stays
+      // available while a hand is running.
+      ready.hidden = !["spectator", "waiting"].includes(viewerState);
       setText("queueStatus", viewerState === "waiting" ? "Место занято — ждём свободный вход между раздачами" : "Выберите свободное место и бай-ин от 40 BB");
       const button = $("readyButton");
       if (button) {
@@ -158,7 +158,12 @@
   }
 
   function bindControls() {
-    $("mobileMenuButton")?.addEventListener("click", () => { location.href = "/"; });
+    $("mobileMenuButton")?.addEventListener("click", async () => {
+      // Leaving the page must free the seat, otherwise the lobby refuses to
+      // seat the player anywhere until the hold expires.
+      if (viewerState === "seated") await window.Poker8Transport.leave().catch(() => {});
+      location.href = "/";
+    });
     $("mobileChatButton")?.addEventListener("click", () => {
       const chat = $("chatPanel");
       const button = $("mobileChatButton");
