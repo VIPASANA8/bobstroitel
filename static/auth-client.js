@@ -29,6 +29,9 @@ window.Poker8Auth = (() => {
     // A Telegram identity must win over a retained dev/guest cookie, otherwise
     // an old Guest profile masks the current @username at the live table.
     if (initData) {
+      // Tells Telegram the app has finished loading; it clears the native
+      // splash screen it would otherwise show until this fires (or times out).
+      window.Telegram.WebApp.ready?.();
       publishTelegramProfile();
       const response = await fetch('/api/auth/telegram', {
         method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({init_data:initData}),
