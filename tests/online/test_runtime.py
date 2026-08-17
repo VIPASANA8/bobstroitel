@@ -197,3 +197,50 @@ async def test_rejected_player_command_leaves_the_table_playable(runtime):
     assert loaded.phase != "paused"
     assert loaded.revision == revision
     assert loaded.state.acting_player == actor
+
+
+@pytest.mark.anyio
+async def test_abandon_hand_refunds_starting_stacks_and_reopens_the_table(runtime):
+    """A stuck (paused) hand must not lock up the buy-ins on it forever."""
+    snapshot = await runtime.start_hand("t1", button_seat=1)
+    actor = snapshot["acting_player"]
+    revision = (await runtime.load("t1")).revision
+    to_call = float(snapshot["current_bet"]) - float(
+        snapshot["players"][actor]["street_invested"]
+    )
+    call_amount_units = round(to_call * 100)
+    # Move some chips before the hand gets stuck, so a refund of the ORIGINAL
+    # stacks -- not the current, mid-hand ones -- is what proves the fix.
+    await runtime.action("t1", actor, "mv-1", revision, "call", call_amount_units)
+    loaded = await runtime.load("t1")
+    starting_stacks = dict(loaded.state.starting_stacks)
+    await runtime._pause_after_failure("t1", loaded, "synthetic failure for the test")
+    assert (await runtime.load("t1")).phase == "paused"
+
+    await runtime.abandon_hand("t1")
+
+    resumed = await runtime.load("t1")
+    assert resumed.phase == "waiting"
+    assert resumed.state.terminal is True
+    async with runtime.session_factory() as session:
+        seats = (
+            await session.execute(select(table_seats).where(table_seats.c.table_id == "t1"))
+        ).mappings().all()
+    stacks_by_participant = {
+        (row["user_id"] or row["system_player_id"]): row["stack_units"] for row in seats
+    }
+    for participant_id, start_bb in starting_stacks.items():
+        assert stacks_by_participant[participant_id] == round(start_bb * 100)
+
+
+@pytest.mark.anyio
+async def test_abandon_hand_lets_a_fresh_hand_start_afterward(runtime):
+    await runtime.start_hand("t1", button_seat=1)
+    loaded = await runtime.load("t1")
+    await runtime._pause_after_failure("t1", loaded, "synthetic failure for the test")
+
+    await runtime.abandon_hand("t1")
+    second = await runtime.start_hand("t1")
+
+    assert second["revision"] == 1
+    assert (await runtime.load("t1")).phase == "active"

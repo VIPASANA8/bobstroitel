@@ -107,6 +107,13 @@ class OnlineCoordinator:
             await self.seating.process_boundary(table_id, now=now)
             if 2 <= await self.seating.active_seat_count(table_id) <= 6:
                 await self.runtime.start_hand(table_id)
+            return
+
+        if loaded.phase == "paused":
+            # Nothing else ever advances a paused table — start_hand refuses to
+            # run while it stays this way, so every buy-in on it would otherwise
+            # be locked up for good. Refund the stuck hand and resume play.
+            await self.runtime.abandon_hand(table_id)
 
     async def run(self) -> None:
         while not self._stop.is_set():

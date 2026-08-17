@@ -104,3 +104,19 @@ async def test_coordinator_stays_quiet_when_nothing_changes(coordinator):
 
 async def _record(seen: list[str], table_id: str) -> None:
     seen.append(table_id)
+
+
+@pytest.mark.anyio
+async def test_coordinator_recovers_a_paused_table_instead_of_leaving_it_stuck(coordinator):
+    await coordinator.tick()
+    loaded = coordinator.runtime._tables["t1"]
+    await coordinator.runtime._pause_after_failure("t1", loaded, "synthetic failure for the test")
+    assert (await coordinator.runtime.load("t1")).phase == "paused"
+
+    await coordinator.tick()
+
+    assert (await coordinator.runtime.load("t1")).phase != "paused"
+    # The table must actually resume, not just stop being marked "paused".
+    for _ in range(5):
+        await coordinator.tick()
+    assert coordinator.runtime._tables["t1"].phase in {"active", "result", "countdown", "waiting"}

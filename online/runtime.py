@@ -26,7 +26,7 @@ from online.schema import (
 )
 from online.serialization import deserialize_state, serialize_state
 from poker.engine import InvalidAction, PokerEngine
-from poker.models import ActionType, GameState
+from poker.models import ActionType, GameState, Street
 
 
 logger = logging.getLogger(__name__)
@@ -483,6 +483,104 @@ class TableRuntimeManager:
                     )
                     await append_integrity_event(
                         session, event_type="hand_settled", table_id=table_id,
+                        hand_id=loaded.state.hand_id, payload={"revision": loaded.revision},
+                    )
+                    return settlement
+
+    async def abandon_hand(self, table_id: str) -> None:
+        """Wash a stuck hand: refund every seat exactly what it started with.
+
+        A paused table has no recovery path — start_hand refuses to run while
+        phase=="paused", and nothing else advances it — so a table stays stuck
+        forever, its buy-ins locked in escrow. Rather than trying to replay or
+        guess the hand's outcome, every participant gets back their starting
+        stack, through the same ledger transfer finish_and_settle uses, so the
+        books stay balanced and the table can resume on the next tick.
+        """
+        async with self._lock(table_id):
+            loaded = await self._load_locked(table_id)
+            if loaded is None:
+                raise RuntimeErrorBase("table runtime not found")
+            if loaded.state.terminal:
+                return
+            async with self.session_factory() as session:
+                async with session.begin():
+                    table = await self._table(session, table_id)
+                    seats = (
+                        await session.execute(
+                            select(table_seats).where(table_seats.c.table_id == table_id).order_by(table_seats.c.seat_no)
+                        )
+                    ).mappings().all()
+                    by_participant = {self._participant_id(seat): seat for seat in seats}
+                    starts = {
+                        pid: round(loaded.state.starting_stacks[pid] * table["big_blind_units"])
+                        for pid in loaded.state.players
+                    }
+                    transfers: dict[tuple[str, str, str], int] = {}
+                    for participant_id in loaded.state.players:
+                        seat = by_participant.get(participant_id)
+                        start_units = starts[participant_id]
+                        await session.execute(
+                            update(hand_players)
+                            .where(
+                                hand_players.c.hand_id == loaded.state.hand_id,
+                                hand_players.c.participant_id == participant_id,
+                            )
+                            .values(end_stack_units=start_units, net_units=0, shown=False)
+                        )
+                        if seat is None:
+                            # The seat was already reused by the time recovery ran; the
+                            # escrow row for it is gone too, so credit the wallet direct
+                            # and pull the same amount out of the table's shared escrow.
+                            transfers[("user", participant_id, "wallet")] = start_units
+                            transfers[("table", table_id, "escrow")] = (
+                                transfers.get(("table", table_id, "escrow"), 0) - start_units
+                            )
+                            continue
+                        # Every seat that's still there gets exactly its starting
+                        # stack back; nothing moves through the ledger for it.
+                        await session.execute(
+                            update(table_seats).where(table_seats.c.id == seat["id"]).values(stack_units=start_units)
+                        )
+                    settlement = (
+                        await self.ledger.settle_hand_transfers(loaded.state.hand_id, transfers, session=session)
+                        if transfers else None
+                    )
+                    completed_at = self._now()
+                    loaded.state.terminal = True
+                    loaded.state.street = Street.COMPLETE
+                    loaded.state.acting_player = None
+                    loaded.state.pending_actions.clear()
+                    loaded.state.winner = None
+                    loaded.state.winners = []
+                    loaded.state.result_text = "Раздача отменена — сбой синхронизации, фишки возвращены"
+                    loaded.state.result_details = []
+                    await session.execute(
+                        update(hands).where(hands.c.id == loaded.state.hand_id).values(
+                            board_json=loaded.state.board,
+                            result_json=loaded.state.to_dict(),
+                            terminal=True,
+                            completed_at=completed_at,
+                        )
+                    )
+                    loaded.phase = "waiting"
+                    loaded.action_deadline = None
+                    loaded.result_clear_at = None
+                    loaded.next_hand_at = None
+                    await session.execute(
+                        update(table_runtimes).where(table_runtimes.c.table_id == table_id).values(
+                            phase="waiting",
+                            private_state_json=serialize_state(loaded.state),
+                            public_payload_json=loaded.state.to_dict(),
+                            paused_reason=None,
+                            action_deadline=None,
+                            result_clear_at=None,
+                            next_hand_at=None,
+                            updated_at=completed_at,
+                        )
+                    )
+                    await append_integrity_event(
+                        session, event_type="hand_abandoned", table_id=table_id,
                         hand_id=loaded.state.hand_id, payload={"revision": loaded.revision},
                     )
                     return settlement

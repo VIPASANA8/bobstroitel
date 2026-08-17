@@ -12,37 +12,31 @@
       body.v014.poker8-v2-sixmax.p8-turn-active .felt{
         filter:drop-shadow(0 0 8px rgba(65,255,214,.16))!important;
       }
-      body.v014.poker8-v2-sixmax .seat.p8-seat-turn{
-        isolation:isolate;
-      }
-      /* The gradient belongs on the rim, not over the seat: the radial fill and
-         an unmasked cone washed screen-blended light across the avatar, name and
-         stack. The mask cuts the middle out so only the ring is left. */
-      body.v014.poker8-v2-sixmax .seat.p8-seat-turn::after{
-        content:"";position:absolute;z-index:1;inset:-18px -13px -23px;
-        border-radius:50%;pointer-events:none;opacity:.94;
-        background:
-          conic-gradient(from 0deg at 50% 50%,transparent 0 9%,hsla(var(--seat-accent),100%,68%,.92) 15%,rgba(255,62,201,.84) 25%,transparent 38% 58%,hsla(var(--seat-accent),100%,70%,.95) 73%,transparent 86% 100%);
-        -webkit-mask:radial-gradient(closest-side,transparent 0 58%,#000 76%);
-        mask:radial-gradient(closest-side,transparent 0 58%,#000 76%);
-        filter:blur(4px) saturate(1.35);mix-blend-mode:screen;
-        animation:v041TurnOrbit 2.7s linear infinite;
-      }
-      body.v014.poker8-v2-sixmax .seat-card.p8-turn-gradient .player-avatar{
+      /* The highlight lives on the avatar and the plate themselves -- their own
+         edge, traced by their own shape -- not a separate ring floating around
+         the seat. box-shadow can't be animated here (an earlier !important base
+         rule always wins over a keyframe), so the pulse rides on drop-shadow:
+         it follows each element's alpha silhouette, a circle for the avatar and
+         a rounded rect for the plate, instead of a detached halo. */
+      body.v014.poker8-v2-sixmax .seat .seat-card.p8-turn-gradient .player-avatar{
         border-color:#d8fff7!important;
-        box-shadow:0 0 0 3px rgba(1,5,5,.93),0 0 13px hsla(var(--seat-accent),100%,70%,.94),0 0 30px rgba(255,58,207,.72),inset 0 -10px 18px rgba(0,0,0,.50)!important;
+        box-shadow:0 0 0 3px rgba(1,5,5,.93),0 0 13px hsla(var(--seat-accent),100%,70%,.94),inset 0 -10px 18px rgba(0,0,0,.50)!important;
+        animation:v041AvatarPulse 1.6s ease-in-out infinite;
       }
-      body.v014.poker8-v2-sixmax .seat-card.p8-turn-gradient .seat-identity{
+      body.v014.poker8-v2-sixmax .seat .seat-card.p8-turn-gradient .seat-identity{
         border-color:#c9fff2!important;
         background:linear-gradient(120deg,hsla(var(--seat-accent),55%,16%,.97),rgba(39,3,35,.97) 54%,rgba(1,10,9,.98))!important;
-        box-shadow:0 0 0 1px hsla(var(--seat-accent),100%,72%,.24),0 0 18px hsla(var(--seat-accent),100%,66%,.62),0 0 25px rgba(255,61,207,.36)!important;
+        box-shadow:0 0 0 1px hsla(var(--seat-accent),100%,72%,.24),0 0 18px hsla(var(--seat-accent),100%,66%,.62)!important;
+        animation:v041PlatePulse 1.6s ease-in-out infinite;
       }
-      body.v014.poker8-v2-sixmax .seat-card.p8-turn-gradient .seat-name::after{
+      body.v014.poker8-v2-sixmax .seat .seat-card.p8-turn-gradient .seat-name::after{
         content:"ХОД";display:block;margin-top:3px;color:#dffffa;font-size:7px;font-weight:950;letter-spacing:.14em;text-shadow:0 0 6px currentColor;
       }
-      @keyframes v041TurnOrbit{to{transform:rotate(360deg) scale(1.035)}}
+      @keyframes v041AvatarPulse{0%,100%{filter:drop-shadow(0 0 2px hsla(var(--seat-accent),100%,70%,.55))}50%{filter:drop-shadow(0 0 9px hsla(var(--seat-accent),100%,70%,1))}}
+      @keyframes v041PlatePulse{0%,100%{filter:drop-shadow(0 0 1px hsla(var(--seat-accent),100%,68%,.5))}50%{filter:drop-shadow(0 0 6px hsla(var(--seat-accent),100%,68%,.95))}}
       @media (prefers-reduced-motion:reduce){
-        body.v014.poker8-v2-sixmax .seat.p8-seat-turn::after{animation:none!important;opacity:.72;}
+        body.v014.poker8-v2-sixmax .seat .seat-card.p8-turn-gradient .player-avatar,
+        body.v014.poker8-v2-sixmax .seat .seat-card.p8-turn-gradient .seat-identity{animation:none!important;}
       }
     }
   `;

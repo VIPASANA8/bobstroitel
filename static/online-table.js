@@ -28,10 +28,17 @@
     .poker8-online.p8-action-pending #actionButtons{opacity:.62;pointer-events:none;filter:saturate(.72)}
     .poker8-online.p8-action-pending #actionButtons::after{content:'Отправляем действие…';display:block;grid-column:1 / -1;text-align:center;color:#a8ffd4;font-size:11px;font-weight:800;padding:5px}
     @media(max-width:780px){
-      .poker8-online .felt > .online-state-panel{position:absolute;left:50%;top:59%;right:auto;bottom:auto;z-index:76;width:min(84vw,348px);margin:0;padding:10px 12px;transform:translate(-50%,-50%);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 12px;border-color:rgba(64,237,167,.48);background:linear-gradient(135deg,rgba(1,29,18,.94),rgba(2,14,11,.96));box-shadow:0 12px 28px rgba(0,0,0,.42),0 0 20px rgba(44,247,169,.10)}
+      .poker8-online .felt > .online-state-panel{position:absolute;left:50%;top:59%;right:auto;bottom:auto;z-index:76;width:min(84vw,348px);margin:0;padding:10px 12px;transform:translate(-50%,-50%);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 12px;border-color:rgba(64,237,167,.48);background:linear-gradient(135deg,rgba(1,29,18,.94),rgba(2,14,11,.96));box-shadow:0 12px 28px rgba(0,0,0,.42),0 0 20px rgba(44,247,169,.10);transition:width 180ms ease,padding 180ms ease,top 180ms ease}
       .poker8-online .felt > .online-state-panel strong{grid-column:1;color:#a8ffd4;font-size:14px;line-height:1.1}
       .poker8-online .felt > .online-state-panel span{grid-column:1;color:#c3d7cc;font-size:11px;line-height:1.25}
       .poker8-online .felt > .online-state-panel button{grid-column:2;grid-row:1 / span 2;align-self:center;min-height:42px;padding:9px 12px;white-space:nowrap}
+      /* Nothing to press while the seat is only pending: a full card sitting over
+         the felt just to say "please wait" hides the table for no reason. Collapse
+         it to a slim strip near the rail and hand the middle back to the game. */
+      .poker8-online .felt > .online-state-panel.is-pending{top:8px;width:min(78vw,300px);padding:6px 10px;grid-template-columns:1fr;box-shadow:0 6px 16px rgba(0,0,0,.36)}
+      .poker8-online .felt > .online-state-panel.is-pending strong{font-size:11px}
+      .poker8-online .felt > .online-state-panel.is-pending span{font-size:10px}
+      .poker8-online .felt > .online-state-panel.is-pending button{display:none}
       .poker8-online .online-chat-panel{display:none!important;position:fixed;left:10px;right:10px;bottom:calc(92px + env(safe-area-inset-bottom));z-index:130;margin:0}
       .poker8-online .online-chat-panel.is-open{display:block!important}
       .poker8-online .online-connection-status{right:10px;bottom:8px}
@@ -126,6 +133,8 @@
         button.disabled = viewerState === "waiting";
         button.textContent = viewerState === "waiting" ? "Бронь принята" : hasFreeSeat ? "Занять место" : "Встать в очередь";
       }
+      // Pending has nothing to click, so the full card only blocks the table.
+      ready.classList.toggle("is-pending", viewerState === "waiting");
     }
     const chat = $("chatPanel");
     if (chat) {
