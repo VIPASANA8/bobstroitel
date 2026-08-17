@@ -21,8 +21,8 @@
         --seat-1-x:7%!important;--seat-1-y:58%!important;
         --seat-2-x:7%!important;--seat-2-y:22%!important;
         --seat-3-x:50%!important;--seat-3-y:13%!important;
-        --seat-4-x:93%!important;--seat-4-y:22%!important;
-        --seat-5-x:93%!important;--seat-5-y:58%!important;
+        --seat-4-x:84%!important;--seat-4-y:22%!important;
+        --seat-5-x:84%!important;--seat-5-y:58%!important;
         --pot-y:25%!important;
         --pot-chips-y:47%!important;
         --board-y:38%!important;
@@ -55,8 +55,8 @@
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="1"]{left:7%!important;top:58%!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="2"]{left:7%!important;top:22%!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="3"]{left:50%!important;top:13%!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="4"]{left:93%!important;top:22%!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="5"]{left:93%!important;top:58%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="4"]{left:84%!important;top:22%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="5"]{left:84%!important;top:58%!important;}
 
       body.v014.poker8-v2-sixmax .table-frame{
         padding:0 5px 1px!important;
@@ -505,6 +505,13 @@
         opacity:1!important;color:color-mix(in srgb,var(--v038-action) 35%,transparent)!important;
         border-color:color-mix(in srgb,var(--v038-action) 48%,transparent)!important;box-shadow:none!important;cursor:default!important;
       }
+      body.v014.poker8-v2-sixmax .v038-actions-unavailable{
+        position:absolute;inset:0;display:grid;place-content:center;text-align:center;
+        border:1px solid rgba(89,232,184,.24);border-radius:9px;background:linear-gradient(135deg,rgba(3,19,14,.98),rgba(1,5,5,.99));
+        color:#c7f9df;box-shadow:inset 0 0 18px rgba(76,255,181,.05);
+      }
+      body.v014.poker8-v2-sixmax .v038-actions-unavailable strong{font-size:12px;letter-spacing:.06em;color:#7dffd0;}
+      body.v014.poker8-v2-sixmax .v038-actions-unavailable span{margin-top:5px;font-size:9px;color:#9db9ad;}
       body.v014.poker8-v2-sixmax .v038-action-label{display:block;font-weight:900;letter-spacing:.035em;line-height:1.05;}
       body.v014.poker8-v2-sixmax .v038-action-amount{display:block;margin-top:2px;font-size:11px;font-weight:900;line-height:1;}
       body.v014.poker8-v2-sixmax .v038-action-amount.v038-amount-pulse{animation:v038AmountPulse 180ms ease-out;}
@@ -919,17 +926,7 @@
   }
 
   function confirmAllIn(source, localTurn, amount, legal) {
-    const now = Date.now();
-    const fingerprint = allInFingerprint(source);
-    if (allInArmedSource !== source || allInArmedUntil <= now || allInArmedFingerprint !== fingerprint) {
-      clearAllInConfirmation(false);
-      allInArmedSource = source;
-      allInArmedUntil = now + ALL_IN_CONFIRM_MS;
-      allInArmedFingerprint = fingerprint;
-      allInTimer = window.setTimeout(() => clearAllInConfirmation(), ALL_IN_CONFIRM_MS);
-      queueSync();
-      return;
-    }
+    // На мобильном устройстве действие выполняется одним касанием; отдельный скрытый шаг подтверждения не нужен.
     clearAllInConfirmation(false);
     if (source === "aggressive") {
       if (!localTurn) {
@@ -975,6 +972,16 @@
     if (!grid) return;
     const alive = localPlayerAlive();
     const localTurn = isLocalHumanTurn();
+    // Never leave a row of action-looking but inert buttons during result,
+    // countdown, observer and folded states. An active opponent turn is still
+    // interactive: taps there create a safely revalidated pre-action.
+    if (!game || game.terminal || !alive) {
+      const title = game?.terminal ? "НОВАЯ РАЗДАЧА СКОРО" : "ДЕЙСТВИЯ НЕДОСТУПНЫ";
+      const detail = game?.terminal ? "Стол запускается автоматически" : "Сядьте за стол или дождитесь следующей раздачи";
+      grid.dataset.v038ReferenceActions = "1";
+      grid.innerHTML = `<div class="v038-actions-unavailable" role="status"><strong>${title}</strong><span>${detail}</span></div>`;
+      return;
+    }
     const legal = game?.human_legal_actions || [];
     const toCall = estimatedLocalToCall();
     const amount = Number(document.getElementById("amount")?.value || amountBounds().value || 0);
@@ -988,9 +995,9 @@
     }
     const defs = [
       { key:"call", label:"CALL", amount:stripHudUnit(formatBB(toCall)), cls:"call" },
-      { key:"all_in", label:allInArmedSource === "all_in" ? "CONFIRM" : "ALL IN", amount:stripHudUnit(formatBB(allInTotal)), cls:"all-in", allIn:true },
+      { key:"all_in", label:"ALL IN", amount:stripHudUnit(formatBB(allInTotal)), cls:"all-in", allIn:true },
       { key:leftKey, label:leftKey === "check" ? "CHECK" : "FOLD", amount:"", cls:leftKey },
-      { key:"aggressive", label:allInArmedSource === "aggressive" ? "CONFIRM" : atMax ? "ALL IN" : aggressiveLabel, amount:stripHudUnit(formatBB(atMax ? allInTotal : amount)), cls:atMax ? "all-in" : "raise", allIn:atMax },
+      { key:"aggressive", label:atMax ? "ALL IN" : aggressiveLabel, amount:stripHudUnit(formatBB(atMax ? allInTotal : amount)), cls:atMax ? "all-in" : "raise", allIn:atMax },
     ];
     if (current.length !== 4) {
       grid.innerHTML = "";
@@ -999,8 +1006,10 @@
     grid.dataset.v038ReferenceActions = "1";
     [...grid.children].forEach((button, index) => {
       const def = defs[index];
+      const slot = ["call", "all_in", "left", "aggressive"][index];
       button.type = "button";
       button.dataset.actionKey = def.key;
+      button.dataset.v038Slot = slot;
       button.dataset.v038ReferenceAction = "1";
       button.className = `action-slot ${def.cls}`;
       button.classList.toggle("queued", pendingAction?.kind === def.key);
@@ -1022,30 +1031,48 @@
         value.classList.add("v038-amount-pulse");
       }
       button.setAttribute("aria-label", `${def.label}${def.amount ? ` ${def.amount}` : ""}`);
-      let enabled = Boolean(game && !game.terminal && alive);
+      let enabled = Boolean(game && !game.terminal && alive && !window.Poker8Transport?.isActionPending?.());
       if (localTurn) {
-        if (def.key === "check") enabled = legal.includes("check");
-        else if (def.key === "fold") enabled = legal.includes("fold");
-        else if (def.key === "call") enabled = legal.includes("call");
-        else if (def.key === "all_in") enabled = legal.includes("all_in");
-        else if (def.allIn) enabled = legal.includes("bet") || legal.includes("raise");
-        else enabled = legal.includes("bet") || legal.includes("raise");
-      } else if (def.key === "call") enabled = enabled && toCall > 0;
+        if (def.key === "check") enabled = enabled && legal.includes("check");
+        else if (def.key === "fold") enabled = enabled && legal.includes("fold");
+        else if (def.key === "call") enabled = enabled && legal.includes("call");
+        else if (def.key === "all_in") enabled = enabled && legal.includes("all_in");
+        else if (def.allIn) enabled = enabled && (legal.includes("bet") || legal.includes("raise"));
+        else enabled = enabled && (legal.includes("bet") || legal.includes("raise"));
+      } else {
+        // While another player acts, every enabled control is an explicit
+        // pre-action. It is revalidated against the snapshot at execution.
+        if (def.key === "call") enabled = enabled && toCall > 0;
+        button.setAttribute("aria-description", "Предвыбор: действие будет перепроверено на вашем ходе");
+      }
       button.disabled = !enabled;
       button.onclick = () => {
-        if (!game || game.terminal || !alive) return;
-        if (def.allIn) return confirmAllIn(def.key, localTurn, amount, legal);
-        if (!localTurn) {
-          togglePendingAction(def.key);
+        if (!game || game.terminal || !localPlayerAlive() || window.Poker8Transport?.isActionPending?.()) return;
+        const liveTurn = isLocalHumanTurn();
+        const liveLegal = game.human_legal_actions || [];
+        const liveToCall = estimatedLocalToCall();
+        const liveAmount = Number(document.getElementById("amount")?.value || amountBounds().value || 0);
+        const liveKey = slot === "left"
+          ? (liveTurn ? (liveLegal.includes("check") ? "check" : "fold") : (liveToCall > 0 ? "fold" : "check"))
+          : slot === "aggressive" ? "aggressive" : slot;
+        // Не исполнять команду от button, если между её отрисовкой и касанием пришёл новый snapshot.
+        if (button.dataset.actionKey !== liveKey) {
+          queueSync();
+          return;
+        }
+        const liveAllIn = slot === "all_in" || (slot === "aggressive" && Math.abs(liveAmount - Number(amountBounds().max || 0)) < 1e-9);
+        if (liveAllIn) return confirmAllIn(slot === "aggressive" ? "aggressive" : "all_in", liveTurn, liveAmount, liveLegal);
+        if (!liveTurn) {
+          togglePendingAction(liveKey);
           renderMobileSelectedCard();
           queueSync();
           return;
         }
         clearPendingAction(false);
-        if (def.key === "check") return sendAction("check", 0);
-        if (def.key === "fold") return sendAction("fold", 0);
-        if (def.key === "call") return sendAction("call", 0);
-        return sendAction(legal.includes("raise") ? "raise" : "bet", amount);
+        if (liveKey === "check") return sendAction("check", 0);
+        if (liveKey === "fold") return sendAction("fold", 0);
+        if (liveKey === "call") return sendAction("call", 0);
+        return sendAction(liveLegal.includes("raise") ? "raise" : "bet", liveAmount);
       };
     });
   }

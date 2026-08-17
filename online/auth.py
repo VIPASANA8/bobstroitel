@@ -214,9 +214,12 @@ class AuthService:
 
     @staticmethod
     def _display_name(user: dict) -> str:
+        username = user.get("username")
+        if isinstance(username, str) and username.strip():
+            return f"@{username.strip().lstrip('@')}"
         name = " ".join(
             value.strip()
             for value in (user.get("first_name", ""), user.get("last_name", ""))
             if isinstance(value, str) and value.strip()
         )
-        return name or str(user.get("username") or user["id"])
+        return name or str(user["id"])

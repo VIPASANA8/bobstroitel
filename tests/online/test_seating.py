@@ -6,7 +6,7 @@ from sqlalchemy import insert, select, update
 
 from online.ledger import PlayLedger
 from online.schema import poker_tables, seat_queue, system_players, table_seats, tenants, users
-from online.seating import READY_TTL, AlreadySeated, SeatingService
+from online.seating import MAX_SYSTEM_BOTS, READY_TTL, AlreadySeated, SeatingService
 
 
 @pytest.fixture
@@ -71,13 +71,20 @@ async def test_ready_appends_fifo_and_reserves_nothing(seating, ledger, user_a, 
 
 
 @pytest.mark.anyio
-async def test_boundary_seats_first_request_and_replaces_system_player(seating, table_id, user_a, user_b):
+async def test_boundary_seats_both_requests_without_overfilling(seating, db_session_factory, table_id, user_a, user_b):
     await seating.ready(user_a, table_id, seat_no=2, buy_in_units=4_000)
     await seating.ready(user_b, table_id, seat_no=2, buy_in_units=4_000)
     result = await seating.process_boundary(table_id)
     # FIFO: the first request wins seat 2, the second falls back to another seat.
     assert result.seated_user_ids == [user_a, user_b]
-    assert result.removed_system_player_ids
+    # The table keeps a bounded number of bots, so both players fit on free
+    # seats and no system player has to be evicted to make room.
+    async with db_session_factory() as session:
+        seats = (await session.execute(select(table_seats).where(
+            table_seats.c.table_id == table_id, table_seats.c.state == "seated",
+        ))).mappings().all()
+    assert sum(1 for seat in seats if seat["occupant_kind"] == "system") <= MAX_SYSTEM_BOTS
+    assert len(seats) <= 6
 
 
 @pytest.mark.anyio

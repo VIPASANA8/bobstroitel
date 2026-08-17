@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#07100f" />
-  <title>Poker8 Network</title>
-  <link rel="stylesheet" href="/static/network.css" />
+  <title>Poker8 — Лобби</title>
+  <link rel="stylesheet" href="/static/network.css?v=lobby-functional-1" />
 </head>
 <body>
   <a class="skip-link" href="#tableGrid">К столам</a>
@@ -16,17 +16,33 @@
       </a>
       <div class="header-actions"><span id="wallet" class="wallet-pill">— PLAY</span><a class="text-link" href="/static/profile.html">Профиль</a></div>
     </header>
+
     <main>
-      <section class="lobby-hero">
-        <div><p class="eyebrow">SIX TABLES · ONE NETWORK</p><h1>Твой стол<br /><em>уже ждёт.</em></h1><p class="hero-copy">Люди и системные игроки сидят в одном онлайне. Выбирай лимит — остальное сделает Quick Play.</p></div>
-        <button id="quickPlay" class="quick-play" type="button"><span>Быстрый вход</span><strong>→</strong></button>
+      <section class="lobby-control" aria-labelledby="lobbyTitle">
+        <div class="lobby-copy">
+          <p class="eyebrow">ИГРОВОЕ ЛОББИ</p>
+          <h1 id="lobbyTitle">Выберите стол<br /><em>или войдите быстро.</em></h1>
+          <p>Быстрый вход подберёт свободный стол. Если вы уже в игре, продолжайте с того же места.</p>
+        </div>
+        <div class="lobby-ctas">
+          <button id="quickPlay" class="primary-action" type="button"><span>Быстрая игра</span><strong>→</strong></button>
+          <section id="activeSession" class="active-session" hidden aria-live="polite">
+            <div class="session-copy"><span class="session-label">АКТИВНАЯ СЕССИЯ</span><strong id="activeTableName">—</strong><small id="activeTableState">—</small></div>
+            <div class="session-actions">
+              <button id="returnTable" class="secondary-action" type="button">Вернуться за стол</button>
+              <button id="leaveTable" class="leave-action" type="button">Покинуть стол</button>
+            </div>
+          </section>
+        </div>
       </section>
-      <section class="section-heading"><div><p class="eyebrow">PUBLIC ROOMS</p><h2>Шесть столов</h2></div><span id="loadStatus" class="status-dot">● LIVE</span></section>
+
+      <section class="section-heading"><div><p class="eyebrow">СТОЛЫ</p><h2>Доступные столы</h2></div><span id="loadStatus" class="status-dot">● ЗАГРУЗКА</span></section>
       <section id="tableGrid" class="table-grid" aria-live="polite" aria-label="Доступные столы"></section>
-      <section class="network-footer"><span>Виртуальные фишки · без реальных денег</span><span>Powered by Poker8</span></section>
+      <section class="network-footer"><span>Виртуальные фишки · без реальных денег</span><span>Poker8 Network</span></section>
     </main>
   </div>
-  <dialog id="buyInDialog" class="buyin-dialog"><form method="dialog" id="buyInForm"><button class="dialog-close" value="cancel" aria-label="Закрыть" formnovalidate>×</button><p class="eyebrow">READY TO SIT</p><h2>Выбери бай-ин</h2><p id="buyInTable" class="dialog-muted"></p><label for="buyInUnits">Фишки</label><input id="buyInUnits" type="number" required /><p class="dialog-hint">40–100 BB · виртуальный баланс</p><button id="confirmReady" class="quick-play" value="default" type="submit">Готов →</button></form></dialog>
-  <script src="/static/auth-client.js"></script><script src="/static/lobby.js?v=lobby-2"></script>
+
+  <dialog id="buyInDialog" class="buyin-dialog"><form method="dialog" id="buyInForm"><button class="dialog-close" value="cancel" aria-label="Закрыть" formnovalidate>×</button><p class="eyebrow">ПОСАДКА ЗА СТОЛ</p><h2>Выберите бай-ин</h2><p id="buyInTable" class="dialog-muted"></p><label for="buyInUnits">Фишки</label><input id="buyInUnits" type="number" required /><p class="dialog-hint">Лимиты стола · виртуальный баланс</p><button id="confirmReady" class="primary-action" value="default" type="submit">Встать в очередь <strong>→</strong></button></form></dialog>
+  <script src="/static/auth-client.js"></script><script src="/static/lobby.js?v=lobby-functional-2"></script>
 </body>
 </html>

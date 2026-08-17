@@ -147,6 +147,7 @@ class GameState:
             }
 
         return {
+            "viewer_player_id": viewer_player_id,
             "hand_id": self.hand_id,
             "street": self.street.value,
             "pot": round(self.pot, 2),

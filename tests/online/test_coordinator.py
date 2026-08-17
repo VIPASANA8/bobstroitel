@@ -9,7 +9,7 @@ from online.coordinator import OnlineCoordinator
 from online.ledger import PlayLedger
 from online.runtime import TableRuntimeManager
 from online.schema import poker_tables, system_players, table_seats, tenants
-from online.seating import SeatingService
+from online.seating import MAX_SYSTEM_BOTS, SeatingService
 
 
 @pytest.fixture
@@ -42,7 +42,9 @@ async def test_coordinator_fills_table_and_starts_bot_hand(coordinator):
 
     assert loaded is not None
     assert loaded.phase == "active"
-    assert len(loaded.state.players) == 6
+    # The table seats a bounded number of bots and leaves the rest for players.
+    assert 2 <= len(loaded.state.players) <= 6
+    assert sum(1 for player in loaded.state.players.values() if player.is_bot) <= MAX_SYSTEM_BOTS
 
 
 @pytest.mark.anyio

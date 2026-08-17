@@ -69,8 +69,8 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     wager_loader = (root / 'static' / 'v030-seat-ready-fix.js').read_text(encoding='utf-8')
     index_source = (root / 'static' / 'index.html').read_text(encoding='utf-8')
 
-    assert '/static/v038-poker8-v2-cinematic-table.js?v=online-controls-2' in loader
-    assert '/static/v037-poker8-v2-reference-table.js?v=online-controls-2' in component_loader
+    assert '/static/v038-poker8-v2-cinematic-table.js?v=' in loader
+    assert '/static/v037-poker8-v2-reference-table.js?v=' in component_loader
     assert '/static/v033-poker8-v2-polish.js' not in component_loader
     assert '/static/v034-poker8-v2-layout-lock.js' not in component_loader
     assert 'data-v038-poker8-v2-cinematic-table' in loader
@@ -91,7 +91,7 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'calc(100dvh - 50px - var(--p8-hud-h) - var(--p8-bottom-reserve))' in source
     assert '--seat-3-y:13%' in source
     assert '[data-visual-seat="3"]{--seat-accent:142' in source
-    assert '--seat-2-x:7%' in source and '--seat-4-x:93%' in source
+    assert '--seat-2-x:7%' in source and '--seat-4-x:84%' in source
     assert '--seat-1-y:58%' in source and '--seat-5-y:58%' in source
     assert '--seat-2-y:22%' in source and '--seat-4-y:22%' in source
     assert '--seat-0-y:80%' in source
@@ -178,7 +178,7 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert '{ key:leftKey' in source
     assert '{ key:"aggressive"' in source
     assert 'ALL_IN_CONFIRM_MS = 3000' in source
-    assert '? "CONFIRM"' in source
+    assert 'content:"CONFIRM · 3 SEC"' in source
     assert 'v038-all-in-armed' in source
     assert 'v038-size-selected' in source
     assert '.quick-sizes button.v038-max-size{' in source
@@ -252,5 +252,5 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'offset: .86' in app_source
     assert 'radial-gradient(ellipse at 50% 18%,rgba(255,255,255,.36),transparent 48%)' in (root / 'static' / 'style.css').read_text(encoding='utf-8')
     assert '/static/style.css?v=chip-motion-1' in index_source
-    assert '/static/app.js?v=online-legacy-1' in index_source
-    assert '/static/component-ui.js?v=online-controls-2' in index_source
+    assert '/static/app.js?v=' in index_source
+    assert '/static/component-ui.js?v=' in index_source

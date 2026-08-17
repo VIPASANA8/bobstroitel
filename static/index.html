@@ -20,6 +20,9 @@
     <button id="mobileDrawerNewHand" type="button">Новая раздача</button>
     <button id="mobileDrawerInfinite" type="button">∞ Бесконечный режим</button>
     <button id="mobileDrawerPause" type="button">Пауза / продолжить</button>
+    <div class="mobile-drawer-divider" aria-hidden="true"></div>
+    <button id="mobileDrawerLobby" class="network-table-action" type="button">Вернуться в лобби</button>
+    <button id="mobileDrawerLeave" class="network-table-action danger" type="button">Покинуть стол</button>
     <p>Профили и расширенные настройки доступны на desktop. Свободные места на столе можно нажимать прямо здесь.</p>
   </aside>
   <div class="room-ambience" aria-hidden="true"><i class="neon-bar bar-a"></i><i class="neon-bar bar-b"></i><i class="city-glow"></i><i class="room-plant plant-a"></i><i class="room-plant plant-b"></i></div>
@@ -321,9 +324,11 @@
   </div>
 
   <script>window.Poker8OnlineTable = new URLSearchParams(window.location.search).has("table");</script>
-  <script src="/static/online-transport.js"></script>
-  <script src="/static/component-ui.js?v=online-controls-2"></script>
-  <script src="/static/app.js?v=online-legacy-1"></script>
-  <script src="/static/online-table.js?v=online-legacy-5"></script>
+  <script src="/static/auth-client.js?v=telegram-session-2"></script>
+  <script src="/static/online-transport.js?v=online-transport-6"></script>
+  <script src="/static/component-ui.js?v=dynamic-seats-8"></script>
+  <script src="/static/app.js?v=online-legacy-4"></script>
+  <script src="/static/online-table.js?v=online-legacy-10"></script>
+  <script src="/static/v039-poker8-v2-desktop-parity.js?v=desktop-parity-6"></script>
 </body>
 </html>

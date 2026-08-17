@@ -18,6 +18,7 @@ from online.config import Settings
 from online.coordinator import OnlineCoordinator
 from online.database import create_database
 from online.ledger import PlayLedger
+from online.integrity import EscrowIntegrityMonitor
 from online.runtime import TableRuntimeManager
 from online.seating import SeatingService
 from online.chat import ChatService
@@ -82,6 +83,7 @@ def create_app(
         await catalogue.seed_defaults()
         app.state.ledger = ledger
         app.state.catalogue = catalogue
+        app.state.integrity_monitor = EscrowIntegrityMonitor(session_factory)
         app.state.chat = ChatService(session_factory)
         app.state.history = HistoryService(session_factory)
         app.state.runtime = TableRuntimeManager(session_factory, ledger)
@@ -95,6 +97,7 @@ def create_app(
             app.state.runtime,
             app.state.seating,
             catalogue,
+            integrity_monitor=app.state.integrity_monitor,
             on_change=lambda table_id: app.state.connection_hub.broadcast(table_id, app.state.runtime),
         )
         app.state.coordinator_task = None
@@ -143,6 +146,10 @@ def create_app(
     @app.get("/")
     async def index():
         return FileResponse(STATIC_DIR / "lobby.html")
+
+    @app.get("/monitor")
+    async def monitor_page():
+        return FileResponse(STATIC_DIR / "monitor.html", headers={"Cache-Control": "no-store"})
 
     @app.get("/table")
     async def table_page():
