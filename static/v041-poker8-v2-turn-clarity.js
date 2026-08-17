@@ -15,12 +15,16 @@
       body.v014.poker8-v2-sixmax .seat.p8-seat-turn{
         isolation:isolate;
       }
+      /* The gradient belongs on the rim, not over the seat: the radial fill and
+         an unmasked cone washed screen-blended light across the avatar, name and
+         stack. The mask cuts the middle out so only the ring is left. */
       body.v014.poker8-v2-sixmax .seat.p8-seat-turn::after{
         content:"";position:absolute;z-index:1;inset:-18px -13px -23px;
         border-radius:50%;pointer-events:none;opacity:.94;
         background:
-          conic-gradient(from 0deg at 50% 50%,transparent 0 9%,hsla(var(--seat-accent),100%,68%,.92) 15%,rgba(255,62,201,.84) 25%,transparent 38% 58%,hsla(var(--seat-accent),100%,70%,.95) 73%,transparent 86% 100%),
-          radial-gradient(ellipse at 50% 46%,hsla(var(--seat-accent),100%,58%,.30),transparent 66%);
+          conic-gradient(from 0deg at 50% 50%,transparent 0 9%,hsla(var(--seat-accent),100%,68%,.92) 15%,rgba(255,62,201,.84) 25%,transparent 38% 58%,hsla(var(--seat-accent),100%,70%,.95) 73%,transparent 86% 100%);
+        -webkit-mask:radial-gradient(closest-side,transparent 0 58%,#000 76%);
+        mask:radial-gradient(closest-side,transparent 0 58%,#000 76%);
         filter:blur(4px) saturate(1.35);mix-blend-mode:screen;
         animation:v041TurnOrbit 2.7s linear infinite;
       }
