@@ -7,6 +7,10 @@ __pycache__/
 !.env.example
 data/poker8_online_dev.sqlite3
 data/*.sqlite3
+# SQLite writes these alongside the database and they are not covered above
+data/*.sqlite3-wal
+data/*.sqlite3-shm
+data/*.sqlite3-journal
 
 # Секреты и локальные доступы — не коммитить
 servers.md
