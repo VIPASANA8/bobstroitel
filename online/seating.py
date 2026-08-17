@@ -15,6 +15,8 @@ from online.schema import play_accounts, poker_tables, seat_queue, system_player
 # otherwise it expires before the boundary that would seat the player.
 READY_TTL = timedelta(minutes=3)
 HOLD_WINDOW = timedelta(seconds=30)
+MIN_SYSTEM_BOTS = 3
+MAX_SYSTEM_BOTS = 4
 
 
 class SeatingError(ValueError):
@@ -185,7 +187,6 @@ class SeatingService:
                     .values(state="leaving")
                 )
                 await self._process_leaving(session, table_id)
-                await self._fill_system_seats(session, table)
                 requests = (
                     await session.execute(
                         select(seat_queue)
@@ -207,13 +208,15 @@ class SeatingService:
                         continue
                     if seat["occupant_kind"] == "system":
                         await self.ledger.release_system_seat(
-                            seat["system_player_id"], table_id, f"release:{request['id']}", session=session
+                            seat["system_player_id"], table_id,
+                            f"release:{request['id']}:{request['position_seq']}",
+                            session=session,
                         )
                         removed.append(seat["system_player_id"])
                         await self._clear_seat(session, seat["id"])
                     await self.ledger.reserve_buy_in(
                         request["user_id"], table_id, request["requested_buy_in_units"],
-                        f"buyin:{request['id']}", session=session,
+                        f"buyin:{request['id']}:{request['position_seq']}", session=session,
                     )
                     escrow_id = await self._escrow_id(session, table_id)
                     if seat["id"] is None:
@@ -244,6 +247,7 @@ class SeatingService:
                         update(seat_queue).where(seat_queue.c.id == request["id"]).values(state="seated")
                     )
                     seated.append(request["user_id"])
+                removed.extend(await self._fill_system_seats(session, table))
                 return BoundaryResult(seated, removed)
 
     async def active_seat_count(self, table_id: str) -> int:
@@ -346,13 +350,53 @@ class SeatingService:
                 )
             await self._clear_seat(session, row["id"])
 
-    async def _fill_system_seats(self, session: AsyncSession, table) -> None:
+    async def _fill_system_seats(self, session: AsyncSession, table) -> list[str]:
+        """Keep a table at three or four bots when capacity permits.
+
+        Users are seated first at a hand boundary. Only then are idle system
+        seats removed or added, so a person is never displaced merely to keep
+        a bot count. With four or more users the physical six-seat cap wins.
+        """
         rows = (
             await session.execute(
                 select(table_seats).where(table_seats.c.table_id == table["id"])
             )
         ).mappings().all()
-        occupied_seats = {row["seat_no"] for row in rows if row["state"] != "empty"}
+        active_rows = [row for row in rows if row["state"] != "empty"]
+        user_count = sum(1 for row in active_rows if row["occupant_kind"] == "user")
+        # Room policy: 0–2 humans play with four bots; 3 humans play with
+        # three bots. New people wait once all six seats are occupied, rather
+        # than evicting the third bot and turning the table into a human-only room.
+        target_bot_count = MAX_SYSTEM_BOTS if user_count <= 2 else MIN_SYSTEM_BOTS
+
+        seated_bots = sorted(
+            (row for row in active_rows if row["occupant_kind"] == "system" and row["state"] == "seated"),
+            key=lambda row: row["seat_no"],
+        )
+        removed: list[str] = []
+        for row in seated_bots[target_bot_count:]:
+            system_player_id = row["system_player_id"]
+            if system_player_id:
+                await self.ledger.release_system_seat(
+                    system_player_id, table["id"], f"rebalance:{row['id']}", session=session,
+                )
+                removed.append(system_player_id)
+            await self._clear_seat(session, row["id"])
+
+        rows = (
+            await session.execute(
+                select(table_seats).where(table_seats.c.table_id == table["id"])
+            )
+        ).mappings().all()
+        active_rows = [row for row in rows if row["state"] != "empty"]
+        seated_bot_count = sum(
+            1 for row in active_rows if row["occupant_kind"] == "system" and row["state"] == "seated"
+        )
+        needed = max(0, target_bot_count - seated_bot_count)
+        if not needed:
+            return removed
+
+        occupied_seats = {row["seat_no"] for row in active_rows}
         empty_by_seat = {row["seat_no"]: row for row in rows if row["state"] == "empty"}
         active_system_ids = {
             row["system_player_id"]
@@ -368,7 +412,7 @@ class SeatingService:
             await session.execute(select(system_players).where(system_players.c.active == True))
         ).mappings().all()
         available = [row for row in candidates if row["id"] not in active_system_ids]
-        for seat_no, player in zip((seat for seat in range(6) if seat not in occupied_seats), available):
+        for seat_no, player in zip((seat for seat in range(table["max_seats"]) if seat not in occupied_seats), available[:needed]):
             amount = table["big_blind_units"] * 100
             seat_id = empty_by_seat.get(seat_no, {}).get("id") or uuid.uuid4().hex
             await self.ledger.fund_system_seat(
@@ -394,6 +438,7 @@ class SeatingService:
                 await session.execute(table_seats.insert().values(
                     id=seat_id, table_id=table["id"], seat_no=seat_no, **values,
                 ))
+        return removed
 
     async def _choose_seat(self, session: AsyncSession, table_id: str, requested_seat: int):
         rows = (
@@ -411,17 +456,23 @@ class SeatingService:
         seat = free(requested_seat)
         if seat is not None:
             return seat
-        if by_seat[requested_seat]["occupant_kind"] == "system":
-            return by_seat[requested_seat]
-        # Requested seat belongs to another user. Bots fill the table, so a
-        # genuinely free seat is rare -- displace a system player instead.
+        # Prefer another genuinely free seat before replacing a bot.
         for seat_no in range(6):
             seat = free(seat_no)
             if seat is not None:
                 return seat
-        return next(
-            (row for _, row in sorted(by_seat.items()) if row["occupant_kind"] == "system"), None
+        system_rows = sorted(
+            (row for row in by_seat.values() if row["occupant_kind"] == "system" and row["state"] == "seated"),
+            key=lambda row: row["seat_no"],
         )
+        # Preserve at least three bots. A fourth human remains queued until a
+        # human leaves, instead of silently reducing the game to two bots.
+        if len(system_rows) <= MIN_SYSTEM_BOTS:
+            return None
+        requested = by_seat.get(requested_seat)
+        if requested and requested["occupant_kind"] == "system" and requested["state"] == "seated":
+            return requested
+        return system_rows[-1]
 
     async def _table(self, session: AsyncSession, table_id: str, lock: bool = False):
         query = select(poker_tables).where(poker_tables.c.id == table_id)

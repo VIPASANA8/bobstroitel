@@ -835,6 +835,18 @@ function avatarHue(seat, isBot = false) {
   return (base + Number(seat || 0) * 37) % 360;
 }
 
+function localTelegramPhotoUrl(isViewer) {
+  if (!isViewer) return "";
+  const raw = window.Poker8TelegramProfile?.photoUrl;
+  if (typeof raw !== "string" || !raw) return "";
+  try {
+    const url = new URL(raw);
+    return url.protocol === "https:" ? url.href : "";
+  } catch (_) {
+    return "";
+  }
+}
+
 function seatHtml(config, player) {
   const locked = Boolean(ONLINE_TABLE_ID) || Boolean(game && !game.terminal);
   if (!config) return "";
@@ -861,20 +873,24 @@ function seatHtml(config, player) {
   const status = folded ? "ПАС" : allIn ? "ОЛЛ-ИН" : activeTurn ? (isHuman ? "ХОД" : "ДУМАЕТ") : "";
   const typeClass = isHuman ? "seat-human" : "seat-bot";
   const isViewer = Boolean(game && game.viewer_player_id && game.viewer_player_id === source.id);
-  const avatar = isViewer ? "ВЫ" : avatarInitials(source.name || config.name, !isHuman);
+  const telegramProfile = isViewer ? window.Poker8TelegramProfile : null;
+  const displayName = telegramProfile?.displayName || source.name || config.name || "Игрок";
+  const photoUrl = localTelegramPhotoUrl(isViewer);
+  const avatar = photoUrl ? avatarInitials(displayName, false) : (isViewer ? "ВЫ" : avatarInitials(displayName, !isHuman));
+  const avatarStyle = photoUrl ? ` style="--profile-avatar-image:url('${escapeHtml(photoUrl)}')"` : "";
   const hue = avatarHue(config.seat, !isHuman);
 
   return `
-    <div class="seat-card ${typeClass} ${isViewer ? "viewer-seat" : ""} ${activeTurn ? "active-turn" : ""} ${folded ? "folded" : ""} ${allIn ? "all-in" : ""}" style="--avatar-hue:${hue}">
+    <div class="seat-card ${typeClass} ${isViewer ? "viewer-seat" : ""} ${activeTurn ? "active-turn p8-turn-gradient" : ""} ${folded ? "folded" : ""} ${allIn ? "all-in" : ""}" style="--avatar-hue:${hue}">
       ${!locked ? `<button class="seat-edit" data-edit-seat="${config.seat}" title="Настроить место">•••</button>` : ""}
       ${isDealer ? `<div class="dealer-button" title="Дилер / BTN">D</div>` : ""}
       <div class="avatar-wrap">
-        <div class="player-avatar"><span>${escapeHtml(avatar)}</span></div>
+        <div class="player-avatar"${avatarStyle}><span>${escapeHtml(avatar)}</span></div>
         ${status ? `<div class="player-status ${folded ? "status-fold" : allIn ? "status-allin" : activeTurn && !isHuman ? "status-thinking" : "status-turn"}">${status}${activeTurn && !isHuman ? `<i class="thinking-dots"><b></b><b></b><b></b></i>` : ""}</div>` : ""}
       </div>
       <div class="seat-identity">
         <div class="seat-topline">
-          <div class="seat-name">${escapeHtml(source.name || config.name)}</div>
+          <div class="seat-name">${escapeHtml(displayName)}</div>
           <div class="position-chip ${buttonClass}">${escapeHtml(position)}</div>
         </div>
         <div class="seat-stack">${formatBB(stack)}</div>
@@ -1341,6 +1357,7 @@ function refreshQuickSizeLabels() {
 function renderPersistentActionButtons() {
   const buttons = $("actionButtons");
   if (!buttons) return;
+  if (window.matchMedia?.("(max-width: 780px)")?.matches && buttons.dataset.v038ReferenceActions === "1") return;
   buttons.innerHTML = "";
   const alive = localPlayerAlive();
   const localTurn = isLocalHumanTurn();
@@ -1351,16 +1368,17 @@ function renderPersistentActionButtons() {
   const amount = Number($("amount")?.value || amountBounds().value || 0);
   const allInTotal = Number(localViewerPlayer()?.stack || 0) + Number(localViewerPlayer()?.street_invested || 0);
   const defs = [
-    { key:leftKey, label:leftKey === "check" ? "ЧЕК" : "ПАС", cls:leftKey === "fold" ? "fold" : "check" },
-    { key:"call", label:`КОЛЛ${toCall > 0 ? `\n${formatBB(toCall)}` : ""}`, cls:"call" },
-    { key:"aggressive", label:`${aggressiveName}\n${formatBB(amount)}`, cls:"raise" },
-    { key:"all_in", label:`ОЛЛ-ИН\n${formatBB(allInTotal)}`, cls:"all-in" },
+    { slot:"left", key:leftKey, label:leftKey === "check" ? "ЧЕК" : "ПАС", cls:leftKey === "fold" ? "fold" : "check" },
+    { slot:"call", key:"call", label:`КОЛЛ${toCall > 0 ? `\n${formatBB(toCall)}` : ""}`, cls:"call" },
+    { slot:"aggressive", key:"aggressive", label:`${aggressiveName}\n${formatBB(amount)}`, cls:"raise" },
+    { slot:"all_in", key:"all_in", label:`ОЛЛ-ИН\n${formatBB(allInTotal)}`, cls:"all-in" },
   ];
 
   defs.forEach(def => {
     const b = document.createElement("button");
     b.type = "button";
     b.dataset.actionKey = def.key;
+    b.dataset.actionSlot = def.slot;
     b.className = `action-slot ${def.cls}`;
     b.textContent = def.label;
     b.classList.toggle("queued", pendingAction?.kind === def.key);
@@ -1376,20 +1394,32 @@ function renderPersistentActionButtons() {
     }
     b.disabled = !enabled;
     b.onclick = () => {
-      if (!game || game.terminal || !alive) return;
-      if (!localTurn) {
-        togglePendingAction(def.key);
+      if (!game || game.terminal || !localPlayerAlive() || window.Poker8Transport?.isActionPending?.()) return;
+      const liveTurn = isLocalHumanTurn();
+      const liveLegal = game.human_legal_actions || [];
+      const liveToCall = estimatedLocalToCall();
+      const liveKey = def.slot === "left"
+        ? (liveTurn ? (liveLegal.includes("check") ? "check" : "fold") : (liveToCall > 0 ? "fold" : "check"))
+        : def.slot;
+      // Snapshot мог измениться между отрисовкой и кликом: сначала синхронизировать UI, не выполнять другую команду.
+      if (b.dataset.actionKey !== liveKey) {
+        renderPersistentActionButtons();
+        renderMobileSelectedCard();
+        return;
+      }
+      if (!liveTurn) {
+        togglePendingAction(liveKey);
         renderPersistentActionButtons();
         renderMobileSelectedCard();
         return;
       }
       clearPendingAction(false);
-      if (def.key === "check") return sendAction("check", 0);
-      if (def.key === "fold") return sendAction(legal.includes("fold") ? "fold" : "check", 0);
-      if (def.key === "call") return sendAction("call", 0);
-      if (def.key === "all_in") return sendAction("all_in", 0);
-      const act = legal.includes("raise") ? "raise" : "bet";
-      return sendAction(act, Number($("amount").value || 0));
+      if (liveKey === "check") return sendAction("check", 0);
+      if (liveKey === "fold") return sendAction("fold", 0);
+      if (liveKey === "call") return sendAction("call", 0);
+      if (liveKey === "all_in") return sendAction("all_in", 0);
+      const act = liveLegal.includes("raise") ? "raise" : "bet";
+      return sendAction(act, Number($("amount")?.value || 0));
     };
     buttons.appendChild(b);
   });
@@ -1493,9 +1523,11 @@ renderMobileHud();
 window.Poker8LegacyView = {
   renderSnapshot({ table, state, viewerState }) {
     const players = Object.values(state?.players || {});
-    const viewer = players.find(player =>
-      !player.is_bot && (player.hole_cards || []).some(card => card && card !== "??")
-    ) || null;
+    const viewer = state?.viewer_player_id
+      ? players.find(player => player.id === state.viewer_player_id) || null
+      : window.Poker8OnlineTable
+        ? null
+        : players.find(player => !player.is_bot && (player.hole_cards || []).some(card => card && card !== "??")) || null;
     const seats = Array.from({ length: 6 }, (_, seat) => {
       const player = players.find(row => Number(row.seat) === seat);
       return {

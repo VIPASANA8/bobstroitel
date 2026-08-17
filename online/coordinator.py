@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from datetime import datetime, timezone
 
 from online.catalogue import Catalogue
+from online.integrity import EscrowIntegrityMonitor
 from online.runtime import TableRuntimeManager
 from online.seating import SeatingService
 
@@ -22,20 +24,39 @@ class OnlineCoordinator:
         catalogue: Catalogue,
         *,
         interval_seconds: float = 0.25,
+        integrity_monitor: EscrowIntegrityMonitor | None = None,
     ) -> None:
         self.runtime = runtime
         self.seating = seating
         self.catalogue = catalogue
         self.interval_seconds = interval_seconds
+        self.integrity_monitor = integrity_monitor
+        self.last_tick_at: datetime | None = None
+        self.last_tick_duration_ms: float | None = None
         self._stop = asyncio.Event()
 
     def now(self) -> datetime:
         return self.runtime._now()
 
     async def tick(self) -> None:
-        tables = await self.catalogue.list_tables(page=1, per_page=100)
-        for table in tables:
-            await self._tick_table(table.id)
+        started = time.perf_counter()
+        try:
+            if self.integrity_monitor is not None:
+                try:
+                    await self.integrity_monitor.maybe_check()
+                except Exception:
+                    logger.exception("poker8 escrow integrity monitor failed")
+            tables = await self.catalogue.list_tables(page=1, per_page=100)
+            for table in tables:
+                # A corrupted or temporarily underfunded table must not prevent
+                # the coordinator from advancing every other independent table.
+                try:
+                    await self._tick_table(table.id)
+                except Exception:
+                    logger.exception("online coordinator table tick failed", extra={"table_id": table.id})
+        finally:
+            self.last_tick_at = datetime.now(timezone.utc)
+            self.last_tick_duration_ms = round((time.perf_counter() - started) * 1000, 2)
 
     async def _tick_table(self, table_id: str) -> None:
         now = self.now()

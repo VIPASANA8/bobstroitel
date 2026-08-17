@@ -19,9 +19,19 @@
     .poker8-online #chatInput{min-width:0;flex:1;padding:11px;border:1px solid #294d3e;border-radius:10px;background:#07100f;color:#f4f5ee}
     .poker8-online #chatForm button{padding:0 15px;border:0;border-radius:10px;background:#91e8ba;color:#082018;font-weight:900}
     .poker8-online .local-only-control,.poker8-online .solver-panel,.poker8-online .stats-panel,.poker8-online .saved-tables-panel,.poker8-online .format-panel{display:none!important}
+    .poker8-online .mobile-drawer-divider{height:1px;margin:8px 0;border:0;background:rgba(126,202,165,.20)}
+    .poker8-online .mobile-drawer .network-table-action{display:block;width:100%;margin:6px 0;padding:12px;border:1px solid rgba(95,237,170,.34);border-radius:10px;background:rgba(4,31,20,.84);color:#c9ffe3;text-align:left;font-weight:850}
+    .poker8-online .mobile-drawer .network-table-action.danger{border-color:rgba(255,125,111,.34);color:#ffc1b6;background:rgba(52,14,12,.58)}
+    .poker8-online.p8-observer-mode #actionButtons,.poker8-online.p8-observer-mode #sizingWrap,.poker8-online.p8-observer-mode .mobile-turn-tools,.poker8-online.p8-observer-mode #mobileAutoActionBar{display:none!important}
+    .poker8-online.p8-observer-mode #mobileTimerCard,.poker8-online.p8-observer-mode #mobileSelectedCard{display:none!important}
+    .poker8-online.p8-observer-mode .action-panel{border-color:rgba(64,237,167,.34)}
+    .poker8-online.p8-action-pending #actionButtons{opacity:.62;pointer-events:none;filter:saturate(.72)}
+    .poker8-online.p8-action-pending #actionButtons::after{content:'Отправляем действие…';display:block;grid-column:1 / -1;text-align:center;color:#a8ffd4;font-size:11px;font-weight:800;padding:5px}
     @media(max-width:780px){
-      .poker8-online .online-state-panel{position:fixed;left:10px;right:10px;bottom:calc(94px + env(safe-area-inset-bottom));z-index:120;box-shadow:0 10px 30px rgba(0,0,0,.42)}
-      .poker8-online .online-state-panel button{white-space:nowrap}
+      .poker8-online .felt > .online-state-panel{position:absolute;left:50%;top:59%;right:auto;bottom:auto;z-index:76;width:min(84vw,348px);margin:0;padding:10px 12px;transform:translate(-50%,-50%);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 12px;border-color:rgba(64,237,167,.48);background:linear-gradient(135deg,rgba(1,29,18,.94),rgba(2,14,11,.96));box-shadow:0 12px 28px rgba(0,0,0,.42),0 0 20px rgba(44,247,169,.10)}
+      .poker8-online .felt > .online-state-panel strong{grid-column:1;color:#a8ffd4;font-size:14px;line-height:1.1}
+      .poker8-online .felt > .online-state-panel span{grid-column:1;color:#c3d7cc;font-size:11px;line-height:1.25}
+      .poker8-online .felt > .online-state-panel button{grid-column:2;grid-row:1 / span 2;align-self:center;min-height:42px;padding:9px 12px;white-space:nowrap}
       .poker8-online .online-chat-panel{display:none!important;position:fixed;left:10px;right:10px;bottom:calc(92px + env(safe-area-inset-bottom));z-index:130;margin:0}
       .poker8-online .online-chat-panel.is-open{display:block!important}
       .poker8-online .online-connection-status{right:10px;bottom:8px}
@@ -31,6 +41,21 @@
   document.body.classList.add("poker8-online");
 
   const $ = id => document.getElementById(id);
+  const mobileQuery = window.matchMedia?.("(max-width: 780px)");
+  function placeReadyPanel() {
+    const panel = $("readyPanel");
+    const felt = document.querySelector(".felt");
+    const layout = document.querySelector(".layout");
+    if (!panel || !felt || !layout) return;
+    if (mobileQuery?.matches) {
+      if (panel.parentElement !== felt) felt.append(panel);
+    } else if (panel.parentElement !== layout) {
+      layout.prepend(panel);
+    }
+  }
+  placeReadyPanel();
+  mobileQuery?.addEventListener?.("change", placeReadyPanel);
+
   const units = value => Math.round(Number(value || 0));
   const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, char => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;",
@@ -41,6 +66,10 @@
   let pollTimer = null;
   let lastRenderKey = null;
   let readyInFlight = false;
+
+  window.addEventListener("poker8:action-pending", event => {
+    document.body.classList.toggle("p8-action-pending", Boolean(event.detail?.pending));
+  });
 
   function setText(id, value) {
     const node = $(id);
@@ -71,16 +100,28 @@
     const countdown = $("newHandCountdown");
     if (countdown) countdown.hidden = !countdownText(state);
 
+    const observerMode = ["spectator", "waiting"].includes(viewerState);
+    document.body.classList.toggle("p8-observer-mode", observerMode);
     const ready = $("readyPanel");
     if (ready) {
       // The queue seats players at the next hand boundary, so the panel stays
       // available while a hand is running.
       ready.hidden = !["spectator", "waiting"].includes(viewerState);
-      setText("queueStatus", viewerState === "waiting" ? "Место занято — ждём свободный вход между раздачами" : "Выберите свободное место и бай-ин от 40 BB");
+      const occupiedSeats = new Set(Object.values(state?.players || {}).map(player => Number(player.seat)));
+      const totalSeats = Number(table?.max_seats || 6);
+      const hasFreeSeat = occupiedSeats.size < totalSeats;
+      const waitingText = hasFreeSeat
+        ? "Место забронировано — вход после текущей раздачи"
+        : "Все места заняты — ждём освобождение между раздачами";
+      const title = ready.querySelector("strong");
+      if (title) title.textContent = viewerState === "waiting" ? "Место забронировано" : hasFreeSeat ? "Займите место" : "Встаньте в очередь";
+      setText("queueStatus", viewerState === "waiting" ? waitingText : hasFreeSeat
+        ? "Первое свободное место · бай-ин 40 BB"
+        : "Свободных мест нет — забронируйте вход после раздачи");
       const button = $("readyButton");
       if (button) {
         button.disabled = viewerState === "waiting";
-        button.textContent = viewerState === "waiting" ? "В очереди…" : "Готов";
+        button.textContent = viewerState === "waiting" ? "Бронь принята" : hasFreeSeat ? "Занять место" : "Встать в очередь";
       }
     }
     const chat = $("chatPanel");
@@ -111,6 +152,17 @@
     ]);
   }
 
+  function renderObserverCopy(state) {
+    if (!["spectator", "waiting"].includes(viewerState)) return;
+    const actor = state?.players?.[state?.acting_player];
+    setText("actionPanelKicker", viewerState === "waiting" ? "МЕСТО ЗАБРОНИРОВАНО" : "НАБЛЮДЕНИЕ");
+    setText("turnTitle", actor ? `Ход: ${actor.name || "игрок"}` : "Смотрите раздачу");
+    setText("hint", viewerState === "waiting"
+      ? "Вход за стол произойдёт после текущей раздачи."
+      : "Смотрите раздачу. Чтобы играть, займите свободное место.");
+    if ($("actionTimer")) $("actionTimer").hidden = true;
+  }
+
   function renderSnapshot(state) {
     latestState = state;
     renderOnlineChrome(state);
@@ -118,6 +170,7 @@
     if (key === lastRenderKey) return;
     lastRenderKey = key;
     window.Poker8LegacyView?.renderSnapshot({ table, state, viewerState });
+    renderObserverCopy(state);
   }
 
   async function refreshState() {
@@ -126,6 +179,7 @@
     const payload = await response.json();
     table = payload.table;
     viewerState = payload.viewer_state || viewerState;
+    window.Poker8Transport?.setRevision?.(payload.state?.revision);
     renderSnapshot(payload.state);
   }
 
@@ -157,12 +211,30 @@
     target.innerHTML = (payload.messages || []).map(row => `<div><b>${escapeHtml(row.user_id || "Игрок")}</b> ${escapeHtml(row.text || "")}</div>`).join("");
   }
 
+  async function returnToLobby() {
+    // Do not call /leave here: closing the socket changes a seated player to
+    // held, which preserves the place for a short reconnect window.
+    if (viewerState === "waiting") await window.Poker8Transport.cancelReady();
+    window.Poker8Transport.disconnect();
+    location.href = "/";
+  }
+
+  async function leaveTable() {
+    if (viewerState === "waiting") {
+      await window.Poker8Transport.cancelReady();
+    } else if (["seated", "held"].includes(viewerState)) {
+      await window.Poker8Transport.leave();
+    }
+    window.Poker8Transport.disconnect();
+    location.href = "/";
+  }
+
   function bindControls() {
-    $("mobileMenuButton")?.addEventListener("click", async () => {
-      // Leaving the page must free the seat, otherwise the lobby refuses to
-      // seat the player anywhere until the hold expires.
-      if (viewerState === "seated") await window.Poker8Transport.leave().catch(() => {});
-      location.href = "/";
+    $("mobileDrawerLobby")?.addEventListener("click", () => returnToLobby().catch(error => alert(error.message)));
+    $("mobileDrawerLeave")?.addEventListener("click", async () => {
+      const waiting = viewerState === "waiting";
+      const message = waiting ? "Отменить очередь на место?" : "Покинуть стол? Во время раздачи выход будет выполнен после её завершения.";
+      if (window.confirm(message)) await leaveTable().catch(error => alert(error.message));
     });
     $("mobileChatButton")?.addEventListener("click", () => {
       const chat = $("chatPanel");
@@ -187,6 +259,9 @@
 
   async function boot() {
     bindControls();
+    // Table pages must authenticate the Telegram Mini App before the first
+    // snapshot; otherwise a retained guest cookie masks the real @username.
+    await window.Poker8Auth?.ensureSession?.();
     await refreshState();
     clearInterval(pollTimer);
     pollTimer = setInterval(() => refreshState().catch(() => {}), 1000);
