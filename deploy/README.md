@@ -20,7 +20,7 @@ docker compose -f compose.server.yaml -f deploy/compose.caddy.yaml logs -f caddy
 Caddy при первом старте сам выпустит сертификат (нужен доступный 80/443 порт и
 корректный DNS). После этого:
 ```
-curl -fsS https://buritoboss.com/health/ready
+curl -fsS https://bubbledouble.cc/health/ready
 ```
 
 ## Заметки

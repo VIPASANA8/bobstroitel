@@ -33,9 +33,10 @@ class EscrowMismatch:
 
     @property
     def fingerprint(self) -> str:
-        return "|".join(
-            (self.table_id, self.code, self.participant_id or "", str(self.expected_units), str(self.actual_units))
-        )
+        # Identifies the mismatch, not its size. Including the amounts would end
+        # one finding and open another every time a stack moves, so a single
+        # standing mismatch would alert on every check.
+        return "|".join((self.table_id, self.code, self.participant_id or ""))
 
     def payload(self) -> dict[str, object]:
         return {
@@ -64,7 +65,7 @@ class EscrowIntegrityMonitor:
         self.telegram_bot_token = os.getenv("POKER8_ALERT_TELEGRAM_BOT_TOKEN", "")
         self.telegram_chat_id = os.getenv("POKER8_ALERT_TELEGRAM_CHAT_ID", "")
         self._next_check_at = 0.0
-        self._open_fingerprints: set[str] = set()
+        self._open_findings: dict[str, dict[str, object]] = {}
         self.last_check_at: datetime | None = None
         self.last_check_duration_ms: float | None = None
         self.last_finding_count = 0
@@ -87,23 +88,19 @@ class EscrowIntegrityMonitor:
                     findings.extend(await self._table_findings(session, table_id))
 
                 current = {finding.fingerprint: finding for finding in findings}
-                opened = [finding for fingerprint, finding in current.items() if fingerprint not in self._open_fingerprints]
-                resolved = self._open_fingerprints.difference(current)
+                opened = [finding for fingerprint, finding in current.items() if fingerprint not in self._open_findings]
+                resolved = [
+                    payload for fingerprint, payload in self._open_findings.items() if fingerprint not in current
+                ]
                 for finding in opened:
                     await self._record(session, "escrow_stack_mismatch", finding.payload())
-                    logger.error("poker8_escrow_stack_mismatch", extra=finding.payload())
-                for fingerprint in resolved:
-                    table_id, code, participant_id, expected, actual = fingerprint.split("|", 4)
-                    payload = {
-                        "table_id": table_id,
-                        "code": code,
-                        "participant_id": participant_id or None,
-                        "expected_units": int(expected),
-                        "actual_units": int(actual),
-                    }
+                    # Chips in flight between accounts read as a mismatch for a
+                    # moment, so this is a signal to look, not a failure.
+                    logger.warning("poker8_escrow_stack_mismatch", extra=finding.payload())
+                for payload in resolved:
                     await self._record(session, "escrow_stack_mismatch_resolved", payload)
                     logger.info("poker8_escrow_stack_mismatch_resolved", extra=payload)
-                self._open_fingerprints = set(current)
+                self._open_findings = {fingerprint: finding.payload() for fingerprint, finding in current.items()}
 
             for finding in opened:
                 await self._send_alert(finding.payload())
