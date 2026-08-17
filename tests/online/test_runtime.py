@@ -177,3 +177,23 @@ async def test_undersized_bot_raise_does_not_pause_the_table(runtime, monkeypatc
     await runtime.system_step("t1")
 
     assert (await runtime.load("t1")).phase != "paused"
+
+
+@pytest.mark.anyio
+async def test_rejected_player_command_leaves_the_table_playable(runtime):
+    """A refused command must not wedge a table full of other players."""
+    from poker.engine import InvalidAction
+
+    snapshot = await runtime.start_hand("t1", button_seat=1)
+    actor = snapshot["acting_player"]
+    revision = (await runtime.load("t1")).revision
+
+    with pytest.raises(InvalidAction):
+        # A raise below the current bet: legal_actions still offers "raise", so
+        # this is refused inside the engine rather than screened out up front.
+        await runtime.action("t1", actor, "bad-1", revision, "raise", 50)
+
+    loaded = await runtime.load("t1")
+    assert loaded.phase != "paused"
+    assert loaded.revision == revision
+    assert loaded.state.acting_player == actor

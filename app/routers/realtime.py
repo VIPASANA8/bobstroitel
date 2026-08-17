@@ -32,6 +32,22 @@ class ConnectionHub:
     def user_connections(self, table_id: str, user_id: str) -> int:
         return sum(1 for user in self.connections.get(table_id, {}).values() if user.user_id == user_id)
 
+    async def broadcast(self, table_id: str, runtime, reason: str = "state_changed") -> None:
+        """Push the table state to every viewer, each with their own hole cards."""
+        for socket, viewer in list(self.connections.get(table_id, {}).items()):
+            try:
+                snapshot = await runtime.public_snapshot(table_id, viewer.user_id)
+                await socket.send_json(_snapshot_message(snapshot, reason))
+            except Exception:
+                continue
+
+    async def broadcast_json(self, table_id: str, message: dict) -> None:
+        for socket in list(self.connections.get(table_id, {})):
+            try:
+                await socket.send_json(message)
+            except Exception:
+                continue
+
 
 async def _authenticate(websocket: WebSocket) -> AuthenticatedUser | None:
     token = websocket.cookies.get(websocket.app.state.settings.session_cookie_name)
@@ -115,12 +131,7 @@ async def table_socket(websocket: WebSocket, table_id: str) -> None:
                     action=str(message["action"]),
                     amount_units=int(message.get("amount_units", 0)),
                 )
-                for socket, viewer in list(hub.connections.get(table_id, {}).items()):
-                    try:
-                        snapshot = await websocket.app.state.runtime.public_snapshot(table_id, viewer.user_id)
-                        await socket.send_json(_snapshot_message(snapshot, "state_changed"))
-                    except Exception:
-                        continue
+                await hub.broadcast(table_id, websocket.app.state.runtime)
             except StaleRevision as error:
                 snapshot = await websocket.app.state.runtime.public_snapshot(table_id, user.user_id)
                 await websocket.send_json(_snapshot_message(snapshot, "stale_revision"))

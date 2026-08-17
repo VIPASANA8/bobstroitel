@@ -379,9 +379,12 @@
       }
       body.v014.poker8-v2-sixmax .seat .seat-card.v032-active-turn .seat-identity{
         border-color:#55fff2!important;
-        box-shadow:0 0 18px rgba(85,255,242,.66)!important;
+        box-shadow:0 0 18px rgba(85,255,242,.66),0 7px 14px rgba(0,0,0,.62)!important;
       }
-      @keyframes v038ActiveTurnPulse{50%{filter:brightness(1.16);box-shadow:0 0 0 4px rgba(1,5,5,.92),0 0 34px rgba(85,255,242,.94),inset 0 -10px 18px rgba(0,0,0,.50)}}
+      /* Pulse the outline only: box-shadow here loses to the !important base rules,
+         so the glow has to ride on filter, and drop-shadow traces the element edge
+         instead of washing the whole plate like brightness() did. */
+      @keyframes v038ActiveTurnPulse{0%,100%{filter:drop-shadow(0 0 2px rgba(85,255,242,.40))}50%{filter:drop-shadow(0 0 9px rgba(85,255,242,.95))}}
       @media (prefers-reduced-motion:reduce){body.v014.poker8-v2-sixmax .seat .seat-card.v032-active-turn :is(.player-avatar,.seat-identity){animation:none!important;}}
       body.v014.poker8-v2-sixmax .seat .seat-card.v032-folded{
         opacity:.28!important;filter:saturate(.18) brightness(.68)!important;box-shadow:none!important;
@@ -680,10 +683,15 @@
     setText(context.querySelector("strong"), `ХОД · ${actor?.name || "ИГРОК"}`);
     const invested = Number(actor?.street_invested || 0);
     setText(context.querySelector("span"), invested > 0 ? `ПОСТАВИЛ · ${compactStackLabel(invested)}` : "");
-    const left = Math.max(0, TURN_VISUAL_MS - (Date.now() - turnVisualStartedAt));
+    // The server owns the clock and folds on its own deadline, so a locally
+    // restarted countdown would promise time the player does not have.
+    const deadline = game.action_deadline ? Date.parse(game.action_deadline) : NaN;
+    const left = Number.isNaN(deadline)
+      ? Math.max(0, TURN_VISUAL_MS - (Date.now() - turnVisualStartedAt))
+      : Math.max(0, deadline - Date.now());
     const seconds = Math.ceil(left / 1000);
     setText(timer.querySelector("b"), String(seconds));
-    timer.style.setProperty("--timer-progress", `${left / TURN_VISUAL_MS * 100}%`);
+    timer.style.setProperty("--timer-progress", `${Math.min(100, left / TURN_VISUAL_MS * 100)}%`);
     if (!turnVisualTicker) turnVisualTicker = window.setInterval(syncTableTurnHud, 250);
   }
 

@@ -22,11 +22,16 @@ class OnlineCoordinator:
         catalogue: Catalogue,
         *,
         interval_seconds: float = 0.25,
+        on_change=None,
     ) -> None:
         self.runtime = runtime
         self.seating = seating
         self.catalogue = catalogue
         self.interval_seconds = interval_seconds
+        # Bot moves, timeouts and hand boundaries all happen here rather than on
+        # a client command, so without this the only way a viewer learns about
+        # them is the slow fallback poll.
+        self.on_change = on_change
         self._stop = asyncio.Event()
 
     def now(self) -> datetime:
@@ -37,7 +42,17 @@ class OnlineCoordinator:
         for table in tables:
             await self._tick_table(table.id)
 
+    def _signature(self, table_id: str):
+        loaded = self.runtime._tables.get(table_id)
+        return None if loaded is None else (loaded.revision, loaded.phase, loaded.state.acting_player)
+
     async def _tick_table(self, table_id: str) -> None:
+        before = self._signature(table_id)
+        await self._advance_table(table_id)
+        if self.on_change is not None and self._signature(table_id) != before:
+            await self.on_change(table_id)
+
+    async def _advance_table(self, table_id: str) -> None:
         now = self.now()
         loaded = await self.runtime.load(table_id)
         if loaded is None or loaded.phase == "waiting":

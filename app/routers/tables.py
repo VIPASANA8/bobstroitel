@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -8,6 +10,8 @@ from app.dependencies import AuthenticatedUser, get_current_user
 from online.schema import poker_tables, seat_queue, table_seats
 from online.seating import AlreadySeated, SeatingError
 
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/tables", tags=["tables"])
 
@@ -55,6 +59,9 @@ async def table_snapshot(
     try:
         state = await request.app.state.runtime.public_snapshot(table_id, user.user_id)
     except Exception:
+        # A table with no runtime yet is normal and renders as an empty table.
+        # Anything else looks identical to the player, so it has to reach the log.
+        logger.exception("table snapshot failed", extra={"table_id": table_id})
         state = {
             "phase": "waiting", "revision": 0, "occupancy": 0,
             "legal_actions": [], "players": {}, "action_deadline": None,

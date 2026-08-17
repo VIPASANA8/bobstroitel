@@ -207,7 +207,10 @@ async function maybeAutoFirePendingAction() {
 
 function startActionTimer() {
   stopActionTimer();
-  actionDeadline = Date.now() + 30000;
+  // Network hands carry the server deadline; a local hand has none and keeps
+  // the fixed 30 s clock.
+  const serverDeadline = game?.action_deadline ? Date.parse(game.action_deadline) : NaN;
+  actionDeadline = Number.isNaN(serverDeadline) ? Date.now() + 30000 : serverDeadline;
   actionTurnToken = turnToken();
   const el = $("actionTimer");
   if (!el) return;

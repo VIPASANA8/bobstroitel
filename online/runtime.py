@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+import math
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -25,6 +27,9 @@ from online.schema import (
 from online.serialization import deserialize_state, serialize_state
 from poker.engine import InvalidAction, PokerEngine
 from poker.models import ActionType, GameState
+
+
+logger = logging.getLogger(__name__)
 
 
 class RuntimeErrorBase(RuntimeError):
@@ -242,6 +247,10 @@ class TableRuntimeManager:
                 table = await self._table(session, table_id)
                 engine_amount = float(amount_units) / float(table["big_blind_units"])
                 before = serialize_state(loaded.state)
+                # Decrementing on failure would walk the revision backwards when
+                # the action was refused before it ever incremented, leaving the
+                # in-memory table behind the stored one.
+                revision_before = loaded.revision
                 try:
                     self.engine.apply_action(loaded.state, participant_id, engine_action, engine_amount)
                     loaded.revision += 1
@@ -270,9 +279,17 @@ class TableRuntimeManager:
                     await session.commit()
                     self._action_counts[table_id] = self._action_counts.get(table_id, 0) + 1
                     return result
+                except InvalidAction:
+                    # The engine validates before it mutates, so a refused action
+                    # leaves the hand intact. Pausing here would let one bad
+                    # command — from a bot or a client — wedge the table for good.
+                    loaded.state = deserialize_state(before)
+                    loaded.revision = revision_before
+                    await session.rollback()
+                    raise
                 except Exception as error:
                     loaded.state = deserialize_state(before)
-                    loaded.revision = max(0, loaded.revision - 1)
+                    loaded.revision = revision_before
                     await session.rollback()
                     await self._pause_after_failure(table_id, loaded, str(error))
                     raise
@@ -295,27 +312,43 @@ class TableRuntimeManager:
             decision = bot.decide(deserialize_state(bot_view_payload), actor)
             if decision.action not in legal:
                 decision.action = legal[0]
-            # An under-sized bot raise is rejected by the engine, and a rejected
-            # action pauses the table for good. Keep the amount in range.
-            if decision.action in (ActionType.RAISE, ActionType.BET):
-                player = loaded.state.players[actor]
-                ceiling = player.street_invested + player.stack
-                floor = min(self.engine.min_raise_to(loaded.state, actor), ceiling)
-                decision.amount = min(max(decision.amount, floor), ceiling)
             async with self.session_factory() as session:
                 table = await self._table(session, table_id)
-                amount_units = round(decision.amount * table["big_blind_units"])
+            # An under-sized bot raise is rejected by the engine, and a rejected
+            # action pauses the table for good. Clamp in whole units, because the
+            # engine works in float big blinds and rounding a clamped big-blind
+            # amount can land back outside the range it just fit.
+            amount_units = round(decision.amount * table["big_blind_units"])
+            if decision.action in (ActionType.RAISE, ActionType.BET):
+                player = loaded.state.players[actor]
+                ceiling = math.floor((player.street_invested + player.stack) * table["big_blind_units"])
+                floor = math.ceil(
+                    min(self.engine.min_raise_to(loaded.state, actor), player.street_invested + player.stack)
+                    * table["big_blind_units"]
+                )
+                amount_units = min(max(amount_units, min(floor, ceiling)), ceiling)
             user_id = actor
             command_id = f"system:{loaded.state.hand_id}:{loaded.revision}"
             # Re-enter through action without deadlocking this table lock.
-        result = await self.action(
-            table_id,
-            user_id,
-            command_id,
-            loaded.revision,
-            decision.action.value,
-            amount_units,
-        )
+        try:
+            result = await self.action(
+                table_id, user_id, command_id, loaded.revision, decision.action.value, amount_units,
+            )
+        except InvalidAction as error:
+            # A bot that cannot be made to act must not wedge a table full of
+            # real players. Fall back to the safest legal move instead.
+            fallback = next(
+                (item for item in (ActionType.CHECK, ActionType.CALL, ActionType.FOLD) if item in legal),
+                legal[0],
+            )
+            logger.warning(
+                "bot action %s for %s units rejected (%s), falling back to %s",
+                decision.action.value, amount_units, error, fallback.value,
+                extra={"table_id": table_id},
+            )
+            result = await self.action(
+                table_id, user_id, f"{command_id}:fallback", loaded.revision, fallback.value, 0,
+            )
         return RuntimeActionResult(
             result.command_id, result.table_id, result.revision, result.action, [item.value for item in legal], result.snapshot
         )

@@ -53,7 +53,10 @@
   }
 
   function phaseLabel(state) {
-    const phase = state?.phase || "waiting";
+    let phase = state?.phase || "waiting";
+    // The runtime drops to "waiting" for the instant between clearing a hand and
+    // dealing the next one. Showing it makes the label flicker mid-countdown.
+    if (phase === "waiting" && state?.next_hand_at && Date.parse(state.next_hand_at) > Date.now()) phase = "countdown";
     return { waiting: "ОЖИДАНИЕ", countdown: "COUNTDOWN", active: "РАЗДАЧА", result: "ВСКРЫТИЕ", paused: "ПАУЗА" }[phase] || phase.toUpperCase();
   }
 
@@ -76,7 +79,7 @@
       // The queue seats players at the next hand boundary, so the panel stays
       // available while a hand is running.
       ready.hidden = !["spectator", "waiting"].includes(viewerState);
-      setText("queueStatus", viewerState === "waiting" ? "Место занято — ждём свободный вход между раздачами" : "Выберите свободное место и бай-ин от 40 BB");
+      setText("queueStatus", viewerState === "waiting" ? "Место занято — ждём свободный вход между раздачами" : "Свободное место подберётся само — бай-ин 40 BB");
       const button = $("readyButton");
       if (button) {
         button.disabled = viewerState === "waiting";
@@ -150,11 +153,24 @@
     }
   }
 
+  const chatRow = row => `<div><b>${escapeHtml(row.user_id || "Игрок")}</b> ${escapeHtml(row.text || "")}</div>`;
+
+  function appendChat(row) {
+    $("chatMessages")?.insertAdjacentHTML("beforeend", chatRow(row));
+  }
+
   async function loadChat() {
     const payload = await window.Poker8Transport.loadChat().catch(() => ({ messages: [] }));
     const target = $("chatMessages");
     if (!target) return;
-    target.innerHTML = (payload.messages || []).map(row => `<div><b>${escapeHtml(row.user_id || "Игрок")}</b> ${escapeHtml(row.text || "")}</div>`).join("");
+    target.innerHTML = (payload.messages || []).map(chatRow).join("");
+  }
+
+  function showRejection(reason) {
+    const target = $("connectionStatus");
+    if (target) target.textContent = `отклонено: ${reason || "неизвестно"}`;
+    // The snapshot the action was based on is stale by definition here.
+    window.Poker8Transport.resync();
   }
 
   function bindControls() {
@@ -179,8 +195,7 @@
       const input = $("chatInput");
       const text = input?.value.trim();
       if (!text) return;
-      const sent = await window.Poker8Transport.sendChat(text);
-      $("chatMessages")?.insertAdjacentHTML("beforeend", `<div><b>${escapeHtml(sent.user_id || "Игрок")}</b> ${escapeHtml(sent.text || "")}</div>`);
+      await window.Poker8Transport.sendChat(text);
       input.value = "";
     });
   }
@@ -189,10 +204,16 @@
     bindControls();
     await refreshState();
     clearInterval(pollTimer);
-    pollTimer = setInterval(() => refreshState().catch(() => {}), 1000);
+    // The socket now carries coordinator-driven changes too, so this is only a
+    // safety net for a dropped connection.
+    pollTimer = setInterval(() => refreshState().catch(() => {}), 3000);
     window.Poker8Transport.connect(tableId, {
       onStatus: status => setText("connectionStatus", status),
-      onMessage: message => { if (message.state) renderSnapshot(message.state); },
+      onMessage: message => {
+        if (message.state) renderSnapshot(message.state);
+        if (message.type === "chat") appendChat(message.message || {});
+        if (message.type === "command_rejected") showRejection(message.reason);
+      },
     });
     await loadChat();
   }

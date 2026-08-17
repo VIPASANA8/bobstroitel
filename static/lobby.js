@@ -13,7 +13,17 @@
     $('tableGrid').innerHTML = tables.map((table, index) => `<article class="table-card" style="--delay:${index * 45}ms"><div class="card-top"><span class="table-index">0${index + 1}</span><span class="table-state">● OPEN</span></div><h3>${table.name}</h3><p class="blinds">Blinds <b>${format(table.small_blind_units)} / ${format(table.big_blind_units)}</b></p><div class="card-bottom"><span>Entry ${buyInRange(table)}</span><span>${table.occupied_count} / 6</span></div><button class="card-action" data-table="${table.id}">Смотреть стол <span>↗</span></button></article>`).join('');
     document.querySelectorAll('[data-table]').forEach(button => button.addEventListener('click', () => openBuyIn(tables.find(table => table.id === button.dataset.table))));
   }
-  function openBuyIn(table) { selected = table; $('buyInTable').textContent = `${table.name} · ${format(table.small_blind_units)} / ${format(table.big_blind_units)} BB`; $('buyInUnits').value = table.min_buy_in_units; $('buyInDialog').showModal(); }
+  function openBuyIn(table) {
+    selected = table;
+    $('buyInTable').textContent = `${table.name} · ${format(table.small_blind_units)} / ${format(table.big_blind_units)} BB`;
+    // Every table has its own blinds, so the limits cannot live in the markup.
+    const input = $('buyInUnits');
+    input.min = table.min_buy_in_units;
+    input.max = table.max_buy_in_units;
+    input.step = table.big_blind_units;
+    input.value = table.min_buy_in_units;
+    $('buyInDialog').showModal();
+  }
   const openTable = id => { window.location.href = `/table?table=${encodeURIComponent(id)}`; };
   $('buyInForm').addEventListener('submit', async event => {
     event.preventDefault();

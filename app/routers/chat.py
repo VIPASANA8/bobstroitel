@@ -26,4 +26,9 @@ async def post_chat(table_id: str, payload: ChatRequest, request: Request, user:
         raise HTTPException(status_code=429, detail={"code": "chat_rate_limited", "message": str(exc)}) from exc
     except ChatError as exc:
         raise HTTPException(status_code=400, detail={"code": "invalid_chat", "message": str(exc)}) from exc
-    return {"id": row.id, "user_id": row.user_id, "text": row.text, "created_at": row.created_at.isoformat()}
+    message = {"id": row.id, "user_id": row.user_id, "text": row.text, "created_at": row.created_at.isoformat()}
+    hub = getattr(request.app.state, "connection_hub", None)
+    if hub is not None:
+        # Nothing else reloads the log, so without this only the sender sees it.
+        await hub.broadcast_json(table_id, {"type": "chat", "message": message})
+    return message

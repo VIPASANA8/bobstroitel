@@ -71,6 +71,9 @@ class GameState:
     min_raise_size: float = 1.0
     last_aggressor: Optional[str] = None
     pending_actions: set[str] = field(default_factory=set)
+    # Faced a short all-in after already matching the bet: may call or fold,
+    # but not raise. Cleared by a full raise and by every new street.
+    raise_capped: set[str] = field(default_factory=set)
 
     winner: Optional[str] = None
     winners: list[str] = field(default_factory=list)

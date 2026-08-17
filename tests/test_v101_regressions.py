@@ -150,7 +150,10 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'minimumFractionDigits: 0' in polish_source
     assert 'actor?.street_invested' in source
     assert 'window.clearInterval(turnVisualTicker)' in source
-    assert 'actionDeadline = Date.now() + 30000' in app_source
+    # The clock follows the server deadline and only falls back to a fixed 30 s
+    # for local hands, which carry no deadline.
+    assert 'game?.action_deadline ? Date.parse(game.action_deadline) : NaN' in app_source
+    assert 'Date.now() + 30000 : serverDeadline' in app_source
     assert 'left / 30000 * 100' in app_source
     assert '.seat-card.v032-folded' in source
     assert '.seat-card.all-in' in source

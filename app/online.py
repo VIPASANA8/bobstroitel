@@ -90,12 +90,17 @@ def create_app(
         await app.state.seating.hold_all_users(datetime.now(timezone.utc))
         if fixture is not None:
             await fixture(app)
-        app.state.coordinator = OnlineCoordinator(app.state.runtime, app.state.seating, catalogue)
+        app.state.connection_hub = realtime.ConnectionHub()
+        app.state.coordinator = OnlineCoordinator(
+            app.state.runtime,
+            app.state.seating,
+            catalogue,
+            on_change=lambda table_id: app.state.connection_hub.broadcast(table_id, app.state.runtime),
+        )
         app.state.coordinator_task = None
         if settings.coordinator_enabled:
             app.state.coordinator_task = asyncio.create_task(app.state.coordinator.run())
         app.state.restore_completed = True
-        app.state.connection_hub = realtime.ConnectionHub()
         app.state.tenant_hosts = {
             host.lower(): slug
             for slug, config in settings.tenant_configs.items()

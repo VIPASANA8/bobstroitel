@@ -66,3 +66,39 @@ async def test_coordinator_advances_result_to_next_hand(coordinator):
     loaded.next_hand_at = coordinator.now()
     await coordinator.tick()
     assert coordinator.runtime._tables["t1"].phase == "active"
+
+
+@pytest.mark.anyio
+async def test_coordinator_notifies_on_every_state_change(coordinator):
+    """Bot moves and hand boundaries only reach viewers through this callback."""
+    seen: list[str] = []
+    coordinator.on_change = lambda table_id: _record(seen, table_id)
+
+    await coordinator.tick()
+    assert seen == ["t1"]
+
+    before = coordinator.runtime._tables["t1"].revision
+    for _ in range(20):
+        await coordinator.tick()
+        if coordinator.runtime._tables["t1"].revision != before:
+            break
+    else:
+        pytest.fail("no bot action advanced the table")
+
+    assert len(seen) > 1
+
+
+@pytest.mark.anyio
+async def test_coordinator_stays_quiet_when_nothing_changes(coordinator):
+    seen: list[str] = []
+    await coordinator.tick()
+    coordinator.runtime._tables["t1"].state.acting_player = None
+    coordinator.on_change = lambda table_id: _record(seen, table_id)
+
+    await coordinator.tick()
+
+    assert seen == []
+
+
+async def _record(seen: list[str], table_id: str) -> None:
+    seen.append(table_id)

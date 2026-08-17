@@ -64,7 +64,9 @@ class SeatingService:
                 minimum = table["big_blind_units"] * table["min_buy_in_bb"]
                 maximum = table["big_blind_units"] * table["max_buy_in_bb"]
                 if not minimum <= buy_in_units <= maximum:
-                    raise SeatingError("buy-in must be between 40 and 100 BB")
+                    raise SeatingError(
+                        f"buy-in must be between {table['min_buy_in_bb']} and {table['max_buy_in_bb']} BB"
+                    )
                 occupied = (
                     await session.execute(
                         select(table_seats.c.table_id, table_seats.c.state).where(

@@ -1,12 +1,18 @@
 # Project Status
 
-Plan: `2026-08-14-online-mvp-foundation.md`
-Task: 1
-Step: 1
-State: `completed`
-Commit: `8fa1092768b70c1f03081091030b9faa9d49c3e8`
-Note: 
+Plan: `2026-08-14-online-network-mvp-roadmap.md`
+Task: MVP polish
+Step: testing
+State: `in_progress`
+Commit: `cc36d7686817a882da01d05752193d182f1c4636`
+Note: Тестовый проход перед MVP. Закрыты: пуш состояния из координатора по WebSocket,
+синхронизация таймера хода с серверным дедлайном, обработка отклонённых команд,
+чат в реальном времени, живучесть стола при отказе движка, правило недобора ол-ина,
+лимиты бай-ина из данных стола.
 Evidence:
-- Focused table-store test: 2 passed; poker8_project tests: 41 passed, 3 skipped; full suite: 98 passed, 3 skipped; uv pip check: all installed packages are compatible.
+- `python -m pytest -q`: 190 passed, 3 skipped, 2 deselected.
+- Живой прогон (uvicorn + sqlite, координатор включён): координатор пушит каждую
+  ревизию (1–5 подряд, пропусков нет), чат доходит по сокету, отклонённая команда
+  не ставит стол на паузу.
 
-<!-- poker8-project-state {"active_plan":"2026-08-14-online-mvp-foundation.md","active_step":1,"active_task":1,"evidence":["Focused table-store test: 2 passed; poker8_project tests: 41 passed, 3 skipped; full suite: 98 passed, 3 skipped; uv pip check: all installed packages are compatible."],"last_confirmed_commit":"8fa1092768b70c1f03081091030b9faa9d49c3e8","note":"","schema_version":1,"state":"completed","updated_at":"2026-08-14T23:49:03.939793Z"} -->
+<!-- poker8-project-state {"active_plan":"2026-08-14-online-network-mvp-roadmap.md","active_step":"testing","active_task":"MVP polish","evidence":["python -m pytest -q: 190 passed, 3 skipped, 2 deselected.","Live run: coordinator pushes every revision over the socket, chat arrives live, a rejected command no longer pauses the table."],"last_confirmed_commit":"cc36d7686817a882da01d05752193d182f1c4636","note":"MVP polish pass","schema_version":1,"state":"in_progress","updated_at":"2026-08-17T00:00:00Z"} -->
