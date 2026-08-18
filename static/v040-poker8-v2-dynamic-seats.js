@@ -90,7 +90,17 @@
 
   function playerForSeat(gameState, seat) {
     const physical = Number(seat.dataset.seat);
-    return Object.values(gameState?.players || {}).find(player => Number(player?.seat) === physical) || null;
+    const fromGame = Object.values(gameState?.players || {}).find(player => Number(player?.seat) === physical) || null;
+    if (fromGame) return fromGame;
+    // A seat can be occupied without being in gameState.players -- e.g.
+    // someone seated while a hand they aren't dealt into is running (see
+    // current_seats on the server, and the same fallback in app.js's
+    // seatHtml/renderSeats). The seat-card app.js already rendered for them
+    // is the only signal of that here; .viewer-seat is the same fallback's
+    // own "is this you" marker, reused instead of re-deriving it a third time.
+    const card = seat.querySelector(".seat-card");
+    if (!card) return null;
+    return { seat: physical, id: null, isViewerCard: card.classList.contains("viewer-seat") };
   }
 
   function orderedActiveSeats(gameState, tableState) {
@@ -99,7 +109,10 @@
     if (!active.length) return { active, viewer: null };
 
     const viewerId = gameState?.viewer_player_id;
-    let viewer = active.find(seat => playerForSeat(gameState, seat)?.id === viewerId) || null;
+    let viewer = active.find(seat => {
+      const player = playerForSeat(gameState, seat);
+      return player?.id === viewerId || player?.isViewerCard;
+    }) || null;
     if (!viewer) {
       const currentProfile = gameState?.active_profile_id || tableState?.active_profile_id;
       viewer = active.find(seat => {

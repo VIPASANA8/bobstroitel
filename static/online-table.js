@@ -339,7 +339,15 @@
   }
 
   function isPreHand() {
-    return !latestState || latestState.terminal;
+    if (!latestState) return true;
+    if (latestState.terminal) return true;
+    // A seat that bought in while a hand was already running sits out that
+    // hand entirely (state.players has nothing for them -- see current_seats
+    // on the server). There is no live action of theirs a ready toggle could
+    // possibly be confused with, so they must still be able to mark ready
+    // for whichever hand deals next, exactly like between two hands.
+    const viewerId = latestState.viewer_player_id;
+    return Boolean(viewerId && !latestState.players?.[viewerId]);
   }
 
   async function readyUp() {

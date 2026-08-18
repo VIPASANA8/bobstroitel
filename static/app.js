@@ -823,8 +823,14 @@ function currentSeatConfig(seatNumber) {
 }
 
 function gamePlayerForSeat(seatNumber) {
-  if (!game) return null;
-  return Object.values(game.players || {}).find(p => Number(p.seat) === Number(seatNumber)) || null;
+  const fromGame = game ? Object.values(game.players || {}).find(p => Number(p.seat) === Number(seatNumber)) || null : null;
+  if (fromGame) return fromGame;
+  // A seat sitting out the hand in progress (bought in after it started) has
+  // nothing in game.players -- current_seats is where the server puts them
+  // instead, and it's the only source with their real id, which is what
+  // seatHtml's isViewer check actually needs (tableData.seats has no id field).
+  const row = tableData?.current_seats?.[seatNumber];
+  return row ? { ...row, seat: seatNumber, stack: 0, hole_cards: [] } : null;
 }
 
 function avatarInitials(name, isBot = false) {
@@ -1592,6 +1598,11 @@ window.Poker8LegacyView = {
       // (set every phase) rather than on `game`, which is null exactly then.
       ready_seats: state?.ready_seats || [],
       hand_starts_at: state?.hand_starts_at || null,
+      // gamePlayerForSeat falls back to this for a seat sitting out the
+      // current hand -- current_seats itself is only a local in this
+      // function, so it has to be persisted here to still be reachable from
+      // renderSeats(), which runs later off the module-level game/tableData.
+      current_seats: state?.current_seats || null,
     };
     game = onlineGame;
     renderGame();

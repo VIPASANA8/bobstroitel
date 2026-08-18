@@ -274,12 +274,20 @@ class TableRuntimeManager:
         if loaded is None:
             raise RuntimeErrorBase("table runtime not found")
         participant_id = await self._participant_for_user(table_id, viewer_user_id) if viewer_user_id else None
-        # A freshly bought-in seat only joins state.players at the next hand
-        # boundary, so between hands (waiting for ready-up, countdown) that
-        # dict still only reflects whoever played the last hand -- a newly
-        # seated player has nothing to render and nothing to click ready on.
-        # This is sourced independently from the actual seating instead.
-        current_seats = await self._current_seating(table_id) if loaded.phase in ("waiting", "countdown") else None
+        # A seat only joins state.players at the next hand boundary -- whether
+        # because no hand exists yet (waiting for ready-up, countdown) or
+        # because one was already running when this player bought in, so they
+        # are sitting out the hand in progress. Either way state.players has
+        # nothing for them yet, so they'd have no avatar to render and nothing
+        # to click ready on. This is sourced independently from the actual
+        # seating instead, whenever that gap applies to this specific viewer
+        # (not fetched for everyone on every poll -- only the one case that
+        # actually needs it).
+        current_seats = (
+            await self._current_seating(table_id)
+            if participant_id is not None and participant_id not in loaded.state.players
+            else None
+        )
         return self._snapshot_for_state(loaded, participant_id, table_id, current_seats)
 
     async def private_snapshot(self, table_id: str) -> dict[str, Any]:

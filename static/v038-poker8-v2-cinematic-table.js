@@ -614,7 +614,11 @@
     const ready = window.Poker8OnlineTable
       ? (tableData?.ready_seats || []).includes(Number(seat.dataset.seat))
       : viewerReadySnapshot;
-    const preHand = !game;
+    // A seat that bought in mid-hand sits that hand out entirely (game exists,
+    // but this viewer isn't one of game.players) -- readyUp() in online-table.js
+    // already accepts a ready toggle then, so the avatar needs to look and
+    // behave clickable then too, not just once game goes back to null.
+    const preHand = !game || !game.players?.[game.viewer_player_id];
     wrap.classList.toggle("v038-viewer-ready", ready && preHand);
     wrap.toggleAttribute("role", preHand);
     if (preHand) {
@@ -792,8 +796,12 @@
     document.body.classList.toggle("v038-room-awaiting", room);
     const prompt = ensureRoomPrompt();
     if (window.Poker8OnlineTable) {
+      // Sitting out a hand that started before this seat joined looks exactly
+      // like "room" here too (no cards, no action of theirs) -- the prompt
+      // must stay up so they still see "click your avatar" while it runs.
+      const sittingOut = Boolean(game) && !game.players?.[game.viewer_player_id];
       syncOnlineRoomPrompt(prompt);
-      prompt?.classList.toggle("visible", room);
+      prompt?.classList.toggle("visible", room || sittingOut);
       cancelRoomReset();
       return;
     }

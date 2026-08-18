@@ -269,3 +269,45 @@ async def test_fold_if_acting_is_a_no_op_off_turn(runtime):
 
     assert result is None
     assert not (await runtime.load("t1")).state.terminal
+
+
+@pytest.mark.anyio
+async def test_public_snapshot_surfaces_a_seat_that_joined_after_the_hand_started(runtime, db_session_factory):
+    """A seat that bought in while a hand was already running sits that hand
+    out (state.players has nothing for them), so without current_seats they
+    would have no avatar to render and no way to ever click ready."""
+    await runtime.start_hand("t1")
+
+    async with db_session_factory() as session:
+        await session.execute(insert(users).values(
+            id="u2", telegram_user_id=2, display_name="B", acquisition_tenant_id="tenant",
+        ))
+        await session.execute(insert(table_seats).values(
+            id="seat-u2", table_id="t1", seat_no=2, occupant_kind="user",
+            user_id="u2", stack_units=100_000, state="seated",
+        ))
+        await session.commit()
+
+    snapshot = await runtime.public_snapshot("t1", "u2")
+
+    assert snapshot["phase"] == "active"
+    assert "u2" not in snapshot["players"]
+    assert snapshot["current_seats"] is not None
+    assert snapshot["current_seats"][2]["id"] == "u2"
+
+
+@pytest.mark.anyio
+async def test_public_snapshot_skips_the_extra_query_for_an_active_participant(runtime, human_turn, monkeypatch):
+    """The common case (already dealt in) must not pay for a lookup it never uses."""
+    called = False
+
+    async def fail_if_called(self, table_id):
+        nonlocal called
+        called = True
+        return {}
+
+    monkeypatch.setattr(TableRuntimeManager, "_current_seating", fail_if_called)
+    snapshot = await runtime.public_snapshot(human_turn.table_id, human_turn.user_id)
+
+    assert not called
+    assert snapshot["current_seats"] is None
