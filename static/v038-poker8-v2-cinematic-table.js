@@ -1059,75 +1059,79 @@
     }
     grid.dataset.v038ReferenceActions = "1";
     [...grid.children].forEach((button, index) => {
-      const def = defs[index];
-      const slot = ["call", "all_in", "left", "aggressive"][index];
-      button.type = "button";
-      button.dataset.actionKey = def.key;
-      button.dataset.v038Slot = slot;
-      button.dataset.v038ReferenceAction = "1";
-      button.className = `action-slot ${def.cls}`;
-      button.classList.toggle("queued", pendingAction?.kind === def.key);
-      button.classList.toggle("v038-all-in-armed", allInArmedSource === def.key);
-      if (def.allIn) button.dataset.v038AllInTrigger = "1";
-      else delete button.dataset.v038AllInTrigger;
-      let label = button.querySelector(".v038-action-label");
-      let value = button.querySelector(".v038-action-amount");
-      if (!label || !value) {
-        button.innerHTML = '<span class="v038-action-label"></span><span class="v038-action-amount"></span>';
-        label = button.firstElementChild;
-        value = button.lastElementChild;
-      }
-      setText(label, def.label);
-      if (value.textContent !== def.amount) {
-        setText(value, def.amount);
-        value.classList.remove("v038-amount-pulse");
-        void value.offsetWidth;
-        value.classList.add("v038-amount-pulse");
-      }
-      button.setAttribute("aria-label", `${def.label}${def.amount ? ` ${def.amount}` : ""}`);
-      let enabled = Boolean(game && !game.terminal && alive && !window.Poker8Transport?.isActionPending?.());
-      if (localTurn) {
-        if (def.key === "check") enabled = enabled && legal.includes("check");
-        else if (def.key === "fold") enabled = enabled && legal.includes("fold");
-        else if (def.key === "call") enabled = enabled && legal.includes("call");
-        else if (def.key === "all_in") enabled = enabled && legal.includes("all_in");
-        else if (def.allIn) enabled = enabled && (legal.includes("bet") || legal.includes("raise"));
-        else enabled = enabled && (legal.includes("bet") || legal.includes("raise"));
-      } else {
-        // While another player acts, every enabled control is an explicit
-        // pre-action. It is revalidated against the snapshot at execution.
-        if (def.key === "call") enabled = enabled && toCall > 0;
-        button.setAttribute("aria-description", "Предвыбор: действие будет перепроверено на вашем ходе");
-      }
-      button.disabled = !enabled;
-      button.onclick = () => {
-        if (!game || game.terminal || !localPlayerAlive() || window.Poker8Transport?.isActionPending?.()) return;
-        const liveTurn = isLocalHumanTurn();
-        const liveLegal = game.human_legal_actions || [];
-        const liveToCall = estimatedLocalToCall();
-        const liveAmount = Number(document.getElementById("amount")?.value || amountBounds().value || 0);
-        const liveKey = slot === "left"
-          ? (liveTurn ? (liveLegal.includes("check") ? "check" : "fold") : (liveToCall > 0 ? "fold" : "check"))
-          : slot === "aggressive" ? "aggressive" : slot;
-        // Не исполнять команду от button, если между её отрисовкой и касанием пришёл новый snapshot.
-        if (button.dataset.actionKey !== liveKey) {
-          queueSync();
-          return;
+      try {
+        const def = defs[index];
+        const slot = ["call", "all_in", "left", "aggressive"][index];
+        button.type = "button";
+        button.dataset.actionKey = def.key;
+        button.dataset.v038Slot = slot;
+        button.dataset.v038ReferenceAction = "1";
+        button.className = `action-slot ${def.cls}`;
+        button.classList.toggle("queued", pendingAction?.kind === def.key);
+        button.classList.toggle("v038-all-in-armed", allInArmedSource === def.key);
+        if (def.allIn) button.dataset.v038AllInTrigger = "1";
+        else delete button.dataset.v038AllInTrigger;
+        let label = button.querySelector(".v038-action-label");
+        let value = button.querySelector(".v038-action-amount");
+        if (!label || !value) {
+          button.innerHTML = '<span class="v038-action-label"></span><span class="v038-action-amount"></span>';
+          label = button.firstElementChild;
+          value = button.lastElementChild;
         }
-        const liveAllIn = slot === "all_in" || (slot === "aggressive" && Math.abs(liveAmount - Number(amountBounds().max || 0)) < 1e-9);
-        if (liveAllIn) return confirmAllIn(slot === "aggressive" ? "aggressive" : "all_in", liveTurn, liveAmount, liveLegal);
-        if (!liveTurn) {
-          togglePendingAction(liveKey);
-          renderMobileSelectedCard();
-          queueSync();
-          return;
+        setText(label, def.label);
+        if (value.textContent !== def.amount) {
+          setText(value, def.amount);
+          value.classList.remove("v038-amount-pulse");
+          void value.offsetWidth;
+          value.classList.add("v038-amount-pulse");
         }
-        clearPendingAction(false);
-        if (liveKey === "check") return sendAction("check", 0);
-        if (liveKey === "fold") return sendAction("fold", 0);
-        if (liveKey === "call") return sendAction("call", 0);
-        return sendAction(liveLegal.includes("raise") ? "raise" : "bet", liveAmount);
-      };
+        button.setAttribute("aria-label", `${def.label}${def.amount ? ` ${def.amount}` : ""}`);
+        let enabled = Boolean(game && !game.terminal && alive && !window.Poker8Transport?.isActionPending?.());
+        if (localTurn) {
+          if (def.key === "check") enabled = enabled && legal.includes("check");
+          else if (def.key === "fold") enabled = enabled && legal.includes("fold");
+          else if (def.key === "call") enabled = enabled && legal.includes("call");
+          else if (def.key === "all_in") enabled = enabled && legal.includes("all_in");
+          else if (def.allIn) enabled = enabled && (legal.includes("bet") || legal.includes("raise"));
+          else enabled = enabled && (legal.includes("bet") || legal.includes("raise"));
+        } else {
+          // While another player acts, every enabled control is an explicit
+          // pre-action. It is revalidated against the snapshot at execution.
+          if (def.key === "call") enabled = enabled && toCall > 0;
+          button.setAttribute("aria-description", "Предвыбор: действие будет перепроверено на вашем ходе");
+        }
+        button.disabled = !enabled;
+        button.onclick = () => {
+          if (!game || game.terminal || !localPlayerAlive() || window.Poker8Transport?.isActionPending?.()) return;
+          const liveTurn = isLocalHumanTurn();
+          const liveLegal = game.human_legal_actions || [];
+          const liveToCall = estimatedLocalToCall();
+          const liveAmount = Number(document.getElementById("amount")?.value || amountBounds().value || 0);
+          const liveKey = slot === "left"
+            ? (liveTurn ? (liveLegal.includes("check") ? "check" : "fold") : (liveToCall > 0 ? "fold" : "check"))
+            : slot === "aggressive" ? "aggressive" : slot;
+          // Не исполнять команду от button, если между её отрисовкой и касанием пришёл новый snapshot.
+          if (button.dataset.actionKey !== liveKey) {
+            queueSync();
+            return;
+          }
+          const liveAllIn = slot === "all_in" || (slot === "aggressive" && Math.abs(liveAmount - Number(amountBounds().max || 0)) < 1e-9);
+          if (liveAllIn) return confirmAllIn(slot === "aggressive" ? "aggressive" : "all_in", liveTurn, liveAmount, liveLegal);
+          if (!liveTurn) {
+            togglePendingAction(liveKey);
+            renderMobileSelectedCard();
+            queueSync();
+            return;
+          }
+          clearPendingAction(false);
+          if (liveKey === "check") return sendAction("check", 0);
+          if (liveKey === "fold") return sendAction("fold", 0);
+          if (liveKey === "call") return sendAction("call", 0);
+          return sendAction(liveLegal.includes("raise") ? "raise" : "bet", liveAmount);
+        };
+      } catch (error) {
+        console.error("[v038] configureReferenceActions button failed", error);
+      }
     });
   }
 
@@ -1172,23 +1176,35 @@
     if (typeof renderPersistentActionButtons === "function") renderPersistentActionButtons();
   }
 
+  // The action buttons are the one control a player cannot play without --
+  // an exception thrown by any earlier cosmetic step (stack labels, ready
+  // marks, the turn HUD...) must never be able to stop configureReferenceActions
+  // from running. Each step is isolated so one bad step can't take the rest down.
+  function runSyncStep(fn) {
+    try {
+      fn();
+    } catch (error) {
+      console.error(`[v038] ${fn.name} failed`, error);
+    }
+  }
+
   function syncFinalReference() {
     if (!isMobileV2()) {
       teardownFinalReference();
       return;
     }
     referenceActive = true;
-    ensurePresetButtons();
-    ensureHudSummary();
-    syncSeatStackLabels();
-    syncTableNumberLabels();
-    syncAvatarReadyControl();
-    syncAllSeatReadyMarks();
-    syncSeatActionStates();
-    ensureReadyCountdown();
-    syncTableTurnHud();
-    syncCompletedHandReset();
-    configureReferenceActions();
+    runSyncStep(ensurePresetButtons);
+    runSyncStep(ensureHudSummary);
+    runSyncStep(syncSeatStackLabels);
+    runSyncStep(syncTableNumberLabels);
+    runSyncStep(syncAvatarReadyControl);
+    runSyncStep(syncAllSeatReadyMarks);
+    runSyncStep(syncSeatActionStates);
+    runSyncStep(ensureReadyCountdown);
+    runSyncStep(syncTableTurnHud);
+    runSyncStep(syncCompletedHandReset);
+    runSyncStep(configureReferenceActions);
   }
 
   let syncQueued = false;
