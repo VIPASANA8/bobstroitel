@@ -3,11 +3,11 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from online.catalogue import Catalogue
 from online.integrity import EscrowIntegrityMonitor
-from online.runtime import TableRuntimeManager
+from online.runtime import TableRuntimeManager, bot_think_delay
 from online.seating import SeatingService
 
 
@@ -90,7 +90,13 @@ class OnlineCoordinator:
             elif loaded.state.acting_player:
                 actor = loaded.state.players[loaded.state.acting_player]
                 if actor.is_bot:
-                    await self.runtime.system_step(table_id)
+                    # Paced to a human-like think time instead of firing on
+                    # every 250ms tick -- see bot_think_delay's docstring.
+                    if loaded.next_bot_action_at is None or loaded.next_bot_action_at <= now:
+                        street = loaded.state.street.value
+                        await self.runtime.system_step(table_id)
+                        delay = bot_think_delay(actor.difficulty, street)
+                        loaded.next_bot_action_at = now + timedelta(seconds=delay)
                 elif loaded.action_deadline is not None and loaded.action_deadline <= now:
                     await self.runtime.timeout_current_actor(table_id, now)
             return

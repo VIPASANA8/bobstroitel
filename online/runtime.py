@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
+import random
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -64,6 +65,30 @@ class _LoadedTable:
     action_deadline: datetime | None = None
     result_clear_at: datetime | None = None
     next_hand_at: datetime | None = None
+    # In-memory only: cleared by a restart, same as the rest of this dataclass
+    # (restore_all rebuilds it from the DB). A bot with no deadline yet acts
+    # on the very next tick, matching today's behavior until it gets one.
+    next_bot_action_at: datetime | None = None
+
+
+#: Base think-time band in seconds, before difficulty/street scaling. Mirrors
+#: static/app.js's BOT_SPEED_RANGES.normal, ported server-side because the
+#: online coordinator (unlike the legacy client-paced table) was giving every
+#: bot zero think time -- one coordinator tick (250ms), uniformly.
+_BOT_THINK_BAND = (0.9, 2.6)
+_BOT_DIFFICULTY_FACTOR = {"easy": 0.84, "normal": 1.0, "hard": 1.12, "maximum": 1.25}
+_BOT_STREET_FACTOR = {"preflop": 0.88, "flop": 1.0, "turn": 1.10, "river": 1.22}
+
+
+def bot_think_delay(difficulty: str, street: str, *, rng: random.Random | None = None) -> float:
+    """Seconds a bot should sit before acting, so the table doesn't beat with
+    a uniform 250ms robotic pulse. Pure and clock-free so it's directly
+    testable; the caller adds the result to its own notion of "now"."""
+    lo, hi = _BOT_THINK_BAND
+    jitter = (rng or random).uniform(lo, hi)
+    difficulty_factor = _BOT_DIFFICULTY_FACTOR.get(difficulty, 1.0)
+    street_factor = _BOT_STREET_FACTOR.get(street, 1.0)
+    return jitter * difficulty_factor * street_factor
 
 
 class TableRuntimeManager:
