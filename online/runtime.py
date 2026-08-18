@@ -108,15 +108,61 @@ class TableRuntimeManager:
         self._locks: dict[str, asyncio.Lock] = {}
         self._tables: dict[str, _LoadedTable] = {}
         self._action_counts: dict[str, int] = {}
+        # Ready-up state lives here rather than on _LoadedTable: a brand new
+        # table with no runtime row yet (nobody has ever started a hand on it)
+        # still needs to gate its very first hand on readiness, and there's no
+        # _LoadedTable to hold it until start_hand has actually run once.
+        # In-memory, like the rest of this manager's per-table state -- a
+        # restart clears it and players just click ready again.
+        self._ready_seats: dict[str, set[int]] = {}
+        self._ready_deadline: dict[str, datetime] = {}
+        self._hand_starts_at: dict[str, datetime] = {}
 
     def _lock(self, table_id: str) -> asyncio.Lock:
         return self._locks.setdefault(table_id, asyncio.Lock())
+
+    def ready_seats(self, table_id: str) -> set[int]:
+        return self._ready_seats.get(table_id, set())
+
+    def ready_deadline(self, table_id: str) -> datetime | None:
+        return self._ready_deadline.get(table_id)
+
+    def hand_starts_at(self, table_id: str) -> datetime | None:
+        return self._hand_starts_at.get(table_id)
+
+    def arm_ready_deadline(self, table_id: str, when: datetime) -> None:
+        self._ready_deadline.setdefault(table_id, when)
+
+    def arm_hand_starts_at(self, table_id: str, when: datetime) -> None:
+        self._hand_starts_at.setdefault(table_id, when)
+
+    def clear_ready_cycle(self, table_id: str) -> None:
+        self._ready_seats.pop(table_id, None)
+        self._ready_deadline.pop(table_id, None)
+        self._hand_starts_at.pop(table_id, None)
+
+    async def toggle_ready(self, table_id: str, seat_no: int) -> bool:
+        """Returns the seat's new ready state. Any change un-arms the 5s
+        pre-deal countdown -- it only re-arms once every human is ready again,
+        which self-corrects if the toggle just broke a full-ready set."""
+        async with self._lock(table_id):
+            seats = self._ready_seats.setdefault(table_id, set())
+            if seat_no in seats:
+                seats.discard(seat_no)
+                ready = False
+            else:
+                seats.add(seat_no)
+                ready = True
+            self._hand_starts_at.pop(table_id, None)
+            return ready
 
     async def load(self, table_id: str) -> _LoadedTable | None:
         async with self._lock(table_id):
             return await self._load_locked(table_id)
 
-    async def start_hand(self, table_id: str, *, button_seat: int | None = None) -> dict[str, Any]:
+    async def start_hand(
+        self, table_id: str, *, button_seat: int | None = None, sit_out_seat_nos: set[int] | None = None,
+    ) -> dict[str, Any]:
         async with self._lock(table_id):
             current = await self._load_locked(table_id)
             if current and current.phase in {"active", "result", "countdown", "paused"}:
@@ -132,6 +178,12 @@ class TableRuntimeManager:
                             .order_by(table_seats.c.seat_no)
                         )
                     ).mappings().all()
+                    if sit_out_seat_nos:
+                        # A human who never readied up keeps their seat and
+                        # stack -- sitting out is per-hand, not a DB seat
+                        # state, so it can never collide with the disconnect
+                        # hold/leaving pipeline and its eventual eviction.
+                        seats = [seat for seat in seats if seat["seat_no"] not in sit_out_seat_nos]
                     if not 2 <= len(seats) <= 6:
                         raise RuntimeErrorBase("a hand requires between 2 and 6 seated players")
                     details = await self._participant_details(session, seats)
@@ -213,7 +265,7 @@ class TableRuntimeManager:
                     loaded = _LoadedTable(revision, "active", state, action_deadline=action_deadline)
                     self._tables[table_id] = loaded
                     self._action_counts[table_id] = 0
-                    return self._snapshot_for_state(loaded, None)
+                    return self._snapshot_for_state(loaded, None, table_id)
 
     async def public_snapshot(self, table_id: str, viewer_user_id: str | None) -> dict[str, Any]:
         loaded = self._tables.get(table_id)
@@ -222,7 +274,7 @@ class TableRuntimeManager:
         if loaded is None:
             raise RuntimeErrorBase("table runtime not found")
         participant_id = await self._participant_for_user(table_id, viewer_user_id) if viewer_user_id else None
-        return self._snapshot_for_state(loaded, participant_id)
+        return self._snapshot_for_state(loaded, participant_id, table_id)
 
     async def private_snapshot(self, table_id: str) -> dict[str, Any]:
         loaded = self._tables.get(table_id) or await self._load_locked(table_id)
@@ -288,7 +340,7 @@ class TableRuntimeManager:
                             if loaded.state.acting_player and not loaded.state.players[loaded.state.acting_player].is_bot
                             else None
                         )
-                    snapshot = self._snapshot_for_state(loaded, participant_id)
+                    snapshot = self._snapshot_for_state(loaded, participant_id, table_id)
                     result = RuntimeActionResult(
                         command_id=command_id,
                         table_id=table_id,
@@ -792,11 +844,15 @@ class TableRuntimeManager:
         async with self.session_factory() as db:
             return await query(db)
 
-    def _snapshot_for_state(self, loaded: _LoadedTable, participant_id: str | None) -> dict[str, Any]:
+    def _snapshot_for_state(
+        self, loaded: _LoadedTable, participant_id: str | None, table_id: str | None = None,
+    ) -> dict[str, Any]:
         state = loaded.state.to_dict(viewer_player_id=participant_id)
         for player in state["players"].values():
             player.pop("difficulty", None)
         legal = [item.value for item in self.engine.legal_actions(loaded.state, participant_id)] if participant_id else []
+        ready_deadline = self.ready_deadline(table_id) if table_id else None
+        hand_starts_at = self.hand_starts_at(table_id) if table_id else None
         state.update({
             "phase": loaded.phase,
             "revision": loaded.revision,
@@ -805,6 +861,12 @@ class TableRuntimeManager:
             "result_clear_at": loaded.result_clear_at.isoformat() if loaded.result_clear_at else None,
             "next_hand_at": loaded.next_hand_at.isoformat() if loaded.next_hand_at else None,
             "occupancy": len(loaded.state.players),
+            # Ready-up: who has clicked ready this hand, the AFK sit-out
+            # deadline, and the 5s beat once everyone's in. All None once a
+            # hand is actually running -- see clear_ready_cycle.
+            "ready_seats": sorted(self.ready_seats(table_id)) if table_id else [],
+            "ready_deadline": ready_deadline.isoformat() if ready_deadline else None,
+            "hand_starts_at": hand_starts_at.isoformat() if hand_starts_at else None,
         })
         return state
 

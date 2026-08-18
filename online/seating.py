@@ -262,6 +262,28 @@ class SeatingService:
                 )
             )).scalars().all())
 
+    async def seated_human_seat_numbers(self, table_id: str) -> set[int]:
+        """Bots are implicitly ready -- only human seats gate a new hand."""
+        async with self.session_factory() as session:
+            rows = await session.execute(
+                select(table_seats.c.seat_no).where(
+                    table_seats.c.table_id == table_id,
+                    table_seats.c.state == "seated",
+                    table_seats.c.occupant_kind == "user",
+                )
+            )
+            return {row[0] for row in rows}
+
+    async def user_seat_number(self, user_id: str, table_id: str) -> int | None:
+        async with self.session_factory() as session:
+            return await session.scalar(
+                select(table_seats.c.seat_no).where(
+                    table_seats.c.table_id == table_id,
+                    table_seats.c.user_id == user_id,
+                    table_seats.c.state == "seated",
+                )
+            )
+
     async def mark_disconnected(self, user_id: str, table_id: str, now: datetime) -> None:
         async with self.session_factory() as session:
             async with session.begin():

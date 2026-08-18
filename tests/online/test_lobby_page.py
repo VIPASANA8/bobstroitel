@@ -81,10 +81,21 @@ def test_online_ready_panel_is_hidden_for_seated_users_and_duplicate_clicks():
     assert "readyInFlight" in source
 
 
-def test_online_waiting_prompt_does_not_offer_local_avatar_start():
+def test_online_waiting_prompt_reflects_the_viewers_own_ready_state():
+    """A hand no longer starts purely on seat count -- every seated human
+    must click ready first (online/coordinator.py's _may_start_hand). The
+    prompt used to just claim the table deals itself; it now tells the
+    viewer whether their own click is still needed."""
     source = Path("static/v038-poker8-v2-cinematic-table.js").read_text(encoding="utf-8")
-    assert "window.Poker8OnlineTable" in source
-    assert "Стол запускается автоматически" in source
+    assert "НАЖМИТЕ НА АВАТАР" in source
+    assert "ЖДЁМ ОСТАЛЬНЫХ" in source
+
+
+def test_online_ready_up_posts_to_the_server_not_the_local_event_bus():
+    source = Path("static/online-table.js").read_text(encoding="utf-8")
+    assert "window.Poker8Transport.readyUp()" in source
+    transport = Path("static/online-transport.js").read_text(encoding="utf-8")
+    assert "/ready-up" in transport
 
 
 def test_online_mode_disables_legacy_ready_badges():

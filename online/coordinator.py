@@ -73,6 +73,42 @@ class OnlineCoordinator:
         if self.on_change is not None and self._signature(table_id) != before:
             await self.on_change(table_id)
 
+    async def _may_start_hand(self, table_id: str, now: datetime) -> tuple[bool, set[int]]:
+        """Returns (should_start, sit_out_seat_nos). Seat count in range and
+        every seated human ready -- or, past the 30s AFK deadline, excluded
+        from just this hand instead of blocking the table forever. Bots are
+        implicitly ready. Sitting out never touches the seat's DB state (that
+        pipeline ends in eviction); it only narrows who start_hand deals in,
+        so the seat and stack are untouched and everyone's asked again next
+        hand. The single gate for both places a hand can start, so the
+        cold-start and post-countdown paths can't drift apart.
+        """
+        count = await self.seating.active_seat_count(table_id)
+        if not (2 <= count <= 6):
+            return False, set()
+
+        human_seats = await self.seating.seated_human_seat_numbers(table_id)
+        if not human_seats:
+            return True, set()
+
+        ready = self.runtime.ready_seats(table_id)
+        if human_seats.issubset(ready):
+            starts_at = self.runtime.hand_starts_at(table_id)
+            if starts_at is None:
+                # A beat between "everyone's in" and the cards actually
+                # landing -- the client's ready countdown ring times this.
+                self.runtime.arm_hand_starts_at(table_id, now + timedelta(seconds=5))
+                return False, set()
+            return starts_at <= now, set()
+
+        deadline = self.runtime.ready_deadline(table_id)
+        if deadline is None:
+            self.runtime.arm_ready_deadline(table_id, now + timedelta(seconds=30))
+            return False, set()
+        if deadline <= now:
+            return True, human_seats - ready
+        return False, set()
+
     async def _advance_table(self, table_id: str) -> None:
         now = self.now()
         loaded = await self.runtime.load(table_id)
@@ -80,8 +116,10 @@ class OnlineCoordinator:
             await self.seating.process_boundary(table_id, now=now)
             loaded = await self.runtime.load(table_id)
             if loaded is None or loaded.phase == "waiting":
-                if 2 <= await self.seating.active_seat_count(table_id) <= 6:
-                    await self.runtime.start_hand(table_id)
+                should_start, sit_out = await self._may_start_hand(table_id, now)
+                if should_start:
+                    await self.runtime.start_hand(table_id, sit_out_seat_nos=sit_out)
+                    self.runtime.clear_ready_cycle(table_id)
             return
 
         if loaded.phase == "active":
@@ -111,8 +149,10 @@ class OnlineCoordinator:
         if loaded.phase == "countdown" and loaded.next_hand_at is not None and loaded.next_hand_at <= now:
             await self.runtime.prepare_next_hand(table_id)
             await self.seating.process_boundary(table_id, now=now)
-            if 2 <= await self.seating.active_seat_count(table_id) <= 6:
-                await self.runtime.start_hand(table_id)
+            should_start, sit_out = await self._may_start_hand(table_id, now)
+            if should_start:
+                await self.runtime.start_hand(table_id, sit_out_seat_nos=sit_out)
+                self.runtime.clear_ready_cycle(table_id)
             return
 
         if loaded.phase == "paused":

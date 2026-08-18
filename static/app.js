@@ -1562,6 +1562,10 @@ window.Poker8LegacyView = {
       spectator_only: viewerState !== "seated",
       profile: null,
       profiles: [],
+      // Ready-up is a pre-hand affordance, so it has to survive on tableData
+      // (set every phase) rather than on `game`, which is null exactly then.
+      ready_seats: state?.ready_seats || [],
+      hand_starts_at: state?.hand_starts_at || null,
     };
     game = onlineGame;
     renderGame();

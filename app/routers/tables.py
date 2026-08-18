@@ -112,6 +112,19 @@ async def cancel_ready(table_id: str, request: Request, user: AuthenticatedUser 
     return {"viewer_state": "spectator", "queue_state": "cancelled"}
 
 
+@router.post("/{table_id}/ready-up")
+async def ready_up(table_id: str, request: Request, user: AuthenticatedUser = Depends(get_current_user)):
+    """Toggle ready-to-deal for the caller's own seat -- distinct from
+    /ready above, which queues a brand new buy-in, not readiness."""
+    seat_no = await request.app.state.seating.user_seat_number(user.user_id, table_id)
+    if seat_no is None:
+        raise HTTPException(status_code=409, detail={
+            "code": "not_seated", "message": "take a seat before marking ready",
+        })
+    ready = await request.app.state.runtime.toggle_ready(table_id, seat_no)
+    return {"seat_no": seat_no, "ready": ready}
+
+
 @router.post("/{table_id}/observe")
 async def observe(table_id: str, request: Request, user: AuthenticatedUser = Depends(get_current_user)):
     await request.app.state.seating.request_observe(user.user_id, table_id)

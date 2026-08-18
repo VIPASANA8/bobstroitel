@@ -591,7 +591,8 @@
   let viewerReadySnapshot = false;
 
   function syncAvatarReadyControl() {
-    const wrap = document.querySelector('.seat[data-visual-seat="0"] .avatar-wrap');
+    const seat = document.querySelector('.seat[data-visual-seat="0"]');
+    const wrap = seat?.querySelector(".avatar-wrap");
     if (!wrap) return;
     let mark = wrap.querySelector(".v038-ready-mark");
     if (!mark) {
@@ -600,7 +601,11 @@
       mark.innerHTML = '<b>✓</b>';
       wrap.appendChild(mark);
     }
-    const ready = viewerReadySnapshot;
+    // Online: the server is the source of truth for who's clicked ready.
+    // Local: v024's own sessionStorage-backed toggle (dead on network tables).
+    const ready = window.Poker8OnlineTable
+      ? (tableData?.ready_seats || []).includes(Number(seat.dataset.seat))
+      : viewerReadySnapshot;
     const preHand = !game;
     wrap.classList.toggle("v038-viewer-ready", ready && preHand);
     wrap.toggleAttribute("role", preHand);
@@ -616,6 +621,8 @@
   }
 
   function syncAllSeatReadyMarks() {
+    const isOnline = Boolean(window.Poker8OnlineTable);
+    const onlineReadySeats = isOnline ? (tableData?.ready_seats || []) : null;
     document.querySelectorAll(".seat-card").forEach(card => {
       if (card.closest('.seat[data-visual-seat="0"]')) return;
       const wrap = card.querySelector(".avatar-wrap");
@@ -623,6 +630,15 @@
       if (game) {
         wrap.classList.remove("v038-viewer-ready");
         wrap.querySelector(".v038-seat-ready-check")?.remove();
+        return;
+      }
+      // Online: reflect each seat's real click. Local: every non-hero seat
+      // is a bot, always ready -- unchanged from before this was online-aware.
+      const seatNo = Number(card.closest(".seat")?.dataset.seat);
+      const ready = isOnline ? onlineReadySeats.includes(seatNo) : true;
+      if (!ready) {
+        wrap.querySelector(".v038-seat-ready-check")?.remove();
+        wrap.classList.remove("v038-viewer-ready");
         return;
       }
       let mark = wrap.querySelector(".v038-seat-ready-check");
@@ -730,9 +746,15 @@
 
   function syncOnlineRoomPrompt(prompt) {
     const seated = !tableData?.spectator_only;
-    prompt.innerHTML = seated
-      ? "<strong>НОВАЯ РАЗДАЧА СКОРО</strong><span>Стол запускается автоматически</span>"
-      : "<strong>ВЫ НАБЛЮДАЕТЕ</strong><span>Откройте лобби, чтобы занять место</span>";
+    if (!seated) {
+      prompt.innerHTML = "<strong>ВЫ НАБЛЮДАЕТЕ</strong><span>Откройте лобби, чтобы занять место</span>";
+    } else {
+      const heroSeatNo = Number(document.querySelector('.seat[data-visual-seat="0"]')?.dataset.seat);
+      const viewerReady = (tableData?.ready_seats || []).includes(heroSeatNo);
+      prompt.innerHTML = viewerReady
+        ? "<strong>ЖДЁМ ОСТАЛЬНЫХ</strong><span>Раздача начнётся, как только все будут готовы</span>"
+        : "<strong>НАЖМИТЕ НА АВАТАР</strong><span>Отметьте готовность, чтобы начать раздачу</span>";
+    }
     prompt.setAttribute("role", "status");
     prompt.removeAttribute("tabindex");
     prompt.setAttribute("aria-live", "polite");

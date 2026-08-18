@@ -172,6 +172,7 @@
       body: JSON.stringify({seat_no: seatNo, buy_in_units: buyInUnits, request_id: requestId()}),
     }),
     cancelReady: () => request(`/api/tables/${id()}/ready/cancel`, {method: 'POST'}),
+    readyUp: () => request(`/api/tables/${id()}/ready-up`, {method: 'POST'}),
     observe: () => request(`/api/tables/${id()}/observe`, {method: 'POST'}),
     leave: () => request(`/api/tables/${id()}/leave`, {method: 'POST'}),
     addOn: amountUnits => request(`/api/tables/${id()}/add-on`, {

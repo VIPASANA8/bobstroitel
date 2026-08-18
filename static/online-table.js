@@ -80,6 +80,7 @@
   let pollTimer = null;
   let lastRenderKey = null;
   let readyInFlight = false;
+  let readyUpInFlight = false;
 
   window.addEventListener("poker8:action-pending", event => {
     document.body.classList.toggle("p8-action-pending", Boolean(event.detail?.pending));
@@ -167,6 +168,8 @@
       state?.action_deadline,
       state?.result_clear_at,
       state?.next_hand_at,
+      state?.ready_seats,
+      state?.hand_starts_at,
       players,
     ]);
   }
@@ -185,6 +188,12 @@
   function renderSnapshot(state) {
     latestState = state;
     renderOnlineChrome(state);
+    // v038's ready-countdown ring already renders from any endsAt timestamp
+    // (it was built for the local table's own 5s grace period) -- reused
+    // here as-is, just fed from the server's hand_starts_at instead.
+    window.dispatchEvent(new CustomEvent("poker8:ready-countdown", {
+      detail: { endsAt: state?.hand_starts_at ? Date.parse(state.hand_starts_at) : 0 },
+    }));
     const key = snapshotRenderKey(state);
     if (key === lastRenderKey) return;
     lastRenderKey = key;
@@ -220,6 +229,23 @@
       throw error;
     } finally {
       readyInFlight = false;
+    }
+  }
+
+  function isPreHand() {
+    return !latestState || latestState.terminal;
+  }
+
+  async function readyUp() {
+    // Toggling mid-hand would just be marking readiness for whichever hand
+    // deals next, which is confusing -- gate the same way v024 does locally.
+    if (readyUpInFlight || viewerState !== "seated" || !isPreHand()) return;
+    readyUpInFlight = true;
+    try {
+      await window.Poker8Transport.readyUp();
+      await refreshState();
+    } finally {
+      readyUpInFlight = false;
     }
   }
 
@@ -262,6 +288,19 @@
   }
 
   function bindControls() {
+    // Delegated on document, not the seat element: v038 rebuilds seat markup
+    // on every render, so a direct listener would be lost the moment a
+    // snapshot redraws the table.
+    document.addEventListener("click", event => {
+      if (!event.target?.closest?.('.seat[data-visual-seat="0"] .avatar-wrap, .v038-room-prompt')) return;
+      readyUp().catch(error => { alert(error.message); });
+    });
+    document.addEventListener("keydown", event => {
+      if (!["Enter", " "].includes(event.key)) return;
+      if (!event.target?.matches?.('.seat[data-visual-seat="0"] .avatar-wrap, .v038-room-prompt')) return;
+      event.preventDefault();
+      readyUp().catch(error => { alert(error.message); });
+    });
     $("mobileDrawerLobby")?.addEventListener("click", () => returnToLobby().catch(error => alert(error.message)));
     $("mobileDrawerLeave")?.addEventListener("click", async () => {
       const waiting = viewerState === "waiting";
