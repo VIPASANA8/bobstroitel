@@ -23,6 +23,15 @@ window.Poker8Auth = (() => {
       // Tells Telegram the app has finished loading; it clears the native
       // splash screen it would otherwise show until this fires (or times out).
       window.Telegram.WebApp.ready?.();
+      // Without this, Telegram can open the Mini App at a shorter, "compact"
+      // height instead of the device's full viewport -- our layout is entirely
+      // 100dvh-relative, so a compact webview leaves real content (the action
+      // buttons) positioned below the visible area, clipped by overflow:hidden
+      // with no way to scroll to it. Every Mini App is expected to call this.
+      window.Telegram.WebApp.expand?.();
+      // Swiping down over the felt is a natural drag gesture during play --
+      // without this it can also be read as "pull to minimize the app".
+      window.Telegram.WebApp.disableVerticalSwipes?.();
       publishTelegramProfile();
       const response = await fetch('/api/auth/telegram', {
         method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({init_data:initData}),
