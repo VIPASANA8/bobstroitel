@@ -528,6 +528,9 @@ class SeatingService:
 
     @staticmethod
     async def _clear_seat(session: AsyncSession, seat_id: str) -> None:
+        seat = (
+            await session.execute(select(table_seats).where(table_seats.c.id == seat_id))
+        ).mappings().first()
         await session.execute(
             update(table_seats).where(table_seats.c.id == seat_id).values(
                 occupant_kind="empty",
@@ -540,6 +543,18 @@ class SeatingService:
                 hold_until=None,
             )
         )
+        # Releasing the seat without retiring the queue row leaves the user a
+        # ghost: no seat row, so the API reports them a spectator, while the
+        # queue still claims they sit here. Both halves describe one seat, so
+        # they have to be released together.
+        if seat and seat["occupant_kind"] == "user" and seat["user_id"]:
+            await session.execute(
+                update(seat_queue).where(
+                    seat_queue.c.table_id == seat["table_id"],
+                    seat_queue.c.user_id == seat["user_id"],
+                    seat_queue.c.state == "seated",
+                ).values(state="cancelled")
+            )
 
     @staticmethod
     def _request(row) -> SeatingRequest:

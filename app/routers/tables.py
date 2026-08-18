@@ -85,7 +85,15 @@ async def table_snapshot(
                 )
             )
         ).scalar_one_or_none()
-    viewer_state = "seated" if seat in ("seated", "held", "leaving") else "waiting" if queue else "spectator"
+    # viewer_player_id is set whenever the runtime still treats this user as a
+    # player, including when their seat row disappeared mid-hand. Calling them a
+    # spectator then would hide the whole action panel on a client that is being
+    # asked to act, so the live hand wins over the missing seat row.
+    viewer_state = (
+        "seated" if seat in ("seated", "held", "leaving") or state.get("viewer_player_id")
+        else "waiting" if queue
+        else "spectator"
+    )
     return {"table": dict(row), "state": state, "viewer_state": viewer_state, "queue_state": queue}
 
 

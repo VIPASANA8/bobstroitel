@@ -274,6 +274,14 @@ class TableRuntimeManager:
         if loaded is None:
             raise RuntimeErrorBase("table runtime not found")
         participant_id = await self._participant_for_user(table_id, viewer_user_id) if viewer_user_id else None
+        # A seat row can vanish while its owner is still a player in the hand
+        # that is running -- leave processing and bot rebalance both clear seats
+        # outright, and the engine keeps asking that player to act regardless.
+        # Without this fallback they are demoted to a spectator mid-hand: no
+        # hole cards, no viewer_player_id, so the client hides every action
+        # control while the turn timer keeps auto-folding them, hand after hand.
+        if participant_id is None and viewer_user_id and viewer_user_id in loaded.state.players:
+            participant_id = viewer_user_id
         # A seat only joins state.players at the next hand boundary -- whether
         # because no hand exists yet (waiting for ready-up, countdown) or
         # because one was already running when this player bought in, so they

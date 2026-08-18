@@ -204,3 +204,22 @@ async def test_blocked_ready_reports_where_the_user_is_seated(seating, user_a, t
 
     assert error.value.table_id == table_id
     assert error.value.seat_state == "seated"
+
+
+@pytest.mark.anyio
+async def test_releasing_a_seat_retires_its_queue_row(seating, db_session_factory, user_a, table_id):
+    """A seat row and its queue row describe one seat, so they have to be
+    released together. Leaving only the queue row at "seated" turns the user
+    into a ghost: no seat row, so the table API reports them a spectator and
+    the client hides every action control, while the queue still claims the
+    seat is theirs."""
+    await seating.ready(user_a, table_id, seat_no=2, buy_in_units=4_000)
+    await seating.process_boundary(table_id)
+    await seating.request_leave(user_a, table_id)
+    await seating.process_boundary(table_id)
+
+    async with db_session_factory() as session:
+        queue_state = (
+            await session.execute(select(seat_queue.c.state).where(seat_queue.c.user_id == user_a))
+        ).scalar_one()
+    assert queue_state != "seated"
