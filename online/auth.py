@@ -214,12 +214,10 @@ class AuthService:
 
     @staticmethod
     def _display_name(user: dict) -> str:
-        username = user.get("username")
-        if isinstance(username, str) and username.strip():
-            return f"@{username.strip().lstrip('@')}"
-        name = " ".join(
-            value.strip()
-            for value in (user.get("first_name", ""), user.get("last_name", ""))
-            if isinstance(value, str) and value.strip()
-        )
-        return name or str(user["id"])
+        # First name only, never @username -- a handle at the table reads as
+        # a login, not a player, and avatarInitials() on the client splits a
+        # display name on whitespace, so "@handle" was rendering as just "@".
+        first_name = user.get("first_name")
+        if isinstance(first_name, str) and first_name.strip():
+            return first_name.strip()
+        return str(user["id"])

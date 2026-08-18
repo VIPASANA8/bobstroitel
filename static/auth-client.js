@@ -2,20 +2,11 @@ window.Poker8Auth = (() => {
   function telegramProfile() {
     const user = window.Telegram?.WebApp?.initDataUnsafe?.user;
     if (!user || typeof user !== "object") return null;
-    const username = typeof user.username === "string" && user.username.trim()
-      ? `@${user.username.trim().replace(/^@+/, "")}`
-      : "";
-    const name = [user.first_name, user.last_name]
-      .filter(value => typeof value === "string" && value.trim())
-      .map(value => value.trim())
-      .join(" ");
-    const rawPhotoUrl = typeof user.photo_url === "string" ? user.photo_url.trim() : "";
-    let photoUrl = "";
-    try {
-      const url = new URL(rawPhotoUrl);
-      if (url.protocol === "https:") photoUrl = url.href;
-    } catch (_) {}
-    return { displayName: username || name || "Игрок", photoUrl };
+    // First name only, never @username -- a handle reads as a login, not a
+    // player, and avatarInitials() splits on whitespace, so "@handle" was
+    // rendering as just "@". Avatars are level-based, not from Telegram.
+    const firstName = typeof user.first_name === "string" ? user.first_name.trim() : "";
+    return { displayName: firstName || "Игрок" };
   }
 
   function publishTelegramProfile() {

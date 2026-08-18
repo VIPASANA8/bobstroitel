@@ -838,18 +838,6 @@ function avatarHue(seat, isBot = false) {
   return (base + Number(seat || 0) * 37) % 360;
 }
 
-function localTelegramPhotoUrl(isViewer) {
-  if (!isViewer) return "";
-  const raw = window.Poker8TelegramProfile?.photoUrl;
-  if (typeof raw !== "string" || !raw) return "";
-  try {
-    const url = new URL(raw);
-    return url.protocol === "https:" ? url.href : "";
-  } catch (_) {
-    return "";
-  }
-}
-
 function seatHtml(config, player) {
   const locked = Boolean(ONLINE_TABLE_ID) || Boolean(game && !game.terminal);
   if (!config) return "";
@@ -878,9 +866,9 @@ function seatHtml(config, player) {
   const isViewer = Boolean(game && game.viewer_player_id && game.viewer_player_id === source.id);
   const telegramProfile = isViewer ? window.Poker8TelegramProfile : null;
   const displayName = telegramProfile?.displayName || source.name || config.name || "Игрок";
-  const photoUrl = localTelegramPhotoUrl(isViewer);
-  const avatar = photoUrl ? avatarInitials(displayName, false) : (isViewer ? "ВЫ" : avatarInitials(displayName, !isHuman));
-  const avatarStyle = photoUrl ? ` style="--profile-avatar-image:url('${escapeHtml(photoUrl)}')"` : "";
+  // Avatars are level-based, not photos -- no --profile-avatar-image here.
+  // The CSS hook stays (v038) since nothing sets the inline style anymore.
+  const avatar = isViewer ? "ВЫ" : avatarInitials(displayName, !isHuman);
   const hue = avatarHue(config.seat, !isHuman);
 
   return `
@@ -888,7 +876,7 @@ function seatHtml(config, player) {
       ${!locked ? `<button class="seat-edit" data-edit-seat="${config.seat}" title="Настроить место">•••</button>` : ""}
       ${isDealer ? `<div class="dealer-button" title="Дилер / BTN">D</div>` : ""}
       <div class="avatar-wrap">
-        <div class="player-avatar"${avatarStyle}><span>${escapeHtml(avatar)}</span></div>
+        <div class="player-avatar"><span>${escapeHtml(avatar)}</span></div>
         ${status ? `<div class="player-status ${folded ? "status-fold" : allIn ? "status-allin" : activeTurn && !isHuman ? "status-thinking" : "status-turn"}">${status}${activeTurn && !isHuman ? `<i class="thinking-dots"><b></b><b></b><b></b></i>` : ""}</div>` : ""}
       </div>
       <div class="seat-identity">
