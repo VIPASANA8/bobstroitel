@@ -59,7 +59,11 @@
     window.syncComponentSeatLayout?.(game, tableData);
   };
 
-  window.addEventListener("load", () => {
+  // DOMContentLoaded, not window.load: the mobile v2 look does not exist
+  // until this whole chain finishes appending scripts, and window.load waits
+  // on the external telegram-web-app.js round trip -- every extra second
+  // there is a second spent showing the old v0.11 table underneath.
+  document.addEventListener("DOMContentLoaded", () => {
     if (!document.querySelector('script[data-v015-fixes]')) {
       const v015 = document.createElement("script");
       v015.src = "/static/v015-fixes.js";

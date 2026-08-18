@@ -47,13 +47,14 @@
         body.v014.poker8-v2-sixmax .seat.v040-dynamic-seat .avatar-wrap,
         body.v014.poker8-v2-sixmax .seat.v040-dynamic-seat .seat-identity{transition:none!important;}
       }
-      body.v014.poker8-v2-sixmax.p8-player-count-2 .seat.v040-dynamic-seat{width:120px!important;height:126px!important;}
-      body.v014.poker8-v2-sixmax.p8-player-count-3 .seat.v040-dynamic-seat{width:108px!important;height:120px!important;}
+      /* Boxes shrunk ~0.66x to match the item-6 avatar resize (74px -> 49px). */
+      body.v014.poker8-v2-sixmax.p8-player-count-2 .seat.v040-dynamic-seat{width:79px!important;height:83px!important;}
+      body.v014.poker8-v2-sixmax.p8-player-count-3 .seat.v040-dynamic-seat{width:71px!important;height:79px!important;}
       body.v014.poker8-v2-sixmax.p8-player-count-4 .seat.v040-dynamic-seat,
-      body.v014.poker8-v2-sixmax.p8-player-count-5 .seat.v040-dynamic-seat{width:102px!important;height:116px!important;}
-      body.v014.poker8-v2-sixmax .seat.v040-dynamic-seat[data-visual-seat="0"]{width:132px!important;height:132px!important;}
-      body.v014.poker8-v2-sixmax.p8-player-count-2 .seat.v040-dynamic-seat[data-visual-seat="1"] .avatar-wrap{top:10px!important;}
-      body.v014.poker8-v2-sixmax.p8-player-count-2 .seat.v040-dynamic-seat[data-visual-seat="1"] .seat-identity{top:75px!important;}
+      body.v014.poker8-v2-sixmax.p8-player-count-5 .seat.v040-dynamic-seat{width:67px!important;height:77px!important;}
+      body.v014.poker8-v2-sixmax .seat.v040-dynamic-seat[data-visual-seat="0"]{width:87px!important;height:87px!important;}
+      body.v014.poker8-v2-sixmax.p8-player-count-2 .seat.v040-dynamic-seat[data-visual-seat="1"] .avatar-wrap{top:7px!important;}
+      body.v014.poker8-v2-sixmax.p8-player-count-2 .seat.v040-dynamic-seat[data-visual-seat="1"] .seat-identity{top:50px!important;}
     }
     @media (min-width:781px){
       body.v014.poker8-desktop-v2 .seat.v040-empty-seat{display:none!important;}

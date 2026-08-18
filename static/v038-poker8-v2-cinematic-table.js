@@ -97,14 +97,17 @@
         background:radial-gradient(ellipse,rgba(21,121,74,.15),transparent 68%)!important;
       }
 
-      body.v014.poker8-v2-sixmax .seat{width:104px!important;height:116px!important;min-height:0!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"]{width:132px!important;height:132px!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"]{--seat-accent:195;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="1"]{--seat-accent:190;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="2"]{--seat-accent:282;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="3"]{--seat-accent:142;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="4"]{--seat-accent:34;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="5"]{--seat-accent:300;}
+      body.v014.poker8-v2-sixmax .seat{width:69px!important;height:77px!important;min-height:0!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"]{width:87px!important;height:87px!important;}
+      /* $= (suffix match) so a spectator's "spectator-N" dataset (v040) still
+         resolves an accent color -- an exact ="N" match leaves it undefined,
+         which silently drops every hsla(var(--seat-accent)…) declaration below. */
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat$="0"]{--seat-accent:195;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat$="1"]{--seat-accent:190;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat$="2"]{--seat-accent:282;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat$="3"]{--seat-accent:142;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat$="4"]{--seat-accent:34;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat$="5"]{--seat-accent:300;}
 
       body.v014.poker8-v2-sixmax .seat-card{
         --seat-neon:hsl(var(--seat-accent),92%,62%);
@@ -120,7 +123,7 @@
 
       body.v014.poker8-v2-sixmax .avatar-wrap{
         position:absolute!important;z-index:4;left:50%!important;top:4px!important;transform:translateX(-50%)!important;
-        width:74px!important;height:74px!important;margin:0!important;
+        width:49px!important;height:49px!important;margin:0!important;
         isolation:isolate;
       }
       body.v014.poker8-v2-sixmax .avatar-wrap::before,
@@ -151,7 +154,7 @@
 
       body.v014.poker8-v2-sixmax .player-avatar{
         position:relative!important;
-        width:74px!important;height:74px!important;
+        width:49px!important;height:49px!important;
         transition:border-color 220ms ease,box-shadow 220ms ease,filter 220ms ease!important;
         border:2px solid hsla(var(--seat-accent),100%,70%,.88)!important;
         background-image:var(--profile-avatar-image,radial-gradient(circle at 50% 32%,hsla(var(--seat-accent),62%,46%,.45),transparent 31%),radial-gradient(circle at 50% 78%,#07110e 0 42%,#010303 70%))!important;
@@ -180,7 +183,7 @@
       body.v014.poker8-v2-sixmax .player-avatar[style*="--profile-avatar-image"] span{opacity:1!important;}
 
       body.v014.poker8-v2-sixmax .seat-identity{
-        position:absolute!important;z-index:6;left:50%!important;top:70px!important;transform:translateX(-50%)!important;
+        position:absolute!important;z-index:6;left:50%!important;top:47px!important;transform:translateX(-50%)!important;
         width:96px!important;min-height:38px!important;padding:6px 7px 5px!important;border-radius:9px!important;
         transition:border-color 220ms ease,box-shadow 220ms ease,filter 220ms ease!important;
         border:1px solid hsla(var(--seat-accent),90%,60%,.72)!important;background:linear-gradient(180deg,rgba(9,8,10,.98),rgba(1,3,4,.995))!important;
@@ -255,9 +258,11 @@
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-card{
         min-height:0!important;padding:0!important;border:0!important;box-shadow:none!important;
       }
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .avatar-wrap{top:9px!important;width:82px!important;height:82px!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .player-avatar{width:82px!important;height:82px!important;border-color:#35bfff!important;font-size:14px!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-identity{top:84px!important;width:122px!important;min-height:42px!important;z-index:12!important;}
+      /* Avatar size and position are dropped here on purpose (item 5: every
+         seat's avatar is now the same size, hero included) -- only the
+         cosmetic "this is you" cue (border color) stays hero-specific. */
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .player-avatar{border-color:#35bfff!important;font-size:14px!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-identity{top:47px!important;width:122px!important;min-height:42px!important;z-index:12!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-name{font-size:10px!important;max-width:92px!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-stack{font-size:13px!important;color:#35c6ff!important;}
 

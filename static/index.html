@@ -7,6 +7,24 @@
   <link rel="stylesheet" href="/static/style.css?v=chip-motion-1" />
   <link rel="stylesheet" href="/static/mobile.css" media="(max-width: 780px)" />
   <link rel="stylesheet" href="/static/component-ui.css" />
+  <style>
+    /* Hides the table until the mobile v2 layer chain (v041, last in) marks
+       the page ready, so the old v0.11 table never gets a frame to paint.
+       A ~3s failsafe below guarantees this can never leave a blank table. */
+    @media (max-width: 780px) {
+      body:not(.p8-boot-ready) .table-frame { visibility: hidden; }
+      body:not(.p8-boot-ready) .app-shell::after {
+        content: "Загрузка стола…";
+        position: fixed; inset: 0; z-index: 5;
+        display: flex; align-items: center; justify-content: center;
+        color: #8ca59c; font: 700 13px/1 Inter, ui-sans-serif, system-ui;
+        background: #050b08;
+      }
+    }
+  </style>
+  <script>
+    window.setTimeout(() => document.body.classList.add("p8-boot-ready"), 3000);
+  </script>
 </head>
 <body class="neon-ref-v107 v011 v012 v013 v014 component-ui">
   <header id="mobileGameHeader" class="mobile-game-header">

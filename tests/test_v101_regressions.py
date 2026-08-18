@@ -90,14 +90,18 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert '.pot-chips .poker-chip' in source
     assert 'calc(100dvh - 50px - var(--p8-hud-h) - var(--p8-bottom-reserve))' in source
     assert '--seat-3-y:13%' in source
-    assert '[data-visual-seat="3"]{--seat-accent:142' in source
+    # $= (suffix match), not =, so a spectator's "spectator-N" dataset still
+    # resolves an accent color instead of leaving every avatar unstyled.
+    assert '[data-visual-seat$="3"]{--seat-accent:142' in source
     assert '--seat-2-x:7%' in source and '--seat-4-x:84%' in source
     assert '--seat-1-y:58%' in source and '--seat-5-y:58%' in source
     assert '--seat-2-y:22%' in source and '--seat-4-y:22%' in source
     assert '--seat-0-y:80%' in source
     assert '--pot-y:25%' in source
     assert '--board-y:38%' in source and '--pot-chips-y:47%' in source
-    assert 'width:74px!important;height:74px!important' in source
+    # Every seat's avatar is the same size now (item 6: 1.5x smaller than the
+    # old 74px; item 5: the hero seat no longer overrides it to 82px).
+    assert 'width:49px!important;height:49px!important' in source
     assert '.seat-card:has(.player-cards:not(:empty)) .avatar-wrap::before' in source
     assert 'width:calc(100% - 44px)!important' in source
     assert 'box-sizing:border-box!important' in source

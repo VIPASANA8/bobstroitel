@@ -235,8 +235,10 @@
         min-height:74px!important;padding:20px 7px 6px!important;border-color:rgba(43,167,255,.88)!important;
         box-shadow:0 0 0 1px rgba(44,169,255,.16),0 0 18px rgba(44,169,255,.26),0 8px 26px rgba(0,0,0,.48)!important;
       }
-      body.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .player-avatar{width:46px!important;height:46px!important}
-      body.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .avatar-wrap{top:-23px!important}
+      /* Size/position dropped here too (item 5/6: every avatar is the same
+         size and offset, hero included) -- this compound selector otherwise
+         outranks v038's own flat sizing (4 classes vs 3) and was silently
+         winning on top of it. */
       body.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .seat-name{font-size:11px!important}
       body.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .seat-stack{font-size:14px!important;color:#31b8ff!important}
       body.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .player-cards{top:-60px!important;z-index:-1!important;gap:3px!important}

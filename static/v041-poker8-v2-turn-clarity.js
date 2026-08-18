@@ -70,4 +70,8 @@
   window.addEventListener("resize", queueSync, { passive:true });
   window.setInterval(queueSync, 450);
   queueSync();
+
+  // v041 is the last mobile v2 layer to load -- its style being in place
+  // means the table can finally paint without the boot cloak in index.html.
+  document.body.classList.add("p8-boot-ready");
 })();

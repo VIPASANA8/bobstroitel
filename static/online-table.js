@@ -42,6 +42,13 @@
       .poker8-online .online-chat-panel{display:none!important;position:fixed;left:10px;right:10px;bottom:calc(92px + env(safe-area-inset-bottom));z-index:130;margin:0}
       .poker8-online .online-chat-panel.is-open{display:block!important}
       .poker8-online .online-connection-status{right:10px;bottom:8px}
+      /* v038 derives --table-stage-h from these two vars, so zeroing them here
+         (custom-property !important still beats v038's later non-important
+         declaration) expands the felt into the space the hidden action panel
+         would otherwise still reserve for nothing but an empty black slab. */
+      body.v014.poker8-v2-sixmax.p8-observer-mode{--p8-hud-h:0px!important;--p8-bottom-reserve:0px!important}
+      body.v014.poker8-v2-sixmax.p8-observer-mode .sidebar,
+      body.v014.poker8-v2-sixmax.p8-observer-mode .action-panel{display:none!important}
     }
   `;
   document.head.appendChild(tablePageStyle);
