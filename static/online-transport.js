@@ -173,7 +173,6 @@
     }),
     cancelReady: () => request(`/api/tables/${id()}/ready/cancel`, {method: 'POST'}),
     readyUp: () => request(`/api/tables/${id()}/ready-up`, {method: 'POST'}),
-    observe: () => request(`/api/tables/${id()}/observe`, {method: 'POST'}),
     leave: () => request(`/api/tables/${id()}/leave`, {method: 'POST'}),
     addOn: amountUnits => request(`/api/tables/${id()}/add-on`, {
       method: 'POST', headers: {'content-type': 'application/json'},

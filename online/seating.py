@@ -321,9 +321,6 @@ class SeatingService:
                     .values(state="seated", disconnected_at=None, hold_until=None)
                 )
 
-    async def request_observe(self, user_id: str, table_id: str) -> None:
-        await self.request_leave(user_id, table_id)
-
     async def request_leave(self, user_id: str, table_id: str) -> None:
         async with self.session_factory() as session:
             async with session.begin():

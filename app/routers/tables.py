@@ -125,12 +125,6 @@ async def ready_up(table_id: str, request: Request, user: AuthenticatedUser = De
     return {"seat_no": seat_no, "ready": ready}
 
 
-@router.post("/{table_id}/observe")
-async def observe(table_id: str, request: Request, user: AuthenticatedUser = Depends(get_current_user)):
-    await request.app.state.seating.request_observe(user.user_id, table_id)
-    return {"viewer_state": "spectator"}
-
-
 @router.post("/{table_id}/leave")
 async def leave(table_id: str, request: Request, user: AuthenticatedUser = Depends(get_current_user)):
     await request.app.state.seating.request_leave(user.user_id, table_id)

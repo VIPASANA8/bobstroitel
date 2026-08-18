@@ -1,4 +1,13 @@
 (() => {
+  const style = document.createElement("style");
+  style.textContent = `
+    .card-actions{display:flex;align-items:center;gap:8px;margin-top:12px;padding-top:11px;border-top:1px solid var(--line)}
+    .card-actions .card-action{flex:1;margin-top:0;padding:0;border-top:0}
+    .card-observe{padding:8px 11px;border:1px solid var(--line);border-radius:10px;background:none;color:var(--muted);font-size:15px;line-height:1;cursor:pointer}
+    .card-observe:hover{border-color:var(--mint);color:var(--mint)}
+  `;
+  document.head.appendChild(style);
+
   const $ = id => document.getElementById(id);
   let tables = [];
   let selected = null;
@@ -35,9 +44,13 @@
         <h3>${escape(table.name)}</h3>
         <p class="blinds">Блайнды <b>${format(table.small_blind_units)} / ${format(table.big_blind_units)}</b></p>
         <div class="card-bottom"><span>Бай-ин ${buyInRange(table)}</span><span>${table.occupied_count} / 6</span></div>
-        <button class="card-action" data-table="${escape(table.id)}">Выбрать стол <span>→</span></button>
+        <div class="card-actions">
+          <button class="card-action" data-table="${escape(table.id)}">Выбрать стол <span>→</span></button>
+          <button class="card-observe" data-observe-table="${escape(table.id)}" type="button" aria-label="Наблюдать за столом" title="Наблюдать">👁</button>
+        </div>
       </article>`).join("");
     document.querySelectorAll("[data-table]").forEach(button => button.addEventListener("click", () => openBuyIn(tables.find(table => table.id === button.dataset.table))));
+    document.querySelectorAll("[data-observe-table]").forEach(button => button.addEventListener("click", () => openTable(button.dataset.observeTable)));
   }
 
   async function load() {

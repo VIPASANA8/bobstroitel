@@ -103,3 +103,34 @@ def test_online_mode_disables_legacy_ready_badges():
     source = Path("static/v024-ready-phase.js").read_text(encoding="utf-8")
     assert "window.Poker8OnlineTable" in index
     assert "isOnlineTable() || !preHand()" in source
+
+
+def test_lobby_card_offers_a_way_to_watch_without_buying_in():
+    """Every table card used to route through the buy-in dialog -- the only
+    reason opening a table to just watch felt impossible even though the
+    server has supported it all along (viewer_state: spectator)."""
+    source = Path("static/lobby.js").read_text(encoding="utf-8")
+    assert "data-observe-table" in source
+    assert "openTable(button.dataset.observeTable)" in source
+
+
+def test_online_table_header_offers_seat_and_observe_while_spectating():
+    source = Path("static/online-table.js").read_text(encoding="utf-8")
+    assert "mobileHeaderTakeSeat" in source
+    assert "mobileHeaderObserve" in source
+    # Dismissing must survive re-renders and snapshot pushes, not just this click.
+    assert "sessionStorage.setItem(OBSERVE_DISMISSED_KEY" in source
+    # The drawer stays as a way back even after the header prompt is dismissed.
+    assert "sessionStorage.removeItem(OBSERVE_DISMISSED_KEY)" in source
+
+
+def test_request_observe_dead_code_is_gone():
+    """It was a pure alias for request_leave, and nothing ever called it --
+    the client's own 'Наблюдать' needs no server round trip at all, since a
+    seatless viewer is already a spectator."""
+    seating = Path("online/seating.py").read_text(encoding="utf-8")
+    assert "request_observe" not in seating
+    router = Path("app/routers/tables.py").read_text(encoding="utf-8")
+    assert '"/{table_id}/observe"' not in router
+    transport = Path("static/online-transport.js").read_text(encoding="utf-8")
+    assert "/observe" not in transport

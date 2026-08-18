@@ -42,6 +42,23 @@
       .poker8-online .online-chat-panel{display:none!important;position:fixed;left:10px;right:10px;bottom:calc(92px + env(safe-area-inset-bottom));z-index:130;margin:0}
       .poker8-online .online-chat-panel.is-open{display:block!important}
       .poker8-online .online-connection-status{right:10px;bottom:8px}
+      /* The header buttons below replace this card on mobile -- keeping both
+         would mean two competing seat prompts on a screen with room for one. */
+      .poker8-online #readyPanel{display:none!important}
+      .poker8-online .mobile-header-seat-actions{display:flex;order:1;gap:6px;margin-left:auto;margin-right:8px}
+      .poker8-online .mobile-header-seat-actions[hidden]{display:none!important}
+      .poker8-online .mobile-header-seat-actions button{
+        padding:8px 11px;border:1px solid rgba(64,237,167,.42);border-radius:10px;
+        background:rgba(4,31,20,.86);color:#b8ffda;font:800 11px/1 Inter,ui-sans-serif,system-ui;
+        white-space:nowrap;cursor:pointer;
+      }
+      .poker8-online .mobile-header-seat-actions #mobileHeaderTakeSeat{
+        border-color:rgba(64,237,167,.7);background:#0a3b2b;
+      }
+      .poker8-online .mobile-header-seat-actions #mobileHeaderObserve{
+        border-color:rgba(120,140,132,.4);background:rgba(10,20,17,.7);color:#9aada3;
+      }
+      .poker8-online .mobile-chat-button{order:2}
       /* v038 derives --table-stage-h from these two vars, so zeroing them here
          (custom-property !important still beats v038's later non-important
          declaration) expands the felt into the space the hidden action panel
@@ -112,6 +129,34 @@
     return phase === "result" ? `Следующая раздача через ${seconds} сек.` : `Новая раздача через ${seconds} сек.`;
   }
 
+  const OBSERVE_DISMISSED_KEY = `poker8:observe-dismissed:${tableId}`;
+
+  function ensureHeaderSeatButtons() {
+    const header = document.getElementById("mobileGameHeader");
+    if (!header || document.getElementById("mobileHeaderSeatActions")) return;
+    const wrap = document.createElement("div");
+    wrap.id = "mobileHeaderSeatActions";
+    wrap.className = "mobile-header-seat-actions";
+    wrap.innerHTML = `
+      <button id="mobileHeaderTakeSeat" type="button">Занять место</button>
+      <button id="mobileHeaderObserve" type="button">Наблюдать</button>
+    `;
+    header.appendChild(wrap);
+    $("mobileHeaderTakeSeat").addEventListener("click", () => ready().catch(error => alert(error.message)));
+    $("mobileHeaderObserve").addEventListener("click", () => {
+      sessionStorage.setItem(OBSERVE_DISMISSED_KEY, "1");
+      syncHeaderSeatButtons();
+    });
+  }
+
+  function syncHeaderSeatButtons() {
+    const wrap = $("mobileHeaderSeatActions");
+    if (!wrap) return;
+    const dismissed = sessionStorage.getItem(OBSERVE_DISMISSED_KEY) === "1";
+    const offer = ["spectator", "waiting"].includes(viewerState) && !dismissed;
+    wrap.hidden = !offer;
+  }
+
   function renderOnlineChrome(state) {
     setText("mobileStreetLabel", phaseLabel(state));
     setText("newHandCountdown", countdownText(state));
@@ -120,6 +165,12 @@
 
     const observerMode = ["spectator", "waiting"].includes(viewerState);
     document.body.classList.toggle("p8-observer-mode", observerMode);
+    ensureHeaderSeatButtons();
+    syncHeaderSeatButtons();
+    // Stays available even after the header prompt is dismissed -- it's the
+    // way back once someone decides they want to play after all.
+    const drawerTakeSeat = $("mobileDrawerTakeSeat");
+    if (drawerTakeSeat) drawerTakeSeat.hidden = !observerMode;
     const ready = $("readyPanel");
     if (ready) {
       // The queue seats players at the next hand boundary, so the panel stays
@@ -300,6 +351,10 @@
       if (!event.target?.matches?.('.seat[data-visual-seat="0"] .avatar-wrap, .v038-room-prompt')) return;
       event.preventDefault();
       readyUp().catch(error => { alert(error.message); });
+    });
+    $("mobileDrawerTakeSeat")?.addEventListener("click", () => {
+      sessionStorage.removeItem(OBSERVE_DISMISSED_KEY);
+      ready().catch(error => alert(error.message));
     });
     $("mobileDrawerLobby")?.addEventListener("click", () => returnToLobby().catch(error => alert(error.message)));
     $("mobileDrawerLeave")?.addEventListener("click", async () => {
