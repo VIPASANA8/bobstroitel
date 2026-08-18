@@ -118,7 +118,9 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'overflow:visible!important' in source
     assert '.mobile-game-header{' in source and 'transparent 38%,transparent 62%' in source
     assert 'linear-gradient(150deg,#07110d 0%,#010303 100%)!important' in source
-    assert '.pot-chips .chip-column:nth-child(3n+2) .poker-chip' in source
+    # Dropped: it hue-shifted every 3rd column regardless of which denomination
+    # it held, scrambling the real chip colours chipsForAmount already sets.
+    assert '.pot-chips .chip-column:nth-child(3n+2) .poker-chip' not in source
     assert 'background:transparent!important' in source
     assert '.seat-identity{' in source and 'position:absolute!important' in source
     assert '.seat-stack{margin-inline:auto!important' in source
@@ -238,8 +240,10 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'Нажмите на свою аватарку' in source
     assert 'previousQueueAutomation' in source
     assert 'const host = document.querySelector(".table-frame")' in source
-    assert '.v038-turn-context strong{display:block;color:#55fff2;font-size:11px' in source
-    assert '.v038-turn-context span{display:block;margin-top:3px;color:#ecfffd;font-size:10px' in source
+    # "ХОД · name" was dropped -- the seat's own glow already shows whose turn
+    # it is, so this box now only ever shows the street's bet amount.
+    assert "ХОД ·" not in source
+    assert '.v038-turn-context span{display:block;color:#ecfffd;font-size:10px' in source
     assert "mark.innerHTML = '<b>✓</b>'" in source
     assert 'mark.querySelector("small")' not in source
     assert "closest?.('.seat[data-visual-seat=\"0\"], .v038-room-prompt')" in source
@@ -257,6 +261,6 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'filter: "brightness(1.28) drop-shadow(0 7px 8px rgba(0,0,0,.42))"' in app_source
     assert 'offset: .86' in app_source
     assert 'radial-gradient(ellipse at 50% 18%,rgba(255,255,255,.36),transparent 48%)' in (root / 'static' / 'style.css').read_text(encoding='utf-8')
-    assert '/static/style.css?v=chip-motion-1' in index_source
+    assert '/static/style.css?v=chip-motion-2' in index_source
     assert '/static/app.js?v=' in index_source
     assert '/static/component-ui.js?v=' in index_source

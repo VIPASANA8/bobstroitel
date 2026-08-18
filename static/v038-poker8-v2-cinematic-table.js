@@ -230,9 +230,7 @@
         left:calc(75% + 20.5px);transform:translateX(-50%);width:max-content;min-width:82px;max-width:116px;padding:6px 8px;border:1px solid #2de8df;border-radius:9px;
         background:rgba(2,19,18,.92);color:#dffffc;text-align:center;box-shadow:0 0 14px rgba(45,232,223,.38);
       }
-      body.v014.poker8-v2-sixmax .v038-turn-context strong{display:block;color:#55fff2;font-size:11px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-      body.v014.poker8-v2-sixmax .v038-turn-context span{display:block;margin-top:3px;color:#ecfffd;font-size:10px;font-weight:850;line-height:1;}
-      body.v014.poker8-v2-sixmax .v038-turn-context span:empty{display:none;}
+      body.v014.poker8-v2-sixmax .v038-turn-context span{display:block;color:#ecfffd;font-size:10px;font-weight:850;line-height:1;}
 
       body.v014.poker8-v2-sixmax.v028-prehand-center-ready .seat[data-visual-seat="0"] .avatar-wrap{
         cursor:pointer!important;
@@ -348,6 +346,9 @@
       }
       body.v014.poker8-v2-sixmax .pot-total-label{font-size:8px!important;letter-spacing:.08em!important;}
       body.v014.poker8-v2-sixmax .pot-total strong{font-size:20px!important;line-height:1!important;}
+      /* v019-center-polish sets display:flex!important on the same selector
+         family, so the hide needs !important here to actually win. */
+      body.v014.poker8-v2-sixmax.p8-no-pot .pot-total{display:none!important;}
 
       body.v014.poker8-v2-sixmax .pot-chips .chip-cluster.pot-cluster{height:52px!important;min-width:124px!important;filter:drop-shadow(0 8px 6px rgba(0,0,0,.54))!important;}
       body.v014.poker8-v2-sixmax .pot-chips .chip-column.pot-stack{width:22px!important;height:48px!important;}
@@ -357,8 +358,10 @@
         box-shadow:0 2px 3px rgba(0,0,0,.58),inset 0 2px 0 rgba(255,255,255,.28),inset 0 -3px 0 rgba(0,0,0,.40)!important;
       }
       body.v014.poker8-v2-sixmax .pot-chips .poker-chip::before{left:3px!important;right:3px!important;height:4px!important;}
-      body.v014.poker8-v2-sixmax .pot-chips .chip-column:nth-child(3n+2) .poker-chip{filter:hue-rotate(92deg) saturate(1.45)!important;}
-      body.v014.poker8-v2-sixmax .pot-chips .chip-column:nth-child(3n) .poker-chip{filter:hue-rotate(214deg) saturate(1.35)!important;}
+      /* Each column already renders one denomination's real colour (set by
+         chipsForAmount in app.js) -- shifting every 3rd column's hue by
+         position on top of that mixed denominations together at random,
+         which is what read as the pot's chips being coloured/layered wrong. */
 
       body.v014.poker8-v2-sixmax .bet-marker .chip-cluster.compact{transform:scale(.82)!important;transform-origin:center bottom!important;}
       body.v014.poker8-v2-sixmax .bet-marker span{
@@ -695,13 +698,13 @@
     if (!context) {
       context = document.createElement("div");
       context.className = "v038-turn-context";
-      context.innerHTML = "<strong></strong><span></span>";
+      context.innerHTML = "<span></span>";
       host.appendChild(context);
     }
     const active = Boolean(game && !game.terminal && game.acting_player);
     timer.classList.toggle("visible", active);
-    context.classList.toggle("visible", active);
     if (!active) {
+      context.classList.remove("visible");
       window.clearInterval(turnVisualTicker);
       turnVisualTicker = 0;
       turnVisualToken = "";
@@ -712,9 +715,13 @@
       turnVisualToken = token;
       turnVisualStartedAt = Date.now();
     }
+    // Whose turn it is already reads off the seat's own glow -- repeating the
+    // acting player's name and a turn label here was the same information
+    // twice. The bet amount is the only thing this box adds that the glow
+    // doesn't show, so there's nothing to show (no empty pill either) without one.
     const actor = game.players?.[game.acting_player];
-    setText(context.querySelector("strong"), `ХОД · ${actor?.name || "ИГРОК"}`);
     const invested = Number(actor?.street_invested || 0);
+    context.classList.toggle("visible", invested > 0);
     setText(context.querySelector("span"), invested > 0 ? `ПОСТАВИЛ · ${compactStackLabel(invested)}` : "");
     // The server owns the clock and folds on its own deadline, so a locally
     // restarted countdown would promise time the player does not have.

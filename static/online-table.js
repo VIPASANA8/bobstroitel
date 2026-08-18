@@ -45,7 +45,12 @@
       /* The header buttons below replace this card on mobile -- keeping both
          would mean two competing seat prompts on a screen with room for one. */
       .poker8-online #readyPanel{display:none!important}
-      .poker8-online .mobile-header-seat-actions{display:flex;order:1;gap:6px;margin-left:auto;margin-right:8px}
+      /* Absolutely positioned (the header is position:fixed already) so it
+         centers on the header regardless of the hamburger/chat buttons on
+         either side, instead of just hugging whichever side flex leaves it. */
+      .poker8-online .mobile-header-seat-actions{
+        display:flex;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);gap:6px;
+      }
       .poker8-online .mobile-header-seat-actions[hidden]{display:none!important}
       .poker8-online .mobile-header-seat-actions button{
         padding:8px 11px;border:1px solid rgba(64,237,167,.42);border-radius:10px;
@@ -55,8 +60,10 @@
       .poker8-online .mobile-header-seat-actions #mobileHeaderTakeSeat{
         border-color:rgba(64,237,167,.7);background:#0a3b2b;
       }
+      /* Its own colour (not just the shimmer) reads as a distinct mode from
+         "Занять место", not a dimmer variant of it. */
       .poker8-online .mobile-header-seat-actions #mobileHeaderObserve{
-        border-color:rgba(120,140,132,.4);background:rgba(10,20,17,.7);color:#9aada3;
+        border-color:rgba(56,189,248,.55);background:#0a2b3b;color:#bdeeff;
       }
       /* The picked mode gets a moving gradient ring instead of a flat border --
          a 1px inset keeps the button's own background as the solid interior,
@@ -66,14 +73,22 @@
            too, and an id always outranks this class selector on specificity. */
         position:relative;border-color:transparent!important;color:#eafff6;
       }
-      .poker8-online .mobile-header-seat-actions button.mode-active::before{
+      .poker8-online .mobile-header-seat-actions #mobileHeaderTakeSeat.mode-active::before{
         content:"";position:absolute;inset:-1px;z-index:-1;border-radius:inherit;
         background:linear-gradient(90deg,#3defb0,#7dfff0,#3defb0,#2aa87c);
         background-size:300% 100%;animation:p8HeaderModeShimmer 2.6s linear infinite;
       }
-      .poker8-online .mobile-header-seat-actions button.mode-active::after{
-        content:"";position:absolute;inset:1px;z-index:-1;border-radius:inherit;
-        background:#0a3b2b;
+      .poker8-online .mobile-header-seat-actions #mobileHeaderTakeSeat.mode-active::after{
+        content:"";position:absolute;inset:1px;z-index:-1;border-radius:inherit;background:#0a3b2b;
+      }
+      .poker8-online .mobile-header-seat-actions #mobileHeaderObserve.mode-active{color:#eafcff;}
+      .poker8-online .mobile-header-seat-actions #mobileHeaderObserve.mode-active::before{
+        content:"";position:absolute;inset:-1px;z-index:-1;border-radius:inherit;
+        background:linear-gradient(90deg,#38bdf8,#a6f1ff,#38bdf8,#1d7fb8);
+        background-size:300% 100%;animation:p8HeaderModeShimmer 2.6s linear infinite;
+      }
+      .poker8-online .mobile-header-seat-actions #mobileHeaderObserve.mode-active::after{
+        content:"";position:absolute;inset:1px;z-index:-1;border-radius:inherit;background:#0a2b3b;
       }
       @keyframes p8HeaderModeShimmer{from{background-position:0% 0}to{background-position:300% 0}}
       @media (prefers-reduced-motion:reduce){
@@ -171,7 +186,7 @@
     wrap.className = "mobile-header-seat-actions";
     wrap.innerHTML = `
       <button id="mobileHeaderTakeSeat" type="button">Занять место</button>
-      <button id="mobileHeaderObserve" type="button">Наблюдать</button>
+      <button id="mobileHeaderObserve" type="button">Наблюдатель</button>
     `;
     header.appendChild(wrap);
     $("mobileHeaderTakeSeat").addEventListener("click", () => {
@@ -190,10 +205,10 @@
     const offer = ["spectator", "waiting"].includes(viewerState);
     wrap.hidden = !offer;
     if (!offer) return;
-    // "Занять место" is a one-shot action (it seats you, then both buttons
-    // vanish), not a mode you sit in -- only "Наблюдать" ever needs to show
-    // as the persistently-chosen one.
+    // Exactly one of the two always shimmers: "Занять место" by default (the
+    // primary call to action on entry), "Наблюдатель" once actually picked.
     const observing = sessionStorage.getItem(OBSERVE_MODE_KEY) === "1";
+    $("mobileHeaderTakeSeat")?.classList.toggle("mode-active", !observing);
     $("mobileHeaderObserve")?.classList.toggle("mode-active", observing);
   }
 

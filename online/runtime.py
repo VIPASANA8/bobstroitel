@@ -274,7 +274,13 @@ class TableRuntimeManager:
         if loaded is None:
             raise RuntimeErrorBase("table runtime not found")
         participant_id = await self._participant_for_user(table_id, viewer_user_id) if viewer_user_id else None
-        return self._snapshot_for_state(loaded, participant_id, table_id)
+        # A freshly bought-in seat only joins state.players at the next hand
+        # boundary, so between hands (waiting for ready-up, countdown) that
+        # dict still only reflects whoever played the last hand -- a newly
+        # seated player has nothing to render and nothing to click ready on.
+        # This is sourced independently from the actual seating instead.
+        current_seats = await self._current_seating(table_id) if loaded.phase in ("waiting", "countdown") else None
+        return self._snapshot_for_state(loaded, participant_id, table_id, current_seats)
 
     async def private_snapshot(self, table_id: str) -> dict[str, Any]:
         loaded = self._tables.get(table_id) or await self._load_locked(table_id)
@@ -442,6 +448,28 @@ class TableRuntimeManager:
             revision = loaded.revision
             user_id = actor
         return await self.action(table_id, user_id, command_id, revision, timeout_action.value, 0)
+
+    async def fold_if_acting(self, table_id: str, user_id: str) -> RuntimeActionResult | None:
+        """Leaving mid-hand must not let a player keep their cards and wait out
+        the 30s clock -- fold immediately instead, same as if they had pressed
+        the button themselves. A no-op if it isn't currently their turn.
+        """
+        async with self._lock(table_id):
+            loaded = await self._load_locked(table_id)
+            if loaded is None or loaded.state.terminal or loaded.state.acting_player is None:
+                return None
+            async with self.session_factory() as session:
+                participant_id = await self._participant_for_user(table_id, user_id, session=session)
+            if participant_id is None or participant_id != loaded.state.acting_player:
+                return None
+            command_id = f"leave-fold:{loaded.state.hand_id}:{loaded.revision}"
+            revision = loaded.revision
+        try:
+            return await self.action(table_id, user_id, command_id, revision, ActionType.FOLD.value, 0)
+        except (StaleRevision, InvalidAction, TablePaused):
+            # Someone else's action landed first, or fold genuinely isn't
+            # legal right now (e.g. already all-in) -- leaving still proceeds.
+            return None
 
     async def prepare_next_hand(self, table_id: str) -> None:
         async with self._lock(table_id):
@@ -845,7 +873,11 @@ class TableRuntimeManager:
             return await query(db)
 
     def _snapshot_for_state(
-        self, loaded: _LoadedTable, participant_id: str | None, table_id: str | None = None,
+        self,
+        loaded: _LoadedTable,
+        participant_id: str | None,
+        table_id: str | None = None,
+        current_seats: dict[int, dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         state = loaded.state.to_dict(viewer_player_id=participant_id)
         for player in state["players"].values():
@@ -867,8 +899,33 @@ class TableRuntimeManager:
             "ready_seats": sorted(self.ready_seats(table_id)) if table_id else [],
             "ready_deadline": ready_deadline.isoformat() if ready_deadline else None,
             "hand_starts_at": hand_starts_at.isoformat() if hand_starts_at else None,
+            # Who is actually sitting where right now, independent of the last
+            # hand's roster -- see public_snapshot for why this exists.
+            "current_seats": current_seats,
         })
         return state
+
+    async def _current_seating(self, table_id: str) -> dict[int, dict[str, Any]]:
+        async with self.session_factory() as session:
+            seats = (
+                await session.execute(
+                    select(table_seats).where(
+                        table_seats.c.table_id == table_id,
+                        table_seats.c.state.in_(("seated", "held", "leaving")),
+                    )
+                )
+            ).mappings().all()
+            if not seats:
+                return {}
+            details = await self._participant_details(session, seats)
+        return {
+            seat["seat_no"]: {
+                "id": self._participant_id(seat),
+                "name": details[self._participant_id(seat)]["name"],
+                "is_bot": seat["occupant_kind"] == "system",
+            }
+            for seat in seats
+        }
 
     @staticmethod
     def _result_json(result: RuntimeActionResult) -> dict[str, Any]:

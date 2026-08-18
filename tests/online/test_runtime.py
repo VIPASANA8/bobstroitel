@@ -244,3 +244,28 @@ async def test_abandon_hand_lets_a_fresh_hand_start_afterward(runtime):
 
     assert second["revision"] == 1
     assert (await runtime.load("t1")).phase == "active"
+
+
+@pytest.mark.anyio
+async def test_fold_if_acting_folds_a_player_leaving_on_their_own_turn(runtime, human_turn):
+    """Leaving mid-hand must not leave the hand hanging for the 30s clock."""
+    result = await runtime.fold_if_acting(human_turn.table_id, human_turn.user_id)
+
+    assert result is not None
+    assert result.action == "fold"
+    loaded = await runtime.load(human_turn.table_id)
+    assert loaded.state.terminal
+
+
+@pytest.mark.anyio
+async def test_fold_if_acting_is_a_no_op_off_turn(runtime):
+    await runtime.start_hand("t1")
+    # bot-1 is the system seat, never the human -- it is never "u1"'s turn to
+    # act as this specific participant right after the bot's own turn ends.
+    loaded = await runtime.load("t1")
+    other_participant = next(pid for pid in loaded.state.players if pid != loaded.state.acting_player)
+
+    result = await runtime.fold_if_acting("t1", other_participant)
+
+    assert result is None
+    assert not (await runtime.load("t1")).state.terminal

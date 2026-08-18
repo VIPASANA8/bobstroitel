@@ -861,9 +861,16 @@ function seatHtml(config, player) {
   const stack = player ? player.stack : config.balance;
   const wager = Number(player?.street_invested || 0);
   const isDealer = String(position).includes("BTN");
-  const status = folded ? "ПАС" : allIn ? "ОЛЛ-ИН" : activeTurn ? (isHuman ? "ХОД" : "ДУМАЕТ") : "";
+  // A human's turn is shown by the seat's own glow (.active-turn) -- the
+  // "ХОД" badge on top of it was redundant. Bots keep "ДУМАЕТ": it's the
+  // only sign a bot is actually deciding, not just informational chrome.
+  const status = folded ? "ПАС" : allIn ? "ОЛЛ-ИН" : activeTurn && !isHuman ? "ДУМАЕТ" : "";
   const typeClass = isHuman ? "seat-human" : "seat-bot";
-  const isViewer = Boolean(game && game.viewer_player_id && game.viewer_player_id === source.id);
+  // game is null before a hand exists (waiting/countdown) -- tableData's own
+  // copy survives those phases, so a freshly seated player still gets a hero
+  // seat and can click ready instead of staying invisible until dealt in.
+  const viewerPlayerId = game?.viewer_player_id || tableData?.viewer_player_id;
+  const isViewer = Boolean(viewerPlayerId && viewerPlayerId === source.id);
   const telegramProfile = isViewer ? window.Poker8TelegramProfile : null;
   const displayName = telegramProfile?.displayName || source.name || config.name || "Игрок";
   // Avatars are level-based, not photos -- no --profile-avatar-image here.
@@ -1427,6 +1434,9 @@ function renderGame() {
   renderSeats();
   renderMobileHud();
   document.body.dataset.street = game?.street || "idle";
+  // Nothing has been wagered before a hand exists -- a "0.00 ББ" pot readout
+  // was just clutter on an empty table.
+  document.body.classList.toggle("p8-no-pot", !game);
   document.body.classList.toggle("human-turn", Boolean(game && !game.terminal && game.acting_human_player_id));
   document.body.classList.toggle("local-human-turn", isLocalHumanTurn());
   document.body.classList.toggle("local-player-active", localPlayerAlive());
@@ -1514,13 +1524,26 @@ renderMobileHud();
 window.Poker8LegacyView = {
   renderSnapshot({ table, state, viewerState }) {
     const players = Object.values(state?.players || {});
+    // Between hands (waiting for ready-up, countdown) state.players still
+    // only lists whoever played the last hand -- a freshly bought-in seat
+    // has nothing there yet. current_seats is sourced from the actual seating
+    // instead, so a fresh seat still gets an avatar to render and click ready
+    // on, rather than staying invisible until the hand that finally deals
+    // them in.
+    const currentSeatFor = seatNo => {
+      const row = state?.current_seats?.[seatNo];
+      return row ? { ...row, seat: seatNo, stack: 0, hole_cards: [] } : null;
+    };
+    const playerAtSeat = seatNo => players.find(row => Number(row.seat) === seatNo) || currentSeatFor(seatNo);
     const viewer = state?.viewer_player_id
-      ? players.find(player => player.id === state.viewer_player_id) || null
+      ? players.find(player => player.id === state.viewer_player_id)
+        || Object.keys(state?.current_seats || {}).map(Number).map(currentSeatFor).find(row => row?.id === state.viewer_player_id)
+        || null
       : window.Poker8OnlineTable
         ? null
         : players.find(player => !player.is_bot && (player.hole_cards || []).some(card => card && card !== "??")) || null;
     const seats = Array.from({ length: 6 }, (_, seat) => {
-      const player = players.find(row => Number(row.seat) === seat);
+      const player = playerAtSeat(seat);
       return {
         seat,
         active: Boolean(player),
@@ -1562,6 +1585,9 @@ window.Poker8LegacyView = {
       spectator_only: viewerState !== "seated",
       profile: null,
       profiles: [],
+      // Same reason as ready_seats below: needed to know which seat is "you"
+      // before a hand exists to identify it via game.viewer_player_id.
+      viewer_player_id: viewer?.id || null,
       // Ready-up is a pre-hand affordance, so it has to survive on tableData
       // (set every phase) rather than on `game`, which is null exactly then.
       ready_seats: state?.ready_seats || [],

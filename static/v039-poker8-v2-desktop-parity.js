@@ -125,6 +125,9 @@
       }
       body.v014.poker8-desktop-v2 .board-cards .card{width:58px!important;height:80px!important;border-color:rgba(98,255,170,.82)!important;background:linear-gradient(150deg,#07110d,#010303)!important;box-shadow:0 0 12px rgba(48,255,158,.32),0 6px 11px rgba(0,0,0,.58)!important;}
       body.v014.poker8-desktop-v2 .pot-total{border-color:rgba(60,225,150,.26)!important;background:rgba(1,31,18,.78)!important;box-shadow:0 5px 13px rgba(0,0,0,.42)!important;}
+      /* v019-center-polish sets display:flex!important on the same selector
+         family, so the hide needs !important here to actually win. */
+      body.v014.poker8-desktop-v2.p8-no-pot .pot-total{display:none!important;}
       body.v014.poker8-desktop-v2 .pot-total strong{color:#f1fff6!important;font-size:24px!important;}
       body.v014.poker8-desktop-v2 .street-badge{border-color:rgba(63,244,173,.30)!important;background:rgba(1,25,15,.82)!important;color:#bcffdd!important;}
       body.v014.poker8-desktop-v2 .online-state-panel{border-color:rgba(63,244,173,.34)!important;background:rgba(1,28,18,.92)!important;box-shadow:0 0 20px rgba(44,247,169,.14)!important;}
