@@ -102,9 +102,10 @@
       body.v014.poker8-desktop-v2 .bot-level,body.v014.poker8-desktop-v2 .position-chip{display:none!important;}
       body.v014.poker8-desktop-v2 .player-cards{position:absolute!important;z-index:3!important;left:50%!important;top:-80px!important;bottom:auto!important;transform:translateX(-50%)!important;min-height:0!important;gap:3px!important;pointer-events:none!important;}
       body.v014.poker8-desktop-v2 .player-cards .card.back{width:34px!important;height:47px!important;border-color:hsl(var(--avatar-hue) 95% 72% / .82)!important;background:repeating-linear-gradient(45deg,hsl(var(--avatar-hue) 62% 38% / .76) 0 3px,hsl(var(--avatar-hue) 62% 16% / .98) 3px 6px)!important;box-shadow:inset 0 0 0 2px rgba(0,0,0,.50),0 0 10px hsl(var(--avatar-hue) 94% 58% / .30)!important;}
-      body.v014.poker8-desktop-v2 .seat[data-visual-seat="0"] .avatar-wrap{top:2px!important;width:72px!important;height:72px!important;}
-      body.v014.poker8-desktop-v2 .seat[data-visual-seat="0"] .player-avatar{width:72px!important;height:72px!important;border-color:#35bfff!important;}
-      body.v014.poker8-desktop-v2 .seat[data-visual-seat="0"] .seat-identity{top:66px!important;width:132px!important;min-height:40px!important;}
+      /* Same avatar size and plate as every other seat -- the hero used to be
+         smaller than everyone else here, which read as a rendering bug. Only
+         the "this is you" border colour stays hero-specific. */
+      body.v014.poker8-desktop-v2 .seat[data-visual-seat="0"] .player-avatar{border-color:#35bfff!important;}
       body.v014.poker8-desktop-v2 .seat[data-visual-seat="0"] .player-cards{top:-30px!important;z-index:9!important;gap:4px!important;}
       body.v014.poker8-desktop-v2 .seat[data-visual-seat="0"] .player-cards .card{width:40px!important;height:56px!important;border-color:#56c8ff!important;box-shadow:0 0 12px rgba(47,184,255,.46),0 5px 9px rgba(0,0,0,.54)!important;}
       body.v014.poker8-desktop-v2 .dealer-button{right:-6px!important;bottom:28px!important;z-index:12!important;}

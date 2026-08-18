@@ -115,13 +115,18 @@ def test_lobby_card_offers_a_way_to_watch_without_buying_in():
 
 
 def test_online_table_header_offers_seat_and_observe_while_spectating():
+    """Both controls stay up the whole time the viewer has no seat -- picking
+    "Наблюдать" only marks that choice (for the shimmer), it must never hide
+    either button, since a spectator can always change their mind."""
     source = Path("static/online-table.js").read_text(encoding="utf-8")
     assert "mobileHeaderTakeSeat" in source
     assert "mobileHeaderObserve" in source
-    # Dismissing must survive re-renders and snapshot pushes, not just this click.
-    assert "sessionStorage.setItem(OBSERVE_DISMISSED_KEY" in source
-    # The drawer stays as a way back even after the header prompt is dismissed.
-    assert "sessionStorage.removeItem(OBSERVE_DISMISSED_KEY)" in source
+    assert 'const offer = ["spectator", "waiting"].includes(viewerState);' in source
+    assert "wrap.hidden = !offer;" in source
+    # The picked mode survives re-renders and snapshot pushes, not just this click.
+    assert "sessionStorage.setItem(OBSERVE_MODE_KEY" in source
+    assert "sessionStorage.removeItem(OBSERVE_MODE_KEY)" in source
+    assert 'classList.toggle("mode-active", observing)' in source
 
 
 def test_request_observe_dead_code_is_gone():

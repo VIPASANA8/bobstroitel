@@ -98,7 +98,6 @@
       }
 
       body.v014.poker8-v2-sixmax .seat{width:69px!important;height:77px!important;min-height:0!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"]{width:87px!important;height:87px!important;}
       /* $= (suffix match) so a spectator's "spectator-N" dataset (v040) still
          resolves an accent color -- an exact ="N" match leaves it undefined,
          which silently drops every hsla(var(--seat-accent)…) declaration below. */
@@ -262,8 +261,9 @@
          seat's avatar is now the same size, hero included) -- only the
          cosmetic "this is you" cue (border color) stays hero-specific. */
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .player-avatar{border-color:#35bfff!important;font-size:14px!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-identity{top:47px!important;width:122px!important;min-height:42px!important;z-index:12!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-name{font-size:10px!important;max-width:92px!important;}
+      /* Plate stays the same width and position as every other seat's --
+         a wider hero plate was the last piece of asymmetric hero sizing. */
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-name{font-size:10px!important;max-width:66px!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-stack{font-size:13px!important;color:#35c6ff!important;}
 
       body.v014.poker8-v2-sixmax .seat-card.v038-action-fold .player-avatar{
@@ -281,7 +281,11 @@
       body.v014.poker8-v2-sixmax .seat-card.v032-folded.v038-action-fold{opacity:.48!important;filter:none!important;}
 
       body.v014.poker8-v2-sixmax .v038-room-prompt{
-        position:absolute;z-index:72;left:50%;top:55%;transform:translate(-50%,-50%);display:none;width:max-content;max-width:78%;
+        /* y:36% sits over the pot/board strip, which is empty whenever this
+           prompt shows (no hand running) -- and it's the one vertical band
+           every seat layout now deliberately avoids, so the prompt can no
+           longer land on top of another seat's avatar. */
+        position:absolute;z-index:72;left:50%;top:36%;transform:translate(-50%,-50%);display:none;width:max-content;max-width:78%;
         padding:10px 14px;border:1px solid rgba(61,235,190,.58);border-radius:12px;background:rgba(1,18,13,.88);text-align:center;
         box-shadow:0 0 18px rgba(46,239,186,.22);pointer-events:auto;cursor:pointer;
       }
@@ -545,8 +549,9 @@
       }
 
       @media (max-width:370px){
-        body.v014.poker8-v2-sixmax .seat{width:90px!important;}
-        body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"]{width:120px!important;}
+        /* The two .seat width overrides that used to live here never actually
+           applied: v040's per-player-count rule has higher specificity and
+           always won regardless of viewport width. Removed as dead weight. */
         body.v014.poker8-v2-sixmax .avatar-wrap{transform:translateX(-50%) scale(.92)!important;transform-origin:center bottom;}
         body.v014.poker8-v2-sixmax .board-cards .card{width:39px!important;height:56px!important;}
       }
@@ -745,11 +750,18 @@
   }
 
   function syncOnlineRoomPrompt(prompt) {
+    const heroSeat = document.querySelector('.seat[data-visual-seat="0"]');
     const seated = !tableData?.spectator_only;
-    if (!seated) {
-      prompt.innerHTML = "<strong>ВЫ НАБЛЮДАЕТЕ</strong><span>Откройте лобби, чтобы занять место</span>";
+    // The server can report "seated" a moment before the seat actually shows
+    // up here -- seats are still drawn from the current hand's player list,
+    // and a fresh seat only joins that list at the next hand boundary. Until
+    // then there is nothing to click, so don't tell the viewer to click it.
+    if (!seated || !heroSeat) {
+      prompt.innerHTML = seated
+        ? "<strong>МЕСТО ЗАНЯТО</strong><span>Раздача начнётся с вашим участием совсем скоро</span>"
+        : "<strong>ВЫ НАБЛЮДАЕТЕ</strong><span>Откройте лобби, чтобы занять место</span>";
     } else {
-      const heroSeatNo = Number(document.querySelector('.seat[data-visual-seat="0"]')?.dataset.seat);
+      const heroSeatNo = Number(heroSeat.dataset.seat);
       const viewerReady = (tableData?.ready_seats || []).includes(heroSeatNo);
       prompt.innerHTML = viewerReady
         ? "<strong>ЖДЁМ ОСТАЛЬНЫХ</strong><span>Раздача начнётся, как только все будут готовы</span>"

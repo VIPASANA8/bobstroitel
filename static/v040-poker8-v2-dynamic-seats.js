@@ -6,21 +6,26 @@
   const isMobile = () => window.matchMedia?.(MOBILE_QUERY)?.matches ?? false;
   const isDesktop = () => window.matchMedia?.(DESKTOP_QUERY)?.matches ?? false;
 
+  // Pot/board/chips sit in a fixed proportional band regardless of felt
+  // height (they're positioned in %, top:25/38/47 -- see v038/v019): roughly
+  // y 22%-56%, x 14%-86%. Every seat point below keeps its centre outside
+  // that band with margin for the seat's own half-height, or the seat visibly
+  // sits on top of the pot/board/cards.
   const LAYOUTS = {
     1: [[50, 80]],
     2: [[50, 80], [50, 15]],
-    3: [[50, 80], [23, 24], [77, 24]],
-    4: [[50, 80], [16, 50], [50, 15], [84, 50]],
-    5: [[50, 80], [16, 61], [28, 18], [72, 18], [84, 61]],
-    6: [[50, 80], [8, 58], [8, 22], [50, 13], [86, 22], [86, 58]],
+    3: [[50, 80], [18, 14], [82, 14]],
+    4: [[50, 80], [14, 66], [50, 13], [86, 66]],
+    5: [[50, 80], [12, 63], [24, 14], [76, 14], [88, 63]],
+    6: [[50, 80], [12, 61], [12, 19], [50, 13], [88, 19], [88, 61]],
   };
 
   // В режиме наблюдения у стола нет закреплённого нижнего места.
   // Поэтому два активных игрока выводятся слева и справа, а не друг напротив друга.
   const SPECTATOR_LAYOUTS = {
-    2: [[22, 50], [78, 50]],
-    3: [[50, 17], [18, 70], [82, 70]],
-    4: [[50, 17], [84, 50], [50, 83], [16, 50]],
+    2: [[12, 50], [88, 50]],
+    3: [[50, 13], [18, 70], [82, 70]],
+    4: [[50, 13], [86, 66], [50, 88], [14, 66]],
     5: [[50, 16], [82, 38], [70, 78], [30, 78], [18, 38]],
     6: [[50, 15], [83, 31], [83, 69], [50, 85], [17, 69], [17, 31]],
   };
@@ -34,7 +39,13 @@
         left:var(--v040-seat-x)!important;top:var(--v040-seat-y)!important;
         transform:translate(calc(-50% + var(--v040-flip-x, 0px)),calc(-50% + var(--v040-flip-y, 0px)))!important;
         will-change:transform;
-        transition:transform 460ms cubic-bezier(.22,.8,.24,1),width 260ms ease,height 260ms ease!important;
+        /* Only the position needs to visibly flip. A live table re-renders
+           this element from scratch on every snapshot, which restarts any
+           transition on it before it can finish -- animating width/height
+           here left the seat box stuck near its pre-transition size
+           indefinitely. Dropping them makes the size exact on every paint,
+           independent of how often re-renders arrive. */
+        transition:transform 460ms cubic-bezier(.22,.8,.24,1)!important;
       }
       body.v014.poker8-v2-sixmax .seat.v040-dynamic-seat .seat-card,
       body.v014.poker8-v2-sixmax .seat.v040-dynamic-seat .avatar-wrap,
@@ -52,7 +63,8 @@
       body.v014.poker8-v2-sixmax.p8-player-count-3 .seat.v040-dynamic-seat{width:71px!important;height:79px!important;}
       body.v014.poker8-v2-sixmax.p8-player-count-4 .seat.v040-dynamic-seat,
       body.v014.poker8-v2-sixmax.p8-player-count-5 .seat.v040-dynamic-seat{width:67px!important;height:77px!important;}
-      body.v014.poker8-v2-sixmax .seat.v040-dynamic-seat[data-visual-seat="0"]{width:87px!important;height:87px!important;}
+      /* The hero seat used to be pinned at a fixed 87x87 regardless of player
+         count -- now it takes the same per-count size as every other seat. */
       body.v014.poker8-v2-sixmax.p8-player-count-2 .seat.v040-dynamic-seat[data-visual-seat="1"] .avatar-wrap{top:7px!important;}
       body.v014.poker8-v2-sixmax.p8-player-count-2 .seat.v040-dynamic-seat[data-visual-seat="1"] .seat-identity{top:50px!important;}
     }
@@ -70,9 +82,6 @@
       body.v014.poker8-desktop-v2.p8-player-count-5 .seat.v040-dynamic-seat,
       body.v014.poker8-desktop-v2.p8-player-count-6 .seat.v040-dynamic-seat{width:126px!important;height:138px!important;}
       body.v014.poker8-desktop-v2:not(.p8-spectator-layout) .seat.v040-dynamic-seat[data-visual-seat="0"]{width:144px!important;height:150px!important;z-index:28!important;}
-      body.v014.poker8-desktop-v2:not(.p8-spectator-layout) .seat.v040-dynamic-seat[data-visual-seat="0"] .avatar-wrap{top:2px!important;width:72px!important;height:72px!important;}
-      body.v014.poker8-desktop-v2:not(.p8-spectator-layout) .seat.v040-dynamic-seat[data-visual-seat="0"] .player-avatar{width:72px!important;height:72px!important;}
-      body.v014.poker8-desktop-v2:not(.p8-spectator-layout) .seat.v040-dynamic-seat[data-visual-seat="0"] .seat-identity{top:66px!important;width:132px!important;}
       body.v014.poker8-desktop-v2:not(.p8-spectator-layout) .seat.v040-dynamic-seat[data-visual-seat="0"] .player-cards{top:-30px!important;}
       body.v014.poker8-desktop-v2:not(.p8-spectator-layout) .seat.v040-dynamic-seat[data-visual-seat="0"] .player-cards .card{width:40px!important;height:56px!important;}
     }
@@ -155,8 +164,17 @@
       seat.classList.toggle("v040-empty-seat", !activeSet.has(seat));
       seat.classList.toggle("v040-dynamic-seat", activeSet.has(seat));
     });
-    document.body.classList.remove(...[1, 2, 3, 4, 5, 6].map(value => `p8-player-count-${value}`));
-    document.body.classList.add(`p8-player-count-${count}`);
+    // This runs on every snapshot/poll, i.e. continuously on a live table. A
+    // remove-then-add of the class the body already carries still restarts
+    // the width/height/transform transitions on .v040-dynamic-seat (verified:
+    // it happens even with no other DOM change), so the seat box never
+    // settles at its target size on an active table -- it sits stuck near
+    // its pre-transition width for as long as renders keep arriving.
+    const countClass = `p8-player-count-${count}`;
+    if (!document.body.classList.contains(countClass)) {
+      document.body.classList.remove(...[1, 2, 3, 4, 5, 6].map(value => `p8-player-count-${value}`));
+      document.body.classList.add(countClass);
+    }
 
     const points = !viewer && SPECTATOR_LAYOUTS[count] ? SPECTATOR_LAYOUTS[count] : LAYOUTS[count];
     document.body.classList.toggle("p8-spectator-layout", !viewer);

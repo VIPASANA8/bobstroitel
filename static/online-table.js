@@ -58,12 +58,41 @@
       .poker8-online .mobile-header-seat-actions #mobileHeaderObserve{
         border-color:rgba(120,140,132,.4);background:rgba(10,20,17,.7);color:#9aada3;
       }
+      /* The picked mode gets a moving gradient ring instead of a flat border --
+         a 1px inset keeps the button's own background as the solid interior,
+         so only the ring itself shows the gradient/shimmer. */
+      .poker8-online .mobile-header-seat-actions button.mode-active{
+        /* !important: #mobileHeaderObserve's own id rule sets border-color
+           too, and an id always outranks this class selector on specificity. */
+        position:relative;border-color:transparent!important;color:#eafff6;
+      }
+      .poker8-online .mobile-header-seat-actions button.mode-active::before{
+        content:"";position:absolute;inset:-1px;z-index:-1;border-radius:inherit;
+        background:linear-gradient(90deg,#3defb0,#7dfff0,#3defb0,#2aa87c);
+        background-size:300% 100%;animation:p8HeaderModeShimmer 2.6s linear infinite;
+      }
+      .poker8-online .mobile-header-seat-actions button.mode-active::after{
+        content:"";position:absolute;inset:1px;z-index:-1;border-radius:inherit;
+        background:#0a3b2b;
+      }
+      @keyframes p8HeaderModeShimmer{from{background-position:0% 0}to{background-position:300% 0}}
+      @media (prefers-reduced-motion:reduce){
+        .poker8-online .mobile-header-seat-actions button.mode-active::before{animation:none;background-position:0% 0}
+      }
       .poker8-online .mobile-chat-button{order:2}
       /* v038 derives --table-stage-h from these two vars, so zeroing them here
          (custom-property !important still beats v038's later non-important
          declaration) expands the felt into the space the hidden action panel
-         would otherwise still reserve for nothing but an empty black slab. */
-      body.v014.poker8-v2-sixmax.p8-observer-mode{--p8-hud-h:0px!important;--p8-bottom-reserve:0px!important}
+         would otherwise still reserve for nothing but an empty black slab.
+         Overriding --table-stage-h directly as well, rather than only its
+         inputs, caps how far that expansion goes: on a tall phone the raw
+         calc reaches ~2.4x the felt's width, which stretches every seat
+         layout percentage (tuned for ~1.6x) into a tube where the ring no
+         longer follows the felt's edge. */
+      body.v014.poker8-v2-sixmax.p8-observer-mode{
+        --p8-hud-h:0px!important;--p8-bottom-reserve:0px!important;
+        --table-stage-h:clamp(430px, calc(100dvh - 130px), 560px)!important;
+      }
       body.v014.poker8-v2-sixmax.p8-observer-mode .sidebar,
       body.v014.poker8-v2-sixmax.p8-observer-mode .action-panel{display:none!important}
     }
@@ -129,7 +158,10 @@
     return phase === "result" ? `Следующая раздача через ${seconds} сек.` : `Новая раздача через ${seconds} сек.`;
   }
 
-  const OBSERVE_DISMISSED_KEY = `poker8:observe-dismissed:${tableId}`;
+  // Which mode the viewer has picked, purely to light up the matching
+  // button's edge -- "Наблюдать" no longer hides either control (a spectator
+  // must always be able to change their mind and take a seat instead).
+  const OBSERVE_MODE_KEY = `poker8:observe-mode:${tableId}`;
 
   function ensureHeaderSeatButtons() {
     const header = document.getElementById("mobileGameHeader");
@@ -142,9 +174,12 @@
       <button id="mobileHeaderObserve" type="button">Наблюдать</button>
     `;
     header.appendChild(wrap);
-    $("mobileHeaderTakeSeat").addEventListener("click", () => ready().catch(error => alert(error.message)));
+    $("mobileHeaderTakeSeat").addEventListener("click", () => {
+      sessionStorage.removeItem(OBSERVE_MODE_KEY);
+      ready().catch(error => alert(error.message));
+    });
     $("mobileHeaderObserve").addEventListener("click", () => {
-      sessionStorage.setItem(OBSERVE_DISMISSED_KEY, "1");
+      sessionStorage.setItem(OBSERVE_MODE_KEY, "1");
       syncHeaderSeatButtons();
     });
   }
@@ -152,9 +187,14 @@
   function syncHeaderSeatButtons() {
     const wrap = $("mobileHeaderSeatActions");
     if (!wrap) return;
-    const dismissed = sessionStorage.getItem(OBSERVE_DISMISSED_KEY) === "1";
-    const offer = ["spectator", "waiting"].includes(viewerState) && !dismissed;
+    const offer = ["spectator", "waiting"].includes(viewerState);
     wrap.hidden = !offer;
+    if (!offer) return;
+    // "Занять место" is a one-shot action (it seats you, then both buttons
+    // vanish), not a mode you sit in -- only "Наблюдать" ever needs to show
+    // as the persistently-chosen one.
+    const observing = sessionStorage.getItem(OBSERVE_MODE_KEY) === "1";
+    $("mobileHeaderObserve")?.classList.toggle("mode-active", observing);
   }
 
   function renderOnlineChrome(state) {
@@ -353,7 +393,7 @@
       readyUp().catch(error => { alert(error.message); });
     });
     $("mobileDrawerTakeSeat")?.addEventListener("click", () => {
-      sessionStorage.removeItem(OBSERVE_DISMISSED_KEY);
+      sessionStorage.removeItem(OBSERVE_MODE_KEY);
       ready().catch(error => alert(error.message));
     });
     $("mobileDrawerLobby")?.addEventListener("click", () => returnToLobby().catch(error => alert(error.message)));

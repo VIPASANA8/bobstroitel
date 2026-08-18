@@ -142,7 +142,9 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'syncTurnIndicators' not in source
     assert '.deck-anchor{display:none!important' in source
     assert '.viewer-seat .player-cards{top:-47px!important' in source
-    assert 'min-height:42px!important;z-index:12!important;' in source
+    # The hero's identity plate no longer overrides width/position -- it now
+    # matches every other seat's plate, same as the avatar (item 5 uniformity).
+    assert 'seat[data-visual-seat="0"] .seat-identity' not in source
     assert '.viewer-seat .player-cards .card-suit' in source
     assert '.player-cards .card:not(.back)' in source
     assert 'v038-ready-countdown' in source

@@ -45,7 +45,7 @@
         <p class="blinds">Блайнды <b>${format(table.small_blind_units)} / ${format(table.big_blind_units)}</b></p>
         <div class="card-bottom"><span>Бай-ин ${buyInRange(table)}</span><span>${table.occupied_count} / 6</span></div>
         <div class="card-actions">
-          <button class="card-action" data-table="${escape(table.id)}">Выбрать стол <span>→</span></button>
+          <button class="card-action" data-table="${escape(table.id)}">Выбрать стол</button>
           <button class="card-observe" data-observe-table="${escape(table.id)}" type="button" aria-label="Наблюдать за столом" title="Наблюдать">👁</button>
         </div>
       </article>`).join("");
