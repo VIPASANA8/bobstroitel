@@ -376,8 +376,21 @@
       viewerState = result.queue_state === "waiting" ? "waiting" : viewerState;
       await refreshState();
     } catch (error) {
-      if (String(error.message || "").includes("already has a network seat")) {
+      // One seat per player across the whole network, so the server refuses
+      // this one and names the table already holding them. Swallowing that
+      // made the button look simply broken: pressing "Занять место" left the
+      // label untouched, raised nothing, and changed no state.
+      const detail = error?.data?.detail;
+      if (detail?.code === "already_seated") {
         await refreshState();
+        // Same table: the refresh above already turned the header into the
+        // seated view, which explains itself. Another table needs saying.
+        if (detail.table_id && detail.table_id !== tableId) {
+          const go = window.confirm(
+            "У вас уже есть место за другим столом — играть за двумя сразу нельзя.\nПерейти к своему столу?"
+          );
+          if (go) location.href = `/table?table=${encodeURIComponent(detail.table_id)}`;
+        }
         return;
       }
       throw error;

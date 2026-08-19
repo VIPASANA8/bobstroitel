@@ -30,3 +30,19 @@ def test_viewer_state_is_reconciled_from_every_snapshot():
     # The observer-mode class is derived in renderOnlineChrome, so the
     # reconciliation has to land before it, not after.
     assert reconcile_at < render_at < call_at < chrome_at
+
+
+def test_taking_a_seat_explains_a_refusal_instead_of_silently_bouncing():
+    """One seat per player across the network. The refusal used to be caught
+    and dropped, so pressing "Занять место" while seated elsewhere changed
+    nothing at all -- no label change, no message, no state -- which reads as a
+    broken button. The server names the blocking table; use it."""
+    source = Path("static/online-table.js").read_text(encoding="utf-8")
+
+    assert 'detail?.code === "already_seated"' in source
+    # Matched on the structured code, not on a substring of a Russian sentence.
+    assert 'includes("already has a network seat")' not in source
+    # A different table has to be surfaced and offered, not swallowed.
+    assert "detail.table_id !== tableId" in source
+    assert "window.confirm(" in source
+    assert "location.href = `/table?table=${encodeURIComponent(detail.table_id)}`" in source
