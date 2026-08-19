@@ -454,6 +454,7 @@ class PokerEngine:
         side_pots = self.build_side_pots(state)
         details = []
         all_winners: list[str] = []
+        distributed = 0.0
 
         for index, pot in enumerate(side_pots):
             eligible = pot["eligible"]
@@ -468,6 +469,7 @@ class PokerEngine:
             share = pot["amount"] / len(winners)
             for pid in winners:
                 state.players[pid].stack += share
+                distributed += share
                 if pid not in all_winners:
                     all_winners.append(pid)
 
@@ -500,6 +502,19 @@ class PokerEngine:
             state.result_text = " | ".join(payouts) + (" — " + " · ".join(descriptions) if descriptions else "")
 
         state.result_details = details
+        # Every chip in the pot has to leave it. A side pot whose contributors
+        # all folded has no eligible player and is skipped by the loop above,
+        # but the pot is zeroed unconditionally on the next line -- those chips
+        # would simply cease to exist. Today that is unreachable, because the
+        # uncalled-bet refund trims the top layer before it can end up with no
+        # live claimant; this guard is here so that the day it becomes
+        # reachable the hand aborts loudly instead of quietly minting a loss.
+        # Raising here is safe: the runtime rolls the hand back, pauses the
+        # table, and the coordinator refunds and resumes it.
+        assert abs(distributed - state.pot) <= 1e-6, (
+            f"showdown paid out {distributed:.6f} of a {state.pot:.6f} pot "
+            f"in hand {state.hand_id}: a side pot had no eligible winner"
+        )
         state.pot = 0.0
         state.acting_player = None
         state.pending_actions.clear()
