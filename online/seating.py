@@ -23,6 +23,15 @@ class SeatingError(ValueError):
     pass
 
 
+class InsufficientFunds(SeatingError):
+    """Carries both numbers so the client can say how far short the player is."""
+
+    def __init__(self, message: str, required_units: int, available_units: int) -> None:
+        super().__init__(message)
+        self.required_units = required_units
+        self.available_units = available_units
+
+
 class AlreadySeated(SeatingError):
     """Carries the blocking seat so the caller can send the player to it."""
 
@@ -68,6 +77,19 @@ class SeatingService:
                 if not minimum <= buy_in_units <= maximum:
                     raise SeatingError(
                         f"buy-in must be between {table['min_buy_in_bb']} and {table['max_buy_in_bb']} BB"
+                    )
+                # Checked here, not only at the boundary. The boundary cancels an
+                # unaffordable request silently and moves on, so the player saw
+                # their request accepted and then vanish a few seconds later with
+                # no reason given. Refusing up front makes it immediate and says
+                # why; the boundary keeps its own check for a balance that drops
+                # between the request and the seating.
+                available = await self.ledger.available_units(user_id, session=session)
+                if available < buy_in_units:
+                    raise InsufficientFunds(
+                        "not enough chips for this buy-in",
+                        required_units=buy_in_units,
+                        available_units=available,
                     )
                 occupied = (
                     await session.execute(

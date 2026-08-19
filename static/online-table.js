@@ -381,6 +381,16 @@
       // made the button look simply broken: pressing "Занять место" left the
       // label untouched, raised nothing, and changed no state.
       const detail = error?.data?.detail;
+      if (detail?.code === "insufficient_funds") {
+        // Said in big blinds, because that is the unit every number on the
+        // table is already in -- raw chip counts mean nothing to the player.
+        const bb = value => Math.floor(Number(value || 0) / Math.max(1, units(table?.big_blind_units)));
+        alert(
+          `Не хватает фишек, чтобы сесть за этот стол.\n`
+          + `Нужно ${bb(detail.required_units)} ББ, у вас ${bb(detail.available_units)} ББ.`
+        );
+        return;
+      }
       if (detail?.code === "already_seated") {
         await refreshState();
         // Same table: the refresh above already turned the header into the

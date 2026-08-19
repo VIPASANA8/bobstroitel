@@ -46,3 +46,12 @@ def test_taking_a_seat_explains_a_refusal_instead_of_silently_bouncing():
     assert "detail.table_id !== tableId" in source
     assert "window.confirm(" in source
     assert "location.href = `/table?table=${encodeURIComponent(detail.table_id)}`" in source
+
+
+def test_an_unaffordable_buy_in_is_explained_in_big_blinds():
+    """The player never sees chip units anywhere else on the table, so a
+    shortfall has to be stated in the unit every other number already uses."""
+    source = Path("static/online-table.js").read_text(encoding="utf-8")
+    assert 'detail?.code === "insufficient_funds"' in source
+    assert "detail.required_units" in source and "detail.available_units" in source
+    assert "big_blind_units" in source

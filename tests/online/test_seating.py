@@ -223,3 +223,39 @@ async def test_releasing_a_seat_retires_its_queue_row(seating, db_session_factor
             await session.execute(select(seat_queue.c.state).where(seat_queue.c.user_id == user_a))
         ).scalar_one()
     assert queue_state != "seated"
+
+
+@pytest.mark.anyio
+async def test_an_unaffordable_buy_in_is_refused_up_front(seating, db_session_factory, user_a, table_id):
+    """The boundary cancels an unaffordable request silently and moves on, so
+    the player watched their request be accepted and then vanish a few seconds
+    later with no reason given. Refuse it at the point of asking instead, and
+    carry both numbers so the client can say how far short they are.
+
+    2_495 is what the player who reported this actually had: below the table's
+    40 BB minimum of 4_000, and so below every table in the network."""
+    from online.schema import play_accounts
+    from online.seating import InsufficientFunds
+
+    async with db_session_factory() as session:
+        await session.execute(
+            update(play_accounts)
+            .where(
+                play_accounts.c.owner_kind == "user",
+                play_accounts.c.owner_id == user_a,
+                play_accounts.c.account_kind == "wallet",
+            )
+            .values(balance_units=2_495)
+        )
+        await session.commit()
+
+    with pytest.raises(InsufficientFunds) as caught:
+        await seating.ready(user_a, table_id, seat_no=2, buy_in_units=4_000)
+
+    assert caught.value.required_units == 4_000
+    assert caught.value.available_units == 2_495
+
+    # Nothing was queued, so no request can later disappear on its own.
+    async with db_session_factory() as session:
+        rows = (await session.execute(select(seat_queue.c.state))).scalars().all()
+    assert "waiting" not in rows

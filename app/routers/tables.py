@@ -8,7 +8,7 @@ from sqlalchemy import select
 
 from app.dependencies import AuthenticatedUser, get_current_user
 from online.schema import poker_tables, seat_queue, table_seats
-from online.seating import AlreadySeated, SeatingError
+from online.seating import AlreadySeated, InsufficientFunds, SeatingError
 
 
 logger = logging.getLogger(__name__)
@@ -44,6 +44,15 @@ def _error(exc: Exception) -> HTTPException:
             "message": message,
             "table_id": exc.table_id,
             "seat_state": exc.seat_state,
+        })
+    if isinstance(exc, InsufficientFunds):
+        # Both numbers, so the client can say how far short the player is
+        # instead of a bare refusal.
+        return HTTPException(status_code=409, detail={
+            "code": "insufficient_funds",
+            "message": message,
+            "required_units": exc.required_units,
+            "available_units": exc.available_units,
         })
     code = "between_hands_only" if "active hand" in message else "invalid_seating_request"
     return HTTPException(status_code=409, detail={"code": code, "message": message})
