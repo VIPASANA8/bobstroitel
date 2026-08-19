@@ -57,6 +57,21 @@ def test_v025_showdown_modal_is_readable_on_mobile():
     assert '.v025-reason{\n        margin-top:5px;' in source
 
 
+def test_seat_config_carries_the_participant_id():
+    """Between hands `game` is null and the server omits current_seats for
+    anyone who played the last hand, so the seat list is the only place the
+    viewer's id survives. Without it no seat is marked as the viewer's, the
+    hero seat disappears and the table rotates into spectator layout with an
+    avatar nobody can click."""
+    root = Path(__file__).resolve().parents[1]
+    app_source = (root / 'static' / 'app.js').read_text(encoding='utf-8')
+    assert 'id: player?.id || null,' in app_source
+    component_source = (root / 'static' / 'component-ui.js').read_text(encoding='utf-8')
+    # The layout anchor must resolve the viewer by id before it falls back to
+    # "first human seat", which is somebody else's seat.
+    assert "seat?.id === viewerId" in component_source
+
+
 def test_v038_cinematic_table_is_mobile_presentation_only():
     root = Path(__file__).resolve().parents[1]
     loader = (root / 'static' / 'v037-poker8-v2-reference-table.js').read_text(encoding='utf-8')

@@ -6,6 +6,16 @@
       return Number(game.players[game.viewer_player_id].seat);
     }
 
+    // Between hands `game` is null, and the last resort below anchors the whole
+    // layout on whichever human sits first -- someone else's seat. The seat
+    // list carries the viewer's own id through those phases, so match on it
+    // before falling back to guessing.
+    const viewerId = game?.viewer_player_id || tableData?.viewer_player_id;
+    if (viewerId && Array.isArray(tableData?.seats)) {
+      const own = tableData.seats.find(seat => seat?.active && seat?.id === viewerId);
+      if (own) return Number(own.seat);
+    }
+
     const activeProfile = game?.active_profile_id || tableData?.active_profile_id;
     if (activeProfile && Array.isArray(tableData?.seats)) {
       const row = tableData.seats.find(

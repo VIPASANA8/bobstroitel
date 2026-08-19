@@ -827,8 +827,9 @@ function gamePlayerForSeat(seatNumber) {
   if (fromGame) return fromGame;
   // A seat sitting out the hand in progress (bought in after it started) has
   // nothing in game.players -- current_seats is where the server puts them
-  // instead, and it's the only source with their real id, which is what
-  // seatHtml's isViewer check actually needs (tableData.seats has no id field).
+  // instead, and it carries the stack and hole cards this render needs.
+  // The server sends it only for that gap, so between hands it is absent and
+  // seatHtml falls back to the seat config, which carries the id.
   const row = tableData?.current_seats?.[seatNumber];
   // Carries the seat's real stack: this is what seatHtml prints, so a zero
   // here made every seat sitting out read "0.00 ББ" instead of its chips.
@@ -1558,6 +1559,13 @@ window.Poker8LegacyView = {
       return {
         seat,
         active: Boolean(player),
+        // The participant id, so a seat can still be recognised as the
+        // viewer's between hands. `game` is null then, and the server omits
+        // current_seats for anyone who played the last hand -- leaving this
+        // out meant nothing tied a seat to a player, so seatHtml marked no
+        // seat as the viewer's, v040 found no hero seat and rotated the
+        // table into spectator layout with an unclickable avatar.
+        id: player?.id || null,
         occupant_type: player?.is_bot ? "bot" : "human",
         profile_id: player?.profile_id || null,
         name: player?.name || `Место ${seat + 1}`,
