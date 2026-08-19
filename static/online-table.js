@@ -294,8 +294,28 @@
     if ($("actionTimer")) $("actionTimer").hidden = true;
   }
 
+  // Whether this viewer holds a seat is decided by the server on every
+  // snapshot, and the socket delivers one per viewer with their own
+  // viewer_player_id. viewerState otherwise only advances on the REST refresh,
+  // whose failures the 3s poll swallows -- so a single dropped refresh used to
+  // pin a seated player in observer mode, which hides the whole action panel,
+  // for the rest of the session and across reloads.
+  //
+  // Only the seated/not-seated half is recoverable here: queue membership is
+  // not in the snapshot. That is enough, because both non-seated values gate
+  // the table identically, and the REST refresh restores the exact one.
+  function reconcileViewerState(state) {
+    if (!state) return;
+    if (state.viewer_player_id) {
+      viewerState = "seated";
+    } else if (viewerState === "seated") {
+      viewerState = "spectator";
+    }
+  }
+
   function renderSnapshot(state) {
     latestState = state;
+    reconcileViewerState(state);
     renderOnlineChrome(state);
     // v038's ready-countdown ring already renders from any endsAt timestamp
     // (it was built for the local table's own 5s grace period) -- reused
