@@ -114,19 +114,33 @@ def test_lobby_card_offers_a_way_to_watch_without_buying_in():
     assert "openTable(button.dataset.observeTable)" in source
 
 
-def test_online_table_header_offers_seat_and_observe_while_spectating():
-    """Both controls stay up the whole time the viewer has no seat -- picking
-    "Наблюдать" only marks that choice (for the shimmer), it must never hide
-    either button, since a spectator can always change their mind."""
+def test_online_table_header_shows_the_real_seat_state_not_a_stored_choice():
+    """Both controls stay up the whole time the viewer has no seat, and the
+    pair reads as "where you are now / what you can switch to" -- driven by the
+    server's own answer. The old version highlighted a sessionStorage
+    preference that could disagree with the actual state, and its "Наблюдатель"
+    button did nothing beyond moving that highlight."""
     source = Path("static/online-table.js").read_text(encoding="utf-8")
     assert "mobileHeaderTakeSeat" in source
     assert "mobileHeaderObserve" in source
     assert 'const offer = ["spectator", "waiting"].includes(viewerState);' in source
     assert "wrap.hidden = !offer;" in source
-    # The picked mode survives re-renders and snapshot pushes, not just this click.
-    assert "sessionStorage.setItem(OBSERVE_MODE_KEY" in source
-    assert "sessionStorage.removeItem(OBSERVE_MODE_KEY)" in source
-    assert 'classList.toggle("mode-active", observing)' in source
+    # Derived from viewerState, never from a stored preference.
+    assert "OBSERVE_MODE_KEY" not in source
+    assert 'const queued = viewerState === "waiting";' in source
+    assert 'take.textContent = queued ? "В очереди" : "Занять место";' in source
+    assert "take.disabled = queued;" in source
+    # Observing is now a real action while queued: it hands the seat back.
+    assert "cancelQueue()" in source
+
+
+def test_spectator_gets_no_room_prompt_over_the_felt():
+    """The header pair already says both what the viewer is and what they can
+    do, so a card repeating it only hid the table they came to watch."""
+    source = Path("static/v038-poker8-v2-cinematic-table.js").read_text(encoding="utf-8")
+    assert "ВЫ НАБЛЮДАЕТЕ" not in source
+    assert "if (!seated) return false;" in source
+    assert "hasSomethingToSay && (room || sittingOut)" in source
 
 
 def test_request_observe_dead_code_is_gone():

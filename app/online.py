@@ -92,7 +92,7 @@ def create_app(
         await app.state.seating.hold_all_users(datetime.now(timezone.utc))
         if fixture is not None:
             await fixture(app)
-        app.state.connection_hub = realtime.ConnectionHub()
+        app.state.connection_hub = realtime.ConnectionHub(seating=app.state.seating)
         app.state.coordinator = OnlineCoordinator(
             app.state.runtime,
             app.state.seating,

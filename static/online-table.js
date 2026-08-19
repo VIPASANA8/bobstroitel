@@ -60,6 +60,10 @@
       .poker8-online .mobile-header-seat-actions #mobileHeaderTakeSeat{
         border-color:rgba(64,237,167,.7);background:#0a3b2b;
       }
+      /* "В очереди" is a state, not an offer -- it must not look pressable. */
+      .poker8-online .mobile-header-seat-actions button:disabled{
+        opacity:.6;cursor:default;
+      }
       /* Its own colour (not just the shimmer) reads as a distinct mode from
          "Занять место", not a dimmer variant of it. */
       .poker8-online .mobile-header-seat-actions #mobileHeaderObserve{
@@ -176,11 +180,6 @@
     return phase === "result" ? `Следующая раздача через ${seconds} сек.` : `Новая раздача через ${seconds} сек.`;
   }
 
-  // Which mode the viewer has picked, purely to light up the matching
-  // button's edge -- "Наблюдать" no longer hides either control (a spectator
-  // must always be able to change their mind and take a seat instead).
-  const OBSERVE_MODE_KEY = `poker8:observe-mode:${tableId}`;
-
   function ensureHeaderSeatButtons() {
     const header = document.getElementById("mobileGameHeader");
     if (!header || document.getElementById("mobileHeaderSeatActions")) return;
@@ -193,13 +192,19 @@
     `;
     header.appendChild(wrap);
     $("mobileHeaderTakeSeat").addEventListener("click", () => {
-      sessionStorage.removeItem(OBSERVE_MODE_KEY);
       ready().catch(error => alert(error.message));
     });
     $("mobileHeaderObserve").addEventListener("click", () => {
-      sessionStorage.setItem(OBSERVE_MODE_KEY, "1");
-      syncHeaderSeatButtons();
+      // Only does anything while queued: it gives the seat back and returns
+      // the viewer to plain watching. Already watching means nothing to do.
+      if (viewerState !== "waiting") return;
+      cancelQueue().catch(error => alert(error.message));
     });
+  }
+
+  async function cancelQueue() {
+    await window.Poker8Transport.cancelReady();
+    await refreshState();
   }
 
   function syncHeaderSeatButtons() {
@@ -208,11 +213,31 @@
     const offer = ["spectator", "waiting"].includes(viewerState);
     wrap.hidden = !offer;
     if (!offer) return;
-    // Exactly one of the two always shimmers: "Занять место" by default (the
-    // primary call to action on entry), "Наблюдатель" once actually picked.
-    const observing = sessionStorage.getItem(OBSERVE_MODE_KEY) === "1";
-    $("mobileHeaderTakeSeat")?.classList.toggle("mode-active", !observing);
-    $("mobileHeaderObserve")?.classList.toggle("mode-active", observing);
+    // The pair reads as "where you are now / what you can switch to", both
+    // driven by the server's own answer. The old version highlighted a stored
+    // preference instead, which could disagree with the actual state -- and
+    // "Наблюдатель" did nothing at all beyond moving that highlight.
+    const queued = viewerState === "waiting";
+    const take = $("mobileHeaderTakeSeat");
+    const observe = $("mobileHeaderObserve");
+    if (take) {
+      take.textContent = queued ? "В очереди" : "Занять место";
+      take.disabled = queued;
+      take.classList.toggle("mode-active", !queued);
+      take.setAttribute("aria-pressed", String(queued));
+      take.title = queued
+        ? "Место забронировано — вы сядете после текущей раздачи"
+        : "Занять свободное место за этим столом";
+    }
+    if (observe) {
+      observe.textContent = queued ? "Отменить" : "Наблюдатель";
+      observe.disabled = false;
+      observe.classList.toggle("mode-active", queued);
+      observe.setAttribute("aria-pressed", String(!queued));
+      observe.title = queued
+        ? "Отказаться от места и просто смотреть"
+        : "Вы наблюдаете за столом";
+    }
   }
 
   function renderOnlineChrome(state) {
@@ -439,7 +464,6 @@
       readyUp().catch(error => { alert(error.message); });
     });
     $("mobileDrawerTakeSeat")?.addEventListener("click", () => {
-      sessionStorage.removeItem(OBSERVE_MODE_KEY);
       ready().catch(error => alert(error.message));
     });
     $("mobileDrawerLobby")?.addEventListener("click", () => returnToLobby().catch(error => alert(error.message)));

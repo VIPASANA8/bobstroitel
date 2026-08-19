@@ -780,9 +780,15 @@
     return prompt;
   }
 
+  // Returns whether the prompt has anything to say at all.
   function syncOnlineRoomPrompt(prompt, sittingOut = false) {
     const heroSeat = document.querySelector('.seat[data-visual-seat="0"]');
     const seated = !tableData?.spectator_only;
+    // A spectator is already told exactly this by the "Занять место /
+    // Наблюдатель" pair in the header, which also says which of the two they
+    // are in right now. A card repeating it over the felt only hid the table
+    // they came to watch.
+    if (!seated) return false;
     // A hand that started before this seat could join is already running
     // without them. Telling them to "click your avatar to start the hand"
     // then is simply wrong -- one is running, and the click marks them ready
@@ -796,16 +802,14 @@
       prompt.setAttribute("role", "status");
       prompt.removeAttribute("tabindex");
       prompt.setAttribute("aria-live", "polite");
-      return;
+      return true;
     }
     // The server can report "seated" a moment before the seat actually shows
     // up here -- seats are still drawn from the current hand's player list,
     // and a fresh seat only joins that list at the next hand boundary. Until
     // then there is nothing to click, so don't tell the viewer to click it.
-    if (!seated || !heroSeat) {
-      prompt.innerHTML = seated
-        ? "<strong>МЕСТО ЗАНЯТО</strong><span>Раздача начнётся с вашим участием совсем скоро</span>"
-        : "<strong>ВЫ НАБЛЮДАЕТЕ</strong><span>Откройте лобби, чтобы занять место</span>";
+    if (!heroSeat) {
+      prompt.innerHTML = "<strong>МЕСТО ЗАНЯТО</strong><span>Раздача начнётся с вашим участием совсем скоро</span>";
     } else {
       const heroSeatNo = Number(heroSeat.dataset.seat);
       const viewerReady = (tableData?.ready_seats || []).includes(heroSeatNo);
@@ -816,6 +820,7 @@
     prompt.setAttribute("role", "status");
     prompt.removeAttribute("tabindex");
     prompt.setAttribute("aria-live", "polite");
+    return true;
   }
 
   function cancelRoomReset() {
@@ -835,8 +840,8 @@
       // like "room" here too (no cards, no action of theirs) -- the prompt
       // must stay up so they still see "click your avatar" while it runs.
       const sittingOut = Boolean(game) && !game.players?.[game.viewer_player_id];
-      syncOnlineRoomPrompt(prompt, sittingOut);
-      prompt?.classList.toggle("visible", room || sittingOut);
+      const hasSomethingToSay = syncOnlineRoomPrompt(prompt, sittingOut);
+      prompt?.classList.toggle("visible", hasSomethingToSay && (room || sittingOut));
       cancelRoomReset();
       return;
     }
