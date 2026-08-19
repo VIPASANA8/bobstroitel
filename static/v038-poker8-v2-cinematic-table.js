@@ -43,6 +43,20 @@
         box-shadow:0 10px 24px rgba(0,0,0,.44)!important;
       }
 
+      /* style.css sizes .layout/.left-column to the full viewport, and
+         component-ui.css only undoes that for :not(.poker8-v2-sixmax). Left as
+         is here, the left column alone fills .app-shell's whole content box, so
+         the .sidebar holding the action panel is laid out *past* the bottom of
+         .app-shell -- which is overflow:hidden, so every action button becomes
+         invisible and unreachable with no way to scroll to it. The table frame
+         is already pinned to --table-stage-h and the panel to --p8-hud-h, and
+         those two exactly fill the content box, so the column only has to stop
+         claiming height it was never meant to own. */
+      body.v014.poker8-v2-sixmax .layout,
+      body.v014.poker8-v2-sixmax .left-column{
+        min-height:0!important;height:auto!important;flex:none!important;
+      }
+
       body.v014.poker8-v2-sixmax .table-frame{
         height:var(--table-stage-h)!important;
         min-height:var(--table-stage-h)!important;

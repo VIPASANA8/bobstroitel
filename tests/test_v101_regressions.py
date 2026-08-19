@@ -89,6 +89,14 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert '.seat-card::after' in source
     assert '.pot-chips .poker-chip' in source
     assert 'calc(100dvh - 50px - var(--p8-hud-h) - var(--p8-bottom-reserve))' in source
+    # The stage calc above only reserves the action panel's space; it does not
+    # stop .layout/.left-column inheriting a full-viewport height from
+    # style.css. Without this override the left column alone fills .app-shell,
+    # so the sidebar holding the action buttons is laid out past the bottom of
+    # an overflow:hidden shell -- the buttons render but are off-screen and
+    # unreachable, which reads as "the action buttons never appear".
+    assert 'body.v014.poker8-v2-sixmax .layout,' in source
+    assert 'min-height:0!important;height:auto!important;flex:none!important;' in source
     assert '--seat-3-y:13%' in source
     # $= (suffix match), not =, so a spectator's "spectator-N" dataset still
     # resolves an accent color instead of leaving every avatar unstyled.
