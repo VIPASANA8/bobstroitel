@@ -830,7 +830,9 @@ function gamePlayerForSeat(seatNumber) {
   // instead, and it's the only source with their real id, which is what
   // seatHtml's isViewer check actually needs (tableData.seats has no id field).
   const row = tableData?.current_seats?.[seatNumber];
-  return row ? { ...row, seat: seatNumber, stack: 0, hole_cards: [] } : null;
+  // Carries the seat's real stack: this is what seatHtml prints, so a zero
+  // here made every seat sitting out read "0.00 ББ" instead of its chips.
+  return row ? { ...row, seat: seatNumber, stack: Number(row.stack || 0), hole_cards: [] } : null;
 }
 
 function avatarInitials(name, isBot = false) {
