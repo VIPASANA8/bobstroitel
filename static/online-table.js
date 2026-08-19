@@ -106,7 +106,10 @@
          longer follows the felt's edge. */
       body.v014.poker8-v2-sixmax.p8-observer-mode{
         --p8-hud-h:0px!important;--p8-bottom-reserve:0px!important;
-        --table-stage-h:clamp(430px, calc(100dvh - 130px), 560px)!important;
+        /* Nothing is reserved below once the action panel is hidden, so the
+           felt takes the whole screen minus the header instead of stopping
+           short and leaving a dead band under the table. */
+        --table-stage-h:calc(100dvh - 50px)!important;
       }
       body.v014.poker8-v2-sixmax.p8-observer-mode .sidebar,
       body.v014.poker8-v2-sixmax.p8-observer-mode .action-panel{display:none!important}

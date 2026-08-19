@@ -91,8 +91,16 @@ class OnlineCoordinator:
         if not human_seats:
             return True, set()
 
+        # Bots confirm on their own uneven beat rather than being implicitly
+        # ready, so their checkmarks appear one at a time like people's do.
+        # They are never sat out for it -- the AFK deadline below only ever
+        # excludes humans, and a bot's slot always lands well inside it.
+        bot_seats = await self.seating.seated_bot_seat_numbers(table_id)
+        self.runtime.schedule_bot_ready(table_id, bot_seats, now)
+        self.runtime.release_due_bot_ready(table_id, now)
+
         ready = self.runtime.ready_seats(table_id)
-        if human_seats.issubset(ready):
+        if (human_seats | bot_seats).issubset(ready):
             starts_at = self.runtime.hand_starts_at(table_id)
             if starts_at is None:
                 # A beat between "everyone's in" and the cards actually

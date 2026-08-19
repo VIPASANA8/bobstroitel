@@ -1538,7 +1538,10 @@ window.Poker8LegacyView = {
     // them in.
     const currentSeatFor = seatNo => {
       const row = state?.current_seats?.[seatNo];
-      return row ? { ...row, seat: seatNo, stack: 0, hole_cards: [] } : null;
+      // The seat's own stack, not 0 -- this is what every seat renders from
+      // between hands, so hardcoding 0 made the whole table read "0" until
+      // the next deal put everyone back into state.players.
+      return row ? { ...row, seat: seatNo, stack: Number(row.stack || 0), hole_cards: [] } : null;
     };
     const playerAtSeat = seatNo => players.find(row => Number(row.seat) === seatNo) || currentSeatFor(seatNo);
     const viewer = state?.viewer_player_id

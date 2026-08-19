@@ -302,6 +302,12 @@
         box-shadow:0 0 18px rgba(46,239,186,.22);pointer-events:auto;cursor:pointer;
       }
       body.v014.poker8-v2-sixmax .v038-room-prompt.visible{display:block;}
+      /* Past four players the ring closes up and the upper side seats climb
+         into the 36% band, so the prompt has to drop below them to stop
+         covering an avatar. Still above the pot strip, which is empty
+         whenever this prompt is on screen. */
+      body.v014.poker8-v2-sixmax.p8-player-count-5 .v038-room-prompt,
+      body.v014.poker8-v2-sixmax.p8-player-count-6 .v038-room-prompt{top:47%;}
       body.v014.poker8-v2-sixmax .v038-room-prompt strong{display:block;color:#7dffd0;font-size:13px;line-height:1.05;letter-spacing:.06em;}
       body.v014.poker8-v2-sixmax .v038-room-prompt span{display:block;margin-top:5px;color:#dfffee;font-size:9px;line-height:1.1;}
       body.v014.poker8-v2-sixmax.v038-room-awaiting .seat[data-visual-seat="0"] .avatar-wrap:not(.v038-viewer-ready) .player-avatar{
@@ -774,9 +780,24 @@
     return prompt;
   }
 
-  function syncOnlineRoomPrompt(prompt) {
+  function syncOnlineRoomPrompt(prompt, sittingOut = false) {
     const heroSeat = document.querySelector('.seat[data-visual-seat="0"]');
     const seated = !tableData?.spectator_only;
+    // A hand that started before this seat could join is already running
+    // without them. Telling them to "click your avatar to start the hand"
+    // then is simply wrong -- one is running, and the click marks them ready
+    // for the next one, which is what the copy has to say.
+    if (seated && heroSeat && sittingOut) {
+      const heroSeatNo = Number(heroSeat.dataset.seat);
+      const ready = (tableData?.ready_seats || []).includes(heroSeatNo);
+      prompt.innerHTML = ready
+        ? "<strong>ВЫ В СЛЕДУЮЩЕЙ РАЗДАЧЕ</strong><span>Текущая началась до того, как вы сели — дождитесь её конца</span>"
+        : "<strong>НАЖМИТЕ НА АВАТАР</strong><span>Текущая раздача идёт без вас — отметьтесь, чтобы войти в следующую</span>";
+      prompt.setAttribute("role", "status");
+      prompt.removeAttribute("tabindex");
+      prompt.setAttribute("aria-live", "polite");
+      return;
+    }
     // The server can report "seated" a moment before the seat actually shows
     // up here -- seats are still drawn from the current hand's player list,
     // and a fresh seat only joins that list at the next hand boundary. Until
@@ -814,7 +835,7 @@
       // like "room" here too (no cards, no action of theirs) -- the prompt
       // must stay up so they still see "click your avatar" while it runs.
       const sittingOut = Boolean(game) && !game.players?.[game.viewer_player_id];
-      syncOnlineRoomPrompt(prompt);
+      syncOnlineRoomPrompt(prompt, sittingOut);
       prompt?.classList.toggle("visible", room || sittingOut);
       cancelRoomReset();
       return;

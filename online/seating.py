@@ -274,6 +274,19 @@ class SeatingService:
             )
             return {row[0] for row in rows}
 
+    async def seated_bot_seat_numbers(self, table_id: str) -> set[int]:
+        """Bots gate a hand too now -- they mark themselves ready on their own
+        uneven beat so the table doesn't snap to six checkmarks at once."""
+        async with self.session_factory() as session:
+            rows = await session.execute(
+                select(table_seats.c.seat_no).where(
+                    table_seats.c.table_id == table_id,
+                    table_seats.c.state == "seated",
+                    table_seats.c.occupant_kind == "system",
+                )
+            )
+            return {row[0] for row in rows}
+
     async def user_seat_number(self, user_id: str, table_id: str) -> int | None:
         async with self.session_factory() as session:
             return await session.scalar(

@@ -76,8 +76,20 @@ class _LoadedTable:
 #: online coordinator (unlike the legacy client-paced table) was giving every
 #: bot zero think time -- one coordinator tick (250ms), uniformly.
 _BOT_THINK_BAND = (0.9, 2.6)
+# Wider and slower than the think band: confirming you want to play the next
+# hand is a lazier gesture than acting on a live one, and the spread is what
+# keeps six checkmarks from landing together.
+_BOT_READY_BAND = (0.8, 5.0)
 _BOT_DIFFICULTY_FACTOR = {"easy": 0.84, "normal": 1.0, "hard": 1.12, "maximum": 1.25}
 _BOT_STREET_FACTOR = {"preflop": 0.88, "flop": 1.0, "turn": 1.10, "river": 1.22}
+
+
+def bot_ready_delay(*, rng: random.Random | None = None) -> float:
+    """Seconds a bot waits before marking itself ready for the next hand. Real
+    players don't all confirm on the same frame, so each bot gets its own
+    uneven beat instead of every checkmark appearing at once."""
+    lo, hi = _BOT_READY_BAND
+    return (rng or random).uniform(lo, hi)
 
 
 def bot_think_delay(difficulty: str, street: str, *, rng: random.Random | None = None) -> float:
@@ -117,6 +129,11 @@ class TableRuntimeManager:
         self._ready_seats: dict[str, set[int]] = {}
         self._ready_deadline: dict[str, datetime] = {}
         self._hand_starts_at: dict[str, datetime] = {}
+        # When each bot seat "decides" to click ready this cycle. Bots used to
+        # be implicitly ready, so their checkmarks appeared all at once the
+        # instant a table opened -- obviously machines. Cleared with the rest
+        # of the ready cycle, so every hand gets a fresh set of beats.
+        self._bot_ready_at: dict[str, dict[int, datetime]] = {}
 
     def _lock(self, table_id: str) -> asyncio.Lock:
         return self._locks.setdefault(table_id, asyncio.Lock())
@@ -140,6 +157,22 @@ class TableRuntimeManager:
         self._ready_seats.pop(table_id, None)
         self._ready_deadline.pop(table_id, None)
         self._hand_starts_at.pop(table_id, None)
+        self._bot_ready_at.pop(table_id, None)
+
+    def schedule_bot_ready(self, table_id: str, seat_nos: set[int], now: datetime) -> None:
+        """Give each bot seat its own moment to click ready. Only seats without
+        a slot yet are assigned one, so a bot's beat stays put across ticks."""
+        slots = self._bot_ready_at.setdefault(table_id, {})
+        for seat_no in seat_nos:
+            if seat_no not in slots:
+                slots[seat_no] = now + timedelta(seconds=bot_ready_delay())
+
+    def release_due_bot_ready(self, table_id: str, now: datetime) -> None:
+        """Move every bot whose moment has arrived into the ready set, which is
+        what the client renders checkmarks from."""
+        due = {seat_no for seat_no, when in self._bot_ready_at.get(table_id, {}).items() if when <= now}
+        if due:
+            self._ready_seats.setdefault(table_id, set()).update(due)
 
     async def toggle_ready(self, table_id: str, seat_no: int) -> bool:
         """Returns the seat's new ready state. Any change un-arms the 5s
@@ -934,10 +967,15 @@ class TableRuntimeManager:
             if not seats:
                 return {}
             details = await self._participant_details(session, seats)
+            table = await self._table(session, table_id)
         return {
             seat["seat_no"]: {
                 "id": self._participant_id(seat),
                 "name": details[self._participant_id(seat)]["name"],
+                # Between hands the client draws seats from here rather than
+                # from the last hand's roster, so without the seat's real stack
+                # every player reads "0" until the next deal lands.
+                "stack": seat["stack_units"] / table["big_blind_units"],
                 "is_bot": seat["occupant_kind"] == "system",
             }
             for seat in seats

@@ -32,3 +32,26 @@ def test_an_unknown_difficulty_or_street_falls_back_to_the_neutral_factor():
     delay = bot_think_delay("unknown-difficulty", "unknown-street", rng=rng)
     lo, hi = _BOT_THINK_BAND
     assert lo <= delay <= hi
+
+
+def test_bot_ready_delay_stays_inside_the_afk_deadline():
+    """Bots gate the hand now, so a slot past the 30s AFK deadline would let a
+    bot sit a human out for being slower than the bot itself."""
+    from online.runtime import _BOT_READY_BAND, bot_ready_delay
+
+    rng = random.Random(3)
+    lo, hi = _BOT_READY_BAND
+    for _ in range(500):
+        delay = bot_ready_delay(rng=rng)
+        assert lo <= delay <= hi
+        assert delay < 30
+
+
+def test_bot_ready_slots_are_spread_out_not_simultaneous():
+    """The whole point: six checkmarks must not land on the same frame."""
+    from online.runtime import bot_ready_delay
+
+    rng = random.Random(4)
+    slots = [round(bot_ready_delay(rng=rng), 3) for _ in range(6)]
+    assert len(set(slots)) == len(slots)
+    assert max(slots) - min(slots) > 0.5

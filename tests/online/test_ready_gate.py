@@ -74,7 +74,11 @@ async def test_hand_waits_for_every_seated_human_to_ready_up(two_humans):
     assert coordinator.runtime._tables.get("t1") is None or coordinator.runtime._tables["t1"].phase != "active"
 
     await coordinator.runtime.toggle_ready("t1", 1)
-    await coordinator.tick()  # both ready: arms the 5s pre-deal beat, doesn't deal yet
+    await coordinator.tick()  # both humans in, but the table's bots confirm on their own beat
+    assert coordinator.runtime._tables.get("t1") is None or coordinator.runtime._tables["t1"].phase != "active"
+
+    clock.advance(6)
+    await coordinator.tick()  # bots have now confirmed: arms the 5s pre-deal beat, doesn't deal yet
     assert coordinator.runtime._tables.get("t1") is None or coordinator.runtime._tables["t1"].phase != "active"
 
     clock.advance(6)
@@ -90,10 +94,13 @@ async def test_readiness_resets_once_the_hand_actually_starts(two_humans):
     await coordinator.runtime.toggle_ready("t1", 0)
     await coordinator.runtime.toggle_ready("t1", 1)
     await coordinator.tick()
-    clock.advance(6)
+    clock.advance(6)     # the bots' own ready beats land
+    await coordinator.tick()
+    clock.advance(6)     # then the 5s pre-deal beat
     await coordinator.tick()
     assert coordinator.runtime._tables["t1"].phase == "active"
 
+    # Cleared for everyone, bots included -- their slots are re-rolled next hand.
     assert coordinator.runtime.ready_seats("t1") == set()
     assert coordinator.runtime.ready_deadline("t1") is None
     assert coordinator.runtime.hand_starts_at("t1") is None
