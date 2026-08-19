@@ -84,7 +84,7 @@
   function ensureTurnClarityPatch() {
     if (document.querySelector("script[data-v041-poker8-v2-turn-clarity]")) return;
     const v041 = document.createElement("script");
-    v041.src = "/static/v041-poker8-v2-turn-clarity.js?v=turn-clarity-1";
+    v041.src = "/static/v041-poker8-v2-turn-clarity.js?v=turn-clarity-2";
     v041.setAttribute("data-v041-poker8-v2-turn-clarity", "");
     document.body.appendChild(v041);
   }
@@ -103,7 +103,7 @@
 
   if (!document.querySelector('script[data-v038-poker8-v2-cinematic-table]')) {
     const v038 = document.createElement("script");
-    v038.src = "/static/v038-poker8-v2-cinematic-table.js?v=online-controls-13";
+    v038.src = "/static/v038-poker8-v2-cinematic-table.js?v=online-controls-14";
     v038.setAttribute("data-v038-poker8-v2-cinematic-table", "");
     v038.addEventListener("load", ensureDynamicSeatLayout, { once: true });
     document.body.appendChild(v038);

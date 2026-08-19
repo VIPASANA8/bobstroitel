@@ -29,9 +29,6 @@
         box-shadow:0 0 0 1px hsla(var(--seat-accent),100%,72%,.24),0 0 18px hsla(var(--seat-accent),100%,66%,.62)!important;
         animation:v041PlatePulse 1.6s ease-in-out infinite;
       }
-      body.v014.poker8-v2-sixmax .seat .seat-card.p8-turn-gradient .seat-name::after{
-        content:"ХОД";display:block;margin-top:3px;color:#dffffa;font-size:7px;font-weight:950;letter-spacing:.14em;text-shadow:0 0 6px currentColor;
-      }
       @keyframes v041AvatarPulse{0%,100%{filter:drop-shadow(0 0 2px hsla(var(--seat-accent),100%,70%,.55))}50%{filter:drop-shadow(0 0 9px hsla(var(--seat-accent),100%,70%,1))}}
       @keyframes v041PlatePulse{0%,100%{filter:drop-shadow(0 0 1px hsla(var(--seat-accent),100%,68%,.5))}50%{filter:drop-shadow(0 0 6px hsla(var(--seat-accent),100%,68%,.95))}}
       @media (prefers-reduced-motion:reduce){

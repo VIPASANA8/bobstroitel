@@ -287,3 +287,25 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert '/static/style.css?v=chip-motion-2' in index_source
     assert '/static/app.js?v=' in index_source
     assert '/static/component-ui.js?v=' in index_source
+
+
+def test_no_layer_writes_a_turn_label_onto_the_seat():
+    """The acting seat is shown by its own gradient, pulsing plate and avatar
+    glow. Three layers had each added their own "ХОД" caption on top of that at
+    some point; the last one lived in v041 as a ::after on the seat name."""
+    root = Path(__file__).resolve().parents[1]
+    for name in (
+        'app.js',
+        'v038-poker8-v2-cinematic-table.js',
+        'v040-poker8-v2-dynamic-seats.js',
+        'v041-poker8-v2-turn-clarity.js',
+    ):
+        source = (root / 'static' / name).read_text(encoding='utf-8')
+        assert 'content:"ХОД"' not in source, name
+        assert "content:'ХОД'" not in source, name
+
+    v041 = (root / 'static' / 'v041-poker8-v2-turn-clarity.js').read_text(encoding='utf-8')
+    assert '.seat-name::after' not in v041
+    # The highlight itself must stay -- it is now the only turn indicator.
+    assert 'p8-turn-gradient' in v041
+    assert 'v041PlatePulse' in v041
