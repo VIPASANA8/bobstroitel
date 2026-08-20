@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#07100f" />
   <title>Poker8 — Лобби</title>
-  <link rel="stylesheet" href="/static/network.css?v=lobby-functional-2" />
+  <link rel="stylesheet" href="/static/network.css?v=lobby-functional-3" />
 </head>
 <body>
   <a class="skip-link" href="#tableGrid">К столам</a>
@@ -28,7 +28,7 @@
           <button id="quickPlay" class="primary-action" type="button"><span>Быстрая игра</span><strong>→</strong></button>
           <button id="createRoom" class="secondary-action" type="button"><span>Создать комнату</span><strong>+</strong></button>
           <section id="activeSession" class="active-session" hidden aria-live="polite">
-            <div class="session-copy"><span class="session-label">АКТИВНАЯ СЕССИЯ</span><strong id="activeTableName">—</strong><small id="activeTableState">—</small></div><span id="leaveSpinner" class="session-spinner" role="status" aria-label="Выполняется выход" hidden></span>
+            <div class="session-copy"><span class="session-label">АКТИВНАЯ СЕССИЯ</span><span class="session-title"><strong id="activeTableName">—</strong><span id="leaveSpinner" class="session-spinner" role="status" aria-label="Выполняется выход" hidden></span></span><small id="activeTableState">—</small></div>
             <div class="session-actions">
               <button id="returnTable" class="secondary-action" type="button">Вернуться за стол</button>
               <button id="leaveTable" class="leave-action" type="button">Покинуть стол</button>

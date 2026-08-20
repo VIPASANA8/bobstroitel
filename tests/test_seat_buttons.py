@@ -70,6 +70,11 @@ def test_a_seat_being_released_shows_progress_and_keeps_asking():
 
     assert 'id="leaveSpinner"' in markup
     assert ".session-spinner{" in css and "animation:session-spin" in css
+    rule = css[css.index(".session-spinner{"):css.index("}", css.index(".session-spinner{"))]
+    # An inline span ignores width and height: measured on the live page it came
+    # out nought by nought, which is a spinner nobody can see.
+    assert "display:inline-block" in rule, rule
+    assert "width:" in rule and "height:" in rule
     assert ".session-spinner[hidden]{display:none}" in css, \
         "or the spinner outlives the wait, like every other hidden button here"
 
