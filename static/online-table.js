@@ -25,6 +25,17 @@
     .poker8-online.p8-observer-mode #actionButtons,.poker8-online.p8-observer-mode #sizingWrap,.poker8-online.p8-observer-mode .mobile-turn-tools,.poker8-online.p8-observer-mode #mobileAutoActionBar,.poker8-online.p8-observer-mode .v038-hud-summary{display:none!important}
     .poker8-online.p8-observer-mode #mobileTimerCard,.poker8-online.p8-observer-mode #mobileSelectedCard{display:none!important}
     .poker8-online.p8-observer-mode .action-panel{border-color:rgba(64,237,167,.34)}
+    .p8-funds-dialog{width:min(92vw,360px);padding:22px 20px 18px;border:1px solid rgba(64,237,167,.42);border-radius:16px;background:linear-gradient(160deg,#0b1f18,#061210);color:#dcf7e8;box-shadow:0 24px 70px rgba(0,0,0,.62)}
+    .p8-funds-dialog::backdrop{background:rgba(2,8,6,.72)}
+    .p8-funds-dialog h2{margin:0 0 12px;color:#ffd9a8;font:800 19px/1.15 Inter,ui-sans-serif,system-ui;letter-spacing:-.01em}
+    .p8-funds-sums{margin:0 0 18px;color:#a9c6b8;font-size:13px;line-height:1.75}
+    .p8-funds-sums b{color:#eaffef;font-size:15px;font-variant-numeric:tabular-nums}
+    .p8-funds-offer{display:grid;gap:8px;padding:14px;border:1px solid rgba(80,200,255,.34);border-radius:12px;background:rgba(6,26,36,.72)}
+    .p8-funds-offer strong{color:#bde9ff;font-size:14px}
+    .p8-funds-offer span{color:#8fb3c4;font-size:11.5px;line-height:1.35}
+    .p8-funds-offer button{margin-top:2px;padding:12px;border:0;border-radius:10px;background:linear-gradient(120deg,#2fd6a0,#39c8ff);color:#04211c;font:800 13px/1 Inter,ui-sans-serif,system-ui;cursor:pointer}
+    .p8-funds-offer button:disabled{background:rgba(120,150,150,.26);color:#8ea8a2;cursor:default}
+    .p8-funds-close{width:100%;margin-top:14px;padding:12px;border:1px solid rgba(95,237,170,.34);border-radius:10px;background:rgba(4,31,20,.84);color:#c9ffe3;font:800 13px/1 Inter,ui-sans-serif,system-ui;cursor:pointer}
     .poker8-online.p8-action-pending #actionButtons{opacity:.62;pointer-events:none;filter:saturate(.72)}
     .poker8-online.p8-action-pending #actionButtons::after{content:'Отправляем действие…';display:block;grid-column:1 / -1;text-align:center;color:#a8ffd4;font-size:11px;font-weight:800;padding:5px}
     @media(max-width:780px){
@@ -200,6 +211,55 @@
       if (viewerState !== "waiting") return;
       cancelQueue().catch(error => alert(error.message));
     });
+  }
+
+  // A native <dialog>: it brings its own backdrop, focus trap and Esc handling,
+  // none of which is worth reimplementing for one modal.
+  function ensureFundsDialog() {
+    const existing = document.getElementById("p8FundsDialog");
+    if (existing) return existing;
+    const dialog = document.createElement("dialog");
+    dialog.id = "p8FundsDialog";
+    dialog.className = "p8-funds-dialog";
+    dialog.innerHTML = `
+      <h2>Недостаточно средств</h2>
+      <p class="p8-funds-sums">
+        Вход за этот стол — <b data-need>—</b><br>
+        На вашем балансе — <b data-have>—</b>
+      </p>
+      <div class="p8-funds-offer">
+        <strong>Пополнить баланс</strong>
+        <span data-topup-note>Оплата в USDT скоро будет доступна</span>
+        <button type="button" data-topup disabled>Пополнить через USDT</button>
+      </div>
+      <button type="button" class="p8-funds-close" data-close>Понятно</button>
+    `;
+    document.body.appendChild(dialog);
+    dialog.querySelector("[data-close]").addEventListener("click", () => dialog.close());
+    dialog.querySelector("[data-topup]").addEventListener("click", () => {
+      // The single seam the payment flow plugs into: register a handler and the
+      // button turns live, with no other change to this file.
+      window.Poker8TopUp?.open?.({ requiredUnits: dialog.dataset.requiredUnits });
+    });
+    return dialog;
+  }
+
+  function showInsufficientFunds(requiredUnits, availableUnits) {
+    const dialog = ensureFundsDialog();
+    // In big blinds: the unit every other number on the table already uses.
+    // Raw chip counts appear nowhere the player can see.
+    const bb = value => `${Math.floor(Number(value || 0) / Math.max(1, units(table?.big_blind_units)))} ББ`;
+    dialog.dataset.requiredUnits = String(requiredUnits ?? "");
+    dialog.querySelector("[data-need]").textContent = bb(requiredUnits);
+    dialog.querySelector("[data-have]").textContent = bb(availableUnits);
+    const topUp = dialog.querySelector("[data-topup]");
+    const live = Boolean(window.Poker8TopUp?.open);
+    topUp.disabled = !live;
+    dialog.querySelector("[data-topup-note]").textContent = live
+      ? "Пополнение откроется в отдельном окне"
+      : "Оплата в USDT скоро будет доступна";
+    if (typeof dialog.showModal === "function") dialog.showModal();
+    else dialog.setAttribute("open", "");
   }
 
   async function cancelQueue() {
@@ -382,13 +442,7 @@
       // label untouched, raised nothing, and changed no state.
       const detail = error?.data?.detail;
       if (detail?.code === "insufficient_funds") {
-        // Said in big blinds, because that is the unit every number on the
-        // table is already in -- raw chip counts mean nothing to the player.
-        const bb = value => Math.floor(Number(value || 0) / Math.max(1, units(table?.big_blind_units)));
-        alert(
-          `Не хватает фишек, чтобы сесть за этот стол.\n`
-          + `Нужно ${bb(detail.required_units)} ББ, у вас ${bb(detail.available_units)} ББ.`
-        );
+        showInsufficientFunds(detail.required_units, detail.available_units);
         return;
       }
       if (detail?.code === "already_seated") {

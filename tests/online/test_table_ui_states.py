@@ -48,10 +48,19 @@ def test_taking_a_seat_explains_a_refusal_instead_of_silently_bouncing():
     assert "location.href = `/table?table=${encodeURIComponent(detail.table_id)}`" in source
 
 
-def test_an_unaffordable_buy_in_is_explained_in_big_blinds():
-    """The player never sees chip units anywhere else on the table, so a
-    shortfall has to be stated in the unit every other number already uses."""
+def test_an_unaffordable_buy_in_opens_a_top_up_modal():
+    """A bare alert gave the player a dead end. The shortfall gets a real modal
+    stating both sums in big blinds -- the unit every other number on the table
+    already uses -- and carrying the top-up offer."""
     source = Path("static/online-table.js").read_text(encoding="utf-8")
     assert 'detail?.code === "insufficient_funds"' in source
-    assert "detail.required_units" in source and "detail.available_units" in source
+    assert "showInsufficientFunds(detail.required_units, detail.available_units)" in source
     assert "big_blind_units" in source
+    # A native <dialog>, so backdrop, focus trap and Esc come for free.
+    assert 'document.createElement("dialog")' in source
+    assert "dialog.showModal()" in source
+    assert "Недостаточно средств" in source
+    # The payment flow plugs in here and nowhere else; until it does, the offer
+    # is shown but the button stays inert rather than pretending to work.
+    assert "window.Poker8TopUp?.open" in source
+    assert "topUp.disabled = !live;" in source
