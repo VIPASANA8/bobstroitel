@@ -98,7 +98,7 @@
       return;
     }
     const v040 = document.createElement("script");
-    v040.src = "/static/v040-poker8-v2-dynamic-seats.js?v=desktop-parity-1";
+    v040.src = "/static/v040-poker8-v2-dynamic-seats.js?v=empty-seats-1";
     v040.setAttribute("data-v040-poker8-v2-dynamic-seats", "");
     v040.addEventListener("load", ensureTurnClarityPatch, { once:true });
     document.body.appendChild(v040);

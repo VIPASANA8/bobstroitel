@@ -198,6 +198,22 @@
       seat.dataset.visualSeat = viewer ? String(index) : `spectator-${index}`;
       moveSeatTo(seat, x, y);
     });
+
+    // The seats nobody is sitting in were never given a point, so they kept
+    // the legacy seven-seat percentages from style.css -- which on a wide felt
+    // put them outside the ellipse entirely. They are how a player sits down
+    // now, so they have to be places at the table, not leftovers beside it.
+    // Each takes a slot on the full ring that no active seat is near.
+    const ring = (!viewer && SPECTATOR_LAYOUTS[6]) || LAYOUTS[6];
+    const used = points.slice(0, active.length);
+    const spare = ring.filter(([x, y]) =>
+      used.every(([ax, ay]) => Math.hypot(x - ax, y - ay) > 12));
+    allSeats
+      .filter(seat => !activeSet.has(seat))
+      .forEach((seat, index) => {
+        const point = spare[index % Math.max(1, spare.length)];
+        if (point) moveSeatTo(seat, point[0], point[1]);
+      });
   }
 
   const previousLayout = window.syncComponentSeatLayout;
