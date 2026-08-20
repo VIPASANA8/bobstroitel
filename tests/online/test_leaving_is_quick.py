@@ -139,3 +139,20 @@ async def test_the_note_does_not_outlive_the_hand(table):
     runtime._tables["t1"].leaving_participants.add("someone")
     await runtime.prepare_next_hand("t1")
     assert runtime._tables["t1"].leaving_participants == set()
+
+
+def test_the_page_does_not_wait_on_the_leave_request():
+    """Folding a hand out took the server 3.4 seconds on the live site, and
+    the page sat on it before navigating. Nothing in the answer is needed."""
+    from pathlib import Path
+
+    transport = Path("static/online-transport.js").read_text(encoding="utf-8")
+    table = Path("static/online-table.js").read_text(encoding="utf-8")
+
+    assert "leaveInBackground" in transport
+    assert "keepalive: true" in transport, "or the navigation cancels it"
+
+    body = table[table.index("async function leaveTable()"):]
+    body = body[:body.index("\n  }")]
+    assert "leaveInBackground()" in body
+    assert "await window.Poker8Transport.leave()" not in body

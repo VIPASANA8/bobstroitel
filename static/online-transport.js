@@ -174,6 +174,20 @@
     cancelReady: () => request(`/api/tables/${id()}/ready/cancel`, {method: 'POST'}),
     readyUp: () => request(`/api/tables/${id()}/ready-up`, {method: 'POST'}),
     leave: () => request(`/api/tables/${id()}/leave`, {method: 'POST'}),
+    // Same request, but the page does not wait for it. keepalive is what lets
+    // it outlive the navigation that follows, so leaving is instant even when
+    // the table is mid-hand and the server takes a few seconds to fold the
+    // hand out. If it fails anyway the lobby re-sends it while it waits.
+    leaveInBackground: () => {
+      try {
+        fetch(`/api/tables/${id()}/leave`, {
+          method: 'POST', credentials: 'same-origin', keepalive: true,
+        }).catch(() => {});
+      } catch {
+        return request(`/api/tables/${id()}/leave`, {method: 'POST'});
+      }
+      return Promise.resolve();
+    },
     addOn: amountUnits => request(`/api/tables/${id()}/add-on`, {
       method: 'POST', headers: {'content-type': 'application/json'},
       body: JSON.stringify({amount_units: amountUnits, request_id: requestId()}),

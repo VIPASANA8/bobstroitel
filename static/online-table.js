@@ -640,10 +640,15 @@
   }
 
   async function leaveTable() {
+    // Fired, not awaited. Folding a hand out can take the server a few
+    // seconds, and there is nothing in the answer this page needs -- waiting
+    // for it only left the player staring at a table they had already left.
+    // The request outlives the navigation; the lobby shows the wait and
+    // re-sends the leave if it never landed.
     if (viewerState === "waiting") {
       await window.Poker8Transport.cancelReady();
     } else if (["seated", "held"].includes(viewerState)) {
-      await window.Poker8Transport.leave();
+      await window.Poker8Transport.leaveInBackground();
     }
     window.Poker8Transport.disconnect();
     location.href = "/";
