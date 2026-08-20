@@ -9,6 +9,24 @@ RANKS = "23456789TJQKA"
 SUITS = "shdc"
 
 
+#: Preflop equity is asked for constantly and depends on almost nothing: two
+#: cards and a number of opponents. Suits only matter as "same or not", so AhKh
+#: and AsKs are the same question -- normalising collapses 1326 starting hands
+#: to 169. The result is a Monte Carlo estimate either way; reusing one is no
+#: less honest than drawing a second sample of the same distribution, and the
+#: caller adds its own noise on top before deciding anything.
+_PREFLOP_EQUITY_CACHE: dict[tuple[str, int, int], float] = {}
+_PREFLOP_CACHE_LIMIT = 4096
+
+
+def _preflop_key(hero_cards: list[str]) -> str | None:
+    if len(hero_cards) != 2:
+        return None
+    (rank_a, suit_a), (rank_b, suit_b) = hero_cards[0], hero_cards[1]
+    high, low = sorted((rank_a, rank_b), key=RANKS.index, reverse=True)
+    return f"{high}{low}{'s' if suit_a == suit_b else 'o'}"
+
+
 def estimate_multiway_equity(
     hero_cards: list[str],
     board: list[str],
@@ -16,6 +34,15 @@ def estimate_multiway_equity(
     samples: int = 300,
 ) -> float:
     """Monte Carlo showdown equity against N random opponent hands."""
+    cache_key = None
+    if not board:
+        shape = _preflop_key(list(hero_cards))
+        if shape is not None:
+            cache_key = (shape, max(1, int(opponents)), max(1, int(samples)))
+            cached = _PREFLOP_EQUITY_CACHE.get(cache_key)
+            if cached is not None:
+                return cached
+
     evaluator = HandEvaluator()
     opponents = max(1, int(opponents))
     known = set(hero_cards + board)
@@ -39,7 +66,12 @@ def estimate_multiway_equity(
         tied = 1 + sum(1 for score in scores if score == best)
         equity_sum += 1.0 / tied
 
-    return equity_sum / max(1, samples)
+    result = equity_sum / max(1, samples)
+    if cache_key is not None:
+        if len(_PREFLOP_EQUITY_CACHE) >= _PREFLOP_CACHE_LIMIT:
+            _PREFLOP_EQUITY_CACHE.clear()
+        _PREFLOP_EQUITY_CACHE[cache_key] = result
+    return result
 
 
 def estimate_equity(hero_cards: list[str], board: list[str], samples: int = 700) -> float:

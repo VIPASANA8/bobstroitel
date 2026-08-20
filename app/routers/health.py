@@ -39,17 +39,34 @@ async def ready(request: Request):
 async def metrics(request: Request):
     now = datetime.now(timezone.utc)
     async with request.app.state.session_factory() as session:
+        # Open tables only, both of them. A retired room keeps its runtime row,
+        # frozen at whatever phase it died in, so counting every row reported
+        # seven "active" tables on a network that has six -- and the number
+        # grew with every room anyone had ever opened.
         phase_rows = (
             await session.execute(
                 select(table_runtimes.c.phase, func.count())
+                .select_from(
+                    table_runtimes.join(poker_tables, poker_tables.c.id == table_runtimes.c.table_id)
+                )
+                .where(poker_tables.c.status == "open")
                 .group_by(table_runtimes.c.phase)
             )
         ).all()
-        total_tables = (await session.execute(select(func.count()).select_from(poker_tables))).scalar_one()
+        total_tables = (
+            await session.execute(
+                select(func.count()).select_from(poker_tables).where(poker_tables.c.status == "open")
+            )
+        ).scalar_one()
         active_seats = (
             await session.execute(
-                select(func.count()).select_from(table_seats).where(
+                select(func.count())
+                .select_from(
+                    table_seats.join(poker_tables, poker_tables.c.id == table_seats.c.table_id)
+                )
+                .where(
                     table_seats.c.state.in_(("seated", "held")),
+                    poker_tables.c.status == "open",
                 )
             )
         ).scalar_one()

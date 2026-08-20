@@ -517,7 +517,15 @@ class TableRuntimeManager:
             for participant_id, player in bot_view_payload["players"].items():
                 if participant_id != actor:
                     player["hole_cards"] = ["??", "??"]
-            decision = bot.decide(deserialize_state(bot_view_payload), actor)
+            # Off the event loop. A bot's decision is a Monte Carlo equity
+            # estimate in plain Python: measured at 32ms for an easy bot, 127ms
+            # for a hard one and 268ms for maximum -- longer than the whole
+            # coordinator interval. Run inline it froze every other table, every
+            # websocket broadcast and every request for that quarter second, and
+            # six tables of bots meant it was doing so constantly. A worker
+            # thread does not beat the GIL, but it lets the interpreter switch
+            # away mid-estimate instead of holding the loop for the duration.
+            decision = await asyncio.to_thread(bot.decide, deserialize_state(bot_view_payload), actor)
             if decision.action not in legal:
                 decision.action = legal[0]
             async with self.session_factory() as session:

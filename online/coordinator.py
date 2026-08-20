@@ -116,11 +116,11 @@ class OnlineCoordinator:
         hand. The single gate for both places a hand can start, so the
         cold-start and post-countdown paths can't drift apart.
         """
-        count = await self.seating.active_seat_count(table_id)
-        if not (2 <= count <= 6):
+        # One query for all three questions -- see seated_composition.
+        human_seats, bot_seats = await self.seating.seated_composition(table_id)
+        if not (2 <= len(human_seats) + len(bot_seats) <= 6):
             return False, set()
 
-        human_seats = await self.seating.seated_human_seat_numbers(table_id)
         if not human_seats:
             return True, set()
 
@@ -128,7 +128,6 @@ class OnlineCoordinator:
         # ready, so their checkmarks appear one at a time like people's do.
         # They are never sat out for it -- the AFK deadline below only ever
         # excludes humans, and a bot's slot always lands well inside it.
-        bot_seats = await self.seating.seated_bot_seat_numbers(table_id)
         self.runtime.schedule_bot_ready(table_id, bot_seats, now)
         self.runtime.release_due_bot_ready(table_id, now)
 

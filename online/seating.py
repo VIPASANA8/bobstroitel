@@ -294,6 +294,27 @@ class SeatingService:
                 await self._cap_system_stacks(session, table)
                 return BoundaryResult(seated, removed)
 
+    async def seated_composition(self, table_id: str) -> tuple[set[int], set[int]]:
+        """Human seat numbers and bot seat numbers, in one query.
+
+        The coordinator asked for the count, the humans and the bots separately
+        on every tick of every table -- three round-trips reading the same rows,
+        four times a second per table, for a question one query answers.
+        """
+        async with self.session_factory() as session:
+            rows = (
+                await session.execute(
+                    select(table_seats.c.seat_no, table_seats.c.occupant_kind).where(
+                        table_seats.c.table_id == table_id,
+                        table_seats.c.state == "seated",
+                        table_seats.c.occupant_kind.in_(("user", "system")),
+                    )
+                )
+            ).all()
+        humans = {seat_no for seat_no, kind in rows if kind == "user"}
+        bots = {seat_no for seat_no, kind in rows if kind == "system"}
+        return humans, bots
+
     async def active_seat_count(self, table_id: str) -> int:
         async with self.session_factory() as session:
             return len((await session.execute(
