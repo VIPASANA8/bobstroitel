@@ -179,7 +179,7 @@
 
     if (!document.querySelector('script[data-v032-poker8-v2-sixmax]')) {
       const v032 = document.createElement("script");
-      v032.src = "/static/v032-poker8-v2-mobile-sixmax.js?v=desktop-parity-1";
+      v032.src = "/static/v032-poker8-v2-mobile-sixmax.js?v=no-gear-1";
       v032.dataset.v032Poker8V2Sixmax = "1";
       v032.addEventListener("load", () => {
         if (!document.querySelector('script[data-v037-poker8-v2-reference-table]')) {

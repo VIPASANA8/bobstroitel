@@ -121,3 +121,13 @@ def test_the_chat_button_is_delegated():
     online = Path("static/online-table.js").read_text(encoding="utf-8")
     assert 'closest?.("#mobileChatButton")' in online
     assert '$("mobileChatButton")?.addEventListener' not in online
+
+
+def test_no_decorative_gear_squats_where_the_chat_button_lands():
+    """v032 drew a gear as .mobile-game-header::after -- same corner, same
+    42x42, same radius as the button v037 creates a moment later, and
+    pointer-events:none. While the table loaded you saw a gear, and then the
+    real chat bubble landed on top of it."""
+    layer = Path("static/v032-poker8-v2-mobile-sixmax.js").read_text(encoding="utf-8")
+    assert "⚙" not in layer
+    assert ".mobile-game-header::after{" not in layer

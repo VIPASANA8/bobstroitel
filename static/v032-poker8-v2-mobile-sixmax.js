@@ -144,13 +144,11 @@
         background:linear-gradient(180deg,rgba(7,28,34,.96),rgba(3,12,17,.98))!important;
         box-shadow:0 0 0 1px rgba(52,214,255,.13),0 0 18px rgba(38,201,255,.16),inset 0 0 14px rgba(29,180,221,.07)!important;
       }
-      body.poker8-v2-sixmax .mobile-game-header::after{
-        content:'⚙';position:absolute;right:11px;top:6px;width:42px;height:42px;display:grid;place-items:center;
-        border:1px solid rgba(52,214,255,.64);border-radius:13px;color:#d9f8ff;font-size:20px;
-        background:linear-gradient(180deg,rgba(7,28,34,.96),rgba(3,12,17,.98));
-        box-shadow:0 0 0 1px rgba(52,214,255,.13),0 0 18px rgba(38,201,255,.13),inset 0 0 14px rgba(29,180,221,.06);
-        pointer-events:none;
-      }
+      /* A decorative gear used to sit here: a pseudo-element pinned to the
+         same corner, at the same 42x42 and the same radius as the chat button
+         v037 creates a moment later, with pointer-events:none. It was a mockup
+         placeholder that outlived the mockup -- so while the table loaded you
+         saw a gear, and then the real chat bubble landed on top of it. */
 
       body.poker8-v2-sixmax .app-shell{padding-top:50px!important;min-height:100dvh!important;width:100%!important}
       body.poker8-v2-sixmax .table-frame{
