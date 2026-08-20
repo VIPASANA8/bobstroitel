@@ -66,6 +66,7 @@ class EscrowIntegrityMonitor:
         self.telegram_chat_id = os.getenv("POKER8_ALERT_TELEGRAM_CHAT_ID", "")
         self._next_check_at = 0.0
         self._open_findings: dict[str, dict[str, object]] = {}
+        self._warmed = False
         self.last_check_at: datetime | None = None
         self.last_check_duration_ms: float | None = None
         self.last_finding_count = 0
@@ -83,6 +84,7 @@ class EscrowIntegrityMonitor:
         findings: list[EscrowMismatch] = []
         try:
             async with self.session_factory() as session:
+                await self._warm_open_findings(session)
                 table_ids = (await session.execute(select(poker_tables.c.id))).scalars().all()
                 for table_id in table_ids:
                     findings.extend(await self._table_findings(session, table_id))
@@ -112,6 +114,45 @@ class EscrowIntegrityMonitor:
             self.last_check_at = datetime.now(timezone.utc)
             self.last_check_duration_ms = round((time.perf_counter() - started) * 1000, 2)
             self.last_finding_count = len(findings)
+
+    @staticmethod
+    def _fingerprint_of(payload: dict) -> str:
+        return "|".join((
+            str(payload.get("table_id") or ""),
+            str(payload.get("code") or ""),
+            str(payload.get("participant_id") or ""),
+        ))
+
+    async def _warm_open_findings(self, session: AsyncSession) -> None:
+        """Recover which findings are already open from what was recorded.
+
+        The open set lives in memory, so every restart forgot every standing
+        mismatch and reported it as brand new -- a duplicate event and a fresh
+        alert per finding on each deploy, which is exactly how an alert channel
+        earns being ignored. A standing mismatch is not news, so replay the log
+        once per process and treat it as already reported.
+        """
+        if self._warmed:
+            return
+        self._warmed = True
+        rows = (
+            await session.execute(
+                select(integrity_events.c.event_type, integrity_events.c.public_payload_json)
+                .where(integrity_events.c.event_type.in_(
+                    ("escrow_stack_mismatch", "escrow_stack_mismatch_resolved")
+                ))
+                .order_by(integrity_events.c.created_at)
+            )
+        ).mappings().all()
+        recovered: dict[str, dict[str, object]] = {}
+        for row in rows:
+            payload = row["public_payload_json"] or {}
+            fingerprint = self._fingerprint_of(payload)
+            if row["event_type"] == "escrow_stack_mismatch":
+                recovered[fingerprint] = payload
+            else:
+                recovered.pop(fingerprint, None)
+        self._open_findings = recovered
 
     async def _table_findings(self, session: AsyncSession, table_id: str) -> list[EscrowMismatch]:
         seats = (
