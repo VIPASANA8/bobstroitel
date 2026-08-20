@@ -152,4 +152,6 @@ def test_who_is_acting_is_louder_than_which_move_it_is():
         )
 
     slowest, fastest = max(medians.values()), min(medians.values())
-    assert slowest / fastest > 2.0, f"bots only differ by {slowest / fastest:.1f}x"
+    # The old patience span was 0.7-1.45, so 2.07x was the most it could ever
+    # reach even at the extremes; anything above that is the wider span.
+    assert slowest / fastest > 2.2, f"bots only differ by {slowest / fastest:.1f}x"
