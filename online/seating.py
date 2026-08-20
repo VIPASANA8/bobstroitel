@@ -402,7 +402,12 @@ class SeatingService:
             elif row["occupant_kind"] == "system" and row["system_player_id"]:
                 await self.ledger.release_system_seat(
                     row["system_player_id"], table_id,
-                    f"release:{row['id']}:{row['system_player_id']}", session=session,
+                    # Unique per release, like the funding grant above it. Seat rows
+                    # are reused -- _clear_seat blanks a row rather than deleting it --
+                    # so a key built from the row id repeated on every later release of
+                    # the same seat, and the ledger treated it as the first one already
+                    # posted: the escrow was simply never drained again.
+                    f"release:{row['id']}:{row['system_player_id']}:{uuid.uuid4().hex}", session=session,
                 )
             await self._clear_seat(session, row["id"])
 
@@ -434,7 +439,8 @@ class SeatingService:
             system_player_id = row["system_player_id"]
             if system_player_id:
                 await self.ledger.release_system_seat(
-                    system_player_id, table["id"], f"rebalance:{row['id']}", session=session,
+                    system_player_id, table["id"],
+                    f"rebalance:{row['id']}:{uuid.uuid4().hex}", session=session,
                 )
                 removed.append(system_player_id)
             await self._clear_seat(session, row["id"])

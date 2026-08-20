@@ -259,3 +259,61 @@ async def test_an_unaffordable_buy_in_is_refused_up_front(seating, db_session_fa
     async with db_session_factory() as session:
         rows = (await session.execute(select(seat_queue.c.state))).scalars().all()
     assert "waiting" not in rows
+
+
+@pytest.mark.anyio
+async def test_releasing_the_same_seat_twice_drains_the_escrow_both_times(
+    seating, ledger, db_session_factory, table_id
+):
+    """Seat rows are reused -- _clear_seat blanks a row instead of deleting it --
+    so a release key built from the row id repeated on every later release of
+    that seat. The ledger then treated it as the first one, already posted, and
+    the bot's escrow was simply never drained again: production shows 7012
+    funding grants against 75 returns."""
+    from online.schema import play_accounts
+
+    async def bot_escrow(system_player_id: str) -> int:
+        async with db_session_factory() as session:
+            return (await session.execute(
+                select(play_accounts.c.balance_units).where(
+                    play_accounts.c.owner_kind == "system",
+                    play_accounts.c.owner_id == system_player_id,
+                    play_accounts.c.account_kind == "escrow",
+                )
+            )).scalar_one_or_none() or 0
+
+    # Two full cycles of the same seat row: fill, then clear it out again.
+    await seating.process_boundary(table_id)
+    async with db_session_factory() as session:
+        seated = (await session.execute(
+            select(table_seats).where(
+                table_seats.c.table_id == table_id,
+                table_seats.c.occupant_kind == "system",
+            )
+        )).mappings().all()
+    assert seated, "boundary should have seated bots"
+
+    for row in seated:
+        assert await bot_escrow(row["system_player_id"]) > 0
+        await seating.ledger.release_system_seat(
+            row["system_player_id"], table_id, f"release:{row['id']}:{row['system_player_id']}:first"
+        )
+        assert await bot_escrow(row["system_player_id"]) == 0
+
+        # Fund it again, exactly as a re-seating would, then release once more.
+        await seating.ledger.fund_system_seat(
+            row["system_player_id"], table_id, 4_000, f"refund:{row['id']}:{row['system_player_id']}"
+        )
+        assert await bot_escrow(row["system_player_id"]) == 4_000
+        await seating.ledger.release_system_seat(
+            row["system_player_id"], table_id, f"release:{row['id']}:{row['system_player_id']}:second"
+        )
+        assert await bot_escrow(row["system_player_id"]) == 0, "second release must move money too"
+
+
+def test_system_seat_release_keys_are_unique_per_release():
+    from pathlib import Path
+
+    source = Path("online/seating.py").read_text(encoding="utf-8")
+    assert 'f"release:{row[\'id\']}:{row[\'system_player_id\']}:{uuid.uuid4().hex}"' in source
+    assert 'f"rebalance:{row[\'id\']}:{uuid.uuid4().hex}"' in source
