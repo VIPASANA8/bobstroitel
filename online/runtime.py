@@ -319,31 +319,34 @@ class TableRuntimeManager:
                             button_seat=state.players[state.button].seat
                         )
                     )
-                    await session.execute(hands.insert().values(
-                        id=state.hand_id,
-                        table_id=table_id,
-                        revision_started=revision,
-                        button_seat=state.players[state.button].seat,
-                        board_json=[],
-                        result_json=None,
-                        terminal=False,
-                    ))
-                    for participant_id in state.seat_order:
-                        player = state.players[participant_id]
-                        seat = next(row for row in seats if self._participant_id(row) == participant_id)
-                        await session.execute(hand_players.insert().values(
-                            hand_id=state.hand_id,
-                            participant_id=participant_id,
-                            user_id=seat["user_id"],
-                            system_player_id=seat["system_player_id"],
-                            seat_no=player.seat,
-                            position=player.position,
-                            start_stack_units=round(state.starting_stacks[participant_id] * table["big_blind_units"]),
+                    if self._worth_recording(state):
+                        await session.execute(hands.insert().values(
+                            id=state.hand_id,
+                            table_id=table_id,
+                            revision_started=revision,
+                            button_seat=state.players[state.button].seat,
+                            board_json=[],
+                            result_json=None,
+                            terminal=False,
                         ))
-                    await append_integrity_event(
-                        session, event_type="hand_started", table_id=table_id, hand_id=state.hand_id,
-                        payload={"revision": revision, "players": len(state.players)},
-                    )
+                        for participant_id in state.seat_order:
+                            player = state.players[participant_id]
+                            seat = next(row for row in seats if self._participant_id(row) == participant_id)
+                            await session.execute(hand_players.insert().values(
+                                hand_id=state.hand_id,
+                                participant_id=participant_id,
+                                user_id=seat["user_id"],
+                                system_player_id=seat["system_player_id"],
+                                seat_no=player.seat,
+                                position=player.position,
+                                start_stack_units=round(
+                                    state.starting_stacks[participant_id] * table["big_blind_units"]
+                                ),
+                            ))
+                        await append_integrity_event(
+                            session, event_type="hand_started", table_id=table_id, hand_id=state.hand_id,
+                            payload={"revision": revision, "players": len(state.players)},
+                        )
                     loaded = _LoadedTable(revision, "active", state, action_deadline=action_deadline)
                     self._tables[table_id] = loaded
                     self._action_counts[table_id] = 0
@@ -693,6 +696,7 @@ class TableRuntimeManager:
                         )
                     ).mappings().all()
                     by_participant = {self._participant_id(seat): seat for seat in seats}
+                    recorded = self._worth_recording(loaded.state)
                     starts, ends = self._settlement_units(loaded.state, table["big_blind_units"])
                     transfers: dict[tuple[str, str, str], int] = {}
                     user_net_total = 0
@@ -708,32 +712,40 @@ class TableRuntimeManager:
                             user_net_total += end_units - start_units
                         else:
                             transfers[("system", participant_id, "escrow")] = end_units - start_units
-                        await session.execute(
-                            update(hand_players)
-                            .where(
-                                hand_players.c.hand_id == loaded.state.hand_id,
-                                hand_players.c.participant_id == participant_id,
+                        if recorded:
+                            await session.execute(
+                                update(hand_players)
+                                .where(
+                                    hand_players.c.hand_id == loaded.state.hand_id,
+                                    hand_players.c.participant_id == participant_id,
+                                )
+                                .values(
+                                    end_stack_units=end_units,
+                                    net_units=end_units - start_units,
+                                    hole_cards_json=list(player.hole_cards),
+                                    shown=not player.folded,
+                                )
                             )
-                            .values(
-                                end_stack_units=end_units,
-                                net_units=end_units - start_units,
-                                hole_cards_json=list(player.hole_cards),
-                                shown=not player.folded,
-                            )
-                        )
+                        # The seat's stack is the game, not the record, and is
+                        # written whoever was playing.
                         await session.execute(
                             update(table_seats).where(table_seats.c.id == seat["id"]).values(stack_units=end_units)
                         )
-                        profile_table = users if seat["occupant_kind"] == "user" else system_players
-                        profile_id = seat["user_id"] or seat["system_player_id"]
-                        await session.execute(
-                            update(profile_table)
-                            .where(profile_table.c.id == profile_id)
-                            .values(
-                                hands_played=profile_table.c.hands_played + 1,
-                                wins=profile_table.c.wins + (1 if end_units > start_units else 0),
+                        if recorded:
+                            # A bot's tally of hands and wins against other bots
+                            # counts nothing and is read by nothing -- 331,757
+                            # hands and 74,406 wins had accumulated across 36 of
+                            # them before this stopped.
+                            profile_table = users if seat["occupant_kind"] == "user" else system_players
+                            profile_id = seat["user_id"] or seat["system_player_id"]
+                            await session.execute(
+                                update(profile_table)
+                                .where(profile_table.c.id == profile_id)
+                                .values(
+                                    hands_played=profile_table.c.hands_played + 1,
+                                    wins=profile_table.c.wins + (1 if end_units > start_units else 0),
+                                )
                             )
-                        )
                     transfers[("table", table_id, "escrow")] = user_net_total
                     settlement = await self.ledger.settle_hand_transfers(
                         loaded.state.hand_id, transfers, session=session
@@ -741,14 +753,15 @@ class TableRuntimeManager:
                     completed_at = self._now()
                     loaded.result_clear_at = completed_at + timedelta(seconds=4)
                     loaded.next_hand_at = completed_at + timedelta(seconds=7)
-                    await session.execute(
-                        update(hands).where(hands.c.id == loaded.state.hand_id).values(
-                            board_json=loaded.state.board,
-                            result_json=loaded.state.to_dict(),
-                            terminal=True,
-                            completed_at=completed_at,
+                    if recorded:
+                        await session.execute(
+                            update(hands).where(hands.c.id == loaded.state.hand_id).values(
+                                board_json=loaded.state.board,
+                                result_json=loaded.state.to_dict(),
+                                terminal=True,
+                                completed_at=completed_at,
+                            )
                         )
-                    )
                     loaded.phase = "result"
                     await session.execute(
                         update(table_runtimes).where(table_runtimes.c.table_id == table_id).values(
@@ -795,18 +808,20 @@ class TableRuntimeManager:
                         pid: round(loaded.state.starting_stacks[pid] * table["big_blind_units"])
                         for pid in loaded.state.players
                     }
+                    recorded = self._worth_recording(loaded.state)
                     transfers: dict[tuple[str, str, str], int] = {}
                     for participant_id in loaded.state.players:
                         seat = by_participant.get(participant_id)
                         start_units = starts[participant_id]
-                        await session.execute(
-                            update(hand_players)
-                            .where(
-                                hand_players.c.hand_id == loaded.state.hand_id,
-                                hand_players.c.participant_id == participant_id,
+                        if recorded:
+                            await session.execute(
+                                update(hand_players)
+                                .where(
+                                    hand_players.c.hand_id == loaded.state.hand_id,
+                                    hand_players.c.participant_id == participant_id,
+                                )
+                                .values(end_stack_units=start_units, net_units=0, shown=False)
                             )
-                            .values(end_stack_units=start_units, net_units=0, shown=False)
-                        )
                         if seat is None:
                             # The seat was already reused by the time recovery ran; the
                             # escrow row for it is gone too, so credit the wallet direct
@@ -834,14 +849,15 @@ class TableRuntimeManager:
                     loaded.state.winners = []
                     loaded.state.result_text = "Раздача отменена — сбой синхронизации, фишки возвращены"
                     loaded.state.result_details = []
-                    await session.execute(
-                        update(hands).where(hands.c.id == loaded.state.hand_id).values(
-                            board_json=loaded.state.board,
-                            result_json=loaded.state.to_dict(),
-                            terminal=True,
-                            completed_at=completed_at,
+                    if recorded:
+                        await session.execute(
+                            update(hands).where(hands.c.id == loaded.state.hand_id).values(
+                                board_json=loaded.state.board,
+                                result_json=loaded.state.to_dict(),
+                                terminal=True,
+                                completed_at=completed_at,
+                            )
                         )
-                    )
                     loaded.phase = "waiting"
                     loaded.action_deadline = None
                     loaded.result_clear_at = None
@@ -917,6 +933,12 @@ class TableRuntimeManager:
                 updated_at=datetime.now(timezone.utc),
             )
         )
+        if not self._worth_recording(loaded.state):
+            # Nobody will read a bot-only hand back, and the two logs it fills
+            # are the bulk of the database. The revision check above is what
+            # actually stops a command being applied twice; this row only lets
+            # a client retry get the same answer, and a bot never retries.
+            return
         await session.execute(game_commands.insert().values(
             table_id=result.table_id,
             command_id=result.command_id,
@@ -1020,6 +1042,21 @@ class TableRuntimeManager:
         if previous is None:
             return seated[0]
         return next((seat for seat in sorted(seated) if seat > previous), min(seated))
+
+    @staticmethod
+    def _worth_recording(state) -> bool:
+        """Whether this hand goes in the books at all.
+
+        A hand with nobody but bots in it is written down for no reader: on the
+        live database 908,238 of the 908,696 recorded actions were bots, against
+        458 by people. Nothing consults a bot's history -- not the history
+        service, not the profile, not the bots themselves, which do not model
+        each other and are built without an opponent-model provider at all.
+
+        A hand with a person in it is recorded whole, opponents included: their
+        moves are what makes the record worth having.
+        """
+        return any(not player.is_bot for player in state.players.values())
 
     @staticmethod
     def _participant_id(seat) -> str:
