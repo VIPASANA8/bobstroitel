@@ -22,6 +22,12 @@ MAX_SYSTEM_BOTS = 4
 # A band, not a fixed ten minutes: a single interval would rotate the whole
 # table at once, which reads as scripted rather than as people coming and going.
 BOT_ROTATE_BAND = (timedelta(minutes=7), timedelta(minutes=13))
+# A player's room fills the way a real one does: somebody wanders in a little
+# after you sit down, then the rest over the next few minutes. Seating all four
+# on the boundary the owner sat down on made the room feel pre-populated -- you
+# opened your own table and four strangers were already in it.
+BOT_FIRST_ARRIVAL = (timedelta(seconds=30), timedelta(seconds=60))
+BOT_ARRIVAL_WINDOW = timedelta(minutes=5)
 
 
 class SeatingError(ValueError):
@@ -72,6 +78,9 @@ class SeatingService:
         # When each seated bot is due to leave. In memory on purpose: a restart
         # just re-rolls the timers, and rotation has nothing to recover.
         self._bot_rotate_at: dict[str, datetime] = {}
+        # When each bot may walk into a player's room. In memory: a restart
+        # simply staggers them again, which is no worse than the first time.
+        self._bot_arrivals: dict[str, list[datetime]] = {}
 
     async def ready(self, user_id: str, table_id: str, seat_no: int, buy_in_units: int) -> SeatingRequest:
         async with self.session_factory() as session:
@@ -280,7 +289,7 @@ class SeatingService:
                         update(seat_queue).where(seat_queue.c.id == request["id"]).values(state="seated")
                     )
                     seated.append(request["user_id"])
-                removed.extend(await self._fill_system_seats(session, table))
+                removed.extend(await self._fill_system_seats(session, table, now))
                 await self._cap_system_stacks(session, table)
                 return BoundaryResult(seated, removed)
 
@@ -515,18 +524,50 @@ class SeatingService:
         ).mappings().all()
         for row in rows:
             excess = int(row["stack_units"]) - ceiling
-            # Keyed on the stack being trimmed, so a repeat at the same size is
-            # the same operation and a later overshoot is a new one.
+            # Unique per trim. Keying on the stack being cut looked safe -- the
+            # same size is the same operation -- but a bot that wins back to
+            # exactly the number it was trimmed at before repeats the key, the
+            # ledger takes it for the trim already posted, and nothing is
+            # returned. The seat is cut regardless, so the difference stays in
+            # that bot's escrow for good. Stacks land on round numbers, so the
+            # repeat is not a rare coincidence. What actually stops this running
+            # twice is the ceiling in the query above and the update below,
+            # both inside this transaction -- not the key.
             await self.ledger.reconcile_system_escrow(
                 row["system_player_id"], excess,
-                f"cap:{row['system_player_id']}:{row['stack_units']}",
+                f"cap:{row['id']}:{uuid.uuid4().hex}",
                 session=session,
             )
             await session.execute(
                 update(table_seats).where(table_seats.c.id == row["id"]).values(stack_units=ceiling)
             )
 
-    async def _fill_system_seats(self, session: AsyncSession, table) -> list[str]:
+    def _bots_arrived_by(self, table_id: str, now: datetime, target: int, user_count: int) -> int:
+        """How many bots may have walked into this room by now.
+
+        The schedule is drawn once, when somebody is first sitting there, and
+        thrown away when the room empties -- so the next person to open it gets
+        the same unhurried fill rather than an instant table.
+        """
+        if user_count == 0 or target == 0:
+            self._bot_arrivals.pop(table_id, None)
+            return 0
+        schedule = self._bot_arrivals.get(table_id)
+        if schedule is None or len(schedule) < target:
+            low, high = BOT_FIRST_ARRIVAL
+            span = (high - low).total_seconds()
+            first = now + low + timedelta(seconds=random.uniform(0, span))
+            rest_span = (now + BOT_ARRIVAL_WINDOW - first).total_seconds()
+            schedule = sorted(
+                [first] + [
+                    first + timedelta(seconds=random.uniform(0, max(0.0, rest_span)))
+                    for _ in range(max(0, target - 1))
+                ]
+            )
+            self._bot_arrivals[table_id] = schedule
+        return sum(1 for when in schedule if when <= now)
+
+    async def _fill_system_seats(self, session: AsyncSession, table, now: datetime) -> list[str]:
         """Keep a table at three or four bots when capacity permits.
 
         Users are seated first at a hand boundary. Only then are idle system
@@ -553,6 +594,10 @@ class SeatingService:
         target_bot_count = 0 if user_count == 0 else (
             MAX_SYSTEM_BOTS if user_count <= 2 else MIN_SYSTEM_BOTS
         )
+        # A room reachable only by its link is one you are filling with people
+        # you invited. A bot taking one of those seats is taking it from them.
+        if table["created_by"] and table["visibility"] == "link":
+            target_bot_count = 0
 
         seated_bots = sorted(
             (row for row in active_rows if row["occupant_kind"] == "system" and row["state"] == "seated"),
@@ -579,6 +624,11 @@ class SeatingService:
             1 for row in active_rows if row["occupant_kind"] == "system" and row["state"] == "seated"
         )
         needed = max(0, target_bot_count - seated_bot_count)
+        # Capped, never forced: whoever is already seated stays seated. This
+        # only holds back the ones who have not walked in yet.
+        if table["created_by"]:
+            arrived = self._bots_arrived_by(table["id"], now, target_bot_count, user_count)
+            needed = min(needed, max(0, arrived - seated_bot_count))
         if not needed:
             return removed
 
@@ -598,6 +648,9 @@ class SeatingService:
             await session.execute(select(system_players).where(system_players.c.active == True))
         ).mappings().all()
         available = [row for row in candidates if row["id"] not in active_system_ids]
+        # Otherwise the roster is walked in id order and the same four names
+        # sit down at every table, every time.
+        random.shuffle(available)
         for seat_no, player in zip((seat for seat in range(table["max_seats"]) if seat not in occupied_seats), available[:needed]):
             amount = table["big_blind_units"] * 100
             seat_id = empty_by_seat.get(seat_no, {}).get("id") or uuid.uuid4().hex

@@ -4,14 +4,19 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from sqlalchemy import insert, select
+from sqlalchemy import func, insert, select
 
 from online.catalogue import Catalogue
 from online.coordinator import ROOM_IDLE_TTL, OnlineCoordinator
 from online.ledger import PlayLedger
 from online.runtime import TableRuntimeManager
-from online.schema import play_accounts, poker_tables, system_players, table_seats, tenants, users
-from online.seating import SeatingService
+from online.schema import play_accounts, play_entries, poker_tables, system_players, table_seats, tenants, users
+from online.seating import (
+    BOT_ARRIVAL_WINDOW,
+    BOT_FIRST_ARRIVAL,
+    MAX_SYSTEM_BOTS,
+    SeatingService,
+)
 
 
 class _ControllableClock:
@@ -144,7 +149,8 @@ async def test_a_new_room_stays_empty_until_its_owner_sits_down(room):
         )).scalars().all()
     assert occupied == [], "nobody is at the table, so no bot sat down"
 
-    # And they do arrive once there is somebody to play against.
+    # And they do arrive once there is somebody to play against -- not at once,
+    # but over the next few minutes, the way a real room fills.
     async with session_factory() as session:
         await session.execute(insert(table_seats).values(
             id="owner", table_id=table_id, seat_no=0, occupant_kind="user",
@@ -152,11 +158,73 @@ async def test_a_new_room_stays_empty_until_its_owner_sits_down(room):
         await session.commit()
     await coordinator.tick()
 
+    async def seated_bots():
+        async with session_factory() as session:
+            return (await session.execute(
+                select(table_seats.c.id).where(
+                    table_seats.c.table_id == table_id,
+                    table_seats.c.occupant_kind == "system",
+                    table_seats.c.state == "seated")
+            )).scalars().all()
+
+    assert await seated_bots() == [], "nobody is there the moment you sit down"
+
+    clock.advance(BOT_FIRST_ARRIVAL[1])
+    await coordinator.tick()
+    assert len(await seated_bots()) >= 1, "the first one wanders in within the minute"
+
+    clock.advance(BOT_ARRIVAL_WINDOW)
+    await coordinator.tick()
+    assert len(await seated_bots()) == MAX_SYSTEM_BOTS, "and the room is full by the end of the window"
+
+
+@pytest.mark.anyio
+async def test_closing_a_room_in_the_middle_of_a_hand_leaves_the_books_square(room):
+    """A seat's stack_units only moves at settlement, so mid-hand it still reads
+    the pre-hand number while the wagered chips sit in the table's escrow.
+    Emptying the table then has to drain that escrow exactly -- neither leaving
+    the pot behind nor handing back more than went in."""
+    coordinator, catalogue, clock, table_id, session_factory, seating, ledger = room
+
     async with session_factory() as session:
-        bots = (await session.execute(
-            select(table_seats.c.id).where(
-                table_seats.c.table_id == table_id,
-                table_seats.c.occupant_kind == "system",
-                table_seats.c.state == "seated")
+        await session.execute(insert(table_seats).values(
+            id="owner", table_id=table_id, seat_no=0, occupant_kind="user",
+            user_id="u1", stack_units=10_000, state="seated"))
+        await session.commit()
+    await ledger.grant("u1", 10_000, "grant:u1")
+    await ledger.reserve_buy_in("u1", table_id, 10_000, "buy:u1")
+
+    # Fill the room, then run until chips are actually in the middle.
+    for _ in range(40):
+        clock.advance(timedelta(seconds=30))
+        await coordinator.tick()
+        loaded = coordinator.runtime._tables.get(table_id)
+        if loaded is not None and loaded.phase == "active" and loaded.state.pot > 0:
+            break
+    else:
+        pytest.fail("no hand with a live pot to interrupt")
+
+    total_before = await _total_balance(session_factory)
+    await seating.evict_table(table_id)
+    await catalogue.close_room(table_id, "u1")
+
+    assert await _total_balance(session_factory) == total_before, "no chips minted or burned"
+    async with session_factory() as session:
+        stranded = (await session.execute(
+            select(play_accounts.c.balance_units).where(
+                play_accounts.c.account_kind == "escrow",
+                play_accounts.c.balance_units != 0)
         )).scalars().all()
-    assert bots, "the room fills up around the person who opened it"
+        mismatched = (await session.execute(
+            select(play_accounts.c.id).where(
+                play_accounts.c.balance_units != select(
+                    func.coalesce(func.sum(play_entries.c.amount_units), 0)
+                ).where(play_entries.c.account_id == play_accounts.c.id).scalar_subquery())
+        )).scalars().all()
+    assert stranded == [], "the pot went home with the players, not into a closed table"
+    assert mismatched == [], "and every account still matches its own entries"
+
+
+async def _total_balance(session_factory):
+    async with session_factory() as session:
+        return (await session.execute(select(func.sum(play_accounts.c.balance_units)))).scalar_one()
