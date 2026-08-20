@@ -154,3 +154,39 @@ async def test_a_lobby_table_stays_populated_with_nobody_at_it(two_humans):
     assert occupied, "the shop window is not left empty"
     loaded = coordinator.runtime._tables.get("t1")
     assert loaded is not None and loaded.phase == "active"
+
+
+@pytest.mark.anyio
+async def test_the_table_does_not_ask_to_deal_to_one_player(two_humans):
+    """The seat count included the very people about to be sat out for being
+    slow. With one bot arrived and the only human asleep, start_hand was asked
+    to deal to a single player, refused, and the tick logged a traceback four
+    times a second until somebody else sat down -- 139 of them in four minutes
+    on the live site."""
+    coordinator, clock = two_humans
+
+    # One human, one bot: enough seats to pass the range check, not enough
+    # players once the human misses the deadline.
+    async with coordinator.runtime.session_factory() as session:
+        await session.execute(delete(table_seats).where(table_seats.c.id == "seat-u2"))
+        await session.execute(insert(table_seats).values(
+            id="lone-bot", table_id="t1", seat_no=4, occupant_kind="system",
+            system_player_id="bot-1", stack_units=10_000, state="seated"))
+        await session.commit()
+
+    should_start, _ = await coordinator._may_start_hand("t1", coordinator.now())
+    assert should_start is False
+
+    clock.advance(31)
+    should_start, sit_out = await coordinator._may_start_hand("t1", coordinator.now())
+    assert should_start is False, f"asked to deal to {2 - len(sit_out)} player(s)"
+
+    # And it starts as soon as a second player is actually there.
+    async with coordinator.runtime.session_factory() as session:
+        await session.execute(insert(table_seats).values(
+            id="second-bot", table_id="t1", seat_no=5, occupant_kind="system",
+            system_player_id="bot-2", stack_units=10_000, state="seated"))
+        await session.commit()
+    clock.advance(31)
+    should_start, _ = await coordinator._may_start_hand("t1", coordinator.now())
+    assert should_start is True

@@ -161,7 +161,16 @@ class OnlineCoordinator:
             self.runtime.arm_ready_deadline(table_id, now + timedelta(seconds=30))
             return False, set()
         if deadline <= now:
-            return True, human_seats - ready
+            sit_out = human_seats - ready
+            # The count above included the very people about to be sat out.
+            # With one bot arrived and the only human asleep, start_hand was
+            # asked to deal to a single player, refused, and the tick logged a
+            # traceback four times a second until somebody else sat down --
+            # 139 of them in four minutes on the live site. Staggering the
+            # bots' arrival did not create this, it just made it common.
+            if len(human_seats | bot_seats) - len(sit_out) < 2:
+                return False, set()
+            return True, sit_out
         return False, set()
 
     async def _advance_table(self, table_id: str) -> None:
