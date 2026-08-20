@@ -194,7 +194,9 @@
     // The runtime drops to "waiting" for the instant between clearing a hand and
     // dealing the next one. Showing it makes the label flicker mid-countdown.
     if (phase === "waiting" && state?.next_hand_at && Date.parse(state.next_hand_at) > Date.now()) phase = "countdown";
-    return { waiting: "ОЖИДАНИЕ", countdown: "COUNTDOWN", active: "РАЗДАЧА", result: "ВСКРЫТИЕ", paused: "ПАУЗА" }[phase] || phase.toUpperCase();
+    // Every other phase reads in Russian; "COUNTDOWN" was the one word of
+    // English in the pill, and the line under it already counts the seconds.
+    return { waiting: "ОЖИДАНИЕ", countdown: "ПЕРЕРЫВ", active: "РАЗДАЧА", result: "ВСКРЫТИЕ", paused: "ПАУЗА" }[phase] || phase.toUpperCase();
   }
 
   function countdownText(state) {
@@ -369,7 +371,7 @@
       const title = ready.querySelector("strong");
       if (title) title.textContent = viewerState === "waiting" ? "Место забронировано" : hasFreeSeat ? "Займите место" : "Встаньте в очередь";
       setText("queueStatus", viewerState === "waiting" ? waitingText : hasFreeSeat
-        ? "Первое свободное место · бай-ин 40 BB"
+        ? "Первое свободное место · бай-ин 40 ББ"
         : "Свободных мест нет — забронируйте вход после раздачи");
       const button = $("readyButton");
       if (button) {

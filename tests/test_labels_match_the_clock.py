@@ -48,3 +48,17 @@ def test_the_countdown_runs_out_instead_of_starting_over():
     assert "state.next_hand_at ||" in body
     assert len(set(re.findall(r"`([^`]*\$\{seconds\}[^`]*)`", body))) == 1, \
         "one sentence for both phases, or the wording changes mid-count"
+
+
+def test_every_phase_pill_reads_in_the_same_language():
+    """"COUNTDOWN" was the one word of English among ОЖИДАНИЕ, РАЗДАЧА,
+    ВСКРЫТИЕ and ПАУЗА."""
+    line = next(l for l in TABLE_JS.splitlines() if "ОЖИДАНИЕ" in l and "РАЗДАЧА" in l)
+    labels = re.findall(r'"([A-ZА-ЯЁ]+)"', line)
+    assert labels and not any(re.fullmatch(r"[A-Z]+", label) for label in labels), labels
+
+
+def test_stacks_are_measured_in_one_unit_everywhere():
+    """The felt writes "40.00 ББ"; one prompt still said "40 BB" in Latin."""
+    assert " BB" not in TABLE_JS
+    assert "40 ББ" in TABLE_JS
