@@ -91,9 +91,11 @@
         flex:none;margin:0;padding:calc(12px + env(safe-area-inset-top)) 14px 10px;
         border-bottom:1px solid rgba(120,255,200,.16);font-size:14px
       }
+      /* max-height:240px comes from the docked version and survives into this
+         one, leaving 440px of empty panel under the composer. */
       .poker8-online .online-chat-panel.is-open #chatMessages{
-        flex:1 1 auto;min-height:0;overflow-y:auto;padding:12px 14px;display:flex;
-        flex-direction:column;gap:7px
+        flex:1 1 auto;min-height:0;max-height:none;overflow-y:auto;padding:12px 14px;
+        display:flex;flex-direction:column;gap:7px
       }
       .poker8-online .online-chat-panel.is-open .p8-chat-toolbar{flex:none;padding:0 14px}
       .poker8-online .online-chat-panel.is-open #chatForm{

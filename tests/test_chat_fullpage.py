@@ -21,7 +21,11 @@ def test_the_open_chat_covers_the_page():
     # top:0 and bottom:0 -- measured at 375x215 in an 812px viewport.
     assert "height:100dvh" in rules and "align-self:stretch" in rules
     # The feed scrolls; the composer stays put.
-    assert "overflow-y:auto" in _block(".poker8-online .online-chat-panel.is-open #chatMessages{")
+    feed = _block(".poker8-online .online-chat-panel.is-open #chatMessages{")
+    assert "overflow-y:auto" in feed and "flex:1 1 auto" in feed
+    # The docked panel capped the feed at 240px, which survived into this one
+    # and left 440px of empty panel under the composer.
+    assert "max-height:none" in feed
 
 
 def test_the_turn_banner_only_appears_on_your_own_turn():
