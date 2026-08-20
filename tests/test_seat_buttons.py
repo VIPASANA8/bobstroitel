@@ -44,3 +44,37 @@ def test_leaving_your_own_room_says_the_room_stays_open():
     handler = handler[:handler.index("});")]
     assert "ownsThisRoom" in handler
     assert "Закрыть комнату" in handler, "and it points at the control that does close it"
+
+
+def test_closing_a_dialog_does_not_submit_it():
+    """A button with no type inside a form is a submit button, so both dialog
+    crosses submitted the form they were meant to abandon: closing the buy-in
+    seated you at the table, and closing the room form opened a room."""
+    markup = Path("static/lobby.html").read_text(encoding="utf-8")
+    script = Path("static/lobby.js").read_text(encoding="utf-8")
+
+    closers = re.findall(r'<button class="dialog-close"[^>]*>', markup)
+    assert len(closers) == 2, "both dialogs still have a cross"
+    for closer in closers:
+        assert 'type="button"' in closer, closer
+    assert '.dialog-close' in script and 'close("cancel")' in script
+
+
+def test_a_seat_being_released_shows_progress_and_keeps_asking():
+    """The seat is released at the next hand boundary, up to a minute away. The
+    card used to sit unchanged until the player reloaded by hand, so the wait
+    was indistinguishable from a stuck page."""
+    markup = Path("static/lobby.html").read_text(encoding="utf-8")
+    script = Path("static/lobby.js").read_text(encoding="utf-8")
+    css = Path("static/network.css").read_text(encoding="utf-8")
+
+    assert 'id="leaveSpinner"' in markup
+    assert ".session-spinner{" in css and "animation:session-spin" in css
+    assert ".session-spinner[hidden]{display:none}" in css, \
+        "or the spinner outlives the wait, like every other hidden button here"
+
+    watch = script[script.index("function watchLeaving()"):]
+    watch = watch[:watch.index("function stopWatchingLeaving")]
+    assert "/leave" in watch, "a lost leave request has to be re-sent"
+    assert "setInterval" in watch
+    assert "if (leaveWatch) return;" in watch, "one watcher, however often it renders"

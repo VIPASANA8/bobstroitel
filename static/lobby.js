@@ -32,15 +32,48 @@
     return "Вы за столом";
   }
 
+  const LEAVE_POLL_MS = 4000;
+  let leaveWatch = null;
+
   function renderActiveSession(session) {
     activeSession = session || null;
     const panel = $("activeSession");
     panel.hidden = !activeSession;
+    const leaving = activeSession?.seat_state === "leaving";
+    const spinner = $("leaveSpinner");
+    if (spinner) spinner.hidden = !leaving;
+    if (leaving) watchLeaving(); else stopWatchingLeaving();
     if (!activeSession) return;
     $("activeTableName").textContent = activeSession.table_name;
     $("activeTableState").textContent = sessionDescription(activeSession);
-    $("returnTable").disabled = activeSession.seat_state === "leaving";
-    $("leaveTable").textContent = activeSession.kind === "waiting" ? "Отменить очередь" : "Покинуть стол";
+    $("returnTable").disabled = leaving;
+    $("leaveTable").disabled = leaving;
+    $("leaveTable").textContent = leaving
+      ? "Выходим…"
+      : activeSession.kind === "waiting" ? "Отменить очередь" : "Покинуть стол";
+  }
+
+  // A seat marked "leaving" is released at the next hand boundary, which can be
+  // a minute away. The card used to sit there unchanged until the player
+  // reloaded by hand, so the wait was indistinguishable from a stuck page.
+  function watchLeaving() {
+    if (leaveWatch) return;
+    let ticks = 0;
+    leaveWatch = setInterval(async () => {
+      ticks += 1;
+      // Re-send now and then: the request that started this could have been
+      // lost on a flaky connection, and asking to leave a seat that is already
+      // leaving changes nothing.
+      if (ticks % 4 === 0 && activeSession?.table_id) {
+        await fetch(`/api/tables/${activeSession.table_id}/leave`, {method: "POST"}).catch(() => {});
+      }
+      await load().catch(() => {});
+    }, LEAVE_POLL_MS);
+  }
+
+  function stopWatchingLeaving() {
+    clearInterval(leaveWatch);
+    leaveWatch = null;
   }
 
   function renderTables() {
@@ -104,6 +137,13 @@
     const detail = (await response.json()).detail || {};
     if (detail.code === "already_seated" && detail.seat_state !== "leaving") return openTable(detail.table_id);
     alert(detail.seat_state === "leaving" ? "Вы выходите из-за стола — подождите завершения раздачи" : detail.message || "Не удалось встать в очередь");
+  });
+
+  // A button with no type inside a form is a submit button, so both dialog
+  // crosses submitted the form they were meant to abandon: closing the buy-in
+  // seated you, and closing the room form opened a room.
+  document.querySelectorAll(".dialog-close").forEach(button => {
+    button.addEventListener("click", () => button.closest("dialog")?.close("cancel"));
   });
 
   $("quickPlay").addEventListener("click", async () => {
