@@ -39,8 +39,13 @@ NOISY_EVENT_TYPES = ("command_accepted", "hand_started", "hand_settled")
 # Rarely, and a bounded bite each time: the first sweep on a database that has
 # never been swept has a million rows to get through, and a single statement
 # that size would hold locks for the length of it.
+#
+# The bite has to beat the rate, though. Six tables of bots produce roughly
+# 180k commands a day; at 2000 a sweep this removed 96k a day and the log grew
+# by the difference for ever. 20k a sweep clears about a million a day, which
+# takes the standing backlog down in a day and then idles.
 LOG_SWEEP_EVERY = timedelta(minutes=30)
-LOG_SWEEP_BATCH = 2000
+LOG_SWEEP_BATCH = 20000
 
 
 class OnlineCoordinator:
@@ -129,11 +134,17 @@ class OnlineCoordinator:
                             .limit(LOG_SWEEP_BATCH)
                         )
                     ).all()
+                    # One statement per table, not per row: the key is
+                    # composite, and twenty thousand round-trips would take
+                    # longer than the hands they came from.
+                    by_table: dict[str, list[str]] = {}
                     for table_id, command_id in stale:
+                        by_table.setdefault(table_id, []).append(command_id)
+                    for table_id, command_ids in by_table.items():
                         await session.execute(
                             delete(game_commands).where(
                                 game_commands.c.table_id == table_id,
-                                game_commands.c.command_id == command_id,
+                                game_commands.c.command_id.in_(command_ids),
                             )
                         )
                     noisy = (

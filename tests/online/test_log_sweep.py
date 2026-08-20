@@ -107,8 +107,12 @@ async def test_it_runs_rarely_and_takes_a_bounded_bite(swept):
     rows to get through, and one statement that size holds locks for its
     length."""
     coordinator, clock, session_factory = swept
-    assert LOG_SWEEP_BATCH <= 20000
+    assert LOG_SWEEP_BATCH <= 50000
     assert LOG_SWEEP_EVERY >= timedelta(minutes=5)
+    # And the bite has to beat the rate, or the log grows by the difference for
+    # ever: six tables of bots produce roughly 180k commands a day.
+    per_day = LOG_SWEEP_BATCH * (timedelta(days=1) / LOG_SWEEP_EVERY)
+    assert per_day > 400_000, f"only {per_day:.0f} rows a day"
 
     await coordinator._sweep_logs()
     remaining = await _count(session_factory, game_commands)
