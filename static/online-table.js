@@ -570,7 +570,7 @@
     }
   }
 
-  const chatRow = row => `<div><b>${escapeHtml(row.user_id || "Игрок")}</b> ${escapeHtml(row.text || "")}</div>`;
+  const chatRow = row => `<div><b>${escapeHtml(row.display_name || "Игрок")}</b> ${escapeHtml(row.text || "")}</div>`;
 
   function appendChat(row) {
     $("chatMessages")?.insertAdjacentHTML("beforeend", chatRow(row));

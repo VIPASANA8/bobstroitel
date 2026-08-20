@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from online.schema import chat_messages
+from online.schema import chat_messages, users
 
 
 class ChatError(ValueError):
@@ -25,6 +25,10 @@ class ChatMessage:
     user_id: str
     text: str
     created_at: datetime
+    # Who to put in front of the message. Without it the client had nothing to
+    # show but user_id, so every line in the chat was signed with a
+    # thirty-two character hex string instead of a person's name.
+    display_name: str = ""
 
 
 class ChatService:
@@ -59,7 +63,11 @@ class ChatService:
                     ).all()
                     if len(recent) >= 5:
                         raise ChatRateLimited("five messages per ten seconds")
-                message = ChatMessage(uuid.uuid4().hex, table_id, user_id, text, current)
+                name = (await session.execute(
+                    select(users.c.display_name).where(users.c.id == user_id)
+                )).scalar_one_or_none()
+                message = ChatMessage(
+                    uuid.uuid4().hex, table_id, user_id, text, current, name or "Игрок")
                 await session.execute(chat_messages.insert().values(
                     id=message.id, table_id=table_id, user_id=user_id, text=text, created_at=current,
                 ))
@@ -69,14 +77,21 @@ class ChatService:
         async with self.session_factory() as session:
             rows = (
                 await session.execute(
-                    select(chat_messages)
+                    select(chat_messages, users.c.display_name)
+                    .select_from(
+                        chat_messages.join(users, users.c.id == chat_messages.c.user_id, isouter=True)
+                    )
                     .where(chat_messages.c.table_id == table_id)
                     .order_by(desc(chat_messages.c.created_at), desc(chat_messages.c.id))
                     .limit(max(1, min(limit, 50)))
                 )
             ).mappings().all()
         return [
-            ChatMessage(row["id"], row["table_id"], row["user_id"], row["text"], row["created_at"])
+            ChatMessage(
+                row["id"], row["table_id"], row["user_id"], row["text"], row["created_at"],
+                # Outer join: a message outlives the account that wrote it.
+                row["display_name"] or "Игрок",
+            )
             for row in reversed(rows)
         ]
 
