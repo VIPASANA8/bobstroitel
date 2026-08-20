@@ -5,28 +5,29 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#07100f" />
   <title>Poker8 — Лобби</title>
-  <link rel="stylesheet" href="/static/network.css?v=lobby-functional-3" />
+  <link rel="stylesheet" href="/static/network.css?v=lobby-entry-1" />
 </head>
 <body>
   <a class="skip-link" href="#tableGrid">К столам</a>
   <div class="network-shell">
     <header class="network-header">
       <a class="network-brand" href="/" aria-label="Poker8 Network">
-        <span class="brand-chip">P8</span><span><b>Poker8</b><small>NETWORK TABLES</small></span>
+        <span class="brand-chip">P8</span><span><b>Poker8</b></span>
       </a>
       <div class="header-actions"><span id="wallet" class="wallet-pill">— PLAY</span><a class="text-link" href="/static/profile.html">Профиль</a></div>
     </header>
 
     <main>
-      <section class="lobby-control" aria-labelledby="lobbyTitle">
-        <div class="lobby-copy">
-          <p class="eyebrow">ИГРОВОЕ ЛОББИ</p>
-          <h1 id="lobbyTitle">Выберите стол<br /><em>или войдите быстро.</em></h1>
-          <p>Быстрый вход подберёт свободный стол. Если вы уже в игре, продолжайте с того же места.</p>
-        </div>
+      <section class="lobby-control" aria-label="Начать игру">
         <div class="lobby-ctas">
-          <button id="quickPlay" class="primary-action" type="button"><span>Быстрая игра</span><strong>→</strong></button>
-          <button id="createRoom" class="secondary-action" type="button"><span>Создать комнату</span><strong>+</strong></button>
+          <button id="quickPlay" class="entry-action entry-primary" type="button">
+            <span class="entry-mark" aria-hidden="true">▸</span>
+            <span class="entry-text"><b>Быстрая игра</b><small>Подберём свободный стол — останется выбрать бай-ин</small></span>
+          </button>
+          <button id="createRoom" class="entry-action entry-secondary" type="button">
+            <span class="entry-mark" aria-hidden="true">+</span>
+            <span class="entry-text"><b>Создать комнату</b><small>Свой стол на шесть мест, в лобби или только по ссылке</small></span>
+          </button>
           <section id="activeSession" class="active-session" hidden aria-live="polite">
             <div class="session-copy"><span class="session-label">АКТИВНАЯ СЕССИЯ</span><span class="session-title"><strong id="activeTableName">—</strong><span id="leaveSpinner" class="session-spinner" role="status" aria-label="Выполняется выход" hidden></span></span><small id="activeTableState">—</small></div>
             <div class="session-actions">
@@ -44,8 +45,8 @@
   </div>
 
   <dialog id="buyInDialog" class="buyin-dialog"><form method="dialog" id="buyInForm"><button class="dialog-close" type="button" aria-label="Закрыть">×</button><p class="eyebrow">ПОСАДКА ЗА СТОЛ</p><h2>Выберите бай-ин</h2><p id="buyInTable" class="dialog-muted"></p><label for="buyInUnits">Фишки</label><input id="buyInUnits" type="number" required /><p class="dialog-hint">Лимиты стола · виртуальный баланс</p><button id="confirmReady" class="primary-action" value="default" type="submit">Встать в очередь <strong>→</strong></button></form></dialog>
-  <dialog id="roomDialog" class="buyin-dialog"><form method="dialog" id="roomForm"><button class="dialog-close" type="button" aria-label="Закрыть">×</button><p class="eyebrow">СВОЯ КОМНАТА</p><h2>Создать комнату</h2><label for="roomName">Название</label><input id="roomName" type="text" maxlength="40" required placeholder="Вечерний стол" /><label for="roomLevel">Ставки</label><select id="roomLevel"></select><label for="roomVisibility">Кто видит</label><select id="roomVisibility"><option value="public">Все — комната в лобби</option><option value="link">Только по ссылке</option></select><p class="dialog-hint">Стол на шесть мест · виртуальные фишки</p><button id="confirmRoom" class="primary-action" value="default" type="submit">Создать <strong>→</strong></button></form></dialog>
+  <dialog id="roomDialog" class="buyin-dialog"><form method="dialog" id="roomForm"><button class="dialog-close" type="button" aria-label="Закрыть">×</button><p class="eyebrow">СВОЯ КОМНАТА</p><h2>Создать комнату</h2><label for="roomName">Название</label><input id="roomName" type="text" maxlength="40" required placeholder="Вечерний стол" /><label for="roomLevel">Ставки</label><select id="roomLevel"></select><label for="roomVisibility">Кто видит</label><select id="roomVisibility"><option value="public">Все — комната в лобби</option><option value="link">Только по ссылке</option></select><p class="dialog-hint">Стол на шесть мест · закроется через 1,5 минуты без игроков</p><button id="confirmRoom" class="primary-action" value="default" type="submit">Создать <strong>→</strong></button></form></dialog>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="/static/auth-client.js?v=telegram-session-3"></script><script src="/static/lobby.js?v=rooms-2"></script>
+  <script src="/static/auth-client.js?v=telegram-session-3"></script><script src="/static/lobby.js?v=rooms-3"></script>
 </body>
 </html>

@@ -14,7 +14,11 @@ from online.seating import SeatingService
 logger = logging.getLogger(__name__)
 
 # How long a player's room may sit without a single human before it is retired.
-ROOM_IDLE_TTL = timedelta(minutes=15)
+# Short on purpose: an abandoned room holds its owner's one-room slot and sits
+# in the lobby offering a table nobody is at. Short enough that opening a room
+# and then dawdling before taking a seat can lose it -- the create flow drops
+# you straight onto the table, so that is a matter of one tap.
+ROOM_IDLE_TTL = timedelta(seconds=90)
 
 
 class OnlineCoordinator:

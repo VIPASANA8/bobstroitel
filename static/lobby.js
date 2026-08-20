@@ -27,7 +27,10 @@
 
   function sessionDescription(session) {
     if (session.kind === "waiting") return "Вы в очереди на место";
-    if (session.seat_state === "held") return "Место сохранено · вернитесь к игре";
+    // HOLD_WINDOW is thirty seconds, after which the seat goes back to the
+    // table at the next boundary. "Место сохранено" on its own read as a
+    // promise that it would be waiting whenever they got back.
+    if (session.seat_state === "held") return "Место держим ещё полминуты · вернитесь к игре";
     if (session.seat_state === "leaving") return "Вы выходите после текущей раздачи";
     return "Вы за столом";
   }

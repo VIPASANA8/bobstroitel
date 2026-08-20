@@ -199,10 +199,15 @@
 
   function countdownText(state) {
     const phase = state?.phase;
-    const target = phase === "result" ? state.result_clear_at : phase === "countdown" ? state.next_hand_at : null;
+    if (phase !== "result" && phase !== "countdown") return "";
+    // Both phases count to the same moment. The result phase used to count to
+    // result_clear_at -- three seconds earlier -- while promising the next
+    // hand, so the number ran down to one, then jumped back up and started
+    // again the instant the phase changed.
+    const target = state.next_hand_at || (phase === "result" ? state.result_clear_at : null);
     if (!target) return "";
     const seconds = Math.max(0, Math.ceil((Date.parse(target) - Date.now()) / 1000));
-    return phase === "result" ? `Следующая раздача через ${seconds} сек.` : `Новая раздача через ${seconds} сек.`;
+    return `Следующая раздача через ${seconds} сек.`;
   }
 
   function ensureHeaderSeatButtons() {
@@ -677,7 +682,7 @@
       // another was told they already had one, with no idea which or why. Say
       // it here instead of letting them find out in the lobby.
       const message = ownsThisRoom
-        ? "Выйти из своей комнаты? Она останется открытой — закрыть её можно кнопкой «Закрыть комнату»."
+        ? "Выйти из своей комнаты? Без игроков она закроется сама через 1,5 минуты — или закройте её сразу кнопкой «Закрыть комнату»."
         : viewerState === "waiting"
           ? "Отменить очередь на место?"
           : "Покинуть стол? Во время раздачи выход будет выполнен после её завершения.";
