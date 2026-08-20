@@ -150,6 +150,38 @@ class PlayLedger:
 
         return await self._run(operation, session)
 
+    async def reconcile_system_escrow(
+        self,
+        system_player_id: str,
+        amount_units: int,
+        idempotency_key: str,
+        *,
+        session: AsyncSession | None = None,
+    ) -> LedgerResult:
+        """Return escrow a bot's seat no longer accounts for back to the faucet.
+
+        Releases used to be suppressed by a reused idempotency key, so escrow
+        kept chips the seat had stopped claiming. A release drains the account
+        whole, which clears the excess by itself -- but only for a bot that ever
+        gets released, and one sitting on a large stack may never bust. This
+        settles the difference for those without waiting.
+
+        Deliberately partial and explicit about the amount: the caller has
+        already compared escrow against stack_units, and stack_units is the
+        side the game plays from.
+        """
+        self._positive(amount_units)
+        return await self._transfer(
+            kind="return",
+            reference_type="system_player",
+            reference_id=system_player_id,
+            idempotency_key=idempotency_key,
+            entries=[("system", system_player_id, "escrow"), FAUCET_OWNER],
+            amounts=[-amount_units, amount_units],
+            available_owner=("system", system_player_id, "escrow"),
+            session=session,
+        )
+
     async def return_stack(
         self, user_id: str, table_id: str, idempotency_key: str, *, amount_units: int | None = None,
         session: AsyncSession | None = None
