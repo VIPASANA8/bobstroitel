@@ -562,10 +562,10 @@
       body.v014.poker8-v2-sixmax .v038-action-amount.v038-amount-pulse{animation:v038AmountPulse 180ms ease-out;}
       body.v014.poker8-v2-sixmax .action-slot.v038-all-in-armed::after{
         content:"";position:absolute;left:5px;right:5px;bottom:3px;height:2px;border-radius:9px;background:#ffc44d;
-        transform-origin:left center;animation:v038ConfirmDrain 3000ms linear forwards;box-shadow:0 0 7px rgba(255,196,77,.85);
+        transform-origin:left center;animation:v038ConfirmDrain var(--v038-arm-ms,3000ms) linear forwards;box-shadow:0 0 7px rgba(255,196,77,.85);
       }
       body.v014.poker8-v2-sixmax .action-slot.v038-all-in-armed::before{
-        content:"3 SEC";position:absolute;right:6px;bottom:5px;color:#ffc44d;font-size:5px;font-weight:900;letter-spacing:.06em;
+        content:attr(data-arm-label);position:absolute;right:6px;bottom:5px;color:#ffc44d;font-size:5px;font-weight:900;letter-spacing:.06em;
       }
       @keyframes v038AmountPulse{50%{transform:scale(1.08);filter:brightness(1.45)}100%{transform:scale(1);filter:none}}
       @keyframes v038ConfirmDrain{to{transform:scaleX(0)}}
@@ -573,8 +573,7 @@
         body.v014.poker8-v2-sixmax .quick-sizes button,
         body.v014.poker8-v2-sixmax .action-grid .action-slot{transition:none!important;}
         body.v014.poker8-v2-sixmax .v038-action-amount.v038-amount-pulse{animation:none!important;}
-        body.v014.poker8-v2-sixmax .action-slot.v038-all-in-armed::after{animation:none!important;}
-        body.v014.poker8-v2-sixmax .action-slot.v038-all-in-armed::before{content:"CONFIRM · 3 SEC";}
+        body.v014.poker8-v2-sixmax .action-slot.v038-all-in-armed::after{animation:none!important;transform:scaleX(1);}
         body.v014.poker8-v2-sixmax.v038-room-awaiting .player-avatar{animation:none!important;}
         body.v014.poker8-v2-sixmax .felt{transition-duration:80ms!important;}
       }
@@ -1022,27 +1021,54 @@
     return [game?.hand_id, game?.street, game?.acting_player, game?.history?.length || 0, source, source === "aggressive" ? amount : ""].join(":");
   }
 
-  function confirmAllIn(source, localTurn, amount, legal) {
-    // На мобильном устройстве действие выполняется одним касанием; отдельный скрытый шаг подтверждения не нужен.
+  function fireArmedAllIn(source, amount) {
+    const fingerprint = allInArmedFingerprint;
     clearAllInConfirmation(false);
+    if (!game || game.terminal || !isLocalHumanTurn()) return;
+    // The spot has to be the one that was armed: a new street, a new actor or
+    // a changed amount all mean this is no longer the bet they asked for.
+    if (fingerprint !== allInFingerprint(source)) return queueSync();
+    const legal = game.human_legal_actions || [];
+    clearPendingAction(false);
     if (source === "aggressive") {
-      if (!localTurn) {
-        togglePendingAction("aggressive");
-        renderMobileSelectedCard();
-        queueSync();
-        return;
-      }
-      clearPendingAction(false);
-      return sendAction(legal.includes("raise") ? "raise" : "bet", amount);
+      sendAction(legal.includes("raise") ? "raise" : "bet", amount);
+    } else {
+      sendAction("all_in", 0);
     }
+    queueSync();
+  }
+
+  function confirmAllIn(source, localTurn, amount, legal) {
+    // Off turn there is no clock to run against: it stays a pre-action.
     if (!localTurn) {
-      togglePendingAction("all_in");
+      clearAllInConfirmation(false);
+      togglePendingAction(source === "aggressive" ? "aggressive" : "all_in");
       renderMobileSelectedCard();
       queueSync();
       return;
     }
-    clearPendingAction(false);
-    return sendAction("all_in", 0);
+    // Committing the whole stack is the one action worth a beat to take back,
+    // so the first press arms it and a bar drains across the button. It fires
+    // on its own -- pressing again inside the window is how you cancel, not
+    // how you confirm.
+    const fingerprint = allInFingerprint(source);
+    if (allInArmedSource === source && allInArmedFingerprint === fingerprint) {
+      clearAllInConfirmation();
+      return;
+    }
+    clearAllInConfirmation(false);
+    // Never let the bar be the reason a turn times out: if the server's own
+    // deadline lands first, commit there instead, half a second early so the
+    // command has time to reach it.
+    const deadline = game?.action_deadline ? Date.parse(game.action_deadline) : NaN;
+    const armFor = Number.isFinite(deadline)
+      ? Math.max(400, Math.min(ALL_IN_CONFIRM_MS, deadline - Date.now() - 500))
+      : ALL_IN_CONFIRM_MS;
+    allInArmedSource = source;
+    allInArmedFingerprint = fingerprint;
+    allInArmedUntil = Date.now() + armFor;
+    allInTimer = window.setTimeout(() => fireArmedAllIn(source, amount), armFor);
+    queueSync();
   }
 
   function ensureHudSummary() {
@@ -1111,7 +1137,21 @@
         button.dataset.v038ReferenceAction = "1";
         button.className = `action-slot ${def.cls}`;
         button.classList.toggle("queued", pendingAction?.kind === def.key);
-        button.classList.toggle("v038-all-in-armed", allInArmedSource === def.key);
+        const armed = allInArmedSource === def.key && Boolean(def.allIn);
+        button.classList.toggle("v038-all-in-armed", armed);
+        if (armed) {
+          // Set once, on the render that arms it. Rewriting the duration on
+          // every later render restarts the animation, so the bar would snap
+          // back to full width each time a snapshot arrived.
+          if (!button.dataset.armLabel) {
+            const left = Math.max(0, allInArmedUntil - Date.now());
+            button.style.setProperty("--v038-arm-ms", `${left}ms`);
+            button.dataset.armLabel = `${Math.max(1, Math.round(left / 1000))} СЕК`;
+          }
+        } else if (button.dataset.armLabel) {
+          button.style.removeProperty("--v038-arm-ms");
+          delete button.dataset.armLabel;
+        }
         if (def.allIn) button.dataset.v038AllInTrigger = "1";
         else delete button.dataset.v038AllInTrigger;
         let label = button.querySelector(".v038-action-label");

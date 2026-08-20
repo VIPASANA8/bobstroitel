@@ -209,7 +209,11 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert '{ key:leftKey' in source
     assert '{ key:"aggressive"' in source
     assert 'ALL_IN_CONFIRM_MS = 3000' in source
-    assert 'content:"CONFIRM · 3 SEC"' in source
+    # The label is the remaining seconds now, in both motion modes -- the
+    # window shortens when the turn clock would land first, so a fixed
+    # "3 SEC" would have been a promise the button could not keep.
+    assert 'content:attr(data-arm-label)' in source
+    assert 'animation:v038ConfirmDrain var(--v038-arm-ms,3000ms)' in source
     assert 'v038-all-in-armed' in source
     assert 'v038-size-selected' in source
     assert '.quick-sizes button.v038-max-size{' in source
@@ -222,7 +226,9 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'fetch(' not in source
     assert 'data-v038-all-in-trigger' in source
     assert 'source === "aggressive"' in source
-    assert 'togglePendingAction("aggressive")' in source
+    # Off turn both all-in slots still become a pre-action; they share one
+    # branch now that the on-turn path arms a timer instead of firing.
+    assert 'togglePendingAction(source === "aggressive" ? "aggressive" : "all_in")' in source
     assert 'pendingAction?.kind === def.key' in source
     assert '.amount-row{display:none!important' in source
     assert 'min-height:39px!important;height:39px!important' in source
