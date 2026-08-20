@@ -173,6 +173,14 @@
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .table-frame{
         width:min(100%,940px)!important;height:100%!important;margin-inline:auto!important;
       }
+      /* The felt sat 66px inside the frame on the left and 12px past it on the
+         right -- a twelve-pixel border counted outside the box, plus whatever
+         centred it against something else. Pin it to the frame's own box. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .felt{
+        box-sizing:border-box!important;width:100%!important;
+        margin-left:0!important;margin-right:0!important;
+        min-width:0!important;
+      }
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .history-card{display:none!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 #chatPanel{
         grid-area:chat!important;height:100%!important;min-height:0!important;

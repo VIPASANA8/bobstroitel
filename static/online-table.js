@@ -44,6 +44,13 @@
     .poker8-online.p8-observer-mode #actionButtons,.poker8-online.p8-observer-mode #sizingWrap,.poker8-online.p8-observer-mode .mobile-turn-tools,.poker8-online.p8-observer-mode #mobileAutoActionBar,.poker8-online.p8-observer-mode .v038-hud-summary{display:none!important}
     .poker8-online.p8-observer-mode #mobileTimerCard,.poker8-online.p8-observer-mode #mobileSelectedCard{display:none!important}
     .poker8-online.p8-observer-mode .action-panel{border-color:rgba(64,237,167,.34)}
+    /* An observer has nothing to press, so the panel is an empty framed box
+       520x214 sitting under the table -- and on desktop it also kept the table
+       from using the room it left behind. This lived inside the phone's media
+       query, so only phones ever got it. */
+    .poker8-online.p8-observer-mode{--p8-hud-h:0px!important;--p8-bottom-reserve:0px!important}
+    .poker8-online.p8-observer-mode .sidebar,
+    .poker8-online.p8-observer-mode .action-panel{display:none!important}
     .p8-funds-dialog{width:min(92vw,360px);padding:22px 20px 18px;border:1px solid rgba(64,237,167,.42);border-radius:16px;background:linear-gradient(160deg,#0b1f18,#061210);color:#dcf7e8;box-shadow:0 24px 70px rgba(0,0,0,.62)}
     .p8-funds-dialog::backdrop{background:rgba(2,8,6,.72)}
     .p8-funds-dialog h2{margin:0 0 12px;color:#ffd9a8;font:800 19px/1.15 Inter,ui-sans-serif,system-ui;letter-spacing:-.01em}
@@ -188,15 +195,11 @@
          calc reaches ~2.4x the felt's width, which stretches every seat
          layout percentage (tuned for ~1.6x) into a tube where the ring no
          longer follows the felt's edge. */
+      /* The stage formula is the phone's -- desktop takes its height from the
+         grid row instead, so only this part stays behind the media query. */
       body.v014.poker8-v2-sixmax.p8-observer-mode{
-        --p8-hud-h:0px!important;--p8-bottom-reserve:0px!important;
-        /* Nothing is reserved below once the action panel is hidden, so the
-           felt takes the whole screen minus the header instead of stopping
-           short and leaving a dead band under the table. */
         --table-stage-h:calc(100dvh - 50px)!important;
       }
-      body.v014.poker8-v2-sixmax.p8-observer-mode .sidebar,
-      body.v014.poker8-v2-sixmax.p8-observer-mode .action-panel{display:none!important}
     }
   `;
   document.head.appendChild(tablePageStyle);
