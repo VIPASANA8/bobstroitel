@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -17,6 +18,10 @@ READY_TTL = timedelta(minutes=3)
 HOLD_WINDOW = timedelta(seconds=30)
 MIN_SYSTEM_BOTS = 3
 MAX_SYSTEM_BOTS = 4
+# How long a bot stays at one table before it gets up and a fresh one sits down.
+# A band, not a fixed ten minutes: a single interval would rotate the whole
+# table at once, which reads as scripted rather than as people coming and going.
+BOT_ROTATE_BAND = (timedelta(minutes=7), timedelta(minutes=13))
 
 
 class SeatingError(ValueError):
@@ -64,6 +69,9 @@ class SeatingService:
     ) -> None:
         self.session_factory = session_factory
         self.ledger = ledger
+        # When each seated bot is due to leave. In memory on purpose: a restart
+        # just re-rolls the timers, and rotation has nothing to recover.
+        self._bot_rotate_at: dict[str, datetime] = {}
 
     async def ready(self, user_id: str, table_id: str, seat_no: int, buy_in_units: int) -> SeatingRequest:
         async with self.session_factory() as session:
@@ -210,6 +218,7 @@ class SeatingService:
                     )
                     .values(state="leaving")
                 )
+                await self._rotate_stale_bots(session, table_id, now)
                 await self._process_leaving(session, table_id)
                 requests = (
                     await session.execute(
@@ -431,6 +440,41 @@ class SeatingService:
                     f"release:{row['id']}:{row['system_player_id']}:{uuid.uuid4().hex}", session=session,
                 )
             await self._clear_seat(session, row["id"])
+
+    async def _rotate_stale_bots(self, session: AsyncSession, table_id: str, now: datetime) -> None:
+        """Retire a bot that has sat long enough, so the table keeps turning over.
+
+        Without this a bot only ever leaves by going broke or being rebalanced
+        away, so the same names sit at the same table indefinitely. Each gets its
+        own moment inside the band, assigned when it is first seen, which is what
+        keeps them from all standing up together.
+
+        Marking the seat as leaving is enough: the leave pipeline below returns
+        the escrow, clears the seat, and the refill puts somebody new in it.
+        """
+        rows = (
+            await session.execute(
+                select(table_seats).where(
+                    table_seats.c.table_id == table_id,
+                    table_seats.c.occupant_kind == "system",
+                    table_seats.c.state == "seated",
+                )
+            )
+        ).mappings().all()
+        low, high = BOT_ROTATE_BAND
+        span = (high - low).total_seconds()
+        for row in rows:
+            key = f"{row['id']}:{row['system_player_id']}"
+            due = self._bot_rotate_at.get(key)
+            if due is None:
+                self._bot_rotate_at[key] = now + low + timedelta(seconds=random.uniform(0, span))
+                continue
+            if due > now:
+                continue
+            self._bot_rotate_at.pop(key, None)
+            await session.execute(
+                update(table_seats).where(table_seats.c.id == row["id"]).values(state="leaving")
+            )
 
     async def _cap_system_stacks(self, session: AsyncSession, table) -> None:
         """Hold bots to the table's own ceiling, the one people already obey.

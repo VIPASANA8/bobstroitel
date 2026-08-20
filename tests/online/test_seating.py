@@ -449,3 +449,71 @@ async def test_a_bot_is_held_to_the_same_ceiling_as_a_player(
 
     assert stack == ceiling, "the seat is trimmed to the table's own ceiling"
     assert escrow == ceiling, "and the books follow the seat, not the other way round"
+
+
+@pytest.mark.anyio
+async def test_bots_rotate_off_the_table_each_on_its_own_clock(seating, db_session_factory, table_id):
+    """Without rotation a bot leaves only by going broke or being rebalanced
+    away, so the same names sit at one table indefinitely. Each gets its own
+    moment inside the band, which is what keeps them from standing up together."""
+    from online.seating import BOT_ROTATE_BAND, MIN_SYSTEM_BOTS
+
+    # First boundary seats the bots; the next one is where they are first seen
+    # and given their moment, since rotation runs ahead of the leave pipeline.
+    await seating.process_boundary(table_id)
+    await seating.process_boundary(table_id)
+    due = dict(seating._bot_rotate_at)
+    assert len(due) >= MIN_SYSTEM_BOTS, "every seated bot gets a moment on first sight"
+    assert len(set(due.values())) == len(due), "and no two share it"
+
+    low, high = BOT_ROTATE_BAND
+    base = min(due.values()) - low
+    for when in due.values():
+        assert low <= when - base <= high
+
+    # Nobody leaves early.
+    async with db_session_factory() as session:
+        before = (await session.execute(
+            select(table_seats.c.system_player_id).where(
+                table_seats.c.table_id == table_id,
+                table_seats.c.occupant_kind == "system",
+                table_seats.c.state == "seated",
+            )
+        )).scalars().all()
+    await seating.process_boundary(table_id, now=datetime.now(timezone.utc) + timedelta(minutes=1))
+    async with db_session_factory() as session:
+        still = (await session.execute(
+            select(table_seats.c.system_player_id).where(
+                table_seats.c.table_id == table_id,
+                table_seats.c.occupant_kind == "system",
+                table_seats.c.state == "seated",
+            )
+        )).scalars().all()
+    assert set(still) == set(before)
+
+    # Past the far end of the band every one of them has got up. Which bots come
+    # back is not the point and is not guaranteed -- with a small roster the same
+    # ones may sit straight back down -- so what is asserted is that they really
+    # left and were seated afresh, each funded again.
+    from online.schema import play_transactions
+
+    async def grants() -> int:
+        async with db_session_factory() as session:
+            return len((await session.execute(
+                select(play_transactions.c.id).where(play_transactions.c.kind == "faucet_grant")
+            )).scalars().all())
+
+    before_grants = await grants()
+    await seating.process_boundary(table_id, now=datetime.now(timezone.utc) + high + timedelta(minutes=1))
+
+    async with db_session_factory() as session:
+        after = (await session.execute(
+            select(table_seats.c.system_player_id).where(
+                table_seats.c.table_id == table_id,
+                table_seats.c.occupant_kind == "system",
+                table_seats.c.state == "seated",
+            )
+        )).scalars().all()
+    assert await grants() >= before_grants + len(before), "every seated bot was replaced"
+    assert len(after) >= MIN_SYSTEM_BOTS, "and the table stayed populated"
+    assert not seating._bot_rotate_at.keys() & due.keys(), "spent moments are not reused"
