@@ -272,6 +272,7 @@ class SeatingService:
                     )
                     seated.append(request["user_id"])
                 removed.extend(await self._fill_system_seats(session, table))
+                await self._cap_system_stacks(session, table)
                 return BoundaryResult(seated, removed)
 
     async def active_seat_count(self, table_id: str) -> int:
@@ -430,6 +431,40 @@ class SeatingService:
                     f"release:{row['id']}:{row['system_player_id']}:{uuid.uuid4().hex}", session=session,
                 )
             await self._clear_seat(session, row["id"])
+
+    async def _cap_system_stacks(self, session: AsyncSession, table) -> None:
+        """Hold bots to the table's own ceiling, the one people already obey.
+
+        max_buy_in_bb bounds what a person may bring, but nothing bounded a bot:
+        it keeps everything it wins and is funded afresh on every seating. On
+        production that produced a bot sitting on 1250x the table maximum, at a
+        table where a player may bring 100 BB. Winnings above the ceiling go back
+        to the faucet they came from, and the seat is trimmed with them, so the
+        bot keeps playing at the same size everyone else can match.
+        """
+        ceiling = int(table["big_blind_units"]) * int(table["max_buy_in_bb"])
+        rows = (
+            await session.execute(
+                select(table_seats).where(
+                    table_seats.c.table_id == table["id"],
+                    table_seats.c.occupant_kind == "system",
+                    table_seats.c.state.in_(("seated", "held", "leaving")),
+                    table_seats.c.stack_units > ceiling,
+                )
+            )
+        ).mappings().all()
+        for row in rows:
+            excess = int(row["stack_units"]) - ceiling
+            # Keyed on the stack being trimmed, so a repeat at the same size is
+            # the same operation and a later overshoot is a new one.
+            await self.ledger.reconcile_system_escrow(
+                row["system_player_id"], excess,
+                f"cap:{row['system_player_id']}:{row['stack_units']}",
+                session=session,
+            )
+            await session.execute(
+                update(table_seats).where(table_seats.c.id == row["id"]).values(stack_units=ceiling)
+            )
 
     async def _fill_system_seats(self, session: AsyncSession, table) -> list[str]:
         """Keep a table at three or four bots when capacity permits.

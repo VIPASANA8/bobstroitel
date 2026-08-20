@@ -398,3 +398,54 @@ async def test_a_second_add_on_moves_money_and_does_not_mint_chips(
     assert await ledger.available_units(user_a) == start_wallet - 2_000
     assert await seat_stack() == before_stack + 2_000
     assert await table_escrow() == before_escrow + 2_000
+
+
+@pytest.mark.anyio
+async def test_a_bot_is_held_to_the_same_ceiling_as_a_player(
+    seating, db_session_factory, table_id
+):
+    """max_buy_in_bb bounds what a person may bring, but nothing bounded a bot:
+    it keeps everything it wins and is funded afresh on every seating. On
+    production one sat on 1250x the table maximum. The excess goes back to the
+    faucet, the seat is trimmed with it, and escrow follows the seat."""
+    from online.schema import play_accounts
+
+    await seating.process_boundary(table_id)
+    async with db_session_factory() as session:
+        bot = (await session.execute(
+            select(table_seats).where(
+                table_seats.c.table_id == table_id,
+                table_seats.c.occupant_kind == "system",
+            ).limit(1)
+        )).mappings().first()
+        table = (await session.execute(
+            select(poker_tables).where(poker_tables.c.id == table_id)
+        )).mappings().one()
+    ceiling = table["big_blind_units"] * table["max_buy_in_bb"]
+
+    # Let it win far past what any player could bring, on both sides of the books.
+    async with db_session_factory() as session:
+        await session.execute(
+            update(table_seats).where(table_seats.c.id == bot["id"]).values(stack_units=ceiling * 50)
+        )
+        await session.commit()
+    await seating.ledger.fund_system_seat(
+        bot["system_player_id"], table_id, ceiling * 50 - bot["stack_units"], "windfall"
+    )
+
+    await seating.process_boundary(table_id)
+
+    async with db_session_factory() as session:
+        stack = (await session.execute(
+            select(table_seats.c.stack_units).where(table_seats.c.id == bot["id"])
+        )).scalar_one()
+        escrow = (await session.execute(
+            select(play_accounts.c.balance_units).where(
+                play_accounts.c.owner_kind == "system",
+                play_accounts.c.owner_id == bot["system_player_id"],
+                play_accounts.c.account_kind == "escrow",
+            )
+        )).scalar_one()
+
+    assert stack == ceiling, "the seat is trimmed to the table's own ceiling"
+    assert escrow == ceiling, "and the books follow the seat, not the other way round"
