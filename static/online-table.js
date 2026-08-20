@@ -75,7 +75,45 @@
       .poker8-online .felt > .online-state-panel.is-pending span{font-size:10px}
       .poker8-online .felt > .online-state-panel.is-pending button{display:none}
       .poker8-online .online-chat-panel{display:none!important;position:fixed;left:10px;right:10px;bottom:calc(92px + env(safe-area-inset-bottom));z-index:130;margin:0}
-      .poker8-online .online-chat-panel.is-open{display:block!important}
+      /* Open means the whole page. A 200px strip over the felt was too small
+         to read a conversation in and too big to ignore. */
+      .poker8-online .online-chat-panel.is-open{
+        display:flex!important;flex-direction:column;inset:0;left:0;right:0;top:0;bottom:0;
+        z-index:140;margin:0;padding:0;border-radius:0;border:0;
+        background:linear-gradient(180deg,#061410,#030b09)
+      }
+      .poker8-online .online-chat-panel.is-open > h2{
+        flex:none;margin:0;padding:calc(12px + env(safe-area-inset-top)) 14px 10px;
+        border-bottom:1px solid rgba(120,255,200,.16);font-size:14px
+      }
+      .poker8-online .online-chat-panel.is-open #chatMessages{
+        flex:1 1 auto;min-height:0;overflow-y:auto;padding:12px 14px;display:flex;
+        flex-direction:column;gap:7px
+      }
+      .poker8-online .online-chat-panel.is-open .p8-chat-toolbar{flex:none;padding:0 14px}
+      .poker8-online .online-chat-panel.is-open #chatForm{
+        flex:none;margin:0;padding:8px 14px calc(12px + env(safe-area-inset-bottom))
+      }
+      .poker8-online .chat-close{
+        position:absolute;top:calc(8px + env(safe-area-inset-top));right:10px;width:34px;height:34px;
+        border-radius:10px;border:1px solid rgba(120,255,200,.22);background:rgba(6,22,17,.9);
+        color:#c9ffe3;font-size:18px;font-weight:800;line-height:1;cursor:pointer
+      }
+      /* Your turn is happening behind this. The banner sits over the chat, says
+         how long is left, and is itself the way back to the table -- missing a
+         hand because you were reading is the one thing a full-page chat must
+         not cause. */
+      .poker8-online .chat-turn-banner{
+        display:none;flex:none;align-items:center;justify-content:space-between;gap:10px;
+        margin:0;padding:11px 14px;border:0;width:100%;cursor:pointer;text-align:left;
+        background:linear-gradient(90deg,#ffc44d,#ff9d3d);color:#20160a;
+        font-weight:900;font-size:13px
+      }
+      .poker8-online .online-chat-panel.is-open .chat-turn-banner.is-live{display:flex}
+      .poker8-online .chat-turn-banner b{font-variant-numeric:tabular-nums;font-size:15px}
+      .poker8-online .chat-turn-banner.is-urgent{animation:p8ChatTurnPulse .9s ease-in-out infinite}
+      @keyframes p8ChatTurnPulse{50%{filter:brightness(1.18)}}
+      @media (prefers-reduced-motion:reduce){.poker8-online .chat-turn-banner.is-urgent{animation:none}}
       .poker8-online .online-connection-status{right:10px;bottom:8px}
       /* The header buttons below replace this card on mobile -- keeping both
          would mean two competing seat prompts on a screen with room for one. */
@@ -357,6 +395,65 @@
     }
   }
 
+  //: Refreshed every second while the chat covers the table, so the count is
+  //: the player's real remaining time and not whatever the last snapshot said.
+  let chatTurnTicker = null;
+
+  function ensureChatFurniture() {
+    const chat = $("chatPanel");
+    if (!chat || chat.dataset.p8Furnished) return;
+    chat.dataset.p8Furnished = "1";
+
+    const banner = document.createElement("button");
+    banner.type = "button";
+    banner.className = "chat-turn-banner";
+    banner.innerHTML = '<span>Ваш ход — вернуться за стол</span><b></b>';
+    chat.insertBefore(banner, chat.querySelector("#chatMessages"));
+
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "chat-close";
+    close.setAttribute("aria-label", "Закрыть чат");
+    close.textContent = "×";
+    chat.appendChild(close);
+  }
+
+  function closeChat() {
+    const chat = $("chatPanel");
+    if (!chat) return;
+    chat.classList.remove("is-open");
+    chat.hidden = true;
+    $("mobileChatButton")?.setAttribute("aria-expanded", "false");
+    syncChatTurnBanner();
+  }
+
+  function chatTurnSecondsLeft() {
+    const state = latestState;
+    if (!state || state.phase !== "active") return null;
+    if (!state.viewer_player_id || state.acting_player !== state.viewer_player_id) return null;
+    if (!state.action_deadline) return null;
+    return Math.max(0, Math.ceil((Date.parse(state.action_deadline) - Date.now()) / 1000));
+  }
+
+  function syncChatTurnBanner() {
+    const chat = $("chatPanel");
+    const banner = chat?.querySelector(".chat-turn-banner");
+    if (!banner) return;
+    const open = chat.classList.contains("is-open");
+    const seconds = open ? chatTurnSecondsLeft() : null;
+    const live = seconds !== null;
+    banner.classList.toggle("is-live", live);
+    banner.classList.toggle("is-urgent", live && seconds <= 10);
+    if (live) banner.querySelector("b").textContent = `${seconds} c`;
+
+    if (live && chatTurnTicker === null) {
+      chatTurnTicker = setInterval(syncChatTurnBanner, 1000);
+    } else if (!live && chatTurnTicker !== null) {
+      clearInterval(chatTurnTicker);
+      chatTurnTicker = null;
+    }
+  }
+
   function renderOnlineChrome(state) {
     setText("mobileStreetLabel", phaseLabel(state));
     setText("newHandCountdown", countdownText(state));
@@ -397,8 +494,10 @@
     }
     const chat = $("chatPanel");
     if (chat) {
+      ensureChatFurniture();
       const mobile = window.matchMedia?.("(max-width:780px)")?.matches;
       chat.hidden = Boolean(mobile && !chat.classList.contains("is-open"));
+      syncChatTurnBanner();
     }
     ["infiniteMode", "spectatorPause", "abortHand", "newHand", "mobilePrimaryAction"].forEach(id => {
       if ($(id)) $(id).classList.add("local-only-control");
@@ -724,9 +823,20 @@
       const chat = $("chatPanel");
       if (!chat) return;
       const open = !chat.classList.contains("is-open");
+      ensureChatFurniture();
       chat.classList.toggle("is-open", open);
       chat.hidden = !open;
       button.setAttribute("aria-expanded", String(open));
+      syncChatTurnBanner();
+    });
+    // The banner and the cross both put the table back in front of you.
+    document.addEventListener("click", event => {
+      if (event.target?.closest?.(".chat-turn-banner, .chat-close")) closeChat();
+    });
+    // Reading a conversation must never be why a hand was missed, so Escape
+    // gets out too.
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && $("chatPanel")?.classList.contains("is-open")) closeChat();
     });
     $("readyButton")?.addEventListener("click", () => ready().catch(error => { alert(error.message); }));
     // The toolbar wraps the selection; an empty selection drops the pair in and
