@@ -304,16 +304,31 @@ function chipsForAmount(value, maxChips = 12) {
 
 function visualStackCount(value, compact = false) {
   const n = Math.max(0, Number(value || 0));
-  if (compact) {
-    if (n < 3) return 2;
-    if (n < 25) return 3;
-    return 4;
-  }
+  // A wager is one stack whatever it is worth. It sits inches from the player
+  // it belongs to, next to a label that already says the number, so spreading
+  // it sideways only made it wider -- the height carries the size instead.
+  if (compact) return 1;
   if (n < 3) return 1;
   if (n < 12) return 2;
   if (n < 40) return 3;
   if (n < 120) return 4;
   return 5;
+}
+
+//: A one-chip ripple across the columns, so the tops of the pot are not dead
+//: level. Fixed rather than random: the same pot has to look the same twice.
+const POT_LAYER_RIPPLE = [0, 1, -1, 1, 0];
+
+function chipLayers(value, col, compact) {
+  // How tall a column stands. It used to be 4 + ((col * 2 + round(n)) % 5),
+  // which made a pot of 20 and a pot of 25 look identical while 20 and 21
+  // looked nothing alike -- the height said nothing about the money.
+  //
+  // Growth is logarithmic on purpose: chips are read at a glance, so the step
+  // from 5 to 50 should show and the step from 300 to 400 should not.
+  const base = 2 + Math.log10(1 + Math.max(0, Number(value || 0))) * 2;
+  if (compact) return Math.max(2, Math.min(7, Math.round(base)));
+  return Math.max(2, Math.min(6, Math.round(base) + POT_LAYER_RIPPLE[col % POT_LAYER_RIPPLE.length]));
 }
 
 function chipStackHtml(value, compact = false) {
@@ -327,9 +342,7 @@ function chipStackHtml(value, compact = false) {
 
   for (let col = 0; col < stackCount; col++) {
     const cls = palette[col % Math.max(1, palette.length)] || fallback[col % fallback.length];
-    const chipCount = compact
-      ? Math.min(5, 3 + ((col + Math.round(n)) % 3))
-      : Math.min(8, 4 + ((col * 2 + Math.round(n)) % 5));
+    const chipCount = chipLayers(n, col, compact);
     const chips = Array.from({ length: chipCount }, (_, i) =>
       `<i class="poker-chip ${cls}" style="--i:${i}"></i>`
     ).join("");

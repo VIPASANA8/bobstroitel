@@ -281,16 +281,21 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'x: from.x + 66' in wager_source
     assert 'y: from.y - 30' in wager_source
     assert 'v031.src = "/static/v031-pot-cluster-mobile-fix.js?v=viewer-wager-1"' in wager_loader
-    assert 'if (compact) {' in app_source
-    assert 'if (n < 3) return 2;' in app_source
-    assert 'if (n < 25) return 3;' in app_source
-    assert 'return 4;' in app_source
+    # A wager used to fan out into two, three or four stacks by size. It is
+    # one stack now whatever it is worth, with the height carrying the amount
+    # -- see test_chip_stacks. The pot still widens with the money.
+    assert 'if (compact) return 1;' in app_source
+    assert 'if (n < 12) return 2;' in app_source
+    assert 'if (n < 120) return 4;' in app_source
     assert 'const arcLift = Math.min(18, Math.max(10, Math.abs(dx) * .08 + Math.abs(dy) * .04));' in app_source
     assert '${dy * .52 - arcLift}px' in app_source
     assert 'filter: "brightness(1.28) drop-shadow(0 7px 8px rgba(0,0,0,.42))"' in app_source
     assert 'offset: .86' in app_source
     assert 'radial-gradient(ellipse at 50% 18%,rgba(255,255,255,.36),transparent 48%)' in (root / 'static' / 'style.css').read_text(encoding='utf-8')
-    assert '/static/style.css?v=chip-motion-2' in index_source
+    # The version has to be there and has to move when the file does, so
+    # pinning which one it is would break on every stylesheet edit --
+    # which is exactly what the version exists to survive.
+    assert '/static/style.css?v=' in index_source
     assert '/static/app.js?v=' in index_source
     assert '/static/component-ui.js?v=' in index_source
 

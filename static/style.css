@@ -1339,7 +1339,9 @@ body.bot-thinking .action-panel .panel-kicker { color:#6cdbef; }
     height:9px;
     transform:translateX(-50%) translateY(calc(var(--i) * -4px));
   }
-  .chip-cluster.compact { height:34px; }
+  /* One column now, so the 46px floor the shared cluster sets would be all
+   padding either side of it. */
+.chip-cluster.compact { height:34px; min-width:0; }
   .chip-cluster.compact .chip-column { width:17px; height:31px; margin:0 -4px; }
   .chip-cluster.compact .poker-chip { width:16px; height:7px; transform:translateX(-50%) translateY(calc(var(--i) * -3px)); }
   .bet-marker span { font-size:6.5px; padding:1.5px 4px; margin-top:-3px; }

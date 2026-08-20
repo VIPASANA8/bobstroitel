@@ -71,19 +71,18 @@
     const n = Math.max(0, Number(value || 0));
     if (!(n > 0)) return "";
 
-    // Use an almost linear visual scale on mobile so every meaningful increase
-    // in the pot adds visible chips instead of producing the same tiny stack.
-    const visibleTotal = Math.min(42, Math.max(2, Math.ceil(n * 2)));
-    const stackCount = Math.min(6, Math.max(1, Math.ceil(visibleTotal / 7)));
+    // The same shape the rest of the table uses -- visualStackCount for how
+    // many columns, chipLayers for how tall each one stands. The linear scale
+    // that used to live here (2 chips a unit, capped at 42) meant every pot
+    // over 21 BB drew the same wall of chips, which is most real pots; and
+    // eight chips a column made that wall taller than the cards behind it.
+    const stackCount = visualStackCount(n, false);
     const palette = chipsForAmount(n, 24);
     const fallback = ["chip-1", "chip-25", "chip-5", "chip-100", "chip-05"];
     const columns = [];
-    let remaining = visibleTotal;
 
     for (let col = 0; col < stackCount; col += 1) {
-      const colsLeft = stackCount - col;
-      const chipCount = Math.min(8, Math.max(1, Math.ceil(remaining / colsLeft)));
-      remaining -= chipCount;
+      const chipCount = chipLayers(n, col, false);
       const cls = palette[col % Math.max(1, palette.length)] || fallback[col % fallback.length];
       const chips = Array.from({ length: chipCount }, (_, i) =>
         `<i class="poker-chip ${cls}" style="--i:${i}"></i>`
