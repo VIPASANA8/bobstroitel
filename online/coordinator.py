@@ -48,6 +48,12 @@ class OnlineCoordinator:
         # Since when each player room has been empty of humans. In memory: a
         # restart just starts the clock again.
         self._room_idle_since: dict[str, datetime] = {}
+        # A bot's move in flight, one per table. Thinking is a Monte Carlo
+        # estimate on a worker thread; awaiting it inside the tick made the
+        # tick as long as the thinking -- 571ms measured against a 250ms
+        # interval. Started here and collected on a later tick instead, so
+        # one table's bot never holds up another table's clock.
+        self._bot_moves: dict[str, asyncio.Task] = {}
         self._stop = asyncio.Event()
 
     def now(self) -> datetime:
@@ -99,6 +105,15 @@ class OnlineCoordinator:
             await self.seating.evict_table(table_id)
             await self.catalogue.close_room(table_id)
             logger.info("poker8_room_retired", extra={"table_id": table_id})
+
+    async def _bot_move(self, table_id: str) -> None:
+        """One bot action, off the tick. It tells viewers itself: the tick that
+        starts it sees no change, and the tick that collects it sees a state
+        that already changed, so neither would have broadcast anything.
+        """
+        await self.runtime.system_step(table_id)
+        if self.on_change is not None:
+            await self.on_change(table_id)
 
     async def _tick_table(self, table_id: str) -> None:
         before = self._signature(table_id)
@@ -168,15 +183,25 @@ class OnlineCoordinator:
             elif loaded.state.acting_player:
                 actor = loaded.state.players[loaded.state.acting_player]
                 if actor.is_bot:
-                    # Paced to a human-like think time instead of firing on
-                    # every 250ms tick -- see bot_think_delay's docstring.
-                    if loaded.next_bot_action_at is None or loaded.next_bot_action_at <= now:
-                        await self.runtime.system_step(table_id)
+                    move = self._bot_moves.get(table_id)
+                    if move is not None:
+                        if not move.done():
+                            return  # still thinking; nothing else to do here
+                        self._bot_moves.pop(table_id, None)
+                        try:
+                            move.result()
+                        except Exception:
+                            logger.exception("bot move failed", extra={"table_id": table_id})
                         # The pause that follows a move is the *next* player's
                         # thinking, so it is measured from their spot and their
                         # own tempo -- not from the one who just acted.
                         delay = bot_think_delay(**self.runtime.next_bot_spot(table_id))
                         loaded.next_bot_action_at = now + timedelta(seconds=delay)
+                        return
+                    # Paced to a human-like think time instead of firing on
+                    # every 250ms tick -- see bot_think_delay's docstring.
+                    if loaded.next_bot_action_at is None or loaded.next_bot_action_at <= now:
+                        self._bot_moves[table_id] = asyncio.create_task(self._bot_move(table_id))
                 elif self.runtime.is_leaving(table_id, loaded.state.acting_player):
                     # They already asked to go. Holding the hand for their
                     # thirty seconds, on this street and every one after, is
@@ -223,3 +248,6 @@ class OnlineCoordinator:
 
     async def stop(self) -> None:
         self._stop.set()
+        for task in list(self._bot_moves.values()):
+            task.cancel()
+        self._bot_moves.clear()

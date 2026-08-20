@@ -1,4 +1,5 @@
 import asyncio
+import time
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -146,19 +147,68 @@ async def test_coordinator_recovers_a_paused_table_instead_of_leaving_it_stuck(c
 @pytest.mark.anyio
 async def test_bot_moves_are_paced_not_instant(coordinator):
     """Coordinator.tick() used to call system_step unconditionally, so a bot
-    acted on every ~250ms poll -- a uniform, obviously-robotic beat. A bot
-    move must now wait out its think-time delay before the next one lands."""
+    acted on every ~250ms poll -- a uniform, obviously-robotic beat. A move
+    waits out its think time, and the clock is the only thing that releases it.
+
+    A move is a task now, so settling one takes several ticks: one to start it,
+    one for it to finish, one to collect it and arm the next delay."""
+    async def settle():
+        for _ in range(6):
+            await coordinator.tick()
+            await asyncio.sleep(0)
+
     await coordinator.tick()  # seats bots, starts the hand
-    await coordinator.tick()  # first bot decision: its own gate was still None
+    await settle()
     revision_after_first_move = coordinator.runtime._tables["t1"].revision
     assert revision_after_first_move >= 1
 
-    # Ticking again at the *same instant* must not produce a second bot move.
-    await coordinator.tick()
+    # However many times it is polled at the *same instant*, nothing more moves.
+    await settle()
     assert coordinator.runtime._tables["t1"].revision == revision_after_first_move
 
-    # The slowest possible band (max jitter * hardest-difficulty * river factor)
-    # is under 4s; 5s comfortably clears it regardless of which street/bot acted.
-    coordinator.runtime.clock.advance(5)
-    await coordinator.tick()
+    # The slowest possible band (max jitter * hardest difficulty * river factor,
+    # and a tank on top) is under the cap; 13s clears it whichever bot acted.
+    coordinator.runtime.clock.advance(13)
+    await settle()
     assert coordinator.runtime._tables["t1"].revision > revision_after_first_move
+
+
+@pytest.mark.anyio
+async def test_a_thinking_bot_does_not_hold_up_the_tick(coordinator):
+    """The whole point of the move being a task. Awaiting it inside the tick
+    made the tick as long as the thinking -- 571ms measured on the live site
+    against a 250ms interval, because a Monte Carlo estimate takes up to 268ms
+    and several tables ask at once.
+
+    A move that will never finish stands in for a slow one: the tick has to
+    come back anyway, and leave it alone to finish on its own."""
+    await coordinator.tick()  # seats bots, starts the hand
+
+    still_thinking = asyncio.create_task(asyncio.sleep(30))
+    coordinator._bot_moves["t1"] = still_thinking
+    try:
+        started = time.perf_counter()
+        await coordinator.tick()
+        elapsed = time.perf_counter() - started
+
+        assert elapsed < 1.0, f"the tick waited {elapsed:.1f}s for a bot to think"
+        assert coordinator._bot_moves.get("t1") is still_thinking, "and left it running"
+    finally:
+        still_thinking.cancel()
+        coordinator._bot_moves.pop("t1", None)
+
+
+@pytest.mark.anyio
+async def test_a_bot_move_tells_viewers_itself(coordinator):
+    """The tick that starts it sees no change and the tick that collects it
+    sees a state that already changed, so neither would broadcast."""
+    seen: list[str] = []
+    coordinator.on_change = lambda table_id: _record(seen, table_id)
+
+    await coordinator.tick()
+    for _ in range(10):
+        coordinator.runtime.clock.advance(5)
+        await coordinator.tick()
+        await asyncio.sleep(0)
+
+    assert len(seen) > 1, "moves after the first were never announced"
