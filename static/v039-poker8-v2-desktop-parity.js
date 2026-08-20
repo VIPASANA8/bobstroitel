@@ -180,7 +180,14 @@
         box-sizing:border-box!important;width:100%!important;
         margin-left:0!important;margin-right:0!important;
         min-width:0!important;
+        /* left:38px is the phone layout nudging the felt clear of its rail.
+           On a centred desktop frame it just pushed the table off the right
+           edge -- 41px in on the left, 37px past it on the right. */
+        left:0!important;right:auto!important;
       }
+      /* An observer's action panel is hidden; without matching the specificity
+         of the desktop .sidebar rule above, it kept its grid box. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2.p8-observer-mode .sidebar{display:none!important}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .history-card{display:none!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 #chatPanel{
         grid-area:chat!important;height:100%!important;min-height:0!important;
