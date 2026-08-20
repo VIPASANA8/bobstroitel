@@ -132,25 +132,25 @@ async def test_an_afk_human_is_sat_out_after_the_deadline_not_evicted(two_humans
 
 
 @pytest.mark.anyio
-async def test_a_table_with_nobody_at_it_seats_no_bots_and_deals_nothing(two_humans):
-    """Bots are there to give a person opponents. With nobody to give them to
-    they used to deal to each other around the clock, which is how one of them
-    piled up a stack in the millions -- and why a player who had just opened a
-    room walked into a hand already under way instead of their own table."""
+async def test_a_lobby_table_stays_populated_with_nobody_at_it(two_humans):
+    """The six lobby tables are the shop window, and Quick Play exists to drop
+    you into a game already running -- so they keep their bots whether or not
+    anyone is there. A player's room is the opposite; test_bot_arrivals covers
+    that side. What made an always-populated table dangerous was a bot's stack
+    growing without bound, and the ceiling in _cap_system_stacks fixed that."""
     coordinator, clock = two_humans
     async with coordinator.runtime.session_factory() as session:
         await session.execute(delete(table_seats).where(table_seats.c.table_id == "t1"))
         await session.commit()
 
-    for _ in range(5):
-        clock.advance(60)
-        await coordinator.tick()
+    await coordinator.tick()  # seats bots via process_boundary
+    await coordinator.tick()  # nothing to wait on, so the hand starts
 
     async with coordinator.runtime.session_factory() as session:
         occupied = (await session.execute(
             select(table_seats.c.id).where(
                 table_seats.c.table_id == "t1", table_seats.c.state != "empty")
         )).scalars().all()
-    assert occupied == [], "no bot sat down at an empty table"
+    assert occupied, "the shop window is not left empty"
     loaded = coordinator.runtime._tables.get("t1")
-    assert loaded is None or loaded.phase != "active", "and no hand was dealt"
+    assert loaded is not None and loaded.phase == "active"

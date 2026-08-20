@@ -63,16 +63,6 @@ def seating(db_session_factory, ledger):
     return SeatingService(db_session_factory, ledger)
 
 
-async def _seat_a_person(db_session_factory, table_id, user_id="u1", seat_no=0):
-    """Bots only join a table that has somebody to play against, so a test
-    about bots needs a person sitting there first."""
-    async with db_session_factory() as session:
-        await session.execute(insert(table_seats).values(
-            id=f"seat-{table_id}-{seat_no}", table_id=table_id, seat_no=seat_no,
-            occupant_kind="user", user_id=user_id, stack_units=10_000, state="seated"))
-        await session.commit()
-
-
 @pytest.mark.anyio
 async def test_ready_appends_fifo_and_reserves_nothing(seating, ledger, user_a, table_id):
     request = await seating.ready(user_a, table_id, seat_no=2, buy_in_units=4_000)
@@ -293,7 +283,6 @@ async def test_releasing_the_same_seat_twice_drains_the_escrow_both_times(
             )).scalar_one_or_none() or 0
 
     # Two full cycles of the same seat row: fill, then clear it out again.
-    await _seat_a_person(db_session_factory, table_id)
     await seating.process_boundary(table_id)
     async with db_session_factory() as session:
         seated = (await session.execute(
@@ -421,7 +410,6 @@ async def test_a_bot_is_held_to_the_same_ceiling_as_a_player(
     faucet, the seat is trimmed with it, and escrow follows the seat."""
     from online.schema import play_accounts
 
-    await _seat_a_person(db_session_factory, table_id)
     await seating.process_boundary(table_id)
     async with db_session_factory() as session:
         bot = (await session.execute(
@@ -472,7 +460,6 @@ async def test_bots_rotate_off_the_table_each_on_its_own_clock(seating, db_sessi
 
     # First boundary seats the bots; the next one is where they are first seen
     # and given their moment, since rotation runs ahead of the leave pipeline.
-    await _seat_a_person(db_session_factory, table_id)
     await seating.process_boundary(table_id)
     await seating.process_boundary(table_id)
     due = dict(seating._bot_rotate_at)

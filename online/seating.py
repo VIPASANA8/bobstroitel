@@ -591,19 +591,19 @@ class SeatingService:
         # Room policy: 1–2 humans play with four bots; 3 humans play with
         # three bots. New people wait once all six seats are occupied, rather
         # than evicting the third bot and turning the table into a human-only room.
+        target_bot_count = MAX_SYSTEM_BOTS if user_count <= 2 else MIN_SYSTEM_BOTS
+        # The lobby's own six tables keep their bots whether or not anyone is
+        # there: they are the shop window, and Quick Play exists to drop you
+        # into a game that is already running. What made an always-populated
+        # table dangerous was a bot's stack growing without bound, and the
+        # ceiling in _cap_system_stacks is what actually fixed that.
         #
-        # Nobody there means no bots at all. Bots exist to give a person
-        # opponents, and with nought people they had none to give: they dealt
-        # to each other around the clock, which is what let one of them pile up
-        # a stack in the millions. It also meant a player who opened a room
-        # walked into a hand already in progress instead of their own table.
-        # Zero bots leaves fewer than two seats filled, so no hand starts.
-        target_bot_count = 0 if user_count == 0 else (
-            MAX_SYSTEM_BOTS if user_count <= 2 else MIN_SYSTEM_BOTS
-        )
-        # A room reachable only by its link is one you are filling with people
-        # you invited. A bot taking one of those seats is taking it from them.
-        if table["created_by"] and table["visibility"] == "link":
+        # A player's room is the opposite: it is empty until its owner sits
+        # down, or opening one meant walking into a hand already in progress
+        # instead of your own table. And a room reachable only by its link is
+        # being filled with invited people -- a bot in one of those seats is
+        # taking it from them.
+        if table["created_by"] and (user_count == 0 or table["visibility"] == "link"):
             target_bot_count = 0
 
         seated_bots = sorted(
