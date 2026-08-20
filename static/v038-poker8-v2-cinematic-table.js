@@ -307,7 +307,7 @@
       body.v014.poker8-v2-sixmax .seat-card.v038-action-all-in .player-avatar{
         border-color:#ffc44d!important;box-shadow:0 0 0 3px rgba(1,5,5,.92),0 0 22px rgba(255,196,77,.70),inset 0 -10px 18px rgba(0,0,0,.50)!important;
       }
-      body.v014.poker8-v2-sixmax .seat-card.v032-folded.v038-action-fold{opacity:.48!important;filter:none!important;}
+      body.v014.poker8-v2-sixmax .seat-card.v032-folded.v038-action-fold{opacity:1!important;filter:none!important;}
 
       body.v014.poker8-v2-sixmax .v038-room-prompt{
         /* y:36% sits over the pot/board strip, which is empty whenever this
@@ -436,8 +436,16 @@
          instead of washing the whole plate like brightness() did. */
       @keyframes v038ActiveTurnPulse{0%,100%{filter:drop-shadow(0 0 2px rgba(85,255,242,.40))}50%{filter:drop-shadow(0 0 9px rgba(85,255,242,.95))}}
       @media (prefers-reduced-motion:reduce){body.v014.poker8-v2-sixmax .seat .seat-card.v032-active-turn :is(.player-avatar,.seat-identity){animation:none!important;}}
+      /* Folding takes your cards, not your seat. Dimming the whole player to
+         28% made them read as gone -- the name and stack you want to keep
+         reading went with the hand. They stay lit like everyone else, and the
+         cards beside the avatar are simply not there any more, which is what
+         the table itself would show you. */
       body.v014.poker8-v2-sixmax .seat .seat-card.v032-folded{
-        opacity:.28!important;filter:saturate(.18) brightness(.68)!important;box-shadow:none!important;
+        opacity:1!important;filter:none!important;box-shadow:none!important;
+      }
+      body.v014.poker8-v2-sixmax .seat .seat-card.v032-folded .player-cards{
+        display:none!important;
       }
       body.v014.poker8-v2-sixmax .seat .seat-card.all-in{
         border:0!important;background:transparent!important;box-shadow:none!important;outline:0!important;
@@ -565,11 +573,11 @@
       body.v014.poker8-v2-sixmax .v038-action-label{display:block;font-weight:900;letter-spacing:.035em;line-height:1.05;}
       body.v014.poker8-v2-sixmax .v038-action-amount{display:block;margin-top:2px;font-size:11px;font-weight:900;line-height:1;}
       body.v014.poker8-v2-sixmax .v038-action-amount.v038-amount-pulse{animation:v038AmountPulse 180ms ease-out;}
-      body.v014.poker8-v2-sixmax .action-slot.v038-all-in-armed::after{
+      body.v014.poker8-v2-sixmax .action-slot.v038-armed::after{
         content:"";position:absolute;left:5px;right:5px;bottom:3px;height:2px;border-radius:9px;background:#ffc44d;
         transform-origin:left center;animation:v038ConfirmDrain var(--v038-arm-ms,3000ms) linear forwards;box-shadow:0 0 7px rgba(255,196,77,.85);
       }
-      body.v014.poker8-v2-sixmax .action-slot.v038-all-in-armed::before{
+      body.v014.poker8-v2-sixmax .action-slot.v038-armed::before{
         content:attr(data-arm-label);position:absolute;right:6px;bottom:5px;color:#ffc44d;font-size:5px;font-weight:900;letter-spacing:.06em;
       }
       @keyframes v038AmountPulse{50%{transform:scale(1.08);filter:brightness(1.45)}100%{transform:scale(1);filter:none}}
@@ -578,7 +586,7 @@
         body.v014.poker8-v2-sixmax .quick-sizes button,
         body.v014.poker8-v2-sixmax .action-grid .action-slot{transition:none!important;}
         body.v014.poker8-v2-sixmax .v038-action-amount.v038-amount-pulse{animation:none!important;}
-        body.v014.poker8-v2-sixmax .action-slot.v038-all-in-armed::after{animation:none!important;transform:scaleX(1);}
+        body.v014.poker8-v2-sixmax .action-slot.v038-armed::after{animation:none!important;transform:scaleX(1);}
         body.v014.poker8-v2-sixmax.v038-room-awaiting .player-avatar{animation:none!important;}
         body.v014.poker8-v2-sixmax .felt{transition-duration:80ms!important;}
       }
@@ -909,12 +917,12 @@
 
   let referenceActive = false;
   let presetSnapshot = null;
-  let allInArmedUntil = 0;
-  let allInArmedSource = "";
-  let allInArmedFingerprint = "";
-  let allInTimer = 0;
+  let armedUntil = 0;
+  let armedSource = "";
+  let armedFingerprint = "";
+  let armedTimer = 0;
   let presetSettleTimer = 0;
-  const ALL_IN_CONFIRM_MS = 3000;
+  const COMMIT_CONFIRM_MS = 3000;
   const PRESET_SETTLE_MS = 1000;
 
   const stripHudUnit = value => String(value ?? "").replace(/\s*ББ\s*$/i, "").trim();
@@ -1012,67 +1020,81 @@
     row.querySelectorAll("button small").forEach(value => setText(value, stripHudUnit(value.textContent)));
   }
 
-  function clearAllInConfirmation(render = true) {
-    window.clearTimeout(allInTimer);
-    allInTimer = 0;
-    allInArmedUntil = 0;
-    allInArmedSource = "";
-    allInArmedFingerprint = "";
+  function clearArmedAction(render = true) {
+    window.clearTimeout(armedTimer);
+    armedTimer = 0;
+    armedUntil = 0;
+    armedSource = "";
+    armedFingerprint = "";
     if (render) queueSync();
   }
 
-  function allInFingerprint(source) {
+  function viewerIsLeaving() {
+    return window.Poker8OnlineTable?.viewerState === "leaving"
+      || document.body.classList.contains("p8-leaving");
+  }
+
+  function armedFingerprintOf(source) {
     const amount = Number(document.getElementById("amount")?.value || 0);
     return [game?.hand_id, game?.street, game?.acting_player, game?.history?.length || 0, source, source === "aggressive" ? amount : ""].join(":");
   }
 
-  function fireArmedAllIn(source, amount) {
-    const fingerprint = allInArmedFingerprint;
-    clearAllInConfirmation(false);
+  function fireArmedCommit(source, amount) {
+    const fingerprint = armedFingerprint;
+    clearArmedAction(false);
     if (!game || game.terminal || !isLocalHumanTurn()) return;
     // The spot has to be the one that was armed: a new street, a new actor or
     // a changed amount all mean this is no longer the bet they asked for.
-    if (fingerprint !== allInFingerprint(source)) return queueSync();
+    if (fingerprint !== armedFingerprintOf(source)) return queueSync();
     const legal = game.human_legal_actions || [];
     clearPendingAction(false);
     if (source === "aggressive") {
       sendAction(legal.includes("raise") ? "raise" : "bet", amount);
+    } else if (source === "fold") {
+      sendAction("fold", 0);
     } else {
       sendAction("all_in", 0);
     }
     queueSync();
   }
 
-  function confirmAllIn(source, localTurn, amount, legal) {
+  function confirmCommit(source, localTurn, amount, legal) {
     // Off turn there is no clock to run against: it stays a pre-action.
     if (!localTurn) {
-      clearAllInConfirmation(false);
-      togglePendingAction(source === "aggressive" ? "aggressive" : "all_in");
+      clearArmedAction(false);
+      togglePendingAction(source);
       renderMobileSelectedCard();
       queueSync();
       return;
     }
-    // Committing the whole stack is the one action worth a beat to take back,
-    // so the first press arms it and a bar drains across the button. It fires
-    // on its own -- pressing again inside the window is how you cancel, not
-    // how you confirm.
-    const fingerprint = allInFingerprint(source);
-    if (allInArmedSource === source && allInArmedFingerprint === fingerprint) {
-      clearAllInConfirmation();
+    // Already on the way out: the seat is going and the server folds the hand
+    // itself, so a beat to reconsider is a beat wasted. Send it and be done.
+    if (viewerIsLeaving()) {
+      clearArmedAction(false);
+      clearPendingAction(false);
+      return sendAction(source === "fold" ? "fold" : "all_in", 0);
+    }
+    // The two irreversible presses -- the whole stack, and the hand itself --
+    // get a beat to take back. The first press arms it and a bar drains across
+    // the button; it fires on its own, and pressing again inside the window is
+    // how you cancel, not how you confirm.
+    const fingerprint = armedFingerprintOf(source);
+    if (armedSource === source && armedFingerprint === fingerprint) {
+      clearArmedAction();
       return;
     }
-    clearAllInConfirmation(false);
+    clearArmedAction(false);
     // Never let the bar be the reason a turn times out: if the server's own
     // deadline lands first, commit there instead, half a second early so the
     // command has time to reach it.
     const deadline = game?.action_deadline ? Date.parse(game.action_deadline) : NaN;
     const armFor = Number.isFinite(deadline)
-      ? Math.max(400, Math.min(ALL_IN_CONFIRM_MS, deadline - Date.now() - 500))
-      : ALL_IN_CONFIRM_MS;
-    allInArmedSource = source;
-    allInArmedFingerprint = fingerprint;
-    allInArmedUntil = Date.now() + armFor;
-    allInTimer = window.setTimeout(() => fireArmedAllIn(source, amount), armFor);
+      ? Math.max(400, Math.min(COMMIT_CONFIRM_MS, deadline - Date.now() - 500))
+      : COMMIT_CONFIRM_MS;
+    armedSource = source;
+    armedFingerprint = fingerprint;
+    armedUntil = Date.now() + armFor;
+    armedTimer = window.setTimeout(() => fireArmedCommit(source, amount), armFor);
     queueSync();
   }
 
@@ -1118,8 +1140,8 @@
     const leftKey = localTurn ? (legal.includes("check") ? "check" : "fold") : (toCall > 0 ? "fold" : "check");
     const atMax = Math.abs(amount - Number(bounds.max || 0)) < 1e-9;
     const aggressiveLabel = Number(game?.current_bet || 0) > Number(localViewerPlayer()?.street_invested || 0) ? "RAISE" : "BET";
-    if (allInArmedSource && (allInArmedUntil <= Date.now() || allInArmedFingerprint !== allInFingerprint(allInArmedSource))) {
-      clearAllInConfirmation(false);
+    if (armedSource && (armedUntil <= Date.now() || armedFingerprint !== armedFingerprintOf(armedSource))) {
+      clearArmedAction(false);
     }
     const defs = [
       { key:"call", label:"CALL", amount:stripHudUnit(formatBB(toCall)), cls:"call" },
@@ -1142,14 +1164,14 @@
         button.dataset.v038ReferenceAction = "1";
         button.className = `action-slot ${def.cls}`;
         button.classList.toggle("queued", pendingAction?.kind === def.key);
-        const armed = allInArmedSource === def.key && Boolean(def.allIn);
-        button.classList.toggle("v038-all-in-armed", armed);
+        const armed = armedSource === def.key && (Boolean(def.allIn) || def.key === "fold");
+        button.classList.toggle("v038-armed", armed);
         if (armed) {
           // Set once, on the render that arms it. Rewriting the duration on
           // every later render restarts the animation, so the bar would snap
           // back to full width each time a snapshot arrived.
           if (!button.dataset.armLabel) {
-            const left = Math.max(0, allInArmedUntil - Date.now());
+            const left = Math.max(0, armedUntil - Date.now());
             button.style.setProperty("--v038-arm-ms", `${left}ms`);
             button.dataset.armLabel = `${Math.max(1, Math.round(left / 1000))} СЕК`;
           }
@@ -1204,7 +1226,10 @@
             return;
           }
           const liveAllIn = slot === "all_in" || (slot === "aggressive" && Math.abs(liveAmount - Number(amountBounds().max || 0)) < 1e-9);
-          if (liveAllIn) return confirmAllIn(slot === "aggressive" ? "aggressive" : "all_in", liveTurn, liveAmount, liveLegal);
+          if (liveAllIn) return confirmCommit(slot === "aggressive" ? "aggressive" : "all_in", liveTurn, liveAmount, liveLegal);
+          // Folding is as final as shoving, so it arms the same way. Checking
+          // is not -- the left slot is one or the other depending on the spot.
+          if (liveKey === "fold") return confirmCommit("fold", liveTurn, 0, liveLegal);
           if (!liveTurn) {
             togglePendingAction(liveKey);
             renderMobileSelectedCard();
@@ -1226,7 +1251,7 @@
   function teardownFinalReference() {
     if (!referenceActive) return;
     referenceActive = false;
-    clearAllInConfirmation(false);
+    clearArmedAction(false);
     clearPresetSelection();
     window.clearTimeout(presetSettleTimer);
     presetSettleTimer = 0;
@@ -1330,7 +1355,7 @@
       sizing.addEventListener("input", event => {
         if (event.target?.matches?.("#amountSlider")) scheduleSettledPreset();
         else clearPresetSelection();
-        clearAllInConfirmation(false);
+        clearArmedAction(false);
         queueSync();
       });
     }
@@ -1338,7 +1363,7 @@
       document.body.dataset.v038ClickSync = "1";
       document.addEventListener("click", event => {
         if (event.target?.closest?.("#amountMinus,#amountPlus")) clearPresetSelection();
-        if (allInArmedSource && !event.target?.closest?.("[data-v038-all-in-trigger]")) clearAllInConfirmation();
+        if (armedSource && !event.target?.closest?.("[data-v038-all-in-trigger]")) clearArmedAction();
       });
     }
   };

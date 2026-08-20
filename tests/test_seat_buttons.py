@@ -131,3 +131,23 @@ def test_no_decorative_gear_squats_where_the_chat_button_lands():
     layer = Path("static/v032-poker8-v2-mobile-sixmax.js").read_text(encoding="utf-8")
     assert "⚙" not in layer
     assert ".mobile-game-header::after{" not in layer
+
+
+def test_a_folded_player_keeps_their_light_and_loses_their_cards():
+    """Dimming the whole seat to 28% made a folded player read as gone -- the
+    name and stack you want to keep reading went with the hand. Folding takes
+    your cards, not your seat."""
+    v038 = Path("static/v038-poker8-v2-cinematic-table.js").read_text(encoding="utf-8")
+    v039 = Path("static/v039-poker8-v2-desktop-parity.js").read_text(encoding="utf-8")
+
+    folded = v038[v038.index(".seat .seat-card.v032-folded{"):]
+    folded = folded[:folded.index("}")]
+    assert "opacity:1!important" in folded and "filter:none!important" in folded
+
+    assert ".seat-card.v032-folded .player-cards{" in v038
+    assert ".seat-card.folded .player-cards{display:none!important;}" in v039
+    # And no dimming left anywhere on a folded seat.
+    for layer in (v038, v039):
+        for rule in re.findall(r"\.(?:v032-)?folded[^{]*\{([^}]*)\}", layer):
+            assert "opacity:.2" not in rule and "opacity:.4" not in rule, rule
+            assert "grayscale" not in rule, rule

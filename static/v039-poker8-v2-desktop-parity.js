@@ -111,7 +111,9 @@
       body.v014.poker8-desktop-v2 .dealer-button{right:-6px!important;bottom:28px!important;z-index:12!important;}
 
       body.v014.poker8-desktop-v2 .table-center{transform:translate(-50%,-50%) scale(.94)!important;z-index:12!important;}
-      body.v014.poker8-desktop-v2 .seat-card.folded{opacity:1!important;filter:grayscale(.42) brightness(.86)!important;}
+      /* Same on desktop: the player stays lit, the cards go. */
+      body.v014.poker8-desktop-v2 .seat-card.folded{opacity:1!important;filter:none!important;}
+      body.v014.poker8-desktop-v2 .seat-card.folded .player-cards{display:none!important;}
       body.v014.poker8-desktop-v2 .seat-card.folded .seat-identity{background:linear-gradient(180deg,rgba(15,16,18,.98),rgba(3,5,6,.995))!important;}
       body.v014.poker8-desktop-v2 .seat-identity{backdrop-filter:blur(5px)!important;}
       body.v014.poker8-desktop-v2 .player-status{
