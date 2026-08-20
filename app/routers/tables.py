@@ -168,7 +168,9 @@ async def reconnect(table_id: str, request: Request, user: AuthenticatedUser = D
 @router.post("/{table_id}/add-on")
 async def add_on(table_id: str, payload: AddOnRequest, request: Request, user: AuthenticatedUser = Depends(get_current_user)):
     try:
-        await request.app.state.seating.add_on(user.user_id, table_id, payload.amount_units)
+        await request.app.state.seating.add_on(
+            user.user_id, table_id, payload.amount_units, payload.request_id
+        )
     except SeatingError as exc:
         raise _error(exc) from exc
     return {"ok": True, "amount_units": payload.amount_units}

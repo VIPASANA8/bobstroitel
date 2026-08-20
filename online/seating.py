@@ -365,7 +365,7 @@ class SeatingService:
                     .values(state="leaving")
                 )
 
-    async def add_on(self, user_id: str, table_id: str, amount_units: int) -> None:
+    async def add_on(self, user_id: str, table_id: str, amount_units: int, request_id: str) -> None:
         async with self.session_factory() as session:
             async with session.begin():
                 table = await self._table(session, table_id, lock=True)
@@ -382,7 +382,19 @@ class SeatingService:
                 maximum = table["big_blind_units"] * table["max_buy_in_bb"]
                 if seat["stack_units"] + amount_units > maximum:
                     raise SeatingError("stack cannot exceed 100 BB")
-                await self.ledger.add_on(user_id, table_id, amount_units, f"addon:{user_id}:{table_id}:{seat['id']}", session=session)
+                # Keyed on the caller's own request id, which the client already
+                # sends fresh per add-on. The previous key was static for a
+                # (user, table, seat row) -- and seat rows are reused -- so every
+                # add-on after the first was taken for a repeat of it and moved no
+                # money, while the stack below is added to unconditionally. That
+                # mints chips: the seat grows and nothing leaves the wallet.
+                key = f"addon:{user_id}:{table_id}:{request_id}"
+                # And a genuine retry of one request must change nothing at all.
+                # The ledger call alone would quietly no-op while the stack below
+                # still grew, which is the same minting by a different route.
+                if await self.ledger.transaction_exists(key, session=session):
+                    return
+                await self.ledger.add_on(user_id, table_id, amount_units, key, session=session)
                 await session.execute(
                     update(table_seats).where(table_seats.c.id == seat["id"]).values(stack_units=seat["stack_units"] + amount_units)
                 )

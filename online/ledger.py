@@ -150,6 +150,27 @@ class PlayLedger:
 
         return await self._run(operation, session)
 
+    async def transaction_exists(
+        self, idempotency_key: str, *, session: AsyncSession | None = None
+    ) -> bool:
+        """Whether this exact operation has already been posted.
+
+        Callers that also mutate state of their own need this: the ledger call
+        alone silently becomes a no-op on a replay, so a caller that updates a
+        stack regardless would add chips no money backs.
+        """
+        async def operation(db: AsyncSession) -> bool:
+            row = (
+                await db.execute(
+                    select(play_transactions.c.id).where(
+                        play_transactions.c.idempotency_key == idempotency_key
+                    )
+                )
+            ).first()
+            return row is not None
+
+        return await self._run(operation, session)
+
     async def reconcile_system_escrow(
         self,
         system_player_id: str,

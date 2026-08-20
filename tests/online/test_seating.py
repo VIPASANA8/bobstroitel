@@ -345,3 +345,56 @@ def test_user_stack_return_keys_are_unique_per_departure():
 
     source = Path("online/seating.py").read_text(encoding="utf-8")
     assert 'f"return:{row[\'id\']}:{row[\'user_id\']}:{uuid.uuid4().hex}"' in source
+
+
+@pytest.mark.anyio
+async def test_a_second_add_on_moves_money_and_does_not_mint_chips(
+    seating, ledger, db_session_factory, user_a, table_id
+):
+    """The add-on key used to be static for a (user, table, seat row), and seat
+    rows are reused -- so every add-on after the first was taken for a repeat of
+    it and moved no money, while stack_units is added to unconditionally. That
+    mints chips: the seat grows and nothing leaves the wallet. Never fired in
+    production only because nobody had used add-on yet."""
+    from online.schema import play_accounts
+
+    await seating.ready(user_a, table_id, seat_no=2, buy_in_units=4_000)
+    await seating.process_boundary(table_id)
+    start_wallet = await ledger.available_units(user_a)
+
+    async def seat_stack() -> int:
+        async with db_session_factory() as session:
+            return (await session.execute(
+                select(table_seats.c.stack_units).where(
+                    table_seats.c.table_id == table_id,
+                    table_seats.c.user_id == user_a,
+                )
+            )).scalar_one()
+
+    async def table_escrow() -> int:
+        async with db_session_factory() as session:
+            return (await session.execute(
+                select(play_accounts.c.balance_units).where(
+                    play_accounts.c.owner_kind == "table",
+                    play_accounts.c.owner_id == table_id,
+                    play_accounts.c.account_kind == "escrow",
+                )
+            )).scalar_one()
+
+    before_stack, before_escrow = await seat_stack(), await table_escrow()
+    await seating.add_on(user_a, table_id, 1_000, "req-1")
+    await seating.add_on(user_a, table_id, 1_000, "req-2")
+
+    # Both add-ons: chips arrive on the seat and leave the wallet, and the table
+    # escrow backs every chip sitting on it.
+    assert await seat_stack() == before_stack + 2_000
+    assert await ledger.available_units(user_a) == start_wallet - 2_000
+    assert await table_escrow() == before_escrow + 2_000
+
+    # A retry of the same request changes nothing at all -- not the wallet, and
+    # not the seat either. Guarding only the ledger call would leave the stack
+    # growing against money that never moved: the same minting, another route.
+    await seating.add_on(user_a, table_id, 1_000, "req-2")
+    assert await ledger.available_units(user_a) == start_wallet - 2_000
+    assert await seat_stack() == before_stack + 2_000
+    assert await table_escrow() == before_escrow + 2_000
