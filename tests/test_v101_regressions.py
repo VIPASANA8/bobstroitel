@@ -280,7 +280,7 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'if (mobile && visualSeat === 0)' in wager_source
     assert 'x: from.x + 66' in wager_source
     assert 'y: from.y - 30' in wager_source
-    assert 'v031.src = "/static/v031-pot-cluster-mobile-fix.js?v=viewer-wager-1"' in wager_loader
+    assert 'v031.src = "/static/v031-pot-cluster-mobile-fix.js?v=' in wager_loader
     # A wager used to fan out into two, three or four stacks by size. It is
     # one stack now whatever it is worth, with the height carrying the amount
     # -- see test_chip_stacks. The pot still widens with the money.

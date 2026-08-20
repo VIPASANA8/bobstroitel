@@ -25,13 +25,19 @@ def test_the_height_of_a_stack_says_how_much_is_in_it():
 
 
 def test_the_pot_uses_the_same_maths_as_everything_else():
-    """The pot is drawn by its own layer, which had a second, different scale:
-    two chips a unit capped at 42, so every pot over 21 BB looked the same."""
+    """Three layers drew the pot three different ways. v031 is the one that
+    wins -- it overrides chipStackHtml and renderPotChips last -- so a fix
+    anywhere else was invisible. All of them agree now."""
     body = POT_LAYER[POT_LAYER.index("function growingPotStackHtml"):]
-    body = body[:body.index("\n  }")]
+    body = body[:body.index(chr(10) + "  }")]
     assert "visualStackCount(n, false)" in body
     assert "chipLayers(n, col, false)" in body
     assert "visibleTotal" not in POT_LAYER, "the old linear scale is gone"
+
+    winner = Path("static/v031-pot-cluster-mobile-fix.js").read_text(encoding="utf-8")
+    assert "chipLayers(n, col, false)" in winner
+    assert "Math.min(9," not in winner, "nine-chip columns are gone from the one that renders"
+    assert "Math.max(1, visualStackCount" in winner, "a small pot may be one stack"
 
 
 def test_layers_never_run_away_or_collapse():

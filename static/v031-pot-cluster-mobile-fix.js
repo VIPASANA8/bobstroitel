@@ -21,7 +21,9 @@
     const n = Number(value || 0);
     if (!(n > 0)) return "";
 
-    const stackCount = Math.min(7, Math.max(2, visualStackCount(n, false) + (n >= 8 ? 1 : 0)));
+    // A minimum of two meant the smallest pot on the table drew the same
+    // footprint as a middling one. One stack is a fine picture of a small pot.
+    const stackCount = Math.min(7, Math.max(1, visualStackCount(n, false) + (n >= 8 ? 1 : 0)));
     const palette = chipsForAmount(n, 16);
     const fallback = ["chip-1", "chip-25", "chip-5", "chip-100", "chip-05"];
     const offsets = potClusterOffsets(stackCount);
@@ -29,7 +31,10 @@
 
     for (let col = 0; col < stackCount; col++) {
       const cls = palette[col % Math.max(1, palette.length)] || fallback[col % fallback.length];
-      const chipCount = Math.min(9, 4 + ((col * 2 + Math.round(n)) % 6));
+      // Shared with every other stack on the table -- see chipLayers. This
+      // used to be 4 + ((col * 2 + round(n)) % 6), which said nothing about
+      // the money and stood nine chips high at its worst.
+      const chipCount = chipLayers(n, col, false);
       const chips = Array.from({ length: chipCount }, (_, i) =>
         `<i class="poker-chip ${cls}" style="--i:${i}"></i>`
       ).join("");
