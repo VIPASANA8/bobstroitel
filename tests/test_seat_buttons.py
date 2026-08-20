@@ -100,3 +100,24 @@ def test_a_seat_being_released_shows_progress_and_keeps_asking():
     assert "/leave" in watch, "a lost leave request has to be re-sent"
     assert "setInterval" in watch
     assert "if (leaveWatch) return;" in watch, "one watcher, however often it renders"
+
+
+def test_nothing_binds_directly_to_a_button_a_layer_creates():
+    """The third time this bit: a handler attached at boot to an element the
+    layer chain has not created yet finds nothing, and the optional-call
+    swallows it, so the control sits there doing nothing and says nothing.
+
+    Every id bound directly has to be in the page's own markup."""
+    online = Path("static/online-table.js").read_text(encoding="utf-8")
+    markup = Path("static/index.html").read_text(encoding="utf-8")
+
+    bound = set(re.findall(r'\$\("([A-Za-z]+)"\)\?\.addEventListener', online))
+    assert bound, "the bindings moved; this test needs rewriting"
+    missing = sorted(name for name in bound if f'id="{name}"' not in markup)
+    assert missing == [], f"bound at boot but created later: {missing}"
+
+
+def test_the_chat_button_is_delegated():
+    online = Path("static/online-table.js").read_text(encoding="utf-8")
+    assert 'closest?.("#mobileChatButton")' in online
+    assert '$("mobileChatButton")?.addEventListener' not in online

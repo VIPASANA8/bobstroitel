@@ -715,14 +715,18 @@
           : "Покинуть стол? Во время раздачи выход будет выполнен после её завершения.";
       if (window.confirm(message)) await leaveTable().catch(error => alert(error.message));
     });
-    $("mobileChatButton")?.addEventListener("click", () => {
+    // Delegated, because v037 creates this button and v037 runs after boot:
+    // binding to it here found nothing, and the ?. swallowed that silently, so
+    // the button sat in the header doing nothing and said nothing about it.
+    document.addEventListener("click", event => {
+      const button = event.target?.closest?.("#mobileChatButton");
+      if (!button) return;
       const chat = $("chatPanel");
-      const button = $("mobileChatButton");
       if (!chat) return;
       const open = !chat.classList.contains("is-open");
       chat.classList.toggle("is-open", open);
       chat.hidden = !open;
-      button?.setAttribute("aria-expanded", String(open));
+      button.setAttribute("aria-expanded", String(open));
     });
     $("readyButton")?.addEventListener("click", () => ready().catch(error => { alert(error.message); }));
     // The toolbar wraps the selection; an empty selection drops the pair in and
