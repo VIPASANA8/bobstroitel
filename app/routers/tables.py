@@ -85,12 +85,16 @@ async def table_snapshot(
                 )
             )
         ).scalar_one_or_none()
+        # Every state, not just "waiting": a request can die on its own -- the
+        # table stays full past its TTL, or the balance no longer covers the
+        # buy-in -- and reporting only "waiting" left the client unable to tell
+        # "never asked" from "asked and lost it", so the seat request simply
+        # vanished with no explanation.
         queue = (
             await session.execute(
                 select(seat_queue.c.state).where(
                     seat_queue.c.table_id == table_id,
                     seat_queue.c.user_id == user.user_id,
-                    seat_queue.c.state == "waiting",
                 )
             )
         ).scalar_one_or_none()
@@ -100,7 +104,9 @@ async def table_snapshot(
     # asked to act, so the live hand wins over the missing seat row.
     viewer_state = (
         "seated" if seat in ("seated", "held", "leaving") or state.get("viewer_player_id")
-        else "waiting" if queue
+        # Only a live request counts as waiting; the other states above are
+        # reported for the client's benefit but mean the player is a spectator.
+        else "waiting" if queue == "waiting"
         else "spectator"
     )
     return {"table": dict(row), "state": state, "viewer_state": viewer_state, "queue_state": queue}

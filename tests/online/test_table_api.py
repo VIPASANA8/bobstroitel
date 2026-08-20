@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -55,3 +57,26 @@ def test_lobby_sends_a_blocked_player_to_their_table():
     source = Path("static/lobby.js").read_text(encoding="utf-8")
     assert "already_seated" in source
     assert "openTable(detail.table_id)" in source
+
+
+def test_table_snapshot_reports_a_dead_seat_request(client):
+    """A request can die on its own -- the table stays full past its TTL, or the
+    balance stops covering the buy-in. Reporting only "waiting" left the client
+    unable to tell "never asked" from "asked and lost it", so the request just
+    vanished from the header with no explanation."""
+    import re
+
+    router = Path("app/routers/tables.py").read_text(encoding="utf-8")
+    snapshot = router[router.index("async def table_snapshot"):router.index("@router.post")]
+    queue_query = snapshot[snapshot.index("queue = ("):snapshot.index("scalar_one_or_none()", snapshot.index("queue = ("))]
+    # The state filter is gone from the query...
+    assert 'seat_queue.c.state == "waiting"' not in queue_query
+    # ...and moved to viewer_state, which must still only count a live request.
+    assert 'else "waiting" if queue == "waiting"' in snapshot
+
+
+def test_client_announces_a_seat_request_that_died_on_its_own(client):
+    source = Path("static/online-table.js").read_text(encoding="utf-8")
+    assert "noticeLostSeatRequest(payload.queue_state)" in source
+    assert 'if (previous !== "waiting") return;' in source
+    assert '"expired"' in source and '"cancelled"' in source

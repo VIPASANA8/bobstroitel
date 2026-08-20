@@ -421,8 +421,26 @@
     const payload = await response.json();
     table = payload.table;
     viewerState = payload.viewer_state || viewerState;
+    noticeLostSeatRequest(payload.queue_state);
     window.Poker8Transport?.setRevision?.(payload.state?.revision);
     renderSnapshot(payload.state);
+  }
+
+  let lastQueueState = null;
+
+  // A seat request can die without the player doing anything: the table stays
+  // full past the request's lifetime, or the balance stops covering the buy-in.
+  // Both used to just revert the button to "Занять место" with no explanation,
+  // which reads as the request having been dropped for no reason.
+  function noticeLostSeatRequest(queueState) {
+    const previous = lastQueueState;
+    lastQueueState = queueState || null;
+    if (previous !== "waiting") return;
+    if (lastQueueState === "expired") {
+      alert("Место так и не освободилось, и заявка истекла.\nПопробуйте занять место ещё раз.");
+    } else if (lastQueueState === "cancelled") {
+      alert("Заявка на место отменена — на балансе не хватило фишек на вход.");
+    }
   }
 
   async function ready() {
