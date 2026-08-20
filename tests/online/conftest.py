@@ -1,6 +1,7 @@
 import asyncio
 
 import pytest
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
@@ -19,6 +20,16 @@ def db_session_factory():
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
+
+    # SQLite ignores foreign keys unless asked, and production is Postgres,
+    # which does not. A write that referenced a row that was no longer being
+    # created passed every test here and failed 23 times a minute on the live
+    # site. The test database enforces them now, like the real one.
+    @event.listens_for(engine.sync_engine, "connect")
+    def _enforce_foreign_keys(dbapi_connection, _record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
 
     async def create_schema():
         async with engine.begin() as connection:

@@ -93,6 +93,12 @@ def test_the_table_renders_chat_through_it():
 def test_the_cap_leaves_room_for_the_markers():
     server = Path("online/chat.py").read_text(encoding="utf-8")
     router = Path("app/routers/chat.py").read_text(encoding="utf-8")
-    assert "len(text) > 1000" in server
-    assert "max_length=1000" in router
+    # One name for the limit, so the column, the router and the check cannot
+    # drift apart again -- they already had, and Postgres was the one to say so.
+    assert "CHAT_TEXT_MAX = 1000" in server
+    assert "len(text) > CHAT_TEXT_MAX" in server
+    assert "max_length=CHAT_TEXT_MAX" in router
     assert re.search(r'maxlength="1000"', Path("static/index.html").read_text(encoding="utf-8"))
+    # And the column has to be at least as wide, or the database is the one
+    # that says no -- with the player seeing a 500 for a message it accepted.
+    assert 'Column("text", String(1000)' in Path("online/schema.py").read_text(encoding="utf-8")

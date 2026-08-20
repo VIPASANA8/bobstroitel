@@ -193,7 +193,7 @@ chat_messages = Table(
     Column("id", String(64), primary_key=True),
     Column("table_id", String(64), ForeignKey("poker_tables.id"), nullable=False),
     Column("user_id", String(64), ForeignKey("users.id"), nullable=False),
-    Column("text", String(300), nullable=False),
+    Column("text", String(1000), nullable=False),
     Column("created_at", timestamp, **created_at),
 )
 Index("ix_chat_messages_table_time", chat_messages.c.table_id, chat_messages.c.created_at)

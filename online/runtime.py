@@ -773,10 +773,11 @@ class TableRuntimeManager:
                             updated_at=completed_at,
                         )
                     )
-                    await append_integrity_event(
-                        session, event_type="hand_settled", table_id=table_id,
-                        hand_id=loaded.state.hand_id, payload={"revision": loaded.revision},
-                    )
+                    if recorded:
+                        await append_integrity_event(
+                            session, event_type="hand_settled", table_id=table_id,
+                            hand_id=loaded.state.hand_id, payload={"revision": loaded.revision},
+                        )
                     return settlement
 
     async def abandon_hand(self, table_id: str) -> None:
@@ -874,10 +875,11 @@ class TableRuntimeManager:
                             updated_at=completed_at,
                         )
                     )
-                    await append_integrity_event(
-                        session, event_type="hand_abandoned", table_id=table_id,
-                        hand_id=loaded.state.hand_id, payload={"revision": loaded.revision},
-                    )
+                    if recorded:
+                        await append_integrity_event(
+                            session, event_type="hand_abandoned", table_id=table_id,
+                            hand_id=loaded.state.hand_id, payload={"revision": loaded.revision},
+                        )
                     return settlement
 
     def engine_action_count(self, table_id: str) -> int:
@@ -974,9 +976,13 @@ class TableRuntimeManager:
                 await session.execute(update(table_runtimes).where(table_runtimes.c.table_id == table_id).values(
                     phase="paused", private_state_json=serialize_state(loaded.state), paused_reason=reason,
                 ))
+                # A wedged table is worth recording whoever was sitting at it.
+                # The hand itself may not be in the books, and integrity_events
+                # has a foreign key to hands -- so name the table, not the hand.
                 await append_integrity_event(
                     session, event_type="runtime_paused", table_id=table_id,
-                    hand_id=loaded.state.hand_id, payload={"reason": reason[:200]},
+                    hand_id=loaded.state.hand_id if self._worth_recording(loaded.state) else None,
+                    payload={"reason": reason[:200], "hand_id": loaded.state.hand_id},
                 )
 
     async def _load_locked(self, table_id: str) -> _LoadedTable | None:

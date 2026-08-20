@@ -7,7 +7,7 @@ import pytest
 from sqlalchemy import insert
 
 from online.chat import ChatService
-from online.schema import tenants, users
+from online.schema import poker_tables, tenants, users
 
 
 @pytest.fixture
@@ -17,6 +17,9 @@ def chat(db_session_factory):
             await session.execute(insert(tenants).values(id="tenant", slug="poker8", name="Poker8"))
             await session.execute(insert(users).values(
                 id="u1", telegram_user_id=1, display_name="Samo", acquisition_tenant_id="tenant"))
+            await session.execute(insert(poker_tables).values(
+                id="t1", scope="network", name="One", small_blind_units=50,
+                big_blind_units=100, min_buy_in_bb=40, max_buy_in_bb=100, max_seats=6))
             await session.commit()
 
     asyncio.run(seed())
@@ -36,12 +39,30 @@ async def test_a_message_carries_the_name_of_whoever_wrote_it(chat):
 
 
 @pytest.mark.anyio
-async def test_a_message_outlives_the_account_that_wrote_it(chat):
-    """An outer join, so a deleted author leaves the log readable rather than
-    dropping every line they ever wrote."""
-    await chat.post("t1", "ghost", "кто здесь", enforce_rate_limit=False)
-    names = {row.display_name for row in await chat.recent("t1")}
-    assert names == {"Игрок"}
+async def test_a_line_always_has_an_author(chat, db_session_factory):
+    """The outer join in recent() is defence, not a scenario: chat_messages
+    requires a user_id and points it at users, so a message from an account
+    that does not exist cannot be written at all. This asserted the opposite
+    and only passed because SQLite was ignoring foreign keys in the tests."""
+    import sqlalchemy.exc
+
+    with pytest.raises(sqlalchemy.exc.IntegrityError):
+        await chat.post("t1", "ghost", "кто здесь", enforce_rate_limit=False)
+
+
+@pytest.mark.anyio
+async def test_a_message_may_be_as_long_as_the_app_accepts(chat, db_session_factory):
+    """Formatting markers count against the limit, so the app takes 1000 --
+    and the column was still 300, which Postgres enforces and the player saw
+    as a 500."""
+    from online.chat import CHAT_TEXT_MAX
+
+    long_message = "и" * CHAT_TEXT_MAX
+    posted = await chat.post("t1", "u1", long_message, enforce_rate_limit=False)
+    assert len(posted.text) == CHAT_TEXT_MAX
+
+    [row] = await chat.recent("t1")
+    assert len(row.text) == CHAT_TEXT_MAX
 
 
 def test_the_client_renders_the_name_not_the_key():

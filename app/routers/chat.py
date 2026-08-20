@@ -2,14 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from pydantic import BaseModel, Field
 
 from app.dependencies import AuthenticatedUser, get_current_user
-from online.chat import ChatError, ChatRateLimited
+from online.chat import CHAT_TEXT_MAX, ChatError, ChatRateLimited
 
 
 router = APIRouter(prefix="/api/tables/{table_id}/chat", tags=["chat"])
 
 
 class ChatRequest(BaseModel):
-    text: str = Field(min_length=1, max_length=1000)
+    text: str = Field(min_length=1, max_length=CHAT_TEXT_MAX)
 
 
 @router.get("")

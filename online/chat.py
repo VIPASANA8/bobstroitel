@@ -10,6 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from online.schema import chat_messages, users
 
 
+#: Kept with the column width in online/schema.py and the router's Field.
+CHAT_TEXT_MAX = 1000
+
+
 class ChatError(ValueError):
     pass
 
@@ -49,8 +53,8 @@ class ChatService:
         # renderer turns them into <br>. Every other control character stays
         # out. The cap is 1000 rather than 300 because the markers count
         # against it: ``` around eight lines is most of the old limit.
-        if not text or len(text) > 1000 or any(ord(char) < 32 and char != chr(10) for char in text):
-            raise ChatError("message must contain 1–1000 printable characters")
+        if not text or len(text) > CHAT_TEXT_MAX or any(ord(char) < 32 and char != chr(10) for char in text):
+            raise ChatError(f"message must contain 1–{CHAT_TEXT_MAX} printable characters")
         current = self._datetime(now)
         async with self.session_factory() as session:
             async with session.begin():
