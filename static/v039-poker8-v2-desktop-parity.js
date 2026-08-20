@@ -179,12 +179,13 @@
         display:flex!important;flex-direction:column!important;
       }
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 #chatMessages{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;}
+      /* The panel keeps the mobile arrangement -- a fixed height with its
+         controls absolutely placed inside it. Making it position:static and
+         height:auto collapsed it to sixteen pixels, because absolute children
+         contribute nothing to an auto height. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .sidebar{
         grid-area:actions!important;width:min(100%,940px)!important;margin-inline:auto!important;
-        position:static!important;height:auto!important;min-height:0!important;
-      }
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .action-panel{
-        position:static!important;height:auto!important;min-height:0!important;
+        height:var(--p8-hud-h)!important;
       }
       /* The stage is a grid row here, not a subtraction from the viewport. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2{
