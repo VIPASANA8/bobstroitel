@@ -267,6 +267,11 @@
         font-size:30px;font-weight:950;line-height:1;text-shadow:0 0 10px rgba(104,255,190,.95);pointer-events:none;
       }
       body.v014.poker8-v2-sixmax.v028-prehand-center-ready .avatar-wrap.v038-viewer-ready .v038-ready-mark{display:grid;}
+      /* v028 only marks "no hand at all", so while a hand ran without this seat
+         the checkmark had nowhere to appear and a card over the felt had to say
+         it in words. p8-can-ready marks the real condition -- a ready toggle is
+         available right now -- which also covers sitting a running hand out. */
+      body.v014.poker8-v2-sixmax.p8-can-ready .avatar-wrap.v038-viewer-ready .v038-ready-mark{display:grid;}
       body.v014.poker8-v2-sixmax .v038-ready-mark small{
         position:absolute;right:-7px;bottom:-5px;display:grid;place-items:center;width:25px;height:25px;border-radius:50%;
         border:1px solid #71ffc1;background:#031b13;color:#fff;font-size:12px;font-weight:950;
@@ -317,7 +322,8 @@
       body.v014.poker8-v2-sixmax.p8-player-count-6 .v038-room-prompt{top:47%;}
       body.v014.poker8-v2-sixmax .v038-room-prompt strong{display:block;color:#7dffd0;font-size:13px;line-height:1.05;letter-spacing:.06em;}
       body.v014.poker8-v2-sixmax .v038-room-prompt span{display:block;margin-top:5px;color:#dfffee;font-size:9px;line-height:1.1;}
-      body.v014.poker8-v2-sixmax.v038-room-awaiting .seat[data-visual-seat="0"] .avatar-wrap:not(.v038-viewer-ready) .player-avatar{
+      body.v014.poker8-v2-sixmax.v038-room-awaiting .seat[data-visual-seat="0"] .avatar-wrap:not(.v038-viewer-ready) .player-avatar,
+      body.v014.poker8-v2-sixmax.p8-can-ready .seat[data-visual-seat="0"] .avatar-wrap:not(.v038-viewer-ready) .player-avatar{
         animation:v038ReadyPulse 1.7s ease-in-out infinite;
       }
       body.v014.poker8-v2-sixmax .felt{transition:opacity 260ms ease,filter 260ms ease!important;}
@@ -646,6 +652,9 @@
     // already accepts a ready toggle then, so the avatar needs to look and
     // behave clickable then too, not just once game goes back to null.
     const preHand = !game || !game.players?.[game.viewer_player_id];
+    // Drives both the checkmark and the "tap me" pulse, so the avatar carries
+    // the whole state on its own and no card has to sit over the table.
+    document.body.classList.toggle("p8-can-ready", preHand && !tableData?.spectator_only);
     wrap.classList.toggle("v038-viewer-ready", ready && preHand);
     wrap.toggleAttribute("role", preHand);
     if (preHand) {
@@ -788,7 +797,7 @@
   }
 
   // Returns whether the prompt has anything to say at all.
-  function syncOnlineRoomPrompt(prompt, sittingOut = false) {
+  function syncOnlineRoomPrompt(prompt) {
     const heroSeat = document.querySelector('.seat[data-visual-seat="0"]');
     const seated = !tableData?.spectator_only;
     // A spectator is already told exactly this by the "Занять место /
@@ -796,21 +805,6 @@
     // are in right now. A card repeating it over the felt only hid the table
     // they came to watch.
     if (!seated) return false;
-    // A hand that started before this seat could join is already running
-    // without them. Telling them to "click your avatar to start the hand"
-    // then is simply wrong -- one is running, and the click marks them ready
-    // for the next one, which is what the copy has to say.
-    if (seated && heroSeat && sittingOut) {
-      const heroSeatNo = Number(heroSeat.dataset.seat);
-      const ready = (tableData?.ready_seats || []).includes(heroSeatNo);
-      prompt.innerHTML = ready
-        ? "<strong>ВЫ В СЛЕДУЮЩЕЙ РАЗДАЧЕ</strong><span>Текущая началась до того, как вы сели — дождитесь её конца</span>"
-        : "<strong>НАЖМИТЕ НА АВАТАР</strong><span>Текущая раздача идёт без вас — отметьтесь, чтобы войти в следующую</span>";
-      prompt.setAttribute("role", "status");
-      prompt.removeAttribute("tabindex");
-      prompt.setAttribute("aria-live", "polite");
-      return true;
-    }
     // The server can report "seated" a moment before the seat actually shows
     // up here -- seats are still drawn from the current hand's player list,
     // and a fresh seat only joins that list at the next hand boundary. Until
@@ -846,9 +840,11 @@
       // Sitting out a hand that started before this seat joined looks exactly
       // like "room" here too (no cards, no action of theirs) -- the prompt
       // must stay up so they still see "click your avatar" while it runs.
-      const sittingOut = Boolean(game) && !game.players?.[game.viewer_player_id];
-      const hasSomethingToSay = syncOnlineRoomPrompt(prompt, sittingOut);
-      prompt?.classList.toggle("visible", hasSomethingToSay && (room || sittingOut));
+      // Only when there is no hand to look at. While one runs, this card sat
+      // over the board and the pot to say something the avatar's own checkmark
+      // and pulse now say -- covering the table the player came to watch.
+      const hasSomethingToSay = syncOnlineRoomPrompt(prompt);
+      prompt?.classList.toggle("visible", hasSomethingToSay && room);
       cancelRoomReset();
       return;
     }

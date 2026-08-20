@@ -134,13 +134,22 @@ def test_online_table_header_shows_the_real_seat_state_not_a_stored_choice():
     assert "cancelQueue()" in source
 
 
-def test_spectator_gets_no_room_prompt_over_the_felt():
-    """The header pair already says both what the viewer is and what they can
-    do, so a card repeating it only hid the table they came to watch."""
+def test_no_card_covers_the_felt_while_a_hand_is_running():
+    """The prompt is for an idle table only. While a hand runs it sat over the
+    board and the pot, and a player sitting that hand out reads their own state
+    off the avatar instead -- the checkmark when ready, the pulse when not."""
     source = Path("static/v038-poker8-v2-cinematic-table.js").read_text(encoding="utf-8")
     assert "ВЫ НАБЛЮДАЕТЕ" not in source
     assert "if (!seated) return false;" in source
-    assert "hasSomethingToSay && (room || sittingOut)" in source
+    # Shown for the idle room only, never alongside a live hand.
+    assert 'prompt?.classList.toggle("visible", hasSomethingToSay && room);' in source
+    assert "sittingOut" not in source
+
+    # v028 only marks "no hand at all", so the checkmark had nowhere to appear
+    # while a hand ran without this seat.
+    assert 'document.body.classList.toggle("p8-can-ready"' in source
+    assert "body.v014.poker8-v2-sixmax.p8-can-ready .avatar-wrap.v038-viewer-ready .v038-ready-mark{display:grid;}" in source
+    assert "body.v014.poker8-v2-sixmax.p8-can-ready .seat[data-visual-seat=\"0\"] .avatar-wrap:not(.v038-viewer-ready) .player-avatar" in source
 
 
 def test_request_observe_dead_code_is_gone():
