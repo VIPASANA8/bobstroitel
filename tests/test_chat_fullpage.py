@@ -16,6 +16,10 @@ def test_the_open_chat_covers_the_page():
     rules = _block(".poker8-online .online-chat-panel.is-open{")
     assert "inset:0" in rules
     assert "display:flex!important" in rules and "flex-direction:column" in rules
+    # The base rule carries align-self:start from when this was a card in a
+    # grid, and that makes a fixed box shrink to its content rather than honour
+    # top:0 and bottom:0 -- measured at 375x215 in an 812px viewport.
+    assert "height:100dvh" in rules and "align-self:stretch" in rules
     # The feed scrolls; the composer stays put.
     assert "overflow-y:auto" in _block(".poker8-online .online-chat-panel.is-open #chatMessages{")
 

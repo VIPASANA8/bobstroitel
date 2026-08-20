@@ -79,6 +79,11 @@
          to read a conversation in and too big to ignore. */
       .poker8-online .online-chat-panel.is-open{
         display:flex!important;flex-direction:column;inset:0;left:0;right:0;top:0;bottom:0;
+        /* The base rule carries align-self:start from when this was a card in
+           a grid. A fixed box in a grid container with a non-stretch alignment
+           shrinks to its content instead of honouring top:0 and bottom:0 -- it
+           came out 375x215 in an 812px viewport. Say the height outright. */
+        align-self:stretch;height:100dvh;max-height:100dvh;
         z-index:140;margin:0;padding:0;border-radius:0;border:0;
         background:linear-gradient(180deg,#061410,#030b09)
       }
