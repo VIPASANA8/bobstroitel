@@ -168,9 +168,11 @@ class OnlineCoordinator:
                     # Paced to a human-like think time instead of firing on
                     # every 250ms tick -- see bot_think_delay's docstring.
                     if loaded.next_bot_action_at is None or loaded.next_bot_action_at <= now:
-                        street = loaded.state.street.value
                         await self.runtime.system_step(table_id)
-                        delay = bot_think_delay(actor.difficulty, street)
+                        # The pause that follows a move is the *next* player's
+                        # thinking, so it is measured from their spot and their
+                        # own tempo -- not from the one who just acted.
+                        delay = bot_think_delay(**self.runtime.next_bot_spot(table_id))
                         loaded.next_bot_action_at = now + timedelta(seconds=delay)
                 elif loaded.action_deadline is not None and loaded.action_deadline <= now:
                     await self.runtime.timeout_current_actor(table_id, now)

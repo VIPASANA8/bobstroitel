@@ -12,6 +12,7 @@ from sqlalchemy import delete, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bots.multiway import MultiwayBot
+from bots.persona import persona_for
 from online.events import append_integrity_event
 from online.ledger import PlayLedger
 from online.schema import (
@@ -82,6 +83,12 @@ _BOT_THINK_BAND = (0.9, 2.6)
 _BOT_READY_BAND = (0.8, 5.0)
 _BOT_DIFFICULTY_FACTOR = {"easy": 0.84, "normal": 1.0, "hard": 1.12, "maximum": 1.25}
 _BOT_STREET_FACTOR = {"preflop": 0.88, "flop": 1.0, "turn": 1.10, "river": 1.22}
+# How often a bot stops dead over a spot that did not look hard. People do
+# this constantly -- a table where nobody ever hesitates reads as machinery.
+_BOT_TANK_RATE = 0.07
+# A real tank can run half a minute; at this table that reads as a frozen
+# client, and it crowds the 30s deadline a waiting human is held to.
+_BOT_THINK_CAP = 12.0
 
 
 def bot_ready_delay(*, rng: random.Random | None = None) -> float:
@@ -92,15 +99,34 @@ def bot_ready_delay(*, rng: random.Random | None = None) -> float:
     return (rng or random).uniform(lo, hi)
 
 
-def bot_think_delay(difficulty: str, street: str, *, rng: random.Random | None = None) -> float:
+def bot_think_delay(
+    difficulty: str,
+    street: str,
+    *,
+    pressure: float = 0.0,
+    patience: float = 1.0,
+    rng: random.Random | None = None,
+) -> float:
     """Seconds a bot should sit before acting, so the table doesn't beat with
     a uniform 250ms robotic pulse. Pure and clock-free so it's directly
-    testable; the caller adds the result to its own notion of "now"."""
+    testable; the caller adds the result to its own notion of "now".
+
+    A person's pause says something about the spot: nothing to call is waved
+    through, a bet worth most of the stack gets stared at, and once in a while
+    somebody tanks over a decision that looked easy. `pressure` is what is being
+    asked for as a share of the pot, and `patience` is the individual bot's own
+    tempo -- fast players stay fast across every street.
+    """
     lo, hi = _BOT_THINK_BAND
     jitter = (rng or random).uniform(lo, hi)
     difficulty_factor = _BOT_DIFFICULTY_FACTOR.get(difficulty, 1.0)
     street_factor = _BOT_STREET_FACTOR.get(street, 1.0)
-    return jitter * difficulty_factor * street_factor
+    # Free to continue: snap it off. Being asked for the pot: take a while.
+    spot_factor = 0.55 + min(1.5, max(0.0, pressure)) * 0.75
+    delay = jitter * difficulty_factor * street_factor * spot_factor * max(0.4, patience)
+    if (rng or random).random() < _BOT_TANK_RATE:
+        delay *= (rng or random).uniform(1.8, 3.2)
+    return min(delay, _BOT_THINK_CAP)
 
 
 class TableRuntimeManager:
@@ -425,6 +451,27 @@ class TableRuntimeManager:
                     await session.rollback()
                     await self._pause_after_failure(table_id, loaded, str(error))
                     raise
+
+    def next_bot_spot(self, table_id: str) -> dict:
+        """What the player about to act is facing, as bot_think_delay's inputs.
+
+        Read off the loaded state, so it costs nothing: no equity is simulated
+        just to decide how long to pause. When nobody is acting -- the hand
+        ended on that move -- the defaults give an ordinary beat before the
+        next hand's first decision.
+        """
+        loaded = self._tables.get(table_id)
+        actor = None if loaded is None else loaded.state.acting_player
+        if loaded is None or actor is None or actor not in loaded.state.players:
+            return {"difficulty": "normal", "street": "flop"}
+        player = loaded.state.players[actor]
+        to_call = self.engine.to_call(loaded.state, actor)
+        return {
+            "difficulty": player.difficulty,
+            "street": loaded.state.street.value,
+            "pressure": to_call / max(loaded.state.pot, 1e-9),
+            "patience": persona_for(actor).patience if player.is_bot else 1.0,
+        }
 
     async def system_step(self, table_id: str) -> RuntimeActionResult:
         async with self._lock(table_id):

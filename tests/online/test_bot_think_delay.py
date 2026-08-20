@@ -1,19 +1,56 @@
 import random
 
-from online.runtime import _BOT_DIFFICULTY_FACTOR, _BOT_STREET_FACTOR, _BOT_THINK_BAND, bot_think_delay
+from online.runtime import (
+    _BOT_DIFFICULTY_FACTOR,
+    _BOT_STREET_FACTOR,
+    _BOT_THINK_BAND,
+    _BOT_THINK_CAP,
+    bot_think_delay,
+)
 
 
-def test_stays_within_the_widest_possible_band():
-    """Even at the extremes (hardest difficulty, slowest street, luckiest
-    jitter roll) the delay must not run away -- a hung table is worse than a
-    robotic one."""
+def test_never_runs_away_however_the_dice_fall():
+    """A hung table is worse than a robotic one. Every knob at its extreme --
+    hardest bot, slowest street, all-in to call, slowest tempo, and a tank on
+    top -- still has to come back inside the cap."""
     rng = random.Random(0)
-    lo, hi = _BOT_THINK_BAND
-    widest_factor = max(_BOT_DIFFICULTY_FACTOR.values()) * max(_BOT_STREET_FACTOR.values())
-    narrowest_factor = min(_BOT_DIFFICULTY_FACTOR.values()) * min(_BOT_STREET_FACTOR.values())
-    for _ in range(500):
-        delay = bot_think_delay("maximum", "river", rng=rng)
-        assert lo * narrowest_factor <= delay <= hi * widest_factor
+    for _ in range(2000):
+        delay = bot_think_delay("maximum", "river", pressure=9.0, patience=99.0, rng=rng)
+        assert 0 < delay <= _BOT_THINK_CAP
+    for _ in range(2000):
+        delay = bot_think_delay("easy", "preflop", pressure=0.0, patience=0.0, rng=rng)
+        assert delay > 0, "and never collapses to an instant move"
+
+
+def test_a_free_check_is_waved_through_and_a_big_bet_is_stared_at():
+    """The pause is the tell: a person does not spend the same time on nothing
+    to call as on a bet worth the pot."""
+    rng = random.Random(7)
+    samples = 400
+
+    def average(pressure):
+        return sum(bot_think_delay("normal", "flop", pressure=pressure, rng=rng)
+                   for _ in range(samples)) / samples
+
+    assert average(0.0) < average(0.5) < average(1.2)
+
+
+def test_a_bots_tempo_is_its_own_and_stays_that_way():
+    """Persona patience is stable per bot, so a fast player is fast on every
+    street rather than randomly quick from one hand to the next."""
+    from bots.persona import persona_for
+
+    assert persona_for("system-01") == persona_for("system-01")
+    assert persona_for("system-01") != persona_for("system-02")
+
+    rng = random.Random(8)
+    samples = 400
+
+    def average(patience):
+        return sum(bot_think_delay("normal", "flop", patience=patience, rng=rng)
+                   for _ in range(samples)) / samples
+
+    assert average(0.7) < average(1.4)
 
 
 def test_harder_difficulty_and_later_streets_take_longer_on_average():

@@ -30,6 +30,27 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
 EXPECTED_MIGRATION_REVISION = "20260820_0005"
 
+# Revalidate every time. Without it these responses carry an ETag and a
+# Last-Modified but no Cache-Control at all, which puts a browser into
+# heuristic caching: it invents a freshness lifetime of roughly a tenth of the
+# file's age and serves the page from cache without asking. A deploy then took
+# effect whenever each viewer's invented window happened to run out -- which is
+# why a freshly shipped button was missing for people who already had the page.
+# "no-cache" still caches; it only forbids using the copy unchecked, and the
+# ETag turns the check into a 304 with no body.
+NO_STALE = {"Cache-Control": "no-cache"}
+
+
+class RevalidatedStatics(StaticFiles):
+    """The page shell is versioned by hand (style.css?v=...), but not every
+    asset is -- mobile.css and component-ui.css carry no version at all, so
+    heuristic caching is the only thing deciding when an edit to them lands."""
+
+    def file_response(self, *args, **kwargs):
+        response = super().file_response(*args, **kwargs)
+        response.headers.setdefault("Cache-Control", "no-cache")
+        return response
+
 
 async def _ensure_foundation(session_factory, settings: Settings) -> None:
     async with session_factory() as session:
@@ -133,7 +154,7 @@ def create_app(
             await engine.dispose()
 
     app = FastAPI(title="Poker8 Online", version="1.0.0", lifespan=lifespan)
-    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+    app.mount("/static", RevalidatedStatics(directory=STATIC_DIR), name="static")
     app.include_router(auth.router)
     app.include_router(lobby.router)
     app.include_router(profiles.router)
@@ -145,7 +166,7 @@ def create_app(
 
     @app.get("/")
     async def index():
-        return FileResponse(STATIC_DIR / "lobby.html")
+        return FileResponse(STATIC_DIR / "lobby.html", headers=NO_STALE)
 
     @app.get("/monitor")
     async def monitor_page():
@@ -153,6 +174,6 @@ def create_app(
 
     @app.get("/table")
     async def table_page():
-        return FileResponse(STATIC_DIR / "index.html")
+        return FileResponse(STATIC_DIR / "index.html", headers=NO_STALE)
 
     return app

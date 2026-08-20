@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import math
 import random
 
 from bots.base import PokerBot, BotDecision
 from bots.difficulty import get_difficulty
+from bots.persona import persona_for
 from poker.equity import estimate_multiway_equity
 from poker.models import ActionType, Street
 
@@ -110,9 +112,32 @@ class MultiwayBot(PokerBot):
             bonus += 0.012
         return bonus
 
+    @staticmethod
+    def _human_sizing(fraction: float, persona, rng: random.Random | None = None) -> float:
+        """Bots bet the same fraction of the pot every time; people do not.
+
+        A fixed 0.48 pot raise is the loudest tell at the table -- the same
+        number comes back hand after hand. Bend it by this bot's own habit,
+        then wobble it a little for this one decision."""
+        draw = (rng or random).uniform(0.88, 1.14)
+        return max(0.15, min(1.25, fraction * persona.sizing_bias * draw))
+
+    @staticmethod
+    def _round_bet(amount: float, big_blind: float) -> float:
+        """People bet round numbers -- half a blind up close, whole ones once
+        the pot is worth something.
+
+        Always upward: a raise rounded below the minimum is rejected by the
+        engine, and a rejected action pauses the table for good. The cost is at
+        most half a blind, which is the point rather than a compromise.
+        """
+        step = big_blind / 2 if amount < big_blind * 10 else big_blind
+        return round(math.ceil(amount / step - 1e-9) * step, 2)
+
     def decide(self, state, player_id: str) -> BotDecision:
         player = state.players[player_id]
         profile = get_difficulty(player.difficulty)
+        persona = persona_for(player_id)
         legal = self.engine.legal_actions(state, player_id)
         exploit = self._profile_adjustments(state, player_id, profile.key)
 
@@ -149,12 +174,16 @@ class MultiwayBot(PokerBot):
         profile_note = f", модель {exploit['confidence'] * 100:.0f}%" if exploit["confidence"] > 0.02 else ""
 
         if to_call > 0:
+            # A tight player needs more of the best of it to continue; a loose
+            # one talks itself into a call. Same policy, different person.
             fold_threshold = pot_odds * (1.10 if profile.key == "easy" else 0.97)
+            fold_threshold *= 1 + persona.tightness * 0.14
             if perceived < fold_threshold and ActionType.FOLD in legal:
                 return BotDecision(action=ActionType.FOLD, confidence=0.7,
                                    reason=f"equity {equity:.2f}, pot odds {pot_odds:.2f}")
 
             strong_threshold = max(baseline + 0.13, pot_odds + 0.20) - max(0.0, exploit["value"]) * 0.035
+            strong_threshold -= persona.aggression * 0.05
             strong = perceived > strong_threshold
 
             # If this profile has repeatedly over-folded to 3-bets, strong bots add
@@ -169,8 +198,10 @@ class MultiwayBot(PokerBot):
                 and random.random() < 0.10 * exploit["pressure"]
             )
             if (strong or pressure_reraise) and ActionType.RAISE in legal and not (mistake and profile.key in {"easy", "normal"}):
-                target = max(engine.min_raise_to(state, player_id), state.current_bet + state.pot * 0.48)
-                target = min(player.street_invested + player.stack, target)
+                fraction = self._human_sizing(0.48, persona)
+                target = max(engine.min_raise_to(state, player_id), state.current_bet + state.pot * fraction)
+                target = min(player.street_invested + player.stack, self._round_bet(target, engine.BIG_BLIND))
+                target = max(min(engine.min_raise_to(state, player_id), player.street_invested + player.stack), target)
                 return BotDecision(action=ActionType.RAISE, amount=round(target, 2), confidence=0.72,
                                    reason=f"multiway value/pressure raise, equity {equity:.2f}{profile_note}")
 
@@ -183,19 +214,24 @@ class MultiwayBot(PokerBot):
         if ActionType.BET in legal:
             value_threshold = baseline + (0.16 if live_opponents >= 3 else 0.12)
             value_threshold -= max(0.0, exploit["value"]) * 0.035
+            value_threshold -= persona.aggression * 0.04
             if perceived > value_threshold and not (mistake and profile.key == "easy"):
                 fraction = 0.42 if live_opponents >= 3 else 0.55
                 if perceived > baseline + 0.30:
                     fraction = 0.72
+                fraction = self._human_sizing(fraction, persona)
                 amount = min(player.stack, max(engine.BIG_BLIND, state.pot * fraction))
+                amount = min(player.stack, self._round_bet(amount, engine.BIG_BLIND))
                 return BotDecision(action=ActionType.BET, amount=round(amount, 2), confidence=0.65,
                                    reason=f"multiway value/protection, equity {equity:.2f}{profile_note}")
 
             bluff_rate = {"easy": 0.03, "normal": 0.06, "hard": 0.08, "maximum": 0.09}[profile.key]
             bluff_rate += max(0.0, exploit["pressure"]) * 0.025 + max(0.0, exploit["passivity"]) * 0.012
+            bluff_rate *= persona.bluffiness
             bluff_rate /= max(1, live_opponents)
             if random.random() < bluff_rate:
-                amount = min(player.stack, max(engine.BIG_BLIND, state.pot * 0.33))
+                amount = min(player.stack, max(engine.BIG_BLIND, state.pot * self._human_sizing(0.33, persona)))
+                amount = min(player.stack, self._round_bet(amount, engine.BIG_BLIND))
                 return BotDecision(action=ActionType.BET, amount=round(amount, 2), confidence=0.35,
                                    reason="редкий multiway bluff")
 

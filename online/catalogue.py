@@ -33,6 +33,17 @@ ROOM_NAME_MAX = 40
 ROOM_SEATS = 6
 
 
+# Thirty-six of them, so the seeded roster never has to repeat one at a table.
+BOT_NAMES = [
+    "Артём", "Лиса", "Гриша", "Марина", "Костя", "Ветер",
+    "Даня", "Полина", "Тимур", "Соня", "Захар", "Юля",
+    "Рустам", "Ника", "Егор", "Алиса", "Матвей", "Дина",
+    "Слава", "Камиль", "Оля", "Борис", "Рита", "Лёва",
+    "Инга", "Паша", "Земфира", "Вадим", "Ася", "Гоша",
+    "Тоня", "Ильдар", "Женя", "Мирон", "Влада", "Сева",
+]
+
+
 class RoomError(ValueError):
     pass
 
@@ -107,10 +118,27 @@ class Catalogue:
                         continue
                     await session.execute(system_players.insert().values(
                         id=player_id,
-                        name=f"Room Player {number:02d}",
+                        name=BOT_NAMES[(number - 1) % len(BOT_NAMES)],
                         difficulty=difficulties[(number - 1) % len(difficulties)],
                         active=True,
                     ))
+                # Rows seeded before the names existed still read "Room Player
+                # 19", which gives the game away at a glance -- no amount of
+                # work on how a bot plays survives its name tag. Renaming in
+                # place keeps the id, so every persona and every hand of
+                # history stays attached to the same player.
+                for player_id, name in (
+                    await session.execute(
+                        select(system_players.c.id, system_players.c.name)
+                        .where(system_players.c.name.like("Room Player%"))
+                    )
+                ).all():
+                    index = int(player_id.rsplit("-", 1)[-1]) - 1 if player_id.rsplit("-", 1)[-1].isdigit() else 0
+                    await session.execute(
+                        system_players.update()
+                        .where(system_players.c.id == player_id)
+                        .values(name=BOT_NAMES[index % len(BOT_NAMES)])
+                    )
 
     async def list_tables(
         self, page: int = 1, per_page: int = 6, viewer_id: str | None = None

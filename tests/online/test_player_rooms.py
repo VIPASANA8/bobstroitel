@@ -154,3 +154,28 @@ def test_the_owner_gets_an_invite_link_and_a_way_to_close_it_from_the_table():
     # from a snapshot that never says who is looking.
     assert '"/api/lobby/rooms/mine"' in script
     assert "/close" in script
+
+
+def test_bots_are_seeded_and_renamed_with_names_a_person_could_have(client):
+    """"Room Player 19" gives the game away at a glance -- no amount of work on
+    how a bot plays survives its name tag."""
+    import asyncio
+
+    from sqlalchemy import select
+
+    from online.catalogue import BOT_NAMES
+    from online.schema import system_players
+
+    async def roster():
+        async with client.app.state.session_factory() as session:
+            return (await session.execute(
+                select(system_players.c.id, system_players.c.name)
+            )).all()
+
+    rows = asyncio.run(roster())
+    assert rows, "the roster is seeded"
+    names = [name for _, name in rows]
+    assert not any(name.startswith("Room Player") for name in names)
+    assert set(names) <= set(BOT_NAMES)
+    # Six at a table, so a table never seats two of the same name.
+    assert len(set(names)) == len(names)
