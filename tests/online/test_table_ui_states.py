@@ -66,12 +66,24 @@ def test_an_unaffordable_buy_in_opens_a_top_up_modal():
     assert "topUp.disabled = !live;" in source
 
 
-def test_losing_the_stack_is_announced():
+def test_losing_the_stack_opens_the_same_modal_not_an_alert():
     """The boundary releases a seat once its stack cannot cover a big blind, and
     the player just became a spectator with nothing said. Leaving on purpose
     navigates away, so a seat vanishing under someone still on the page is the
-    table taking it back."""
+    table taking it back -- and that is exactly the moment a re-buy is wanted."""
     source = Path("static/online-table.js").read_text(encoding="utf-8")
     assert "function noticeBustOut(state)" in source
     assert "noticeBustOut(state);" in source
     assert "heldSeatLastSnapshot" in source
+    assert 'title: "Фишки закончились"' in source
+    assert "alert(" not in source.split("function noticeBustOut")[1].split("function ")[0]
+
+
+def test_the_funds_modal_offers_a_re_buy_when_the_wallet_still_covers_it():
+    """Busting out is not the same as being broke: the table stack is gone but
+    the wallet may still cover another buy-in, and offering a top-up then
+    answers a question the player did not ask."""
+    source = Path("static/online-table.js").read_text(encoding="utf-8")
+    assert "const affordable = Number(availableUnits || 0) >= Number(requiredUnits || 0);" in source
+    assert 'dialog.querySelector("[data-again]").hidden = !affordable;' in source
+    assert 'dialog.querySelector("[data-offer]").hidden = affordable;' in source

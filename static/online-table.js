@@ -28,6 +28,11 @@
     .p8-funds-dialog{width:min(92vw,360px);padding:22px 20px 18px;border:1px solid rgba(64,237,167,.42);border-radius:16px;background:linear-gradient(160deg,#0b1f18,#061210);color:#dcf7e8;box-shadow:0 24px 70px rgba(0,0,0,.62)}
     .p8-funds-dialog::backdrop{background:rgba(2,8,6,.72)}
     .p8-funds-dialog h2{margin:0 0 12px;color:#ffd9a8;font:800 19px/1.15 Inter,ui-sans-serif,system-ui;letter-spacing:-.01em}
+    .p8-funds-lead{margin:0 0 12px;color:#d6ece0;font-size:13.5px;line-height:1.45}
+    .p8-funds-lead[hidden]{display:none}
+    .p8-funds-again{width:100%;padding:13px;border:0;border-radius:11px;background:linear-gradient(120deg,#3defb0,#2aa87c);color:#04211c;font:800 14px/1 Inter,ui-sans-serif,system-ui;cursor:pointer}
+    .p8-funds-again[hidden]{display:none}
+    .p8-funds-offer[hidden]{display:none}
     .p8-funds-sums{margin:0 0 18px;color:#a9c6b8;font-size:13px;line-height:1.75}
     .p8-funds-sums b{color:#eaffef;font-size:15px;font-variant-numeric:tabular-nums}
     .p8-funds-offer{display:grid;gap:8px;padding:14px;border:1px solid rgba(80,200,255,.34);border-radius:12px;background:rgba(6,26,36,.72)}
@@ -222,12 +227,14 @@
     dialog.id = "p8FundsDialog";
     dialog.className = "p8-funds-dialog";
     dialog.innerHTML = `
-      <h2>Недостаточно средств</h2>
+      <h2 data-title>Недостаточно средств</h2>
+      <p class="p8-funds-lead" data-lead hidden></p>
       <p class="p8-funds-sums">
         Вход за этот стол — <b data-need>—</b><br>
         На вашем балансе — <b data-have>—</b>
       </p>
-      <div class="p8-funds-offer">
+      <button type="button" class="p8-funds-again" data-again hidden>Занять место снова</button>
+      <div class="p8-funds-offer" data-offer>
         <strong>Пополнить баланс</strong>
         <span data-topup-note>Оплата в USDT скоро будет доступна</span>
         <button type="button" data-topup disabled>Пополнить через USDT</button>
@@ -236,6 +243,10 @@
     `;
     document.body.appendChild(dialog);
     dialog.querySelector("[data-close]").addEventListener("click", () => dialog.close());
+    dialog.querySelector("[data-again]").addEventListener("click", () => {
+      dialog.close();
+      ready().catch(error => alert(error.message));
+    });
     dialog.querySelector("[data-topup]").addEventListener("click", () => {
       // The single seam the payment flow plugs into: register a handler and the
       // button turns live, with no other change to this file.
@@ -244,14 +255,26 @@
     return dialog;
   }
 
-  function showInsufficientFunds(requiredUnits, availableUnits) {
+  function showFundsDialog({ title, lead, requiredUnits, availableUnits }) {
     const dialog = ensureFundsDialog();
     // In big blinds: the unit every other number on the table already uses.
     // Raw chip counts appear nowhere the player can see.
     const bb = value => `${Math.floor(Number(value || 0) / Math.max(1, units(table?.big_blind_units)))} ББ`;
     dialog.dataset.requiredUnits = String(requiredUnits ?? "");
+    dialog.querySelector("[data-title]").textContent = title;
+    const leadEl = dialog.querySelector("[data-lead]");
+    leadEl.textContent = lead || "";
+    leadEl.hidden = !lead;
     dialog.querySelector("[data-need]").textContent = bb(requiredUnits);
     dialog.querySelector("[data-have]").textContent = bb(availableUnits);
+
+    // Busting out does not always mean being broke: the table stack is gone,
+    // but the wallet may still cover another buy-in. Offering a top-up then
+    // would be answering a question the player did not ask.
+    const affordable = Number(availableUnits || 0) >= Number(requiredUnits || 0);
+    dialog.querySelector("[data-again]").hidden = !affordable;
+    dialog.querySelector("[data-offer]").hidden = affordable;
+
     const topUp = dialog.querySelector("[data-topup]");
     const live = Boolean(window.Poker8TopUp?.open);
     topUp.disabled = !live;
@@ -260,6 +283,10 @@
       : "Оплата в USDT скоро будет доступна";
     if (typeof dialog.showModal === "function") dialog.showModal();
     else dialog.setAttribute("open", "");
+  }
+
+  function showInsufficientFunds(requiredUnits, availableUnits) {
+    showFundsDialog({ title: "Недостаточно средств", requiredUnits, availableUnits });
   }
 
   async function cancelQueue() {
@@ -410,7 +437,17 @@
     const lost = heldSeatLastSnapshot && !seatedNow;
     heldSeatLastSnapshot = seatedNow;
     if (!lost) return;
-    alert("Фишки закончились, и место освободилось.\nЧтобы играть дальше, займите место снова.");
+    // The wallet is only known to the profile endpoint, and this is a rare
+    // moment, so one extra call is cheaper than tracking it on every snapshot.
+    fetch("/api/profile")
+      .then(response => (response.ok ? response.json() : null))
+      .then(profile => showFundsDialog({
+        title: "Фишки закончились",
+        lead: "Стек за столом опустел, и место освободилось.",
+        requiredUnits: units(table?.big_blind_units) * 40,
+        availableUnits: profile?.available_units ?? 0,
+      }))
+      .catch(() => {});
   }
 
   function renderSnapshot(state) {
