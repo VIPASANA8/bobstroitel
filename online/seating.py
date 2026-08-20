@@ -409,6 +409,22 @@ class SeatingService:
                     update(table_seats).where(table_seats.c.id == seat["id"]).values(stack_units=seat["stack_units"] + amount_units)
                 )
 
+    async def evict_table(self, table_id: str) -> None:
+        """Empty a table completely, returning every stack and escrow.
+
+        Used when a room is retired. A closed table stops being advanced, so
+        anyone still seated would keep their chips locked in its escrow forever
+        -- the leave pipeline is what puts them back where they belong.
+        """
+        async with self.session_factory() as session:
+            async with session.begin():
+                await session.execute(
+                    update(table_seats)
+                    .where(table_seats.c.table_id == table_id, table_seats.c.state != "empty")
+                    .values(state="leaving")
+                )
+                await self._process_leaving(session, table_id)
+
     async def _process_leaving(self, session: AsyncSession, table_id: str) -> None:
         rows = (
             await session.execute(

@@ -5,6 +5,10 @@
     .card-actions .card-action{flex:1;margin-top:0;padding:0;border-top:0}
     .card-observe{padding:8px 11px;border:1px solid var(--line);border-radius:10px;background:none;color:var(--muted);font-size:15px;line-height:1;cursor:pointer}
     .card-observe:hover{border-color:var(--mint);color:var(--mint)}
+    .card-mine{border-color:var(--mint)}
+    .table-state.mine{color:var(--orange)}
+    #roomDialog select{width:100%;margin:8px 0;padding:14px;border:1px solid var(--line);border-radius:12px;background:#07100f;color:var(--ink);font-size:15px}
+    #roomDialog input{font-size:17px}
   `;
   document.head.appendChild(style);
 
@@ -12,6 +16,8 @@
   let tables = [];
   let selected = null;
   let activeSession = null;
+  let myRoom = null;
+  let roomLevels = [];
 
   const format = units => (Number(units || 0) / 100).toFixed(2);
   const buyInRange = table => `${Math.round(table.min_buy_in_units / table.big_blind_units)}–${Math.round(table.max_buy_in_units / table.big_blind_units)} BB`;
@@ -40,29 +46,34 @@
   function renderTables() {
     $("tableGrid").innerHTML = tables.map((table, index) => `
       <article class="table-card" style="--delay:${index * 45}ms">
-        <div class="card-top"><span class="table-index">${String(index + 1).padStart(2, "0")}</span><span class="table-state">● ОТКРЫТ</span></div>
+        <div class="card-top"><span class="table-index">${String(index + 1).padStart(2, "0")}</span><span class="table-state${table.id === myRoom?.id ? " mine" : ""}">${table.id === myRoom?.id ? (table.visibility === "link" ? "● ПО ССЫЛКЕ" : "● ВАША") : "● ОТКРЫТ"}</span></div>
         <h3>${escape(table.name)}</h3>
         <p class="blinds">Блайнды <b>${format(table.small_blind_units)} / ${format(table.big_blind_units)}</b></p>
         <div class="card-bottom"><span>Бай-ин ${buyInRange(table)}</span><span>${table.occupied_count} / 6</span></div>
         <div class="card-actions">
           <button class="card-action" data-table="${escape(table.id)}">Выбрать стол</button>
           <button class="card-observe" data-observe-table="${escape(table.id)}" type="button" aria-label="Наблюдать за столом" title="Наблюдать">👁</button>
+          ${table.id === myRoom?.id ? `<button class="card-observe card-mine" data-copy-room="${escape(table.id)}" type="button" aria-label="Скопировать ссылку" title="Ссылка">🔗</button><button class="card-observe" data-close-room="${escape(table.id)}" type="button" aria-label="Закрыть комнату" title="Закрыть">×</button>` : ""}
         </div>
       </article>`).join("");
     document.querySelectorAll("[data-table]").forEach(button => button.addEventListener("click", () => openBuyIn(tables.find(table => table.id === button.dataset.table))));
     document.querySelectorAll("[data-observe-table]").forEach(button => button.addEventListener("click", () => openTable(button.dataset.observeTable)));
+    document.querySelectorAll("[data-copy-room]").forEach(button => button.addEventListener("click", () => copyRoomLink(button.dataset.copyRoom)));
+    document.querySelectorAll("[data-close-room]").forEach(button => button.addEventListener("click", () => closeRoom(button.dataset.closeRoom)));
   }
 
   async function load() {
     const profile = await window.Poker8Auth.ensureSession();
     $("wallet").textContent = `${format(profile.available_units)} PLAY`;
-    const [tablesResponse, sessionResponse] = await Promise.all([
-      fetch("/api/lobby/tables?page=1&per_page=6"),
+    const [tablesResponse, sessionResponse, roomResponse] = await Promise.all([
+      fetch("/api/lobby/tables?page=1&per_page=12"),
       fetch("/api/lobby/session"),
+      fetch("/api/lobby/rooms/mine"),
     ]);
     if (!tablesResponse.ok || !sessionResponse.ok) throw new Error("lobby data is unavailable");
     const tablePayload = await tablesResponse.json();
     const sessionPayload = await sessionResponse.json();
+    myRoom = roomResponse.ok ? (await roomResponse.json()).room : null;
     tables = tablePayload.tables;
     renderTables();
     renderActiveSession(sessionPayload.session);
@@ -114,6 +125,71 @@
     const response = await fetch(endpoint, { method: "POST" });
     if (!response.ok) return alert("Не удалось выполнить действие. Попробуйте ещё раз.");
     await load();
+  });
+
+
+  const roomUrl = id => `${location.origin}/table?table=${encodeURIComponent(id)}`;
+
+  async function copyRoomLink(id) {
+    const url = roomUrl(id);
+    try {
+      await navigator.clipboard.writeText(url);
+      alert("Ссылка скопирована — отправьте её тем, кого зовёте.");
+    } catch {
+      // Clipboard access is refused in some in-app browsers; showing the link
+      // still lets the player copy it by hand.
+      window.prompt("Скопируйте ссылку на комнату:", url);
+    }
+  }
+
+  async function closeRoom(id) {
+    if (!window.confirm("Закрыть комнату? Все, кто за столом, выйдут, а фишки вернутся на балансы.")) return;
+    const response = await fetch(`/api/lobby/rooms/${encodeURIComponent(id)}/close`, { method: "POST" });
+    if (!response.ok) return alert("Не удалось закрыть комнату. Попробуйте ещё раз.");
+    await load();
+  }
+
+  async function openRoomDialog() {
+    if (myRoom) {
+      // One room at a time, so there is nothing to fill in -- offer the one
+      // they already have instead of a form that would be refused.
+      if (window.confirm(`У вас уже открыта комната «${myRoom.name}». Перейти к ней?`)) openTable(myRoom.id);
+      return;
+    }
+    if (!roomLevels.length) {
+      const response = await fetch("/api/lobby/room-levels");
+      if (!response.ok) return alert("Создание комнат сейчас недоступно");
+      roomLevels = (await response.json()).levels;
+    }
+    $("roomLevel").innerHTML = roomLevels
+      .map(level => `<option value="${escape(level.key)}">${format(level.small_blind_units)} / ${format(level.big_blind_units)}</option>`)
+      .join("");
+    $("roomName").value = "";
+    $("roomDialog").showModal();
+  }
+
+  $("createRoom").addEventListener("click", () => openRoomDialog().catch(error => alert(error.message)));
+
+  $("roomForm").addEventListener("submit", async event => {
+    event.preventDefault();
+    const body = {
+      name: $("roomName").value,
+      level: $("roomLevel").value,
+      visibility: $("roomVisibility").value,
+    };
+    const response = await fetch("/api/lobby/rooms", {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+    });
+    $("roomDialog").close();
+    if (response.ok) {
+      const room = (await response.json()).room;
+      await load();
+      if (room.visibility === "link") await copyRoomLink(room.id);
+      return openTable(room.id);
+    }
+    const detail = (await response.json()).detail || {};
+    if (detail.code === "room_limit_reached") return openTable(detail.table_id);
+    alert(detail.message || "Не удалось создать комнату");
   });
 
   load().catch(error => { $("loadStatus").textContent = "● НЕДОСТУПНО"; console.error(error); });

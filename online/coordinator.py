@@ -13,6 +13,9 @@ from online.seating import SeatingService
 
 logger = logging.getLogger(__name__)
 
+# How long a player's room may sit without a single human before it is retired.
+ROOM_IDLE_TTL = timedelta(minutes=15)
+
 
 class OnlineCoordinator:
     """Durable table lifecycle loop for production network tables."""
@@ -38,6 +41,9 @@ class OnlineCoordinator:
         self.on_change = on_change
         self.last_tick_at: datetime | None = None
         self.last_tick_duration_ms: float | None = None
+        # Since when each player room has been empty of humans. In memory: a
+        # restart just starts the clock again.
+        self._room_idle_since: dict[str, datetime] = {}
         self._stop = asyncio.Event()
 
     def now(self) -> datetime:
@@ -51,6 +57,7 @@ class OnlineCoordinator:
                     await self.integrity_monitor.maybe_check()
                 except Exception:
                     logger.exception("poker8 escrow integrity monitor failed")
+            await self._retire_idle_rooms()
             tables = await self.catalogue.list_tables(page=1, per_page=100)
             for table in tables:
                 # A corrupted or temporarily underfunded table must not prevent
@@ -66,6 +73,28 @@ class OnlineCoordinator:
     def _signature(self, table_id: str):
         loaded = self.runtime._tables.get(table_id)
         return None if loaded is None else (loaded.revision, loaded.phase, loaded.state.acting_player)
+
+    async def _retire_idle_rooms(self) -> None:
+        """Close a player's room once it has sat without a human long enough.
+
+        The clock lives in memory: a restart simply starts it again, and a room
+        that outlives one restart is not worth a schema column. Every seat is
+        emptied first -- a closed table stops being advanced, so anything left
+        seated would keep its chips locked in the table's escrow.
+        """
+        idle_now = set(await self.catalogue.idle_room_ids())
+        for table_id in list(self._room_idle_since):
+            if table_id not in idle_now:
+                self._room_idle_since.pop(table_id, None)
+        now = self.now()
+        for table_id in idle_now:
+            since = self._room_idle_since.setdefault(table_id, now)
+            if now - since < ROOM_IDLE_TTL:
+                continue
+            self._room_idle_since.pop(table_id, None)
+            await self.seating.evict_table(table_id)
+            await self.catalogue.close_room(table_id)
+            logger.info("poker8_room_retired", extra={"table_id": table_id})
 
     async def _tick_table(self, table_id: str) -> None:
         before = self._signature(table_id)

@@ -139,10 +139,16 @@ poker_tables = Table(
     Column("max_seats", Integer, nullable=False, server_default=text("6")),
     Column("status", String(32), nullable=False, server_default=text("'open'")),
     Column("button_seat", Integer),
+    # Set only for a room a player opened; the built-in tables leave it null.
+    # Deliberately no ForeignKey: SQLite cannot add one through ALTER, and that
+    # alone cost the migration both its downgrade and its repeatability.
+    Column("created_by", String(64)),
+    Column("visibility", String(16), nullable=False, server_default=text("'public'")),
     Column("created_at", timestamp, **created_at),
     Column("updated_at", timestamp, **created_at),
     CheckConstraint("scope IN ('network', 'tenant')"),
     CheckConstraint("max_seats = 6"),
+    CheckConstraint("visibility IN ('public', 'link')", name="ck_poker_tables_visibility"),
 )
 
 table_seats = Table(
