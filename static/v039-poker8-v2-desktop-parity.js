@@ -187,6 +187,13 @@
         grid-area:actions!important;width:min(100%,940px)!important;margin-inline:auto!important;
         height:var(--p8-hud-h)!important;
       }
+      /* The controls inside are placed absolutely against phone widths, so on
+         a 940px bar they huddled in a 207px column against the left edge.
+         Give them a box their own size and centre that instead of trying to
+         re-pin every one of them. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .action-panel{
+        position:relative!important;width:min(100%,520px)!important;margin-inline:auto!important;
+      }
       /* The stage is a grid row here, not a subtraction from the viewport. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2{
         --p8-bottom-reserve:0px!important;
