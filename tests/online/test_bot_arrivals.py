@@ -115,3 +115,27 @@ async def test_the_wait_starts_over_for_the_next_person_to_open_the_room(room):
     await _sit(session_factory, table_id)
     await seating.process_boundary(table_id, now=later)
     assert await _bot_count(session_factory, table_id) == 0, "and the wait begins again"
+
+
+@pytest.mark.anyio
+async def test_they_do_not_all_turn_up_together(room):
+    """Independent draws across the window bunch: three arriving at once is the
+    thing the wait exists to avoid, so each gets a slot of its own."""
+    seating, make, session_factory = room
+    table_id = await make("public")
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+
+    await seating.process_boundary(table_id, now=start)
+    seen = []
+    for second in range(0, int(BOT_ARRIVAL_WINDOW.total_seconds()) + 30, 15):
+        await seating.process_boundary(table_id, now=start + timedelta(seconds=second))
+        seen.append((second, await _bot_count(session_factory, table_id)))
+
+    assert seen[-1][1] == MAX_SYSTEM_BOTS, "everyone is in by the end"
+    steps = [b - a for (_, a), (_, b) in zip(seen, seen[1:])]
+    assert max(steps) == 1, f"two or more walked in on the same beat: {seen}"
+
+    # And the last one is genuinely late, not merely last.
+    full_at = next(second for second, count in seen if count == MAX_SYSTEM_BOTS)
+    assert full_at > BOT_ARRIVAL_WINDOW.total_seconds() * 0.6, \
+        f"the room filled in {full_at}s, which is not a five-minute fill"

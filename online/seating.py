@@ -557,11 +557,18 @@ class SeatingService:
             low, high = BOT_FIRST_ARRIVAL
             span = (high - low).total_seconds()
             first = now + low + timedelta(seconds=random.uniform(0, span))
-            rest_span = (now + BOT_ARRIVAL_WINDOW - first).total_seconds()
+            rest_span = max(0.0, (now + BOT_ARRIVAL_WINDOW - first).total_seconds())
+            # A slot each, jittered inside it, rather than four independent
+            # draws across the window: independent draws bunch, and three
+            # people arriving together is the thing this exists to avoid.
+            # Divided by the count, not by the gaps: that leaves the last slot
+            # a full one of headroom, so even the latest jitter lands inside
+            # the window instead of spilling past it.
+            slot = rest_span / target
             schedule = sorted(
                 [first] + [
-                    first + timedelta(seconds=random.uniform(0, max(0.0, rest_span)))
-                    for _ in range(max(0, target - 1))
+                    first + timedelta(seconds=slot * index + random.uniform(-slot * 0.3, slot * 0.3))
+                    for index in range(1, target)
                 ]
             )
             self._bot_arrivals[table_id] = schedule
