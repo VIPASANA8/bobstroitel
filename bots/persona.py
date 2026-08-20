@@ -23,7 +23,9 @@ class Persona:
     aggression: float  # -1 passive .. +1 aggressive -- how readily it raises
     bluffiness: float  # 0 .. 2 -- multiplier on the bluff rate
     sizing_bias: float # multiplier on every pot fraction it picks
-    patience: float    # multiplier on its think time
+    patience: float    # multiplier on its think time -- wider than the
+                       # per-move jitter on purpose, so who is acting is
+                       # louder than which move it happens to be
 
     @property
     def label(self) -> str:
@@ -44,5 +46,5 @@ def persona_for(player_id: str) -> Persona:
         aggression=rng.uniform(-0.7, 0.7),
         bluffiness=rng.uniform(0.35, 1.9),
         sizing_bias=rng.uniform(0.78, 1.28),
-        patience=rng.uniform(0.7, 1.45),
+        patience=rng.uniform(0.55, 1.85),
     )

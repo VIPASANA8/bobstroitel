@@ -92,3 +92,64 @@ def test_bot_ready_slots_are_spread_out_not_simultaneous():
     slots = [round(bot_ready_delay(rng=rng), 3) for _ in range(6)]
     assert len(set(slots)) == len(slots)
     assert max(slots) - min(slots) > 0.5
+
+
+def test_two_bots_never_click_ready_in_the_same_moment():
+    """Independent draws from the band collide. Measured on the live site at
+    300ms resolution, the last two checkmarks landed in the same frame on
+    every single cycle -- a slot each is what separates them."""
+    from datetime import datetime, timezone
+
+    from online.runtime import MAX_READY_SLOTS, TableRuntimeManager
+
+    now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    manager = TableRuntimeManager.__new__(TableRuntimeManager)
+    manager._bot_ready_at = {}
+
+    smallest = 99.0
+    for trial in range(400):
+        table = f"t{trial}"
+        manager.schedule_bot_ready(table, set(range(1, MAX_READY_SLOTS + 1)), now)
+        moments = sorted((when - now).total_seconds() for when in manager._bot_ready_at[table].values())
+        smallest = min(smallest, min(b - a for a, b in zip(moments, moments[1:])))
+
+    assert smallest > 0.4, f"two checkmarks landed {smallest:.2f}s apart"
+
+
+def test_a_bot_keeps_the_slot_it_was_given():
+    """Its beat has to stay put across ticks, or it never becomes due."""
+    from datetime import datetime, timedelta, timezone
+
+    from online.runtime import TableRuntimeManager
+
+    now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    manager = TableRuntimeManager.__new__(TableRuntimeManager)
+    manager._bot_ready_at = {}
+
+    manager.schedule_bot_ready("t1", {1, 2}, now)
+    first = dict(manager._bot_ready_at["t1"])
+    manager.schedule_bot_ready("t1", {1, 2}, now + timedelta(seconds=1))
+    assert manager._bot_ready_at["t1"] == first
+
+    # A bot that sits down late queues behind the ones already waiting.
+    manager.schedule_bot_ready("t1", {1, 2, 3}, now + timedelta(seconds=1))
+    late = manager._bot_ready_at["t1"][3]
+    assert late > max(first.values()), "the latecomer went first"
+
+
+def test_who_is_acting_is_louder_than_which_move_it_is():
+    """A bot's own tempo has to beat the per-move jitter, or every bot reads
+    the same however much each individual pause wobbles."""
+    import statistics
+
+    from bots.persona import persona_for
+
+    medians = {}
+    for bot in (f"system-{n:02d}" for n in range(1, 13)):
+        patience = persona_for(bot).patience
+        medians[bot] = statistics.median(
+            bot_think_delay("normal", "flop", patience=patience) for _ in range(300)
+        )
+
+    slowest, fastest = max(medians.values()), min(medians.values())
+    assert slowest / fastest > 2.0, f"bots only differ by {slowest / fastest:.1f}x"

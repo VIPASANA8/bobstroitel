@@ -80,11 +80,14 @@ class _LoadedTable:
 #: static/app.js's BOT_SPEED_RANGES.normal, ported server-side because the
 #: online coordinator (unlike the legacy client-paced table) was giving every
 #: bot zero think time -- one coordinator tick (250ms), uniformly.
-_BOT_THINK_BAND = (0.9, 2.6)
+_BOT_THINK_BAND = (1.0, 2.2)
 # Wider and slower than the think band: confirming you want to play the next
 # hand is a lazier gesture than acting on a live one, and the spread is what
 # keeps six checkmarks from landing together.
-_BOT_READY_BAND = (0.8, 5.0)
+_BOT_READY_BAND = (0.9, 6.0)
+#: Slots the ready band is divided into -- one per bot a table can hold, so
+#: the gap between two checkmarks is never smaller than half a slot.
+MAX_READY_SLOTS = 4
 _BOT_DIFFICULTY_FACTOR = {"easy": 0.84, "normal": 1.0, "hard": 1.12, "maximum": 1.25}
 _BOT_STREET_FACTOR = {"preflop": 0.88, "flop": 1.0, "turn": 1.10, "river": 1.22}
 # How often a bot stops dead over a spot that did not look hard. People do
@@ -195,12 +198,23 @@ class TableRuntimeManager:
         self._bot_ready_at.pop(table_id, None)
 
     def schedule_bot_ready(self, table_id: str, seat_nos: set[int], now: datetime) -> None:
-        """Give each bot seat its own moment to click ready. Only seats without
-        a slot yet are assigned one, so a bot's beat stays put across ticks."""
+        """Give each bot seat its own moment to click ready.
+
+        A slot each, taken in turn, with jitter that cannot reach the next one.
+        Independent draws from the band were what this used to do, and four of
+        them across four seconds collide: measured on the live site, the last
+        two checkmarks landed in the same frame on every single cycle. Only
+        seats without a slot yet are assigned one, so a bot's beat stays put
+        across ticks and a bot that sits down late queues behind the rest.
+        """
         slots = self._bot_ready_at.setdefault(table_id, {})
-        for seat_no in seat_nos:
-            if seat_no not in slots:
-                slots[seat_no] = now + timedelta(seconds=bot_ready_delay())
+        low, high = _BOT_READY_BAND
+        span = (high - low) / max(1, MAX_READY_SLOTS)
+        for seat_no in sorted(seat_nos):
+            if seat_no in slots:
+                continue
+            base = low + span * min(len(slots), MAX_READY_SLOTS - 1)
+            slots[seat_no] = now + timedelta(seconds=base + random.uniform(0, span * 0.5))
 
     def release_due_bot_ready(self, table_id: str, now: datetime) -> None:
         """Move every bot whose moment has arrived into the ready set, which is
