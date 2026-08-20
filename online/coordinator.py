@@ -178,6 +178,11 @@ class OnlineCoordinator:
                         # own tempo -- not from the one who just acted.
                         delay = bot_think_delay(**self.runtime.next_bot_spot(table_id))
                         loaded.next_bot_action_at = now + timedelta(seconds=delay)
+                elif self.runtime.is_leaving(table_id, loaded.state.acting_player):
+                    # They already asked to go. Holding the hand for their
+                    # thirty seconds, on this street and every one after, is
+                    # what made walking out take the best part of a minute.
+                    await self.runtime.timeout_current_actor(table_id, now)
                 elif loaded.action_deadline is not None and loaded.action_deadline <= now:
                     await self.runtime.timeout_current_actor(table_id, now)
             return

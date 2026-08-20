@@ -4,7 +4,7 @@ import asyncio
 import logging
 import math
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -70,6 +70,10 @@ class _LoadedTable:
     # (restore_all rebuilds it from the DB). A bot with no deadline yet acts
     # on the very next tick, matching today's behavior until it gets one.
     next_bot_action_at: datetime | None = None
+    # Who has asked to leave and is still owed a turn in the hand that is
+    # running. Folding them the moment the engine reaches them is the whole
+    # difference between a few seconds and thirty per remaining street.
+    leaving_participants: set[str] = field(default_factory=set)
 
 
 #: Base think-time band in seconds, before difficulty/street scaling. Mirrors
@@ -570,6 +574,30 @@ class TableRuntimeManager:
             user_id = actor
         return await self.action(table_id, user_id, command_id, revision, timeout_action.value, 0)
 
+    async def mark_leaving(self, table_id: str, user_id: str) -> bool:
+        """Note that this player is on their way out. Returns whether they are
+        actually in the hand that is running.
+
+        A player who is not -- somebody who sat down mid-hand, or between hands
+        -- has nothing to wait for, and the caller releases their seat there and
+        then instead of at the next boundary. One who is stays until the hand
+        settles, but is folded the instant the engine reaches them: waiting out
+        the full thirty-second clock on every street they are still owed is
+        what made walking out take the best part of a minute.
+        """
+        loaded = self._tables.get(table_id)
+        if loaded is None or loaded.state.terminal:
+            return False
+        participant_id = await self._participant_for_user(table_id, user_id)
+        if participant_id is None or participant_id not in loaded.state.players:
+            return False
+        loaded.leaving_participants.add(participant_id)
+        return True
+
+    def is_leaving(self, table_id: str, participant_id: str) -> bool:
+        loaded = self._tables.get(table_id)
+        return bool(loaded and participant_id in loaded.leaving_participants)
+
     async def fold_if_acting(self, table_id: str, user_id: str) -> RuntimeActionResult | None:
         """Leaving mid-hand must not let a player keep their cards and wait out
         the 30s clock -- fold immediately instead, same as if they had pressed
@@ -598,6 +626,9 @@ class TableRuntimeManager:
             if loaded is None:
                 raise RuntimeErrorBase("table runtime not found")
             loaded.phase = "waiting"
+            # The hand they were waiting on is over; the seat goes at the
+            # boundary that follows, so nothing is owed to anyone next hand.
+            loaded.leaving_participants.clear()
             async with self.session_factory() as session:
                 async with session.begin():
                     await session.execute(

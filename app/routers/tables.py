@@ -149,12 +149,14 @@ async def ready_up(table_id: str, request: Request, user: AuthenticatedUser = De
 
 @router.post("/{table_id}/leave")
 async def leave(table_id: str, request: Request, user: AuthenticatedUser = Depends(get_current_user)):
-    # Before marking the seat as leaving: if it's this player's turn right
-    # now, fold it immediately rather than leaving their hand hanging until
-    # the 30s clock times it out. fold_if_acting is a no-op whenever it isn't
-    # actually their turn, so this is always safe to call.
+    # Fold it now if it's their turn, rather than leaving the hand hanging on
+    # the 30s clock. A no-op whenever it isn't actually their turn.
     await request.app.state.runtime.fold_if_acting(table_id, user.user_id)
-    await request.app.state.seating.request_leave(user.user_id, table_id)
+    # And note them for the rest of the hand, so the engine folds them the
+    # moment it reaches them on any later street instead of waiting again.
+    in_hand = await request.app.state.runtime.mark_leaving(table_id, user.user_id)
+    # Somebody not in the running hand has nothing to wait for at all.
+    await request.app.state.seating.request_leave(user.user_id, table_id, immediate=not in_hand)
     return {"viewer_state": "leaving"}
 
 

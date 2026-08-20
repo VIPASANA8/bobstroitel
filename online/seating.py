@@ -376,7 +376,14 @@ class SeatingService:
                     .values(state="seated", disconnected_at=None, hold_until=None)
                 )
 
-    async def request_leave(self, user_id: str, table_id: str) -> None:
+    async def request_leave(self, user_id: str, table_id: str, *, immediate: bool = False) -> None:
+        """Mark the seat as leaving. Released at the next hand boundary, unless
+        the caller knows this player is not in the hand that is running -- then
+        there is nothing to wait for and the seat goes back now.
+
+        Waiting either way meant somebody who sat down, changed their mind and
+        stood straight back up was held for a hand they were not dealt into.
+        """
         async with self.session_factory() as session:
             async with session.begin():
                 await session.execute(
@@ -384,6 +391,8 @@ class SeatingService:
                     .where(table_seats.c.table_id == table_id, table_seats.c.user_id == user_id)
                     .values(state="leaving")
                 )
+                if immediate:
+                    await self._process_leaving(session, table_id, only_user_id=user_id)
 
     async def add_on(self, user_id: str, table_id: str, amount_units: int, request_id: str) -> None:
         async with self.session_factory() as session:
@@ -435,12 +444,17 @@ class SeatingService:
                 )
                 await self._process_leaving(session, table_id)
 
-    async def _process_leaving(self, session: AsyncSession, table_id: str) -> None:
-        rows = (
-            await session.execute(
-                select(table_seats).where(table_seats.c.table_id == table_id, table_seats.c.state == "leaving")
-            )
-        ).mappings().all()
+    async def _process_leaving(
+        self, session: AsyncSession, table_id: str, *, only_user_id: str | None = None
+    ) -> None:
+        query = select(table_seats).where(
+            table_seats.c.table_id == table_id, table_seats.c.state == "leaving"
+        )
+        if only_user_id is not None:
+            # One seat, mid-hand: everyone else marked leaving may still be in
+            # the hand that is running, and their stack is not theirs yet.
+            query = query.where(table_seats.c.user_id == only_user_id)
+        rows = (await session.execute(query)).mappings().all()
         for row in rows:
             if row["occupant_kind"] == "user" and row["user_id"]:
                 await self.ledger.return_stack(
