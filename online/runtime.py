@@ -343,7 +343,20 @@ class TableRuntimeManager:
             # caught it and rendered an empty table, but the socket did not, so
             # the client reconnected forever and the owner of a new room could
             # only watch it say "reconnecting".
-            return EMPTY_SNAPSHOT | {"viewer_state": "spectator"}
+            #
+            # It still has to say who is sitting where. Without current_seats a
+            # player who had just taken a seat in a brand-new room was invisible
+            # to themselves: the ring drew every place as empty and offered them
+            # their own seat back, until the first hand finally landed a minute
+            # or more later.
+            participant_id = (
+                await self._participant_for_user(table_id, viewer_user_id) if viewer_user_id else None
+            )
+            return EMPTY_SNAPSHOT | {
+                "viewer_state": "seated" if participant_id else "spectator",
+                "viewer_player_id": participant_id,
+                "current_seats": await self._current_seating(table_id),
+            }
         participant_id = await self._participant_for_user(table_id, viewer_user_id) if viewer_user_id else None
         # A seat row can vanish while its owner is still a player in the hand
         # that is running -- leave processing and bot rebalance both clear seats
