@@ -24,20 +24,20 @@ def test_the_height_of_a_stack_says_how_much_is_in_it():
     assert "% 5" not in APP[APP.index("function chipStackHtml"):APP.index("function renderPotChips")]
 
 
-def test_the_pot_uses_the_same_maths_as_everything_else():
-    """Three layers drew the pot three different ways. v031 is the one that
-    wins -- it overrides chipStackHtml and renderPotChips last -- so a fix
-    anywhere else was invisible. All of them agree now."""
-    body = POT_LAYER[POT_LAYER.index("function growingPotStackHtml"):]
-    body = body[:body.index(chr(10) + "  }")]
-    assert "visualStackCount(n, false)" in body
-    assert "chipLayers(n, col, false)" in body
-    assert "visibleTotal" not in POT_LAYER, "the old linear scale is gone"
+def test_only_one_place_draws_chips():
+    """Three implementations were stacked on top of each other -- app.js, v020
+    and v031 -- and only the last one loaded drew anything. A fix in either of
+    the others was invisible, which cost two rounds of chasing before the chips
+    changed at all. One owner now, and the layers may not take it back."""
+    for name in ("chipStackHtml", "renderPotChips", "potClusterOffsets"):
+        assert f"function {name}(" in APP, f"{name} belongs in app.js"
 
-    winner = Path("static/v031-pot-cluster-mobile-fix.js").read_text(encoding="utf-8")
-    assert "chipLayers(n, col, false)" in winner
-    assert "Math.min(9," not in winner, "nine-chip columns are gone from the one that renders"
-    assert "Math.max(1, visualStackCount" in winner, "a small pot may be one stack"
+    layers = sorted(Path("static").glob("v0*.js"))
+    assert layers, "the layer chain is still there"
+    for layer in layers:
+        source = layer.read_text(encoding="utf-8")
+        for name in ("chipStackHtml", "renderPotChips"):
+            assert re.search(rf"^\s*{name} = ", source, re.M) is None,                 f"{layer.name} overrides {name} again"
 
 
 def test_layers_never_run_away_or_collapse():

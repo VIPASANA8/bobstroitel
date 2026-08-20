@@ -1,68 +1,9 @@
 (() => {
   "use strict";
 
-  function potClusterOffsets(stackCount) {
-    const patterns = {
-      1: [{ x: 0, y: 10, z: 4 }],
-      2: [{ x: -9, y: 12, z: 3 }, { x: 8, y: 10, z: 4 }],
-      3: [{ x: -14, y: 13, z: 2 }, { x: 1, y: 4, z: 5 }, { x: 15, y: 11, z: 3 }],
-      4: [{ x: -18, y: 15, z: 2 }, { x: -5, y: 8, z: 4 }, { x: 8, y: 4, z: 6 }, { x: 19, y: 12, z: 3 }],
-      5: [{ x: -23, y: 16, z: 2 }, { x: -11, y: 10, z: 4 }, { x: 0, y: 2, z: 7 }, { x: 12, y: 8, z: 5 }, { x: 23, y: 14, z: 3 }],
-      6: [{ x: -25, y: 17, z: 2 }, { x: -15, y: 12, z: 3 }, { x: -4, y: 6, z: 5 }, { x: 7, y: 2, z: 7 }, { x: 18, y: 9, z: 4 }, { x: 28, y: 15, z: 2 }],
-      7: [{ x: -28, y: 18, z: 1 }, { x: -18, y: 13, z: 3 }, { x: -8, y: 8, z: 5 }, { x: 1, y: 1, z: 8 }, { x: 10, y: 6, z: 6 }, { x: 20, y: 11, z: 4 }, { x: 30, y: 17, z: 2 }],
-    };
-    return patterns[stackCount] || patterns[7];
-  }
-
-  const originalChipStackHtml = chipStackHtml;
-  chipStackHtml = function chipStackHtmlV031(value, compact = false) {
-    if (compact) return originalChipStackHtml(value, true);
-
-    const n = Number(value || 0);
-    if (!(n > 0)) return "";
-
-    // A minimum of two meant the smallest pot on the table drew the same
-    // footprint as a middling one. One stack is a fine picture of a small pot.
-    const stackCount = Math.min(7, Math.max(1, visualStackCount(n, false) + (n >= 8 ? 1 : 0)));
-    const palette = chipsForAmount(n, 16);
-    const fallback = ["chip-1", "chip-25", "chip-5", "chip-100", "chip-05"];
-    const offsets = potClusterOffsets(stackCount);
-    const columns = [];
-
-    for (let col = 0; col < stackCount; col++) {
-      const cls = palette[col % Math.max(1, palette.length)] || fallback[col % fallback.length];
-      // Shared with every other stack on the table -- see chipLayers. This
-      // used to be 4 + ((col * 2 + round(n)) % 6), which said nothing about
-      // the money and stood nine chips high at its worst.
-      const chipCount = chipLayers(n, col, false);
-      const chips = Array.from({ length: chipCount }, (_, i) =>
-        `<i class="poker-chip ${cls}" style="--i:${i}"></i>`
-      ).join("");
-      const pos = offsets[col] || { x: 0, y: 0, z: 1 };
-      columns.push(
-        `<span class="chip-column pot-stack" style="--col:${col};--cols:${stackCount};--stack-x:${pos.x}px;--stack-y:${pos.y}px;--stack-z:${pos.z}">${chips}</span>`
-      );
-    }
-
-    return `<div class="chip-cluster pot-cluster">${columns.join("")}</div>`;
-  };
-
-  const originalRenderPotChips = renderPotChips;
-  renderPotChips = function renderPotChipsV031(value) {
-    let visualValue = Number(value || 0);
-    if (game && !game.terminal) {
-      const liveWagers = Object.values(game.players || {}).reduce(
-        (sum, player) => sum + Math.max(0, Number(player?.street_invested || 0)),
-        0
-      );
-      visualValue = Math.max(visualValue, Number(game.pot || 0) + liveWagers);
-    }
-
-    const target = $("potChips");
-    if (!target) return originalRenderPotChips(value);
-    target.innerHTML = chipStackHtml(visualValue, false);
-    target.classList.toggle("has-chips", visualValue > 0);
-  };
+  // potClusterOffsets, the chipStackHtml override and the renderPotChips
+  // override all moved into app.js, beside the function they were overriding.
+  // What is left here is the wager geometry, which nothing else defines.
 
   wagerPointForPlayer = function wagerPointForPlayerV031(state, playerId) {
     const from = seatPointForPlayer(state, playerId);

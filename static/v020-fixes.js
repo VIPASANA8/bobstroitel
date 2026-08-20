@@ -52,55 +52,9 @@
     syncMobileTurnHud();
   };
 
-  function latestHistoryPot() {
-    const rows = Array.isArray(game?.history) ? game.history : [];
-    for (let i = rows.length - 1; i >= 0; i -= 1) {
-      const value = Number(rows[i]?.pot_after);
-      if (Number.isFinite(value) && value >= 0) return value;
-    }
-    return 0;
-  }
-
-  function visualPotAmount(value) {
-    const direct = Math.max(0, Number(value || 0));
-    if (!game) return direct;
-    return Math.max(direct, latestHistoryPot());
-  }
-
-  function growingPotStackHtml(value) {
-    const n = Math.max(0, Number(value || 0));
-    if (!(n > 0)) return "";
-
-    // The same shape the rest of the table uses -- visualStackCount for how
-    // many columns, chipLayers for how tall each one stands. The linear scale
-    // that used to live here (2 chips a unit, capped at 42) meant every pot
-    // over 21 BB drew the same wall of chips, which is most real pots; and
-    // eight chips a column made that wall taller than the cards behind it.
-    const stackCount = visualStackCount(n, false);
-    const palette = chipsForAmount(n, 24);
-    const fallback = ["chip-1", "chip-25", "chip-5", "chip-100", "chip-05"];
-    const columns = [];
-
-    for (let col = 0; col < stackCount; col += 1) {
-      const chipCount = chipLayers(n, col, false);
-      const cls = palette[col % Math.max(1, palette.length)] || fallback[col % fallback.length];
-      const chips = Array.from({ length: chipCount }, (_, i) =>
-        `<i class="poker-chip ${cls}" style="--i:${i}"></i>`
-      ).join("");
-      columns.push(`<span class="chip-column" style="--col:${col};--cols:${stackCount}">${chips}</span>`);
-    }
-
-    return `<div class="chip-cluster pot-cluster v021-growing-pot">${columns.join("")}</div>`;
-  }
-
-  renderPotChips = function renderPotChipsV021(value) {
-    const target = $("potChips");
-    if (!target) return;
-    const visualValue = visualPotAmount(value);
-    target.innerHTML = growingPotStackHtml(visualValue);
-    target.dataset.visualPot = String(visualValue);
-    target.classList.toggle("has-chips", visualValue > 0);
-  };
+  // The pot renderer that lived here -- latestHistoryPot, visualPotAmount,
+  // growingPotStackHtml and a renderPotChips override -- was replaced outright
+  // by v031 and had not drawn a chip since. It is in app.js now, once.
 
   const style = document.createElement("style");
   style.id = "v021-mobile-fixes";

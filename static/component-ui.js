@@ -109,7 +109,7 @@
 
     if (!document.querySelector('script[data-v020-fixes]')) {
       const v020 = document.createElement("script");
-      v020.src = "/static/v020-fixes.js?v=chip-layers-1";
+      v020.src = "/static/v020-fixes.js?v=chip-layers-2";
       v020.dataset.v020Fixes = "1";
       document.body.appendChild(v020);
     }

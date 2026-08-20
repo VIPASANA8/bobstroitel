@@ -331,22 +331,48 @@ function chipLayers(value, col, compact) {
   return Math.max(2, Math.min(6, Math.round(base) + POT_LAYER_RIPPLE[col % POT_LAYER_RIPPLE.length]));
 }
 
+function potClusterOffsets(stackCount) {
+  const patterns = {
+    1: [{ x: 0, y: 10, z: 4 }],
+    2: [{ x: -9, y: 12, z: 3 }, { x: 8, y: 10, z: 4 }],
+    3: [{ x: -14, y: 13, z: 2 }, { x: 1, y: 4, z: 5 }, { x: 15, y: 11, z: 3 }],
+    4: [{ x: -18, y: 15, z: 2 }, { x: -5, y: 8, z: 4 }, { x: 8, y: 4, z: 6 }, { x: 19, y: 12, z: 3 }],
+    5: [{ x: -23, y: 16, z: 2 }, { x: -11, y: 10, z: 4 }, { x: 0, y: 2, z: 7 }, { x: 12, y: 8, z: 5 }, { x: 23, y: 14, z: 3 }],
+    6: [{ x: -25, y: 17, z: 2 }, { x: -15, y: 12, z: 3 }, { x: -4, y: 6, z: 5 }, { x: 7, y: 2, z: 7 }, { x: 18, y: 9, z: 4 }, { x: 28, y: 15, z: 2 }],
+    7: [{ x: -28, y: 18, z: 1 }, { x: -18, y: 13, z: 3 }, { x: -8, y: 8, z: 5 }, { x: 1, y: 1, z: 8 }, { x: 10, y: 6, z: 6 }, { x: 20, y: 11, z: 4 }, { x: 30, y: 17, z: 2 }],
+  };
+  return patterns[stackCount] || patterns[7];
+}
+
 function chipStackHtml(value, compact = false) {
   const n = Number(value || 0);
   if (!(n > 0)) return "";
 
-  const stackCount = visualStackCount(n, compact);
+  // A wager is a single upright stack; the pot is a scattered cluster, laid
+  // out by potClusterOffsets. Both used to live in v031, which overrode this
+  // function -- so the pot had one implementation here, another in v020 and a
+  // third there, and only the last one drew anything.
+  const stackCount = compact
+    ? 1
+    : Math.min(7, Math.max(1, visualStackCount(n, false) + (n >= 8 ? 1 : 0)));
   const palette = chipsForAmount(n, compact ? 8 : 16);
   const fallback = ["chip-1", "chip-25", "chip-5", "chip-100", "chip-05"];
+  const offsets = compact ? null : potClusterOffsets(stackCount);
   const columns = [];
 
   for (let col = 0; col < stackCount; col++) {
     const cls = palette[col % Math.max(1, palette.length)] || fallback[col % fallback.length];
-    const chipCount = chipLayers(n, col, compact);
-    const chips = Array.from({ length: chipCount }, (_, i) =>
+    const chips = Array.from({ length: chipLayers(n, col, compact) }, (_, i) =>
       `<i class="poker-chip ${cls}" style="--i:${i}"></i>`
     ).join("");
-    columns.push(`<span class="chip-column" style="--col:${col};--cols:${stackCount}">${chips}</span>`);
+    if (offsets) {
+      const pos = offsets[col] || { x: 0, y: 0, z: 1 };
+      columns.push(
+        `<span class="chip-column pot-stack" style="--col:${col};--cols:${stackCount};--stack-x:${pos.x}px;--stack-y:${pos.y}px;--stack-z:${pos.z}">${chips}</span>`
+      );
+    } else {
+      columns.push(`<span class="chip-column" style="--col:${col};--cols:${stackCount}">${chips}</span>`);
+    }
   }
 
   return `<div class="chip-cluster ${compact ? "compact" : "pot-cluster"}">${columns.join("")}</div>`;
@@ -355,8 +381,19 @@ function chipStackHtml(value, compact = false) {
 function renderPotChips(value) {
   const target = $("potChips");
   if (!target) return;
-  target.innerHTML = chipStackHtml(value, false);
-  target.classList.toggle("has-chips", Number(value) > 0);
+  // Chips already pushed out this street are still on the felt, not in the
+  // pot number the server sends, so show them together -- otherwise the
+  // cluster shrinks the moment a street ends and grows again on the next.
+  let visualValue = Number(value || 0);
+  if (game && !game.terminal) {
+    const liveWagers = Object.values(game.players || {}).reduce(
+      (sum, player) => sum + Math.max(0, Number(player?.street_invested || 0)),
+      0
+    );
+    visualValue = Math.max(visualValue, Number(game.pot || 0) + liveWagers);
+  }
+  target.innerHTML = chipStackHtml(visualValue, false);
+  target.classList.toggle("has-chips", visualValue > 0);
 }
 
 

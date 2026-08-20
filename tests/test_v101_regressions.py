@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 from persistence.store import TrainingStore
@@ -79,15 +80,21 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     source = (root / 'static' / 'v038-poker8-v2-cinematic-table.js').read_text(encoding='utf-8')
     ready_source = (root / 'static' / 'v024-ready-phase.js').read_text(encoding='utf-8')
     app_source = (root / 'static' / 'app.js').read_text(encoding='utf-8')
-    polish_source = (root / 'static' / 'v033-poker8-v2-polish.js').read_text(encoding='utf-8')
     wager_source = (root / 'static' / 'v031-pot-cluster-mobile-fix.js').read_text(encoding='utf-8')
     wager_loader = (root / 'static' / 'v030-seat-ready-fix.js').read_text(encoding='utf-8')
     index_source = (root / 'static' / 'index.html').read_text(encoding='utf-8')
 
     assert '/static/v038-poker8-v2-cinematic-table.js?v=' in loader
     assert '/static/v037-poker8-v2-reference-table.js?v=' in component_loader
-    assert '/static/v033-poker8-v2-polish.js' not in component_loader
-    assert '/static/v034-poker8-v2-layout-lock.js' not in component_loader
+    # v033 and v034 were dead -- nothing loaded them, and these two lines were
+    # the only thing keeping 280 lines of them alive. They are gone. The
+    # invariant worth having is the other way round: every layer a loader names
+    # has to exist, or the chain breaks silently at a 404 halfway through.
+    named = set()
+    for js in (root / 'static').glob('*.js'):
+        named.update(re.findall(r'/static/(v\d+-[a-z0-9-]+\.js)', js.read_text(encoding='utf-8')))
+    missing = sorted(name for name in named if not (root / 'static' / name).exists())
+    assert missing == [], missing
     assert 'data-v038-poker8-v2-cinematic-table' in loader
     assert (root / 'static' / 'assets' / 'poker8-v2-table-mobile.webp').exists()
     assert '@media (max-width:780px)' in source
@@ -178,7 +185,6 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert '.v038-turn-context' in source
     assert 'syncTableTurnHud' in source
     assert 'TURN_VISUAL_MS = 30000' in source
-    assert 'minimumFractionDigits: 0' in polish_source
     assert 'actor?.street_invested' in source
     assert 'window.clearInterval(turnVisualTicker)' in source
     # The clock follows the server deadline and only falls back to a fixed 30 s
