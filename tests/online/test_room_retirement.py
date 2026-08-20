@@ -47,12 +47,12 @@ def room(db_session_factory):
     seating = SeatingService(db_session_factory, ledger)
     coordinator = OnlineCoordinator(runtime, seating, catalogue, interval_seconds=0)
     created = asyncio.run(catalogue.create_room("u1", "Вечерний стол", "micro"))
-    return coordinator, catalogue, clock, created.id, db_session_factory
+    return coordinator, catalogue, clock, created.id, db_session_factory, seating, ledger
 
 
 @pytest.mark.anyio
 async def test_an_empty_room_is_retired_only_after_the_full_wait(room):
-    coordinator, catalogue, clock, table_id, session_factory = room
+    coordinator, catalogue, clock, table_id, session_factory, seating, ledger = room
 
     await coordinator.tick()
     clock.advance(ROOM_IDLE_TTL - timedelta(minutes=1))
@@ -66,21 +66,24 @@ async def test_an_empty_room_is_retired_only_after_the_full_wait(room):
 
 
 @pytest.mark.anyio
-async def test_retiring_a_room_leaves_no_chips_behind(room):
-    """A closed table stops being advanced, so anything still seated would keep
-    its chips locked in escrow for good."""
-    coordinator, catalogue, clock, table_id, session_factory = room
+async def test_closing_a_room_you_are_sitting_in_gives_your_chips_back(room):
+    """A closed table stops being advanced, so a stack left on it would stay
+    locked in the table's escrow for good. The owner closing a room they are
+    still sitting in is the one way that happens -- an idle room has nobody on
+    it by definition."""
+    coordinator, catalogue, clock, table_id, session_factory, seating, ledger = room
 
-    await coordinator.tick()  # the boundary seats bots and funds them
     async with session_factory() as session:
-        seated = (await session.execute(
-            select(table_seats.c.id).where(
-                table_seats.c.table_id == table_id, table_seats.c.state != "empty")
-        )).scalars().all()
-    assert seated, "the room filled up before being retired"
+        await session.execute(insert(table_seats).values(
+            id="owner", table_id=table_id, seat_no=0, occupant_kind="user",
+            user_id="u1", stack_units=4_000, state="seated"))
+        await session.commit()
+    await ledger.grant("u1", 4_000, "grant:u1")
+    await ledger.reserve_buy_in("u1", table_id, 4_000, "buy:u1")
+    before = await ledger.available_units("u1")
 
-    clock.advance(ROOM_IDLE_TTL + timedelta(minutes=1))
-    await coordinator.tick()
+    await seating.evict_table(table_id)
+    await catalogue.close_room(table_id, "u1")
 
     async with session_factory() as session:
         left = (await session.execute(
@@ -93,19 +96,14 @@ async def test_retiring_a_room_leaves_no_chips_behind(room):
                 play_accounts.c.owner_id == table_id,
                 play_accounts.c.account_kind == "escrow")
         )).scalar_one_or_none()
-        bot_escrow = (await session.execute(
-            select(play_accounts.c.balance_units).where(
-                play_accounts.c.owner_kind == "system",
-                play_accounts.c.account_kind == "escrow")
-        )).scalars().all()
     assert left == [], "every seat was emptied"
-    assert (escrow or 0) == 0
-    assert sum(bot_escrow) == 0, "and the bots gave their chips back"
+    assert (escrow or 0) == 0, "and the table's escrow with it"
+    assert await ledger.available_units("u1") == before + 4_000, "the stack went home"
 
 
 @pytest.mark.anyio
 async def test_the_clock_restarts_when_somebody_sits_down(room):
-    coordinator, catalogue, clock, table_id, session_factory = room
+    coordinator, catalogue, clock, table_id, session_factory, seating, ledger = room
 
     await coordinator.tick()
     clock.advance(ROOM_IDLE_TTL - timedelta(minutes=1))
@@ -127,3 +125,38 @@ async def test_the_clock_restarts_when_somebody_sits_down(room):
 
     assert table_id in {row.id for row in await catalogue.list_tables(per_page=100)}, \
         "the wait starts over from when it emptied, not from when it opened"
+
+
+@pytest.mark.anyio
+async def test_a_new_room_stays_empty_until_its_owner_sits_down(room):
+    """Seating bots the moment a room opens meant its creator walked into a
+    hand already under way instead of their own table."""
+    coordinator, catalogue, clock, table_id, session_factory, seating, ledger = room
+
+    for _ in range(3):
+        clock.advance(timedelta(seconds=30))
+        await coordinator.tick()
+
+    async with session_factory() as session:
+        occupied = (await session.execute(
+            select(table_seats.c.id).where(
+                table_seats.c.table_id == table_id, table_seats.c.state != "empty")
+        )).scalars().all()
+    assert occupied == [], "nobody is at the table, so no bot sat down"
+
+    # And they do arrive once there is somebody to play against.
+    async with session_factory() as session:
+        await session.execute(insert(table_seats).values(
+            id="owner", table_id=table_id, seat_no=0, occupant_kind="user",
+            user_id="u1", stack_units=4_000, state="seated"))
+        await session.commit()
+    await coordinator.tick()
+
+    async with session_factory() as session:
+        bots = (await session.execute(
+            select(table_seats.c.id).where(
+                table_seats.c.table_id == table_id,
+                table_seats.c.occupant_kind == "system",
+                table_seats.c.state == "seated")
+        )).scalars().all()
+    assert bots, "the room fills up around the person who opened it"

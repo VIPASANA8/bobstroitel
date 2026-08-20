@@ -132,15 +132,25 @@ async def test_an_afk_human_is_sat_out_after_the_deadline_not_evicted(two_humans
 
 
 @pytest.mark.anyio
-async def test_a_bots_only_table_is_never_gated(two_humans):
-    """Bots are implicitly ready -- confirms the existing coordinator tests
-    (no humans seated) needed no changes for this feature."""
+async def test_a_table_with_nobody_at_it_seats_no_bots_and_deals_nothing(two_humans):
+    """Bots are there to give a person opponents. With nobody to give them to
+    they used to deal to each other around the clock, which is how one of them
+    piled up a stack in the millions -- and why a player who had just opened a
+    room walked into a hand already under way instead of their own table."""
     coordinator, clock = two_humans
     async with coordinator.runtime.session_factory() as session:
         await session.execute(delete(table_seats).where(table_seats.c.table_id == "t1"))
         await session.commit()
 
-    await coordinator.tick()  # seats bots via process_boundary
-    await coordinator.tick()  # should start immediately, no readiness to wait on
+    for _ in range(5):
+        clock.advance(60)
+        await coordinator.tick()
+
+    async with coordinator.runtime.session_factory() as session:
+        occupied = (await session.execute(
+            select(table_seats.c.id).where(
+                table_seats.c.table_id == "t1", table_seats.c.state != "empty")
+        )).scalars().all()
+    assert occupied == [], "no bot sat down at an empty table"
     loaded = coordinator.runtime._tables.get("t1")
-    assert loaded is not None and loaded.phase == "active"
+    assert loaded is None or loaded.phase != "active", "and no hand was dealt"

@@ -540,10 +540,19 @@ class SeatingService:
         ).mappings().all()
         active_rows = [row for row in rows if row["state"] != "empty"]
         user_count = sum(1 for row in active_rows if row["occupant_kind"] == "user")
-        # Room policy: 0–2 humans play with four bots; 3 humans play with
+        # Room policy: 1–2 humans play with four bots; 3 humans play with
         # three bots. New people wait once all six seats are occupied, rather
         # than evicting the third bot and turning the table into a human-only room.
-        target_bot_count = MAX_SYSTEM_BOTS if user_count <= 2 else MIN_SYSTEM_BOTS
+        #
+        # Nobody there means no bots at all. Bots exist to give a person
+        # opponents, and with nought people they had none to give: they dealt
+        # to each other around the clock, which is what let one of them pile up
+        # a stack in the millions. It also meant a player who opened a room
+        # walked into a hand already in progress instead of their own table.
+        # Zero bots leaves fewer than two seats filled, so no hand starts.
+        target_bot_count = 0 if user_count == 0 else (
+            MAX_SYSTEM_BOTS if user_count <= 2 else MIN_SYSTEM_BOTS
+        )
 
         seated_bots = sorted(
             (row for row in active_rows if row["occupant_kind"] == "system" and row["state"] == "seated"),

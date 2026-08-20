@@ -136,3 +136,21 @@ def test_the_lobby_offers_room_creation_without_mentioning_bots():
     assert "data-copy-room" in script and "data-close-room" in script
     # And a second attempt goes to the room they already have, not a refusal.
     assert 'detail.code === "room_limit_reached"' in script
+
+
+def test_the_owner_gets_an_invite_link_and_a_way_to_close_it_from_the_table():
+    """Both live in the table's own menu -- the creator is at the table, not in
+    the lobby, when they want to invite somebody or shut the room down."""
+    markup = Path("static/index.html").read_text(encoding="utf-8")
+    script = Path("static/online-table.js").read_text(encoding="utf-8")
+
+    for button in ("mobileDrawerInvite", "mobileDrawerCloseRoom"):
+        assert f'id="{button}"' in markup
+        # Hidden by default: everyone else at the table must never see them.
+        assert markup[markup.index(f'id="{button}"'):].split(">", 1)[0].endswith("hidden")
+        assert button in script
+
+    # Ownership is asked from the endpoint the lobby already uses, not guessed
+    # from a snapshot that never says who is looking.
+    assert '"/api/lobby/rooms/mine"' in script
+    assert "/close" in script

@@ -165,6 +165,10 @@
   let lastRenderKey = null;
   let readyInFlight = false;
   let readyUpInFlight = false;
+  // Whether this table is a room the viewer opened. Asked once, from the
+  // endpoint the lobby already uses: the snapshot carries created_by but not
+  // who is looking, and one room per player makes an id match the whole proof.
+  let ownsThisRoom = false;
 
   window.addEventListener("poker8:action-pending", event => {
     document.body.classList.toggle("p8-action-pending", Boolean(event.detail?.pending));
@@ -579,6 +583,40 @@
     window.Poker8Transport.resync();
   }
 
+  async function checkRoomOwnership() {
+    const response = await fetch("/api/lobby/rooms/mine");
+    if (!response.ok) return;
+    ownsThisRoom = (await response.json()).room?.id === tableId;
+    syncOwnerMenu();
+  }
+
+  function syncOwnerMenu() {
+    for (const id of ["mobileDrawerInvite", "mobileDrawerCloseRoom"]) {
+      const button = $(id);
+      if (button) button.hidden = !ownsThisRoom;
+    }
+  }
+
+  async function copyInviteLink() {
+    const url = `${location.origin}/table?table=${encodeURIComponent(tableId)}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      alert("Ссылка скопирована — отправьте её тем, кого зовёте.");
+    } catch {
+      // Clipboard access is refused in some in-app browsers; showing the link
+      // still lets the player copy it by hand.
+      window.prompt("Скопируйте ссылку на комнату:", url);
+    }
+  }
+
+  async function closeOwnRoom() {
+    if (!window.confirm("Закрыть комнату? Все, кто за столом, выйдут, а фишки вернутся на балансы.")) return;
+    const response = await fetch(`/api/lobby/rooms/${encodeURIComponent(tableId)}/close`, { method: "POST" });
+    if (!response.ok) return alert("Не удалось закрыть комнату. Попробуйте ещё раз.");
+    window.Poker8Transport.disconnect();
+    location.href = "/";
+  }
+
   async function returnToLobby() {
     // Do not call /leave here: closing the socket changes a seated player to
     // held, which preserves the place for a short reconnect window.
@@ -614,6 +652,8 @@
     $("mobileDrawerTakeSeat")?.addEventListener("click", () => {
       ready().catch(error => alert(error.message));
     });
+    $("mobileDrawerInvite")?.addEventListener("click", () => copyInviteLink());
+    $("mobileDrawerCloseRoom")?.addEventListener("click", () => closeOwnRoom().catch(error => alert(error.message)));
     $("mobileDrawerLobby")?.addEventListener("click", () => returnToLobby().catch(error => alert(error.message)));
     $("mobileDrawerLeave")?.addEventListener("click", async () => {
       const waiting = viewerState === "waiting";
@@ -645,6 +685,10 @@
     // Table pages must authenticate the Telegram Mini App before the first
     // snapshot; otherwise a retained guest cookie masks the real @username.
     await window.Poker8Auth?.ensureSession?.();
+    // Ownership never changes while the page is open, so this is asked once.
+    // A failure here only costs the owner their two menu items, so it must not
+    // take the rest of the table down with it.
+    await checkRoomOwnership().catch(() => {});
     await refreshState();
     clearInterval(pollTimer);
     // The socket now carries coordinator-driven changes too, so this is only a

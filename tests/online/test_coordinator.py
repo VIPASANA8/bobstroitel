@@ -8,7 +8,7 @@ from online.catalogue import Catalogue
 from online.coordinator import OnlineCoordinator
 from online.ledger import PlayLedger
 from online.runtime import TableRuntimeManager
-from online.schema import poker_tables, system_players, table_seats, tenants
+from online.schema import poker_tables, system_players, table_seats, tenants, users
 from online.seating import MAX_SYSTEM_BOTS, SeatingService
 
 
@@ -40,6 +40,17 @@ def coordinator(db_session_factory):
                 {"id": f"bot-{i}", "name": f"Bot {i}", "difficulty": "normal", "active": True}
                 for i in range(1, 7)
             ])
+            # Bots only join a table that has somebody to play against, so
+            # these tests need a person there. Held rather than seated: the
+            # seat is taken, which is what brings the bots in, but a held seat
+            # is not dealt in and does not gate the ready cycle -- so every
+            # test below still watches a pure bot hand, one tick at a time.
+            await session.execute(insert(users).values(
+                id="u1", telegram_user_id=1, display_name="A", acquisition_tenant_id="tenant"))
+            await session.execute(insert(table_seats).values(
+                id="seat-away", table_id="t1", seat_no=0, occupant_kind="user",
+                user_id="u1", stack_units=10_000, state="held",
+                hold_until=datetime(2030, 1, 1, tzinfo=timezone.utc)))
             await session.commit()
 
     asyncio.run(seed())
