@@ -163,12 +163,15 @@
         padding-bottom:12px!important;
         box-sizing:border-box!important;
       }
+      /* height:100%, not auto: --table-stage-h is a percentage of this box, and
+         against an auto height it resolved to nought -- the felt came out
+         940x3. The grid row is the definite height everything hangs off. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .left-column{
-        grid-area:table!important;min-height:0!important;height:auto!important;display:flex!important;
-        flex-direction:column!important;justify-content:center!important;
+        grid-area:table!important;min-height:0!important;height:100%!important;
+        display:flex!important;flex-direction:column!important;justify-content:center!important;
       }
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .table-frame{
-        width:min(100%,940px)!important;margin-inline:auto!important;
+        width:min(100%,940px)!important;height:100%!important;margin-inline:auto!important;
       }
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .history-card{display:none!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 #chatPanel{
