@@ -46,3 +46,39 @@ def test_layers_never_run_away_or_collapse():
     body = body[:body.index("\n}")]
     assert "Math.max(2, Math.min(6," in body, "the pot"
     assert "Math.max(2, Math.min(7," in body, "and the single wager stack"
+
+
+def test_a_stack_whose_base_sits_higher_is_drawn_behind():
+    """Depth comes from the base, never a hand-written number. The old table
+    had it inverted: the frontmost z sat on the stack at the top of the
+    cluster, so the far chips were drawn over the near ones."""
+    import json
+    import subprocess
+    import tempfile
+
+    source = APP[APP.index("function potClusterOffsets("):]
+    source = source[:source.index(chr(10) + "}") + 2]
+    probe = (
+        "const out = {};" + chr(10)
+        + "for (const n of [1,2,3,4,5,6,7]) out[n] = potClusterOffsets(n);" + chr(10)
+        + "console.log(JSON.stringify(out));" + chr(10)
+    )
+    with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False, encoding="utf-8") as handle:
+        handle.write(source + chr(10) + probe)
+        path = handle.name
+
+    result = subprocess.run(["node", path], capture_output=True, text=True, check=True)
+    for count, points in json.loads(result.stdout).items():
+        ordered = sorted(points, key=lambda point: point["y"])
+        depths = [point["z"] for point in ordered]
+        assert depths == sorted(depths), f"{count} stacks layered out of order: {ordered}"
+        layers = {point["z"] for point in points}
+        assert len(layers) == len(points), f"{count} stacks share a layer: {points}"
+
+def test_the_countdown_sits_above_the_label_it_belongs_to():
+    """They were positioned independently -- 55% - 66px against 36% or 47% --
+    and overlapped whenever the layout moved the label down."""
+    layer = Path("static/v038-poker8-v2-cinematic-table.js").read_text(encoding="utf-8")
+    assert "top:var(--p8-prompt-y, 36%)" in layer, "the label reads the variable"
+    assert "top:calc(var(--p8-prompt-y, 36%) - 64px)" in layer, "and the ring sits above it"
+    assert "top:calc(55% - 66px)" not in layer

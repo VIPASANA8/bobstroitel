@@ -224,8 +224,11 @@
       body.v014.poker8-v2-sixmax .v028-center-ready{display:none!important;}
       body.v014.poker8-v2-sixmax .deck-anchor{display:none!important;}
 
+      /* Above the label, not across it. Both hang off one variable, so the
+         ring follows the prompt when a five or six handed layout moves it
+         down -- they used to be positioned independently and overlapped. */
       body.v014.poker8-v2-sixmax .v038-ready-countdown{
-        position:absolute;z-index:74;left:50%;top:calc(55% - 66px);transform:translate(-50%,-50%);
+        position:absolute;z-index:74;left:50%;top:calc(var(--p8-prompt-y, 36%) - 64px);transform:translate(-50%,-50%);
         display:none;place-items:center;width:62px;height:62px;border-radius:50%;
         border:2px solid #72ffb5;background:rgba(1,20,13,.88);color:#e8fff3;
         box-shadow:0 0 0 3px rgba(0,5,3,.72),0 0 22px rgba(72,255,169,.58),inset 0 0 18px rgba(70,255,170,.14);
@@ -311,7 +314,7 @@
            prompt shows (no hand running) -- and it's the one vertical band
            every seat layout now deliberately avoids, so the prompt can no
            longer land on top of another seat's avatar. */
-        position:absolute;z-index:72;left:50%;top:36%;transform:translate(-50%,-50%);display:none;width:max-content;max-width:78%;
+        position:absolute;z-index:72;left:50%;top:var(--p8-prompt-y, 36%);transform:translate(-50%,-50%);display:none;width:max-content;max-width:78%;
         padding:10px 14px;border:1px solid rgba(61,235,190,.58);border-radius:12px;background:rgba(1,18,13,.88);text-align:center;
         box-shadow:0 0 18px rgba(46,239,186,.22);pointer-events:auto;cursor:pointer;
       }
@@ -320,8 +323,8 @@
          into the 36% band, so the prompt has to drop below them to stop
          covering an avatar. Still above the pot strip, which is empty
          whenever this prompt is on screen. */
-      body.v014.poker8-v2-sixmax.p8-player-count-5 .v038-room-prompt,
-      body.v014.poker8-v2-sixmax.p8-player-count-6 .v038-room-prompt{top:47%;}
+      body.v014.poker8-v2-sixmax.p8-player-count-5,
+      body.v014.poker8-v2-sixmax.p8-player-count-6{--p8-prompt-y:47%;}
       body.v014.poker8-v2-sixmax .v038-room-prompt strong{display:block;color:#7dffd0;font-size:13px;line-height:1.05;letter-spacing:.06em;}
       body.v014.poker8-v2-sixmax .v038-room-prompt span{display:block;margin-top:5px;color:#dfffee;font-size:9px;line-height:1.1;}
       body.v014.poker8-v2-sixmax.v038-room-awaiting .seat[data-visual-seat="0"] .avatar-wrap:not(.v038-viewer-ready) .player-avatar,

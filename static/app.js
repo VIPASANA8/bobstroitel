@@ -332,17 +332,27 @@ function chipLayers(value, col, compact) {
 }
 
 function potClusterOffsets(stackCount) {
+  // x and y place each stack in the cluster; y translates downward, and a
+  // column grows up from its own base, so y is where its bottom sits.
   const patterns = {
-    1: [{ x: 0, y: 10, z: 4 }],
-    2: [{ x: -9, y: 12, z: 3 }, { x: 8, y: 10, z: 4 }],
-    3: [{ x: -14, y: 13, z: 2 }, { x: 1, y: 4, z: 5 }, { x: 15, y: 11, z: 3 }],
-    4: [{ x: -18, y: 15, z: 2 }, { x: -5, y: 8, z: 4 }, { x: 8, y: 4, z: 6 }, { x: 19, y: 12, z: 3 }],
-    5: [{ x: -23, y: 16, z: 2 }, { x: -11, y: 10, z: 4 }, { x: 0, y: 2, z: 7 }, { x: 12, y: 8, z: 5 }, { x: 23, y: 14, z: 3 }],
-    6: [{ x: -25, y: 17, z: 2 }, { x: -15, y: 12, z: 3 }, { x: -4, y: 6, z: 5 }, { x: 7, y: 2, z: 7 }, { x: 18, y: 9, z: 4 }, { x: 28, y: 15, z: 2 }],
-    7: [{ x: -28, y: 18, z: 1 }, { x: -18, y: 13, z: 3 }, { x: -8, y: 8, z: 5 }, { x: 1, y: 1, z: 8 }, { x: 10, y: 6, z: 6 }, { x: 20, y: 11, z: 4 }, { x: 30, y: 17, z: 2 }],
+    1: [{ x: 0, y: 10 }],
+    2: [{ x: -9, y: 12 }, { x: 8, y: 10 }],
+    3: [{ x: -14, y: 13 }, { x: 1, y: 4 }, { x: 15, y: 11 }],
+    4: [{ x: -18, y: 15 }, { x: -5, y: 8 }, { x: 8, y: 4 }, { x: 19, y: 12 }],
+    5: [{ x: -23, y: 16 }, { x: -11, y: 10 }, { x: 0, y: 2 }, { x: 12, y: 8 }, { x: 23, y: 14 }],
+    6: [{ x: -25, y: 17 }, { x: -15, y: 12 }, { x: -4, y: 6 }, { x: 7, y: 2 }, { x: 18, y: 9 }, { x: 28, y: 15 }],
+    7: [{ x: -28, y: 18 }, { x: -18, y: 13 }, { x: -8, y: 8 }, { x: 1, y: 1 }, { x: 10, y: 6 }, { x: 20, y: 11 }, { x: 30, y: 17 }],
   };
-  return patterns[stackCount] || patterns[7];
+  const points = patterns[stackCount] || patterns[7];
+  // Depth comes from the base, never from a hand-written number. The stack
+  // whose bottom sits higher up the felt is the one further away, so it goes
+  // behind; the nearest stack is the lowest one. The old table had these the
+  // wrong way round -- the frontmost stack carried the highest z and sat at
+  // the top of the cluster, so the far chips were drawn over the near ones.
+  const bases = points.map(point => point.y).sort((a, b) => a - b);
+  return points.map(point => ({ ...point, z: bases.indexOf(point.y) + 1 }));
 }
+
 
 function chipStackHtml(value, compact = false) {
   const n = Number(value || 0);

@@ -274,7 +274,10 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'body.v014.poker8-v2-sixmax.v038-hand-complete .avatar-wrap::after' in source
     assert 'opacity:0!important;' in source
     assert 'v038-room-prompt' in source
-    assert '.v038-ready-countdown{\n        position:absolute;z-index:74;left:50%;top:calc(55% - 66px)' in source
+    # The ring hangs off the same variable as the label it sits above, so
+    # a five or six handed layout moves both together -- pinned apart
+    # they overlapped. See test_chip_stacks.
+    assert 'top:calc(var(--p8-prompt-y, 36%) - 64px)' in source
     assert 'НОВАЯ РАЗДАЧА' in source
     assert 'Нажмите на свою аватарку' in source
     assert 'previousQueueAutomation' in source
