@@ -85,6 +85,11 @@ _BOT_DIFFICULTY_FACTOR = {"easy": 0.84, "normal": 1.0, "hard": 1.12, "maximum": 
 _BOT_STREET_FACTOR = {"preflop": 0.88, "flop": 1.0, "turn": 1.10, "river": 1.22}
 # How often a bot stops dead over a spot that did not look hard. People do
 # this constantly -- a table where nobody ever hesitates reads as machinery.
+# What a table with no hand behind it looks like to a viewer.
+EMPTY_SNAPSHOT = {
+    "phase": "waiting", "revision": 0, "occupancy": 0,
+    "legal_actions": [], "players": {}, "action_deadline": None,
+}
 _BOT_TANK_RATE = 0.07
 # A real tank can run half a minute; at this table that reads as a frozen
 # client, and it crowds the 30s deadline a waiting human is held to.
@@ -331,7 +336,14 @@ class TableRuntimeManager:
         if loaded is None:
             loaded = await self._load_locked(table_id)
         if loaded is None:
-            raise RuntimeErrorBase("table runtime not found")
+            # A table that has never dealt a hand has no runtime row, which is
+            # an ordinary state, not a failure: a freshly opened room sits in it
+            # until somebody sits down and the first hand starts. Raising here
+            # killed the websocket before it sent anything -- the REST route
+            # caught it and rendered an empty table, but the socket did not, so
+            # the client reconnected forever and the owner of a new room could
+            # only watch it say "reconnecting".
+            return EMPTY_SNAPSHOT | {"viewer_state": "spectator"}
         participant_id = await self._participant_for_user(table_id, viewer_user_id) if viewer_user_id else None
         # A seat row can vanish while its owner is still a player in the hand
         # that is running -- leave processing and bot rebalance both clear seats

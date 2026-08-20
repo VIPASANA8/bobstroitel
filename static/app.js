@@ -848,7 +848,13 @@ function avatarHue(seat, isBot = false) {
 }
 
 function seatHtml(config, player) {
-  const locked = Boolean(ONLINE_TABLE_ID) || Boolean(game && !game.terminal);
+  // Online, an empty seat is how you sit down: the request is queued and the
+  // server seats you at the next hand boundary, so a hand in progress is no
+  // reason to refuse. Locking these on every network table left six buttons
+  // reading "Сесть" that could not be pressed -- and on a table with nobody at
+  // it, they were the only thing on screen offering a way in. Offline they
+  // still open the bot-seat editor, which a live hand does have to block.
+  const locked = ONLINE_TABLE_ID ? false : Boolean(game && !game.terminal);
   if (!config) return "";
 
   if (!config.active || config.occupant_type === "empty") {
@@ -956,7 +962,17 @@ function renderSeats() {
   renderWagerMarkers();
 
   document.querySelectorAll("[data-add-seat]").forEach(btn => {
-    btn.onclick = () => openSeatModal(Number(btn.dataset.addSeat));
+    btn.onclick = () => {
+      const seat = Number(btn.dataset.addSeat);
+      // The online seat flow is a buy-in against the server, not the local
+      // bot-seat editor. Announced rather than called, so this view keeps
+      // knowing nothing about the network table beyond its id.
+      if (ONLINE_TABLE_ID) {
+        window.dispatchEvent(new CustomEvent("poker8:take-seat", {detail: {seat}}));
+        return;
+      }
+      openSeatModal(seat);
+    };
   });
   document.querySelectorAll("[data-edit-seat]").forEach(btn => {
     btn.onclick = () => openSeatModal(Number(btn.dataset.editSeat));

@@ -21,6 +21,11 @@
     .poker8-online .local-only-control,.poker8-online .solver-panel,.poker8-online .stats-panel,.poker8-online .saved-tables-panel,.poker8-online .format-panel{display:none!important}
     .poker8-online .mobile-drawer-divider{height:1px;margin:8px 0;border:0;background:rgba(126,202,165,.20)}
     .poker8-online .mobile-drawer .network-table-action{display:block;width:100%;margin:6px 0;padding:12px;border:1px solid rgba(95,237,170,.34);border-radius:10px;background:rgba(4,31,20,.84);color:#c9ffe3;text-align:left;font-weight:850}
+    /* [hidden] is only display:none in the user-agent sheet, so the rule above
+       -- which does set display -- silently outranked it and every button the
+       drawer meant to hide stayed on screen: "Занять место" while already
+       seated, and both room-owner controls to people who own nothing. */
+    .poker8-online .mobile-drawer .network-table-action[hidden]{display:none}
     .poker8-online .mobile-drawer .network-table-action.danger{border-color:rgba(255,125,111,.34);color:#ffc1b6;background:rgba(52,14,12,.58)}
     .poker8-online.p8-observer-mode #actionButtons,.poker8-online.p8-observer-mode #sizingWrap,.poker8-online.p8-observer-mode .mobile-turn-tools,.poker8-online.p8-observer-mode #mobileAutoActionBar,.poker8-online.p8-observer-mode .v038-hud-summary{display:none!important}
     .poker8-online.p8-observer-mode #mobileTimerCard,.poker8-online.p8-observer-mode #mobileSelectedCard{display:none!important}
@@ -500,14 +505,16 @@
     }
   }
 
-  async function ready() {
+  async function ready(seatNo = null) {
     if (readyInFlight || viewerState === "seated" || viewerState === "held" || viewerState === "leaving") return;
     readyInFlight = true;
     const button = $("readyButton");
     if (button) button.disabled = true;
     const buyInUnits = units(table?.big_blind_units) * 40;
     try {
-      const result = await window.Poker8Transport.ready(firstOpenSeat(latestState), buyInUnits);
+      // A seat the player actually pointed at wins over the first free one.
+      const result = await window.Poker8Transport.ready(
+        seatNo == null ? firstOpenSeat(latestState) : seatNo, buyInUnits);
       viewerState = result.queue_state === "waiting" ? "waiting" : viewerState;
       await refreshState();
     } catch (error) {
@@ -648,6 +655,9 @@
       if (!event.target?.matches?.('.seat[data-visual-seat="0"] .avatar-wrap, .v038-room-prompt')) return;
       event.preventDefault();
       readyUp().catch(error => { alert(error.message); });
+    });
+    window.addEventListener("poker8:take-seat", event => {
+      ready(event.detail?.seat ?? null).catch(error => alert(error.message));
     });
     $("mobileDrawerTakeSeat")?.addEventListener("click", () => {
       ready().catch(error => alert(error.message));
