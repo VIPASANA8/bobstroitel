@@ -13,13 +13,30 @@ def test_an_empty_seat_is_pressable_on_a_network_table():
         "an online table must not lock its empty seats"
 
 
-def test_pressing_one_asks_the_server_for_that_seat_not_the_first_free_one():
+def test_only_one_empty_seat_carries_the_offer():
+    """Six identical circles round an empty table is the same offer six times."""
+    app = Path("static/app.js").read_text(encoding="utf-8")
+
+    assert "function seatHtml(config, player, offerSeat = true)" in app
+    assert 'if (ONLINE_TABLE_ID && !offerSeat) return "";' in app
+    assert "config.seat === offeredSeat" in app
+
+
+def test_the_seat_click_is_delegated_so_a_redraw_cannot_lose_it():
+    """The mobile layers rebuild the seat ring on every snapshot, and a handler
+    bound to the element dies with the node it was bound to."""
     app = Path("static/app.js").read_text(encoding="utf-8")
     online = Path("static/online-table.js").read_text(encoding="utf-8")
 
-    assert 'CustomEvent("poker8:take-seat"' in app
-    assert 'window.addEventListener("poker8:take-seat"' in online
-    assert "ready(event.detail?.seat" in online
+    # Offline only: online must not bind to the node at all.
+    binding = app[app.index('document.querySelectorAll("[data-add-seat]")') - 400:]
+    binding = binding[:binding.index("});") + 3]
+    assert "if (!ONLINE_TABLE_ID) {" in binding
+
+    handler = online[online.index('closest?.("[data-add-seat]")') - 300:]
+    handler = handler[:handler.index("});") + 3]
+    assert 'document.addEventListener("click"' in handler
+    assert "ready(Number(button.dataset.addSeat))" in handler
     assert "seatNo == null ? firstOpenSeat(latestState) : seatNo" in online
 
 

@@ -847,7 +847,7 @@ function avatarHue(seat, isBot = false) {
   return (base + Number(seat || 0) * 37) % 360;
 }
 
-function seatHtml(config, player) {
+function seatHtml(config, player, offerSeat = true) {
   // Online, an empty seat is how you sit down: the request is queued and the
   // server seats you at the next hand boundary, so a hand in progress is no
   // reason to refuse. Locking these on every network table left six buttons
@@ -858,6 +858,11 @@ function seatHtml(config, player) {
   if (!config) return "";
 
   if (!config.active || config.occupant_type === "empty") {
+    // Six identical "Сесть" circles round an empty table is the same offer six
+    // times over. Online only the seat you would actually be given carries it;
+    // the rest of the ring stays a plain empty place. Offline each button is a
+    // control for its own seat's bot editor, so they are not the same offer.
+    if (ONLINE_TABLE_ID && !offerSeat) return "";
     return `
       <button class="seat-empty ${locked ? "seat-lock" : ""}" data-add-seat="${config.seat}" ${locked ? "disabled" : ""}>
         <span class="empty-avatar">＋</span>
@@ -947,11 +952,14 @@ function renderWagerMarkers() {
 
 function renderSeats() {
   if (!tableData) return;
+  const offeredSeat = tableData.seats.find(
+    config => !config.active || config.occupant_type === "empty",
+  )?.seat;
   tableData.seats.forEach(config => {
     const target = document.querySelector(`.seat[data-seat="${config.seat}"]`);
     if (!target) return;
     const player = gamePlayerForSeat(config.seat);
-    target.innerHTML = seatHtml(config, player);
+    target.innerHTML = seatHtml(config, player, config.seat === offeredSeat);
     const cardsTarget = target.querySelector(`[data-cards-seat="${config.seat}"]`);
     if (cardsTarget && player) {
       renderCards(cardsTarget, player.hole_cards || ["??", "??"]);
@@ -961,19 +969,16 @@ function renderSeats() {
   window.syncComponentSeatLayout?.(game, tableData);
   renderWagerMarkers();
 
-  document.querySelectorAll("[data-add-seat]").forEach(btn => {
-    btn.onclick = () => {
-      const seat = Number(btn.dataset.addSeat);
-      // The online seat flow is a buy-in against the server, not the local
-      // bot-seat editor. Announced rather than called, so this view keeps
-      // knowing nothing about the network table beyond its id.
-      if (ONLINE_TABLE_ID) {
-        window.dispatchEvent(new CustomEvent("poker8:take-seat", {detail: {seat}}));
-        return;
-      }
-      openSeatModal(seat);
-    };
-  });
+  // Online the seat flow is a buy-in against the server, and online-table.js
+  // owns it through a listener delegated on the document -- the mobile layers
+  // rebuild this markup on every snapshot, and a handler bound to the element
+  // dies with the node it was bound to. Offline the button edits its own seat,
+  // and nothing replaces the node underneath it.
+  if (!ONLINE_TABLE_ID) {
+    document.querySelectorAll("[data-add-seat]").forEach(btn => {
+      btn.onclick = () => openSeatModal(Number(btn.dataset.addSeat));
+    });
+  }
   document.querySelectorAll("[data-edit-seat]").forEach(btn => {
     btn.onclick = () => openSeatModal(Number(btn.dataset.editSeat));
   });

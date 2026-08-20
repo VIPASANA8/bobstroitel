@@ -656,8 +656,14 @@
       event.preventDefault();
       readyUp().catch(error => { alert(error.message); });
     });
-    window.addEventListener("poker8:take-seat", event => {
-      ready(event.detail?.seat ?? null).catch(error => alert(error.message));
+    // Delegated, like the hero avatar above and for the same reason: the
+    // mobile layers rebuild the seat ring on every snapshot, so a listener
+    // bound to a seat button dies with the node it was bound to.
+    document.addEventListener("click", event => {
+      const button = event.target?.closest?.("[data-add-seat]");
+      if (!button) return;
+      event.preventDefault();
+      ready(Number(button.dataset.addSeat)).catch(error => alert(error.message));
     });
     $("mobileDrawerTakeSeat")?.addEventListener("click", () => {
       ready().catch(error => alert(error.message));
