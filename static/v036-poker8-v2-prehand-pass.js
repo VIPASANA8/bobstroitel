@@ -4,7 +4,8 @@
   const style = document.createElement("style");
   style.id = "v036-poker8-v2-prehand-pass-style";
   style.textContent = `
-    @media (max-width:780px){
+    /* Was @media (max-width:780px) -- see v032. */
+    @media all{
       /* Keep the approved 6-max ring; only give hero a little more air above the rim. */
       body.v014.poker8-v2-sixmax{
         --seat-0-y:85.2%!important;

@@ -1,8 +1,9 @@
 (() => {
   "use strict";
 
-  const isMobileV2 = () => window.matchMedia?.("(max-width: 780px)")?.matches
-    && document.body.classList.contains("poker8-v2-sixmax");
+  // The class is the switch now: it is added at every width, so the media
+  // half of this test only kept desktop out of everything below.
+  const isMobileV2 = () => document.body.classList.contains("poker8-v2-sixmax");
 
   function ensureChatButton() {
     const header = document.getElementById("mobileGameHeader");

@@ -1,8 +1,9 @@
 (() => {
   "use strict";
 
-  const MOBILE = "(max-width: 780px)";
-  const isV2 = () => window.matchMedia?.(MOBILE)?.matches && document.body.classList.contains("poker8-v2-sixmax");
+  // The class is the switch now: it is added at every width, so the media
+  // half of this test only kept desktop out of everything below.
+  const isV2 = () => document.body.classList.contains("poker8-v2-sixmax");
 
   function toEnglishBb(text) {
     return String(text || "")
@@ -78,7 +79,8 @@
   const style = document.createElement("style");
   style.id = "v035-poker8-v2-pixel-pass-style";
   style.textContent = `
-    @media (max-width:780px){
+    /* Was @media (max-width:780px) -- see v032. */
+    @media all{
       body.v014.poker8-v2-sixmax{
         --table-stage-h:clamp(500px,65dvh,522px)!important;
         --seat-0-x:50%!important; --seat-0-y:86.5%!important;

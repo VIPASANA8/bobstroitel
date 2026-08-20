@@ -141,6 +141,53 @@
         body.v014.poker8-desktop-v2 .table-frame{height:clamp(590px,70dvh,760px)!important;}
       }
     }
+
+      /* Desktop geometry for the v2 table.
+
+         The layout is one column on a phone: table, chat, then the action
+         panel, sized to fill 100dvh. Given 1440x900 that stack came to 1110px
+         and the action panel landed at y=967 -- below the fold, on a page that
+         does not scroll. The felt also ran the full 1364px, which is not a
+         shape a poker table has.
+
+         Two columns instead: the table and its controls on the left, chat
+         beside them full height. The felt keeps a sane width and centres. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .layout{
+        display:grid!important;
+        grid-template-columns:minmax(0,1fr) 330px!important;
+        grid-template-rows:minmax(0,1fr) auto!important;
+        grid-template-areas:"table chat" "actions chat"!important;
+        gap:14px!important;
+        height:calc(100dvh - 76px)!important;
+        min-height:0!important;
+        padding-bottom:12px!important;
+        box-sizing:border-box!important;
+      }
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .left-column{
+        grid-area:table!important;min-height:0!important;height:auto!important;display:flex!important;
+        flex-direction:column!important;justify-content:center!important;
+      }
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .table-frame{
+        width:min(100%,940px)!important;margin-inline:auto!important;
+      }
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .history-card{display:none!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #chatPanel{
+        grid-area:chat!important;height:100%!important;min-height:0!important;
+        display:flex!important;flex-direction:column!important;
+      }
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #chatMessages{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .sidebar{
+        grid-area:actions!important;width:min(100%,940px)!important;margin-inline:auto!important;
+        position:static!important;height:auto!important;min-height:0!important;
+      }
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .action-panel{
+        position:static!important;height:auto!important;min-height:0!important;
+      }
+      /* The stage is a grid row here, not a subtraction from the viewport. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2{
+        --p8-bottom-reserve:0px!important;
+        --table-stage-h:100%!important;
+      }
   `;
 
   document.head.appendChild(style);
