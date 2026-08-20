@@ -89,7 +89,7 @@
       },
       {
         key: "all_in",
-        label: `ОЛЛ-ИН\n${formatBB(allInTotal)}`,
+        label: `ALL-IN\n${formatBB(allInTotal)}`,
         cls: "all-in",
       },
     ];

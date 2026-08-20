@@ -65,7 +65,7 @@ const ACTION_LABELS = {
   call: "Колл",
   bet: "Ставка",
   raise: "Рейз",
-  all_in: "Олл-ин",
+  all_in: "ALL-IN",
 };
 
 function localViewerPlayer() {
@@ -118,7 +118,7 @@ function queuedActionText(item = pendingAction) {
   if (item.kind === "fold") return "Маркер: Пас";
   if (item.kind === "check") return "Маркер: Чек";
   if (item.kind === "call") return `Маркер: Колл ${formatBB(item.estimateToCall || 0)}`;
-  if (item.kind === "all_in") return "Маркер: Олл-ин";
+  if (item.kind === "all_in") return "Маркер: ALL-IN";
   if (item.kind === "aggressive") return `Маркер: Ставка ${formatBB(item.amount || 0)}`;
   return "Маркер";
 }
@@ -180,7 +180,7 @@ async function maybeAutoFirePendingAction() {
       await sendAction("all_in", 0);
       return true;
     }
-    pendingInvalidReason = "Маркер «Олл-ин» сейчас недоступен";
+    pendingInvalidReason = "Маркер «ALL-IN» сейчас недоступен";
     pendingAction = null;
     renderQueuedActionStatus();
     return false;
@@ -873,7 +873,7 @@ function seatHtml(config, player) {
   // A human's turn is shown by the seat's own glow (.active-turn) -- the
   // "ХОД" badge on top of it was redundant. Bots keep "ДУМАЕТ": it's the
   // only sign a bot is actually deciding, not just informational chrome.
-  const status = folded ? "ПАС" : allIn ? "ОЛЛ-ИН" : activeTurn && !isHuman ? "ДУМАЕТ" : "";
+  const status = folded ? "ПАС" : allIn ? "ALL-IN" : activeTurn && !isHuman ? "ДУМАЕТ" : "";
   const typeClass = isHuman ? "seat-human" : "seat-bot";
   // game is null before a hand exists (waiting/countdown) -- tableData's own
   // copy survives those phases, so a freshly seated player still gets a hero
@@ -900,7 +900,7 @@ function seatHtml(config, player) {
           <div class="seat-name">${escapeHtml(displayName)}</div>
           <div class="position-chip ${buttonClass}">${escapeHtml(position)}</div>
         </div>
-        <div class="seat-stack">${formatBB(stack)}</div>
+        <div class="seat-stack">${allIn ? "ALL-IN" : formatBB(stack)}</div>
         <div class="bot-level">${isHuman ? "ИГРОК" : DIFFICULTY_LABELS[source.difficulty || config.difficulty] || "БОТ"}</div>
       </div>
       <div class="player-cards" data-cards-seat="${config.seat}"></div>
@@ -1257,7 +1257,7 @@ function actionButtonLabel(action, localTurn = false) {
   if (action === "aggressive") return `${Number(game?.current_bet || 0) > Number(localPlayer?.street_invested || 0) ? "РЕЙЗ" : "СТАВКА"}\n${formatBB(amount)}`;
   if (action === "all_in") {
     const total = Number(localPlayer?.stack || 0) + Number(localPlayer?.street_invested || 0);
-    return `ОЛЛ-ИН\n${formatBB(total)}`;
+    return `ALL-IN\n${formatBB(total)}`;
   }
   return String(ACTION_LABELS[action] || action).toUpperCase();
 }
@@ -1306,7 +1306,7 @@ function selectedActionParts() {
   if (pendingAction.kind === "fold") return { label: "ПАС", amount: "" };
   if (pendingAction.kind === "check") return { label: "ЧЕК", amount: "" };
   if (pendingAction.kind === "call") return { label: "КОЛЛ", amount: formatBB(pendingAction.estimateToCall || 0) };
-  if (pendingAction.kind === "all_in") return { label: "ОЛЛ-ИН", amount: "" };
+  if (pendingAction.kind === "all_in") return { label: "ALL-IN", amount: "" };
   if (pendingAction.kind === "aggressive") return { label: Number(game?.current_bet || 0) > Number(localViewerPlayer()?.street_invested || 0) ? "РЕЙЗ" : "СТАВКА", amount: formatBB(pendingAction.amount || 0) };
   return { label: "—", amount: "" };
 }
@@ -1378,7 +1378,7 @@ function renderPersistentActionButtons() {
     { slot:"left", key:leftKey, label:leftKey === "check" ? "ЧЕК" : "ПАС", cls:leftKey === "fold" ? "fold" : "check" },
     { slot:"call", key:"call", label:`КОЛЛ${toCall > 0 ? `\n${formatBB(toCall)}` : ""}`, cls:"call" },
     { slot:"aggressive", key:"aggressive", label:`${aggressiveName}\n${formatBB(amount)}`, cls:"raise" },
-    { slot:"all_in", key:"all_in", label:`ОЛЛ-ИН\n${formatBB(allInTotal)}`, cls:"all-in" },
+    { slot:"all_in", key:"all_in", label:`ALL-IN\n${formatBB(allInTotal)}`, cls:"all-in" },
   ];
 
   defs.forEach(def => {

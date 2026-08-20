@@ -398,8 +398,24 @@
     }
   }
 
+  let heldSeatLastSnapshot = false;
+
+  // Losing the stack takes the seat away at the next boundary, and the player
+  // simply became a spectator mid-session with nothing said. Leaving on purpose
+  // navigates away from this page, so a seat that disappears under someone
+  // still sitting here is the table releasing it -- which it only does once the
+  // stack can no longer cover a big blind.
+  function noticeBustOut(state) {
+    const seatedNow = Boolean(state?.viewer_player_id);
+    const lost = heldSeatLastSnapshot && !seatedNow;
+    heldSeatLastSnapshot = seatedNow;
+    if (!lost) return;
+    alert("Фишки закончились, и место освободилось.\nЧтобы играть дальше, займите место снова.");
+  }
+
   function renderSnapshot(state) {
     latestState = state;
+    noticeBustOut(state);
     reconcileViewerState(state);
     renderOnlineChrome(state);
     // v038's ready-countdown ring already renders from any endsAt timestamp

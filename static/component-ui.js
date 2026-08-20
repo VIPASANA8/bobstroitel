@@ -30,6 +30,11 @@
 
   window.syncComponentSeatLayout = function syncComponentSeatLayout(game, tableData) {
     const anchor = viewerSeat(game, tableData);
+    // Idle decoration only. While a hand runs, the players in it carry real
+    // positions and a real dealer button; a seat sitting the hand out still has
+    // a generic chip, and dressing that one up gave it a second, wrong dealer
+    // button next to the true one.
+    const liveHand = Boolean(game && !game.terminal);
     const idlePositionByVisualSeat = {
       0: "BTN",
       1: "HJ",
@@ -47,7 +52,7 @@
 
       const positionChip = seatEl.querySelector(".position-chip");
       const genericPosition = positionChip && /^(БОТ|ИГРОК)$/i.test(positionChip.textContent.trim());
-      if (genericPosition) {
+      if (genericPosition && !liveHand) {
         positionChip.textContent = idlePositionByVisualSeat[visual] || positionChip.textContent;
         positionChip.classList.toggle("btn-pos", visual === 0);
 
@@ -179,7 +184,7 @@
       v032.addEventListener("load", () => {
         if (!document.querySelector('script[data-v037-poker8-v2-reference-table]')) {
           const finalMobile = document.createElement("script");
-          finalMobile.src = "/static/v037-poker8-v2-reference-table.js?v=dynamic-seats-17";
+          finalMobile.src = "/static/v037-poker8-v2-reference-table.js?v=dynamic-seats-18";
           finalMobile.dataset.v037Poker8V2ReferenceTable = "1";
           document.body.appendChild(finalMobile);
         }
@@ -187,7 +192,7 @@
       document.body.appendChild(v032);
     } else if (!document.querySelector('script[data-v037-poker8-v2-reference-table]')) {
       const finalMobile = document.createElement("script");
-      finalMobile.src = "/static/v037-poker8-v2-reference-table.js?v=dynamic-seats-17";
+      finalMobile.src = "/static/v037-poker8-v2-reference-table.js?v=dynamic-seats-18";
       finalMobile.dataset.v037Poker8V2ReferenceTable = "1";
       document.body.appendChild(finalMobile);
     }

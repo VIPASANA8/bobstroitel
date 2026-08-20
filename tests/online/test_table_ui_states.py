@@ -64,3 +64,14 @@ def test_an_unaffordable_buy_in_opens_a_top_up_modal():
     # is shown but the button stays inert rather than pretending to work.
     assert "window.Poker8TopUp?.open" in source
     assert "topUp.disabled = !live;" in source
+
+
+def test_losing_the_stack_is_announced():
+    """The boundary releases a seat once its stack cannot cover a big blind, and
+    the player just became a spectator with nothing said. Leaving on purpose
+    navigates away, so a seat vanishing under someone still on the page is the
+    table taking it back."""
+    source = Path("static/online-table.js").read_text(encoding="utf-8")
+    assert "function noticeBustOut(state)" in source
+    assert "noticeBustOut(state);" in source
+    assert "heldSeatLastSnapshot" in source

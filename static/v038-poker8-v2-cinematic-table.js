@@ -158,6 +158,13 @@
       body.v014.poker8-v2-sixmax .avatar-wrap::after{right:-8px;transform:rotate(12deg);transform-origin:bottom left;}
       body.v014.poker8-v2-sixmax .seat-card:has(.player-cards:not(:empty)) .avatar-wrap::before,
       body.v014.poker8-v2-sixmax .seat-card:has(.player-cards:not(:empty)) .avatar-wrap::after{opacity:0;}
+      /* These two are decoration for an idle table, not real cards. Once a hand
+         is running a seat either holds actual cards -- which hide them via the
+         rule above -- or is sitting the hand out, and then a pair of card backs
+         behind the avatar says the opposite of the prompt telling that player
+         the hand is going on without them. p8-no-pot marks "no hand at all". */
+      body.v014.poker8-v2-sixmax:not(.p8-no-pot) .avatar-wrap::before,
+      body.v014.poker8-v2-sixmax:not(.p8-no-pot) .avatar-wrap::after{opacity:0;}
       body.v014.poker8-v2-sixmax.v038-room-awaiting .avatar-wrap::before,
       body.v014.poker8-v2-sixmax.v038-room-awaiting .avatar-wrap::after,
       body.v014.poker8-v2-sixmax.v038-room-resetting .avatar-wrap::before,
@@ -1089,9 +1096,9 @@
     }
     const defs = [
       { key:"call", label:"CALL", amount:stripHudUnit(formatBB(toCall)), cls:"call" },
-      { key:"all_in", label:"ALL IN", amount:stripHudUnit(formatBB(allInTotal)), cls:"all-in", allIn:true },
+      { key:"all_in", label:"ALL-IN", amount:stripHudUnit(formatBB(allInTotal)), cls:"all-in", allIn:true },
       { key:leftKey, label:leftKey === "check" ? "CHECK" : "FOLD", amount:"", cls:leftKey },
-      { key:"aggressive", label:atMax ? "ALL IN" : aggressiveLabel, amount:stripHudUnit(formatBB(atMax ? allInTotal : amount)), cls:atMax ? "all-in" : "raise", allIn:atMax },
+      { key:"aggressive", label:atMax ? "ALL-IN" : aggressiveLabel, amount:stripHudUnit(formatBB(atMax ? allInTotal : amount)), cls:atMax ? "all-in" : "raise", allIn:atMax },
     ];
     if (current.length !== 4) {
       grid.innerHTML = "";

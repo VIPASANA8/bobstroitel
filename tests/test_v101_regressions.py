@@ -309,3 +309,32 @@ def test_no_layer_writes_a_turn_label_onto_the_seat():
     # The highlight itself must stay -- it is now the only turn indicator.
     assert 'p8-turn-gradient' in v041
     assert 'v041PlatePulse' in v041
+
+
+def test_idle_seat_decoration_never_shows_during_a_hand():
+    """The two card backs behind an avatar are decoration for an idle table. A
+    seat sitting a hand out has no real cards to replace them, so they told the
+    player they held cards while the prompt said the hand was running without
+    them -- and component-ui dressed that same seat with a second, wrong dealer
+    button next to the real one."""
+    root = Path(__file__).resolve().parents[1]
+    v038 = (root / 'static' / 'v038-poker8-v2-cinematic-table.js').read_text(encoding='utf-8')
+    assert 'body.v014.poker8-v2-sixmax:not(.p8-no-pot) .avatar-wrap::before' in v038
+
+    component = (root / 'static' / 'component-ui.js').read_text(encoding='utf-8')
+    assert 'const liveHand = Boolean(game && !game.terminal);' in component
+    assert 'if (genericPosition && !liveHand) {' in component
+
+
+def test_all_in_is_spelled_one_way_and_replaces_the_empty_stack():
+    """An all-in player's stack reads 0, which says nothing. The seat shows the
+    state there instead, and every layer spells it the same."""
+    root = Path(__file__).resolve().parents[1]
+    for name in ('app.js', 'v016-fixes.js', 'v038-poker8-v2-cinematic-table.js'):
+        source = (root / 'static' / name).read_text(encoding='utf-8')
+        assert 'ОЛЛ-ИН' not in source, name
+        assert 'Олл-ин' not in source, name
+        assert '"ALL IN"' not in source, name
+
+    app_source = (root / 'static' / 'app.js').read_text(encoding='utf-8')
+    assert '${allIn ? "ALL-IN" : formatBB(stack)}' in app_source
