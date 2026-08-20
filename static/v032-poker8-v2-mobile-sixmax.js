@@ -1,11 +1,6 @@
 (() => {
   "use strict";
 
-  const MOBILE_QUERY = "(max-width: 780px)";
-
-  function mobile() {
-    return window.matchMedia?.(MOBILE_QUERY)?.matches ?? false;
-  }
 
   function activeSeatElements() {
     return [...document.querySelectorAll('.seat[data-seat]')].filter((seat) => {
@@ -46,7 +41,13 @@
   }
 
   function applySixMaxLayout(gameState, tableState) {
-    if (!mobile()) return false;
+    // This gate is what kept the whole v2 table on phones. Everything the five
+    // v2 layers draw hangs off the poker8-v2-sixmax class added below, so
+    // desktop got none of it: no seat accents, no action grid, no HUD summary,
+    // no turn clock, no all-in bar -- and fell further behind with every
+    // mobile fix. The layout is written in percentages of the felt, so it
+    // scales; the handful of fixed pixel values are re-tuned for desktop in
+    // v039, which is where desktop geometry belongs.
     const anchor = viewerPhysicalSeat(gameState, tableState);
     const visible = chooseVisibleSeats(anchor);
     if (!visible) {
@@ -111,7 +112,9 @@
   const style = document.createElement('style');
   style.id = 'v032-poker8-v2-mobile-sixmax-style';
   style.textContent = `
-    @media (max-width:780px){
+    /* Was @media (max-width:780px). The v2 table is the table now, at every
+       width; desktop geometry is tuned in v039. */
+    @media all{
       body.poker8-v2-sixmax{
         --table-stage-h:clamp(492px,65dvh,540px);
         --seat-0-x:50%; --seat-0-y:88.8%;

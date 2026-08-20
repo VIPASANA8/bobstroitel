@@ -8,7 +8,9 @@
   const style = document.createElement("style");
   style.id = "v038-poker8-v2-cinematic-table-style";
   style.textContent = `
-    @media (max-width:780px){
+    /* Was @media (max-width:780px). The v2 table is the table now, at every
+       width; desktop geometry is tuned in v039. */
+    @media all{
       body.v014.poker8-v2-sixmax{
         --p8-wood-dark:#120804;
         --p8-wood-mid:#51270f;

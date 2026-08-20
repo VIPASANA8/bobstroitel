@@ -44,7 +44,11 @@ def test_v037_reference_table_pass_is_loaded_and_chat_is_decorative():
     assert 'type = "button"' in source
     assert 'addEventListener("click"' not in source
     assert 'window.addEventListener("resize", start)' in source
-    assert '@media (max-width:780px)' in source
+    # The v2 table is the table at every width now -- this block used to be
+    # @media (max-width:780px), which is what kept desktop on the old look
+    # with none of the HUD. Asserting the old string would pass on the
+    # comment that replaced it, so assert the rule that replaced it.
+    assert '@media all{' in source
 
 
 def test_v025_showdown_modal_is_readable_on_mobile():

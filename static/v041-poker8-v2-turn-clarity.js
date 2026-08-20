@@ -8,7 +8,9 @@
   const style = document.createElement("style");
   style.id = "v041-poker8-v2-turn-clarity-style";
   style.textContent = `
-    @media (max-width:780px){
+    /* Was @media (max-width:780px). The v2 table is the table now, at every
+       width; desktop geometry is tuned in v039. */
+    @media all{
       body.v014.poker8-v2-sixmax.p8-turn-active .felt{
         filter:drop-shadow(0 0 8px rgba(65,255,214,.16))!important;
       }

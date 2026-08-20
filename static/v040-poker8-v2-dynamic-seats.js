@@ -33,7 +33,9 @@
   const style = document.createElement("style");
   style.id = "v040-poker8-v2-dynamic-seats-style";
   style.textContent = `
-    @media (max-width:780px){
+    /* Was @media (max-width:780px). The v2 table is the table now, at every
+       width; desktop geometry is tuned in v039. */
+    @media all{
       body.v014.poker8-v2-sixmax .seat.v040-empty-seat{display:none!important;}
       body.v014.poker8-v2-sixmax .seat.v040-dynamic-seat{
         left:var(--v040-seat-x)!important;top:var(--v040-seat-y)!important;
