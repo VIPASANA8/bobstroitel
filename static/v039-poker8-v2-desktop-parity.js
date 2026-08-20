@@ -186,6 +186,11 @@
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .sidebar{
         grid-area:actions!important;width:min(100%,940px)!important;margin-inline:auto!important;
         height:var(--p8-hud-h)!important;
+        /* One column. The other four panels here -- solver, stats, saved
+           tables, format -- are trainer leftovers, hidden on a network table,
+           and their empty tracks squeezed the action panel into a quarter of
+           the bar. */
+        grid-template-columns:minmax(0,1fr)!important;
       }
       /* The controls inside are placed absolutely against phone widths, so on
          a 940px bar they huddled in a 207px column against the left edge.
