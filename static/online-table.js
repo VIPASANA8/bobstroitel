@@ -666,8 +666,15 @@
     $("mobileDrawerCloseRoom")?.addEventListener("click", () => closeOwnRoom().catch(error => alert(error.message)));
     $("mobileDrawerLobby")?.addEventListener("click", () => returnToLobby().catch(error => alert(error.message)));
     $("mobileDrawerLeave")?.addEventListener("click", async () => {
-      const waiting = viewerState === "waiting";
-      const message = waiting ? "Отменить очередь на место?" : "Покинуть стол? Во время раздачи выход будет выполнен после её завершения.";
+      // Leaving your own room does not close it, and one player may have only
+      // one open room at a time -- so somebody who left and then tried to open
+      // another was told they already had one, with no idea which or why. Say
+      // it here instead of letting them find out in the lobby.
+      const message = ownsThisRoom
+        ? "Выйти из своей комнаты? Она останется открытой — закрыть её можно кнопкой «Закрыть комнату»."
+        : viewerState === "waiting"
+          ? "Отменить очередь на место?"
+          : "Покинуть стол? Во время раздачи выход будет выполнен после её завершения.";
       if (window.confirm(message)) await leaveTable().catch(error => alert(error.message));
     });
     $("mobileChatButton")?.addEventListener("click", () => {

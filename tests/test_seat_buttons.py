@@ -33,3 +33,14 @@ def test_a_drawer_button_marked_hidden_is_actually_hidden():
     # specificity and does not depend on which one the file lists first.
     assert ".poker8-online .mobile-drawer .network-table-action[hidden]{display:none}" in online
     assert ".poker8-online .mobile-drawer .network-table-action{display:block" in online
+
+
+def test_leaving_your_own_room_says_the_room_stays_open():
+    """One open room per player, and leaving does not close it -- so somebody
+    who left and tried to open another was told they already had one, with no
+    idea which or why."""
+    online = Path("static/online-table.js").read_text(encoding="utf-8")
+    handler = online[online.index('$("mobileDrawerLeave")'):]
+    handler = handler[:handler.index("});")]
+    assert "ownsThisRoom" in handler
+    assert "Закрыть комнату" in handler, "and it points at the control that does close it"
