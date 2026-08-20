@@ -45,8 +45,12 @@ class ChatService:
         enforce_rate_limit: bool = True,
     ) -> ChatMessage:
         text = text.strip()
-        if not text or len(text) > 300 or any(ord(char) < 32 for char in text):
-            raise ChatError("message must contain 1–300 printable characters")
+        # Newlines are allowed now -- a fenced code block needs them, and the
+        # renderer turns them into <br>. Every other control character stays
+        # out. The cap is 1000 rather than 300 because the markers count
+        # against it: ``` around eight lines is most of the old limit.
+        if not text or len(text) > 1000 or any(ord(char) < 32 and char != chr(10) for char in text):
+            raise ChatError("message must contain 1–1000 printable characters")
         current = self._datetime(now)
         async with self.session_factory() as session:
             async with session.begin():

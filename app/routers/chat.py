@@ -9,7 +9,7 @@ router = APIRouter(prefix="/api/tables/{table_id}/chat", tags=["chat"])
 
 
 class ChatRequest(BaseModel):
-    text: str = Field(min_length=1, max_length=300)
+    text: str = Field(min_length=1, max_length=1000)
 
 
 @router.get("")

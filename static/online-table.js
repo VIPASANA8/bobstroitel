@@ -16,6 +16,20 @@
     .poker8-online .online-chat-panel h2{margin:0 0 12px;color:#91e8ba;font-size:15px}
     .poker8-online #chatMessages{max-height:240px;overflow:auto;color:#c3d7cc;font-size:12px;line-height:1.6}
     .poker8-online #chatForm{display:flex;gap:8px;margin-top:12px}
+    /* Chat formatting, ported from board2 with the renderer. */
+    .poker8-online .p8-chat-row{line-height:1.45;word-break:break-word}
+    .poker8-online .p8-chat-code{padding:1px 4px;border-radius:4px;background:rgba(120,255,200,.10);border:1px solid rgba(120,255,200,.18);font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.92em}
+    .poker8-online .p8-chat-block{margin:5px 0;padding:7px 9px;border-radius:8px;overflow-x:auto;background:rgba(4,16,12,.82);border:1px solid rgba(120,255,200,.16)}
+    .poker8-online .p8-chat-block code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.9em;white-space:pre}
+    .poker8-online .p8-chat-link{color:#7dffd0;text-decoration:underline;text-underline-offset:2px}
+    /* Blurred rather than blanked: the line keeps its shape, so the length of
+       the secret is not readable from the gap it leaves. */
+    .poker8-online .p8-chat-spoiler{border-radius:4px;background:rgba(120,255,200,.10);cursor:pointer;filter:blur(4px);transition:filter .18s ease}
+    .poker8-online .p8-chat-spoiler.is-revealed{filter:none;cursor:auto;background:transparent}
+    .poker8-online .p8-chat-toolbar{display:flex;gap:5px;padding:4px 0 2px}
+    .poker8-online .p8-chat-toolbar button{min-width:26px;height:24px;padding:0 6px;border-radius:6px;border:1px solid rgba(120,255,200,.20);background:rgba(6,22,17,.72);color:#c9ffe3;font-size:11px;font-weight:800;cursor:pointer;line-height:1}
+    .poker8-online .p8-chat-toolbar button:hover{border-color:rgba(120,255,200,.44)}
+    @media (prefers-reduced-motion:reduce){.poker8-online .p8-chat-spoiler{transition:none}}
     .poker8-online #chatInput{min-width:0;flex:1;padding:11px;border:1px solid #294d3e;border-radius:10px;background:#07100f;color:#f4f5ee}
     .poker8-online #chatForm button{padding:0 15px;border:0;border-radius:10px;background:#91e8ba;color:#082018;font-weight:900}
     .poker8-online .local-only-control,.poker8-online .solver-panel,.poker8-online .stats-panel,.poker8-online .saved-tables-panel,.poker8-online .format-panel{display:none!important}
@@ -577,7 +591,13 @@
     }
   }
 
-  const chatRow = row => `<div><b>${escapeHtml(row.display_name || "Игрок")}</b> ${escapeHtml(row.text || "")}</div>`;
+  // Ported from board2 -- see static/chat-format.js for what came across and
+  // what was left behind. The renderer escapes before it introduces a single
+  // tag, so nothing a player types can become markup.
+  const chatText = text => window.Poker8ChatFormat
+    ? window.Poker8ChatFormat.render(text || "")
+    : escapeHtml(text || "");
+  const chatRow = row => `<div class="p8-chat-row"><b>${escapeHtml(row.display_name || "Игрок")}</b> ${chatText(row.text)}</div>`;
 
   function appendChat(row) {
     $("chatMessages")?.insertAdjacentHTML("beforeend", chatRow(row));
@@ -705,6 +725,27 @@
       button?.setAttribute("aria-expanded", String(open));
     });
     $("readyButton")?.addEventListener("click", () => ready().catch(error => { alert(error.message); }));
+    // The toolbar wraps the selection; an empty selection drops the pair in and
+    // leaves the caret between them, so it works as "start writing in bold" too.
+    const MARKERS = {bold: "**", italic: "*", strike: "~~", code: "`", spoiler: "||"};
+    $("chatFormat")?.addEventListener("click", event => {
+      const button = event.target?.closest?.("[data-chat-format]");
+      if (!button) return;
+      const kind = button.dataset.chatFormat;
+      const input = $("chatInput");
+      if (kind === "link") {
+        window.Poker8ChatFormat?.wrapSelection(input, "[", "](https://)");
+        return;
+      }
+      const marker = MARKERS[kind];
+      if (marker) window.Poker8ChatFormat?.wrapSelection(input, marker);
+    });
+    // Spoilers are click-to-reveal, and delegated because the feed is redrawn
+    // whole on every message.
+    $("chatMessages")?.addEventListener("click", event => {
+      const spoiler = event.target?.closest?.("[data-chat-spoiler]");
+      if (spoiler) spoiler.classList.add("is-revealed");
+    });
     $("chatForm")?.addEventListener("submit", async event => {
       event.preventDefault();
       const input = $("chatInput");
