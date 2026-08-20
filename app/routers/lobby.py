@@ -142,7 +142,17 @@ async def my_room(request: Request, user: AuthenticatedUser = Depends(get_curren
 
 @router.post("/rooms/{table_id}/close")
 async def close_room(table_id: str, request: Request, user: AuthenticatedUser = Depends(get_current_user)):
-    # Empty it first: a closed table stops being advanced, so anyone still
+    # Prove ownership before touching a single seat. Eviction is not part of the
+    # close transaction and cannot be rolled back, so doing it first would let
+    # anyone clear any table just by naming it and swallowing the error that
+    # follows. One open room per player is the invariant, so a match here is the
+    # whole proof.
+    own = await request.app.state.catalogue.own_room(user.user_id)
+    if own is None or own.id != table_id:
+        raise HTTPException(status_code=400, detail={
+            "code": "invalid_room", "message": "not your room",
+        })
+    # Empty it only now: a closed table stops being advanced, so anyone still
     # seated would keep their chips locked in its escrow.
     try:
         await request.app.state.seating.evict_table(table_id)

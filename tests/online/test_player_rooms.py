@@ -81,6 +81,30 @@ def test_a_room_cannot_be_closed_by_somebody_else(client):
     assert client.post(f"/api/lobby/rooms/{room['id']}/close").status_code == 400
 
 
+def test_a_refused_close_never_reaches_the_eviction(client):
+    """Closing empties every seat, and that is not part of the close
+    transaction -- nothing rolls it back. So the ownership refusal has to come
+    first: otherwise naming any table and swallowing the 400 that follows is
+    enough to throw everyone off it."""
+    client.post("/api/auth/dev/101")
+    _room(client)
+
+    evicted = []
+    real = client.app.state.seating.evict_table
+
+    async def spy(table_id):
+        evicted.append(table_id)
+        return await real(table_id)
+
+    client.app.state.seating.evict_table = spy
+    try:
+        client.post("/api/auth/dev/102")
+        assert client.post("/api/lobby/rooms/micro-a/close").status_code == 400
+        assert evicted == [], "a table nobody owns was cleared before the refusal"
+    finally:
+        client.app.state.seating.evict_table = real
+
+
 def test_blind_levels_are_offered_and_free_form_ones_refused(client):
     client.post("/api/auth/dev/101")
     levels = client.get("/api/lobby/room-levels").json()["levels"]
