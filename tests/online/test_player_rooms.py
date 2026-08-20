@@ -158,12 +158,13 @@ def test_the_owner_gets_an_invite_link_and_a_way_to_close_it_from_the_table():
 
 def test_bots_are_seeded_and_renamed_with_names_a_person_could_have(client):
     """"Room Player 19" gives the game away at a glance -- no amount of work on
-    how a bot plays survives its name tag."""
+    how a bot plays survives its name tag. This is the roster at rest; the name
+    a bot actually shows is borrowed when it sits down (test_bot_nicknames)."""
     import asyncio
 
     from sqlalchemy import select
 
-    from online.catalogue import BOT_NAMES
+    from online.bot_names import BOT_NAMES
     from online.schema import system_players
 
     async def roster():

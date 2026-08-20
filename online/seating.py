@@ -9,6 +9,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from online.ledger import PlayLedger
+from online.bot_names import BOT_NAMES
 from online.schema import play_accounts, poker_tables, seat_queue, system_players, table_runtimes, table_seats
 
 
@@ -655,11 +656,24 @@ class SeatingService:
             await session.execute(select(system_players).where(system_players.c.active == True))
         ).mappings().all()
         available = [row for row in candidates if row["id"] not in active_system_ids]
-        # Otherwise the roster is walked in id order and the same four names
+        # Otherwise the roster is walked in id order and the same four bots
         # sit down at every table, every time.
         random.shuffle(available)
+        # A bot borrows a name for as long as it is sitting, and gives it back
+        # when it stands up. Taken is every name in use anywhere on the network
+        # right now, so no two tables can show the same person at once -- which
+        # is the thing that would give the whole roster away.
+        taken = {row["name"] for row in candidates if row["id"] in active_system_ids}
+        spare = [name for name in BOT_NAMES if name not in taken]
+        random.shuffle(spare)
         for seat_no, player in zip((seat for seat in range(table["max_seats"]) if seat not in occupied_seats), available[:needed]):
             amount = table["big_blind_units"] * 100
+            if spare:
+                name = spare.pop()
+                taken.add(name)
+                await session.execute(
+                    update(system_players).where(system_players.c.id == player["id"]).values(name=name)
+                )
             seat_id = empty_by_seat.get(seat_no, {}).get("id") or uuid.uuid4().hex
             await self.ledger.fund_system_seat(
                 player["id"], table["id"], amount,

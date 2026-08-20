@@ -7,6 +7,7 @@ from dataclasses import asdict, dataclass, replace
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from online.bot_names import BOT_NAMES
 from online.schema import poker_tables, system_players, table_seats
 
 
@@ -32,16 +33,6 @@ ROOM_NAME_MAX = 40
 # Seat count is not a room setting: every seat layout is drawn for six.
 ROOM_SEATS = 6
 
-
-# Thirty-six of them, so the seeded roster never has to repeat one at a table.
-BOT_NAMES = [
-    "Артём", "Лиса", "Гриша", "Марина", "Костя", "Ветер",
-    "Даня", "Полина", "Тимур", "Соня", "Захар", "Юля",
-    "Рустам", "Ника", "Егор", "Алиса", "Матвей", "Дина",
-    "Слава", "Камиль", "Оля", "Борис", "Рита", "Лёва",
-    "Инга", "Паша", "Земфира", "Вадим", "Ася", "Гоша",
-    "Тоня", "Ильдар", "Женя", "Мирон", "Влада", "Сева",
-]
 
 
 class RoomError(ValueError):
