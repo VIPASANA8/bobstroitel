@@ -317,3 +317,31 @@ def test_system_seat_release_keys_are_unique_per_release():
     source = Path("online/seating.py").read_text(encoding="utf-8")
     assert 'f"release:{row[\'id\']}:{row[\'system_player_id\']}:{uuid.uuid4().hex}"' in source
     assert 'f"rebalance:{row[\'id\']}:{uuid.uuid4().hex}"' in source
+
+
+@pytest.mark.anyio
+async def test_leaving_the_same_seat_twice_returns_the_stack_both_times(
+    seating, ledger, db_session_factory, user_a, table_id
+):
+    """Seat rows are reused, so a return key built from the row id repeated the
+    second time the same player left the same seat -- and the ledger took it for
+    the first return already posted, leaving their stack in the table escrow.
+    Unlike the bot case this is player money: production showed 59 buy-ins
+    against 16 returns."""
+    start = await ledger.available_units(user_a)
+
+    for _ in range(2):
+        await seating.ready(user_a, table_id, seat_no=2, buy_in_units=4_000)
+        await seating.process_boundary(table_id)
+        assert await ledger.available_units(user_a) == start - 4_000
+        await seating.request_leave(user_a, table_id)
+        await seating.process_boundary(table_id)
+        # Both departures have to put the stack back, not just the first.
+        assert await ledger.available_units(user_a) == start
+
+
+def test_user_stack_return_keys_are_unique_per_departure():
+    from pathlib import Path
+
+    source = Path("online/seating.py").read_text(encoding="utf-8")
+    assert 'f"return:{row[\'id\']}:{row[\'user_id\']}:{uuid.uuid4().hex}"' in source

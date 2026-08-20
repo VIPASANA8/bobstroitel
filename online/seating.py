@@ -396,7 +396,15 @@ class SeatingService:
         for row in rows:
             if row["occupant_kind"] == "user" and row["user_id"]:
                 await self.ledger.return_stack(
-                    row["user_id"], table_id, f"return:{row['id']}:{row['user_id']}",
+                    # Unique per departure. Seat rows are reused -- _clear_seat
+                    # blanks a row rather than deleting it -- so the same player
+                    # leaving the same seat a second time repeated this key, the
+                    # ledger took it for the first return already posted, and
+                    # their stack stayed in the table escrow instead of going
+                    # back to their wallet. This is player money, not the
+                    # faucet's: 59 buy-ins against 16 returns.
+                    row["user_id"], table_id,
+                    f"return:{row['id']}:{row['user_id']}:{uuid.uuid4().hex}",
                     amount_units=row["stack_units"], session=session
                 )
             elif row["occupant_kind"] == "system" and row["system_player_id"]:
