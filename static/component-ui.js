@@ -130,7 +130,7 @@
 
     if (!document.querySelector('script[data-v024-ready-phase]')) {
       const v024 = document.createElement("script");
-      v024.src = "/static/v024-ready-phase.js?v=online-controls-2";
+      v024.src = "/static/v024-ready-phase.js?v=render-hooks-1";
       v024.dataset.v024ReadyPhase = "1";
       document.body.appendChild(v024);
     }
@@ -144,21 +144,21 @@
 
     if (!document.querySelector('script[data-v026-seat-status-layout]')) {
       const v026 = document.createElement("script");
-      v026.src = "/static/v026-seat-status-layout.js";
+      v026.src = "/static/v026-seat-status-layout.js?v=render-hooks-1";
       v026.dataset.v026SeatStatusLayout = "1";
       document.body.appendChild(v026);
     }
 
     if (!document.querySelector('script[data-v027-compact-seats-controls]')) {
       const v027 = document.createElement("script");
-      v027.src = "/static/v027-compact-seats-controls.js";
+      v027.src = "/static/v027-compact-seats-controls.js?v=render-hooks-1";
       v027.dataset.v027CompactSeatsControls = "1";
       document.body.appendChild(v027);
     }
 
     if (!document.querySelector('script[data-v028-center-ready]')) {
       const v028 = document.createElement("script");
-      v028.src = "/static/v028-center-ready.js";
+      v028.src = "/static/v028-center-ready.js?v=render-hooks-1";
       v028.dataset.v028CenterReady = "1";
       document.body.appendChild(v028);
     }

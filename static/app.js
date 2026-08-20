@@ -1000,6 +1000,24 @@ function renderWagerMarkers() {
   }
 }
 
+//: Post-render hooks. Four layers used to reassign renderSeats, each wrapping
+//: the one before, so calling it walked a five-deep chain that only worked if
+//: every link remembered to call its predecessor -- and one throw anywhere in
+//: it silently cost every layer after. Layers register here instead. The order
+//: is the order they load, which is what it always was.
+const renderHooks = { seats: [], mobileHeader: [] };
+
+function onRendered(phase, fn) {
+  if (typeof fn === "function") renderHooks[phase]?.push(fn);
+}
+
+function runRenderHooks(phase) {
+  for (const fn of renderHooks[phase] || []) {
+    // One layer's decoration failing must not cost every layer after it.
+    try { fn(); } catch (error) { console.error(`render hook (${phase}) failed`, error); }
+  }
+}
+
 function renderSeats() {
   if (!tableData) return;
   const offeredSeat = tableData.seats.find(
@@ -1035,6 +1053,7 @@ function renderSeats() {
 
   const active = tableData.seats.filter(s => s.active).length;
   $("activeCount").textContent = String(active);
+  runRenderHooks("seats");
 }
 
 function renderProfile(profile) {
@@ -1370,6 +1389,7 @@ function renderMobileHeader() {
     const activeSeats = tableData?.seats?.filter(s => s.active).length || 0;
     primary.disabled = !active && activeSeats < 2;
   }
+  runRenderHooks("mobileHeader");
 }
 
 function selectedActionParts() {

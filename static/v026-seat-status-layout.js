@@ -14,11 +14,7 @@
     });
   }
 
-  const previousRenderSeats = renderSeats;
-  renderSeats = function renderSeatsV026() {
-    previousRenderSeats();
-    normalizeSeatStatuses();
-  };
+  onRendered("seats", normalizeSeatStatuses);
 
   const previousSyncComponentUi = window.syncComponentUi;
   window.syncComponentUi = function syncComponentUiV026(gameState, tableState) {

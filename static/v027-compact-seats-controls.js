@@ -34,11 +34,7 @@
     document.querySelectorAll(".seat[data-seat]").forEach(decorateSeatCard);
   }
 
-  const previousRenderSeats = renderSeats;
-  renderSeats = function renderSeatsV027() {
-    previousRenderSeats();
-    decorateSeats();
-  };
+  onRendered("seats", decorateSeats);
 
   const previousSyncComponentUi = window.syncComponentUi;
   window.syncComponentUi = function syncComponentUiV027(gameState, tableState) {

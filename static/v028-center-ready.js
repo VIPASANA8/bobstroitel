@@ -63,17 +63,8 @@
     }
   }
 
-  const previousRenderSeats = renderSeats;
-  renderSeats = function renderSeatsV028() {
-    previousRenderSeats();
-    syncCenterReadyUi();
-  };
-
-  const previousRenderMobileHeader = renderMobileHeader;
-  renderMobileHeader = function renderMobileHeaderV028() {
-    previousRenderMobileHeader();
-    syncCenterReadyUi();
-  };
+  onRendered("seats", syncCenterReadyUi);
+  onRendered("mobileHeader", syncCenterReadyUi);
 
   const previousSyncComponentUi = window.syncComponentUi;
   window.syncComponentUi = function syncComponentUiV028(gameState, tableState) {

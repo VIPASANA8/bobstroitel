@@ -255,18 +255,9 @@
 
   window.addEventListener("poker8:toggle-ready", toggleViewerReadyCountdown);
 
-  const originalRenderSeats = renderSeats;
-  renderSeats = function renderSeatsWithReadyState() {
-    originalRenderSeats();
-    renderSeatReadiness();
-    publishReadySnapshot();
-  };
-
-  const originalRenderMobileHeader = renderMobileHeader;
-  renderMobileHeader = function renderMobileHeaderWithReadyState() {
-    originalRenderMobileHeader();
-    renderReadyControls();
-  };
+  onRendered("seats", renderSeatReadiness);
+  onRendered("seats", publishReadySnapshot);
+  onRendered("mobileHeader", renderReadyControls);
 
   const style = document.createElement("style");
   style.id = "v024-ready-phase-style";
