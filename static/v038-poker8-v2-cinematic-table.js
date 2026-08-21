@@ -580,7 +580,7 @@
       body.v014.poker8-v2-sixmax .action-slot.v038-armed::before{
         content:attr(data-arm-label);position:absolute;right:6px;bottom:5px;color:#ffc44d;font-size:10px;font-weight:900;letter-spacing:.06em;
       }
-      @keyframes v038AmountPulse{50%{transform:scale(1.08);filter:brightness(1.45)}100%{transform:scale(1);filter:none}}
+      @keyframes v038AmountPulse{50%{filter:brightness(1.5)}100%{filter:none}}
       @keyframes v038ConfirmDrain{to{transform:scaleX(0)}}
       @media (prefers-reduced-motion:reduce){
         body.v014.poker8-v2-sixmax .quick-sizes button,
@@ -918,6 +918,7 @@
   let referenceActive = false;
   let presetSnapshot = null;
   let armedUntil = 0;
+  let lastActionRowActor = "";
   let armedSource = "";
   let armedFingerprint = "";
   let armedTimer = 0;
@@ -1144,6 +1145,9 @@
     if (armedSource && (armedUntil <= Date.now() || armedFingerprint !== armedFingerprintOf(armedSource))) {
       clearArmedAction(false);
     }
+    const actorNow = `${game?.hand_id || ""}:${game?.acting_player || ""}`;
+    const actorChanged = actorNow !== lastActionRowActor;
+    lastActionRowActor = actorNow;
     const defs = [
       { key:"call", label:"CALL", amount:stripHudUnit(formatBB(toCall)), cls:"call" },
       { key:"all_in", label:"ALL-IN", amount:stripHudUnit(formatBB(allInTotal)), cls:"all-in", allIn:true },
@@ -1192,9 +1196,11 @@
         setText(label, def.label);
         if (value.textContent !== def.amount) {
           setText(value, def.amount);
-          value.classList.remove("v038-amount-pulse");
-          void value.offsetWidth;
-          value.classList.add("v038-amount-pulse");
+          if (!actorChanged) {
+            value.classList.remove("v038-amount-pulse");
+            void value.offsetWidth;
+            value.classList.add("v038-amount-pulse");
+          }
         }
         button.setAttribute("aria-label", `${def.label}${def.amount ? ` ${def.amount}` : ""}`);
         let enabled = Boolean(game && !game.terminal && alive && !window.Poker8Transport?.isActionPending?.());

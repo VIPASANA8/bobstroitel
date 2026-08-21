@@ -203,3 +203,20 @@ def test_arming_a_press_survives_its_own_click():
     all-in both did nothing at all."""
     assert 'closest?.("[data-action-key],[data-v038-all-in-trigger]")' in TABLE
     assert "button.dataset.actionKey = def.key" in TABLE
+
+
+def test_the_amount_cue_does_not_move_anything():
+    """It scaled the number to 108% and back. A cue that changes size is the
+    one thing on the row that reads as a twitch."""
+    frames = re.search(r"@keyframes v038AmountPulse\{[^}]*\}[^}]*\}", TABLE)
+    assert frames, "the keyframes moved"
+    assert "scale" not in frames.group(0)
+    assert "brightness" in frames.group(0)
+
+
+def test_the_amount_cue_stays_quiet_when_the_turn_moves():
+    """Every amount on the row changes when the actor does -- that is the table
+    moving, not news about your number, and four cues at once is flicker."""
+    assert "const actorChanged = actorNow !== lastActionRowActor;" in TABLE
+    body = TABLE[TABLE.index('if (value.textContent !== def.amount) {'):]
+    assert "if (!actorChanged) {" in body[:340]
