@@ -236,3 +236,14 @@ def test_the_amount_cue_stays_quiet_when_the_turn_moves():
     assert "const actorChanged = actorNow !== lastActionRowActor;" in TABLE
     body = TABLE[TABLE.index('if (value.textContent !== def.amount) {'):]
     assert "if (!actorChanged) {" in body[:340]
+
+
+def test_no_square_behind_the_avatar():
+    """.seat-card has no background and no border on mobile -- only a
+    backdrop-filter, and a blur on a box with no border-radius paints exactly
+    that box. Everything inside 67x77 was smeared and everything outside was
+    not, so the seam drew a square around every seat."""
+    rule = TURN[TURN.index("body.v014.poker8-v2-sixmax .seat-card,"):]
+    rule = rule[:rule.index("}")]
+    assert "backdrop-filter:none!important" in rule
+    assert ".seat-identity" in rule

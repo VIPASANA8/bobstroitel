@@ -65,6 +65,14 @@
       body.v014.poker8-v2-sixmax .seat-stack,
       body.v014.poker8-v2-sixmax .bet-marker span{text-shadow:none!important;}
 
+      /* The square behind the avatar. .seat-card carries no background and no
+         border here -- only backdrop-filter:blur, and a blur on a box with no
+         border-radius paints exactly its box: everything inside 67x77 is
+         smeared, everything outside is not, and the seam is a visible square.
+         The plate's blur is invisible anyway, sitting behind its own rgba(0,0,0,.98). */
+      body.v014.poker8-v2-sixmax .seat-card,
+      body.v014.poker8-v2-sixmax .seat-identity{backdrop-filter:none!important;}
+
       /* The rest was a cyan haze at alpha .05 to .28 -- too faint to read as
          a signal, just enough to soften every edge it touched. Cards keep
          their depth shadow, which is what actually makes them look like
