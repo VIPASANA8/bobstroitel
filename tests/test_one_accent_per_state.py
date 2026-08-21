@@ -254,3 +254,18 @@ def test_no_square_behind_the_avatar():
     rule = rule[:rule.index("}")]
     assert "backdrop-filter:none!important" in rule
     assert ".seat-identity" in rule
+
+
+def test_the_acting_avatar_does_not_change_size():
+    """It was transform:translateY(-1px) scale(1.05).
+
+    Nothing transitions that transform, and the avatar is rebuilt from scratch
+    on every snapshot, so it could only ever snap: on each hand-over one avatar
+    popped 2.5px bigger while another dropped back. The light says which seat
+    is acting without moving anything.
+    """
+    rule = TURN[TURN.index(".seat-card.active-turn .player-avatar,"):]
+    rule = rule[:rule.index("}")]
+    assert "transform:none!important" in rule
+    for cls in ("v032-active-turn", "p8-turn-gradient"):
+        assert cls in rule, cls

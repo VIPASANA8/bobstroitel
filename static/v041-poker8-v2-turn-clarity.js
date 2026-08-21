@@ -78,6 +78,18 @@
       body.v014.poker8-v2-sixmax .seat-card,
       body.v014.poker8-v2-sixmax .seat-identity{backdrop-filter:none!important;}
 
+      /* The acting avatar grew 5% and lifted a pixel. Nothing transitions the
+         transform, and the element is rebuilt on every snapshot anyway, so it
+         was a snap: on each hand-over one avatar popped bigger while another
+         dropped back, 2.5px each, several times a hand. That is the jitter.
+         The light already says which seat is acting, and it says it without
+         moving anything. */
+      body.v014.poker8-v2-sixmax .seat-card.active-turn .player-avatar,
+      body.v014.poker8-v2-sixmax .seat-card.v032-active-turn .player-avatar,
+      body.v014.poker8-v2-sixmax .seat-card.p8-turn-gradient .player-avatar{
+        transform:none!important;
+      }
+
       /* The rest was a cyan haze at alpha .05 to .28 -- too faint to read as
          a signal, just enough to soften every edge it touched. Cards keep
          their depth shadow, which is what actually makes them look like
