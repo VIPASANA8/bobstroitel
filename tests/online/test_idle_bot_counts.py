@@ -64,6 +64,23 @@ async def test_an_empty_table_shows_its_own_number(lobby, table_id, expected):
 
 
 @pytest.mark.anyio
+async def test_the_five_bot_table_is_full_once_you_join(lobby):
+    """Five bots plus you is six. Nobody has to leave for that to happen.
+
+    The first version clamped this to four the moment anyone sat down, so
+    taking the one free seat made a bot leave and opened another -- the table
+    could never actually be full, which is the entire point of it.
+    """
+    seating, session_factory = lobby
+    await seating.process_boundary("low-b", now=START)
+    assert await _bots(session_factory, "low-b") == 5
+
+    await _sit(session_factory, "low-b", "u1", 5)  # the one seat no bot took
+    await seating.process_boundary("low-b", now=START)
+    assert await _bots(session_factory, "low-b") == 5, "a bot left a seat that was not needed"
+
+
+@pytest.mark.anyio
 async def test_a_full_table_gives_a_seat_back_when_somebody_sits_down(lobby):
     """Six bots is a game to watch, not a table you are locked out of."""
     seating, session_factory = lobby
@@ -80,16 +97,13 @@ async def test_a_full_table_gives_a_seat_back_when_somebody_sits_down(lobby):
     await _sit(session_factory, "mid-b", "u1", 0)
 
     await seating.process_boundary("mid-b", now=START)
-    assert await _bots(session_factory, "mid-b") == MAX_SYSTEM_BOTS, \
-        "the idle count is a ceiling, not a floor -- it must not hold seats against people"
+    assert await _bots(session_factory, "mid-b") == 5,         "one bot yields the seat -- and only one, because only one was needed"
 
 
 @pytest.mark.anyio
-async def test_three_people_shrink_it_to_the_usual_minimum(lobby):
+async def test_a_second_person_costs_exactly_one_more_bot(lobby):
     seating, session_factory = lobby
     await seating.process_boundary("low-b", now=START)
-    assert await _bots(session_factory, "low-b") == 5
-
     async with session_factory() as session:
         for seat_no in (0, 1):
             row = (await session.execute(
@@ -103,5 +117,4 @@ async def test_three_people_shrink_it_to_the_usual_minimum(lobby):
 
     await seating.process_boundary("low-b", now=START)
     assert await _bots(session_factory, "low-b") == MAX_SYSTEM_BOTS
-
     assert MIN_SYSTEM_BOTS < MAX_SYSTEM_BOTS < 5, "the whole point is that these are three tiers"

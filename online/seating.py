@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from online.ledger import PlayLedger
 from online.bot_names import BOT_NAMES
 from online.schema import play_accounts, poker_tables, seat_queue, system_players, table_runtimes, table_seats
-from online.catalogue import IDLE_BOT_COUNTS
+from online.catalogue import IDLE_BOT_COUNTS, ROOM_SEATS
 
 
 # A ready request has to survive the hand that is running when it is made,
@@ -628,14 +628,17 @@ class SeatingService:
         # Room policy: 1–2 humans play with four bots; 3 humans play with
         # three bots. New people wait once all six seats are occupied, rather
         # than evicting the third bot and turning the table into a human-only room.
-        idle_target = IDLE_BOT_COUNTS.get(table["id"], MAX_SYSTEM_BOTS)
-        if user_count == 0:
-            target_bot_count = idle_target
-        else:
-            # Once people are here the usual policy applies, and a table that
-            # shows more bots when empty must not hold on to them: the clamp is
-            # a ceiling on the idle count, not a floor under the live one.
-            target_bot_count = min(idle_target, MAX_SYSTEM_BOTS if user_count <= 2 else MIN_SYSTEM_BOTS)
+        # A bot gives up its seat when a person needs one, and not before. The
+        # first version of this clamped Low B to four the moment anyone sat
+        # down, so taking the one free seat at a five-bot table made a bot
+        # leave and opened another -- the table could never actually be full.
+        # What limits the bots is the seats people are not using.
+        target_bot_count = min(
+            IDLE_BOT_COUNTS.get(table["id"], MAX_SYSTEM_BOTS),
+            ROOM_SEATS - user_count,
+        )
+        if user_count > 2:
+            target_bot_count = min(target_bot_count, MIN_SYSTEM_BOTS)
         # The lobby's own six tables keep their bots whether or not anyone is
         # there: they are the shop window, and Quick Play exists to drop you
         # into a game that is already running. What made an always-populated
