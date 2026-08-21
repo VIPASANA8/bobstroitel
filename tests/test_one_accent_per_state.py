@@ -77,3 +77,11 @@ def test_glow_is_off_at_rest():
     assert "filter:none!important" in diet
     #: The acting seat is the exception -- it is what the glow is now for.
     assert ".seat-card:not(.p8-turn-gradient) .player-avatar" in diet
+
+
+def test_the_cards_keep_depth_and_lose_the_haze():
+    """Their glow was cyan at alpha .28 -- what makes a card look like a card
+    is the shadow underneath it, not a halo around it."""
+    rule = TURN[TURN.index("body.v014.poker8-v2-sixmax .card{"):]
+    rule = rule[:rule.index("}")]
+    assert "0 6px 14px" in rule and "0 0 " not in rule

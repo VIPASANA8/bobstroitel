@@ -63,6 +63,21 @@
       body.v014.poker8-v2-sixmax .seat-stack,
       body.v014.poker8-v2-sixmax .bet-marker span{text-shadow:none!important;}
 
+      /* The rest was a cyan haze at alpha .05 to .28 -- too faint to read as
+         a signal, just enough to soften every edge it touched. Cards keep
+         their depth shadow, which is what actually makes them look like
+         cards; the pot keeps the black one it needs to stay legible. */
+      body.v014.poker8-v2-sixmax .card{box-shadow:0 6px 14px rgba(0,0,0,.42)!important;}
+      body.v014.poker8-v2-sixmax .player-avatar span{text-shadow:none!important;}
+      body.v014.poker8-v2-sixmax .empty-avatar,
+      body.v014.poker8-v2-sixmax .mobile-menu-button,
+      body.v014.poker8-v2-sixmax .mobile-chat-button,
+      body.v014.poker8-v2-sixmax .brand-mark,
+      body.v014.poker8-v2-sixmax .v028-center-ready-button{box-shadow:none!important;}
+      body.v014.poker8-v2-sixmax .mobile-chat-button svg{filter:none!important;}
+      body.v014.poker8-v2-sixmax .pot-total,
+      body.v014.poker8-v2-sixmax .pot-total-label{text-shadow:0 2px 4px rgba(0,0,0,.65)!important;}
+
       @media (prefers-reduced-motion:reduce){
         body.v014.poker8-v2-sixmax .seat .seat-card.p8-turn-gradient .player-avatar,
         body.v014.poker8-v2-sixmax .seat .seat-card.p8-turn-gradient .seat-identity{animation:none!important;}
