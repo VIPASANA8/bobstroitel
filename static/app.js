@@ -1075,7 +1075,6 @@ function renderSeats() {
   });
 
   window.syncComponentSeatLayout?.(game, tableData);
-  renderWagerMarkers();
 
   // Online the seat flow is a buy-in against the server, and online-table.js
   // owns it through a listener delegated on the document -- the mobile layers
@@ -1094,6 +1093,14 @@ function renderSeats() {
   const active = tableData.seats.filter(s => s.active).length;
   $("activeCount").textContent = String(active);
   runRenderHooks("seats");
+  //: After the hooks, never before. A wager marker is placed by measuring the
+  //: seat it belongs to -- and v040 does not move the seats into position until
+  //: it runs here. Measuring first read whatever geometry the rebuilt markup
+  //: happened to have, so the chips in front of players landed a few pixels off
+  //: and somewhere slightly different on the next snapshot: a tremble at render
+  //: rate that no amount of styling could steady, because it was arithmetic on
+  //: a rectangle that had not settled yet.
+  renderWagerMarkers();
 }
 
 function renderProfile(profile) {

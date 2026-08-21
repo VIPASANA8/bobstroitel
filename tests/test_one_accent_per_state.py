@@ -269,3 +269,17 @@ def test_the_acting_avatar_does_not_change_size():
     assert "transform:none!important" in rule
     for cls in ("v032-active-turn", "p8-turn-gradient"):
         assert cls in rule, cls
+
+
+def test_wager_markers_are_placed_after_the_seats_have_moved():
+    """A marker is positioned by measuring the seat it belongs to, and v040
+    does not move the seats until the seat hooks run. Measuring first read
+    whatever geometry the freshly rebuilt markup happened to have, so the chips
+    in front of players landed a few pixels off -- and somewhere slightly
+    different on the next snapshot. That is a tremble at render rate, and no
+    styling could have steadied it."""
+    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    body = app[app.index("function renderSeats() {"):]
+    body = body[:body.index("\n}\n")]
+    assert body.index('runRenderHooks("seats")') < body.index("renderWagerMarkers()"), \
+        "the markers are measuring seats that have not been positioned yet"
