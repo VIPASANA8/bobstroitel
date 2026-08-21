@@ -334,8 +334,13 @@
         /* y:36% sits over the pot/board strip, which is empty whenever this
            prompt shows (no hand running) -- and it's the one vertical band
            every seat layout now deliberately avoids, so the prompt can no
-           longer land on top of another seat's avatar. */
-        position:absolute;z-index:72;left:50%;top:var(--p8-prompt-y, 36%);transform:translate(-50%,-50%);display:none;width:max-content;max-width:78%;
+           longer land on top of another seat's avatar.
+
+           Was max-width:78% -- "МЕСТО ЗАНЯТО" hit that cap edge to edge on a
+           321px felt, 250px wide, near enough to the side seats to look like
+           it was reaching for them. Narrower, and every message wraps its
+           subtitle onto two short lines instead of one long one. */
+        position:absolute;z-index:72;left:50%;top:var(--p8-prompt-y, 36%);transform:translate(-50%,-50%);display:none;width:max-content;max-width:64%;
         padding:10px 14px;border:1px solid rgba(61,235,190,.58);border-radius:12px;background:rgba(2,19,18,.88);text-align:center;
         box-shadow:0 0 18px rgba(28,238,188,.22);pointer-events:auto;cursor:pointer;
       }

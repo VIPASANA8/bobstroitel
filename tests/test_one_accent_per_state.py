@@ -325,3 +325,15 @@ def test_the_stake_drops_the_unit_inside_the_avatar():
     assert "function bareBB(value)" in app
     body = app[app.index("function bareBB(value) {"):]
     assert "ББ" not in body[:body.index(chr(10) + "}")]
+
+
+def test_the_room_prompt_is_narrower_than_it_was():
+    """"МЕСТО ЗАНЯТО" hit the old 78% cap edge to edge on a 321px felt --
+    250px wide, close enough to the side seats to look like it was reaching
+    for them. Measured live, then narrowed."""
+    rule = TABLE[TABLE.index(".v038-room-prompt{"):]
+    rule = rule[:rule.index("}")]
+    # The rule's own comment mentions the old 78% for context, so pick the
+    # last match in the block -- the live declaration, not the history note.
+    matches = re.findall(r"max-width:(\d+)%", rule)
+    assert matches and int(matches[-1]) < 78
