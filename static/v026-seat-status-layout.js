@@ -62,28 +62,28 @@
       }
 
       body.v014 .seat-card > .player-status.v026-seat-status.status-thinking{
-        color:#bfeaff !important;
-        border:1px solid rgba(78,194,255,.43) !important;
+        color:#bde9ff !important;
+        border:1px solid rgba(75,191,255,.43) !important;
         background:rgba(4,28,48,.91) !important;
-        box-shadow:0 0 9px rgba(61,184,255,.13) !important;
+        box-shadow:0 0 9px rgba(47,184,255,.13) !important;
       }
 
       body.v014 .seat-card > .player-status.v026-seat-status.status-fold{
-        color:#9ca8b9 !important;
+        color:#98a7b8 !important;
         border:1px solid rgba(126,145,171,.26) !important;
-        background:rgba(10,17,29,.90) !important;
+        background:rgba(8,13,26,.90) !important;
       }
 
       body.v014 .seat-card > .player-status.v026-seat-status.status-turn{
-        color:#baffdf !important;
-        border:1px solid rgba(69,226,166,.38) !important;
-        background:rgba(4,39,30,.91) !important;
+        color:#b9ffe2 !important;
+        border:1px solid rgba(55,220,162,.38) !important;
+        background:rgba(4,38,29,.91) !important;
       }
 
       body.v014 .seat-card > .player-status.v026-seat-status.status-allin{
-        color:#ffe3a4 !important;
+        color:#ffe0a2 !important;
         border:1px solid rgba(238,186,76,.42) !important;
-        background:rgba(45,31,5,.91) !important;
+        background:rgba(44,29,2,.91) !important;
       }
 
       body.v014 .seat-card > .player-status.v026-seat-status .thinking-dots{

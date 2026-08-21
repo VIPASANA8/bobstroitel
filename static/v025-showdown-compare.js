@@ -288,10 +288,10 @@
         position:relative;
         pointer-events:auto;
         padding:13px 13px 14px;
-        border:1px solid rgba(94,184,255,.48);
+        border:1px solid rgba(79,182,255,.48);
         border-radius:17px;
-        background:linear-gradient(180deg,rgba(3,12,29,.985),rgba(2,7,20,.995));
-        box-shadow:0 16px 42px rgba(0,0,0,.52),0 0 22px rgba(73,163,255,.12),inset 0 0 22px rgba(82,143,255,.04);
+        background:linear-gradient(180deg,rgba(4,12,31,.985),rgba(2,6,18,.995));
+        box-shadow:0 16px 42px rgba(0,0,0,.52),0 0 22px rgba(70,164,255,.12),inset 0 0 22px rgba(82,143,255,.04);
         backdrop-filter:blur(10px);
       }
       .v025-close{
@@ -310,7 +310,7 @@
       .v025-head{padding:0 36px 10px 1px;border-bottom:1px solid rgba(96,133,190,.28);}
       .v025-head strong{display:block;font-size:20px;line-height:1;font-weight:950;letter-spacing:.08em;}
       .v025-head span{display:block;margin-top:5px;color:#c4d3e7;font-size:12px;font-weight:800;}
-      .v025-head.win strong{color:#78f0bb;}
+      .v025-head.win strong{color:#72f0bd;}
       .v025-head.loss strong{color:#ff91a8;}
       .v025-head.tie strong{color:#ffd37c;}
 
@@ -323,7 +323,7 @@
         padding:9px 1px;
       }
       .v025-who small{display:block;color:#8ba2c3;font-size:10px;font-weight:900;letter-spacing:.11em;}
-      .v025-who b{display:block;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#eef5ff;font-size:12px;font-weight:900;}
+      .v025-who b{display:block;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#e9f6ff;font-size:12px;font-weight:900;}
       .v025-cards{display:flex;gap:5px;}
       .v025-mini-card{
         width:34px;
@@ -333,31 +333,31 @@
         align-content:center;
         border-radius:5px;
         border:1px solid rgba(0,0,0,.17);
-        background:linear-gradient(160deg,#fff,#e7edf2);
-        color:#111820;
+        background:linear-gradient(160deg,#ffffff,#eef4f8);
+        color:#0d131c;
         box-shadow:0 3px 8px rgba(0,0,0,.28);
         line-height:.8;
       }
       .v025-mini-card.red{color:#ce3245;}
       .v025-mini-card b{font-size:15px;}
       .v025-mini-card i{font-size:15px;font-style:normal;}
-      .v025-hand{color:#dbe6f5;font-size:12px;font-weight:850;line-height:1.28;}
+      .v025-hand{color:#d8e6f3;font-size:12px;font-weight:850;line-height:1.28;}
       .v025-versus{
         height:1px;
         position:relative;
-        background:linear-gradient(90deg,transparent,rgba(100,137,192,.26),transparent);
+        background:linear-gradient(90deg,transparent,rgba(96,133,190,.26),transparent);
         color:#66809f;
         font-size:10px;
         font-weight:950;
         text-align:center;
       }
-      .v025-versus::after{content:"VS";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:0 6px;background:#030b1d;}
+      .v025-versus::after{content:"VS";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:0 6px;background:#040c1f;}
       .v025-reason{
         margin-top:5px;
         padding:8px 10px;
         border-radius:8px;
         background:rgba(62,94,145,.10);
-        color:#9fb2cc;
+        color:#9db3d0;
         font-size:10px;
         font-weight:800;
         text-align:center;

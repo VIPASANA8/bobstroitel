@@ -135,13 +135,13 @@
 
       body.v014 .action-grid .action-slot.check,
       body.v014 .action-grid .action-slot.fold{
-        border-color:rgba(74,178,255,.48) !important;
-        background:linear-gradient(180deg,rgba(5,25,47,.94),rgba(3,14,31,.98)) !important;
+        border-color:rgba(62,176,255,.48) !important;
+        background:linear-gradient(180deg,rgba(4,20,42,.94),rgba(4,12,31,.98)) !important;
         color:#d8efff !important;
       }
 
       body.v014 .action-grid .action-slot.call{
-        border-color:rgba(72,170,255,.68) !important;
+        border-color:rgba(56,169,255,.68) !important;
         background:linear-gradient(180deg,rgba(7,44,83,.96),rgba(3,24,53,.99)) !important;
         color:#e9f6ff !important;
       }
@@ -150,14 +150,14 @@
       body.v014 .action-grid .v016-primary-action.raise{
         border-color:rgba(205,82,255,.68) !important;
         background:linear-gradient(180deg,rgba(61,17,78,.96),rgba(31,8,48,.99)) !important;
-        color:#f5dcff !important;
-        box-shadow:0 0 13px rgba(194,66,255,.08),inset 0 0 17px rgba(218,107,255,.035) !important;
+        color:#f1d8ff !important;
+        box-shadow:0 0 13px rgba(199,70,255,.08),inset 0 0 17px rgba(218,107,255,.035) !important;
       }
 
       body.v014 .action-grid .action-slot.all-in{
-        border-color:rgba(255,159,54,.68) !important;
-        background:linear-gradient(180deg,rgba(66,32,6,.97),rgba(37,17,3,.99)) !important;
-        color:#ffe4b7 !important;
+        border-color:rgba(255,158,49,.68) !important;
+        background:linear-gradient(180deg,rgba(66,32,6,.97),rgba(35,16,5,.99)) !important;
+        color:#ffe0b4 !important;
       }
 
       body.v014 .action-grid .action-slot:not(:disabled):active{
@@ -183,7 +183,7 @@
         overflow:hidden !important;
         border-radius:12px !important;
         border-width:1px !important;
-        background:rgba(5,12,28,.96) !important;
+        background:rgba(4,12,31,.96) !important;
         box-shadow:inset 0 0 15px rgba(255,255,255,.018),0 4px 12px rgba(0,0,0,.16) !important;
         transition:transform .12s ease,box-shadow .15s ease,border-color .15s ease !important;
       }
@@ -199,12 +199,12 @@
         opacity:.7;
       }
 
-      body.v014 .quick-sizes button:nth-child(1){border-color:rgba(60,181,255,.52) !important;color:#cdeeff !important}
-      body.v014 .quick-sizes button:nth-child(1)::before{background:#3cb5ff}
-      body.v014 .quick-sizes button:nth-child(2){border-color:rgba(99,117,255,.58) !important;color:#dce1ff !important}
+      body.v014 .quick-sizes button:nth-child(1){border-color:rgba(47,179,255,.52) !important;color:#cdeeff !important}
+      body.v014 .quick-sizes button:nth-child(1)::before{background:#2fb3ff}
+      body.v014 .quick-sizes button:nth-child(2){border-color:rgba(99,117,255,.58) !important;color:#d8e2ff !important}
       body.v014 .quick-sizes button:nth-child(2)::before{background:#6375ff}
-      body.v014 .quick-sizes button:nth-child(3){border-color:rgba(200,73,255,.60) !important;color:#f1d8ff !important}
-      body.v014 .quick-sizes button:nth-child(3)::before{background:#c849ff}
+      body.v014 .quick-sizes button:nth-child(3){border-color:rgba(199,70,255,.60) !important;color:#f1d8ff !important}
+      body.v014 .quick-sizes button:nth-child(3)::before{background:#c746ff}
       body.v014 .quick-sizes button:nth-child(4){border-color:rgba(255,161,57,.62) !important;color:#ffe0b4 !important}
       body.v014 .quick-sizes button:nth-child(4)::before{background:#ffa139}
 
@@ -248,7 +248,7 @@
         padding:6px !important;
         border:1px solid rgba(90,116,176,.28) !important;
         border-radius:15px !important;
-        background:linear-gradient(180deg,rgba(5,11,27,.97),rgba(2,7,18,.99)) !important;
+        background:linear-gradient(180deg,rgba(8,13,26,.97),rgba(9,14,21,.99)) !important;
         box-shadow:inset 0 0 22px rgba(78,91,170,.04),0 5px 16px rgba(0,0,0,.18) !important;
       }
 
@@ -270,8 +270,8 @@
         width:46px !important;
         height:46px !important;
         border-radius:11px !important;
-        border:1px solid rgba(201,71,255,.52) !important;
-        background:linear-gradient(180deg,rgba(39,9,55,.95),rgba(20,4,34,.99)) !important;
+        border:1px solid rgba(199,70,255,.52) !important;
+        background:linear-gradient(180deg,rgba(36,6,53,.95),rgba(20,4,34,.99)) !important;
         color:#f1baff !important;
         font-size:27px !important;
         font-weight:800 !important;
@@ -293,7 +293,7 @@
         border-radius:0 !important;
         background:transparent !important;
         box-shadow:none !important;
-        color:#fff !important;
+        color:#ffffff !important;
         font-size:27px !important;
         font-weight:950 !important;
         line-height:46px !important;

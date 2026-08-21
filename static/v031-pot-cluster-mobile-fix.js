@@ -100,7 +100,7 @@
       background:transparent !important;
       border:0 !important;
       box-shadow:none !important;
-      text-shadow:0 1px 4px rgba(0,0,0,.85),0 0 12px rgba(92,214,255,.18) !important;
+      text-shadow:0 1px 4px rgba(0,0,0,.85),0 0 12px rgba(76,214,255,.18) !important;
     }
 
     @media (max-width:780px){

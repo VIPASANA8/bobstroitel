@@ -230,15 +230,15 @@
         padding:4px 7px !important;
         border:1px solid rgba(123,194,255,.46) !important;
         border-radius:8px !important;
-        background:rgba(1,7,18,.94) !important;
-        box-shadow:0 3px 10px rgba(0,0,0,.62), inset 0 0 10px rgba(73,145,255,.08) !important;
+        background:rgba(9,14,21,.94) !important;
+        box-shadow:0 3px 10px rgba(0,0,0,.62), inset 0 0 10px rgba(61,143,255,.08) !important;
         color:#ffffff !important;
         font-size:10px !important;
         font-weight:950 !important;
         line-height:1 !important;
         letter-spacing:-.02em !important;
         text-align:center !important;
-        text-shadow:0 1px 3px #000 !important;
+        text-shadow:0 1px 3px #000000 !important;
         white-space:nowrap !important;
       }
       body.v014 .wager-layer .bet-marker.v016-latest-wager .chip-cluster{
@@ -250,9 +250,9 @@
         filter:drop-shadow(0 0 3px rgba(77,210,255,.35)) drop-shadow(0 3px 5px rgba(0,0,0,.72)) !important;
       }
       body.v014 .wager-layer .bet-marker.v016-latest-wager span{
-        border-color:rgba(75,218,255,.54) !important;
-        background:rgba(1,9,20,.95) !important;
-        box-shadow:0 3px 10px rgba(0,0,0,.62), 0 0 5px rgba(51,202,255,.12) !important;
+        border-color:rgba(85,219,255,.54) !important;
+        background:rgba(9,14,21,.95) !important;
+        box-shadow:0 3px 10px rgba(0,0,0,.62), 0 0 5px rgba(47,203,255,.12) !important;
       }
 
       body.v014 .mobile-selected-card.invalid{
@@ -269,7 +269,7 @@
         font-size:10px !important;
         line-height:1.15 !important;
         font-weight:650 !important;
-        color:#9ba8bc !important;
+        color:#98a7b8 !important;
         text-align:center !important;
         white-space:normal !important;
       }

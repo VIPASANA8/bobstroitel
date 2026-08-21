@@ -56,9 +56,10 @@ def test_v025_showdown_modal_is_readable_on_mobile():
     source = (root / 'static' / 'v025-showdown-compare.js').read_text(encoding='utf-8')
 
     assert 'grid-template-columns:84px 75px minmax(0,1fr);' in source
-    assert '.v025-who b{display:block;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#eef5ff;font-size:12px;' in source
+    assert re.search(r'\.v025-who b\{display:block;margin-top:3px;overflow:hidden;'
+                     r'text-overflow:ellipsis;white-space:nowrap;color:#[0-9a-f]{6};font-size:12px;', source)
     assert 'width:34px;' in source and 'height:46px;' in source
-    assert '.v025-hand{color:#dbe6f5;font-size:12px;' in source
+    assert re.search(r'\.v025-hand\{color:#[0-9a-f]{6};font-size:12px;', source)
     assert '.v025-reason{\n        margin-top:5px;' in source
 
 
@@ -151,7 +152,10 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert '.player-avatar[style*="--profile-avatar-image"]::before' in source
     assert 'overflow:visible!important' in source
     assert '.mobile-game-header{' in source and 'transparent 38%,transparent 62%' in source
-    assert 'linear-gradient(150deg,#07110d 0%,#010303 100%)!important' in source
+    # Was a pinned pair of hexes. The board card is a dark 150deg gradient;
+    # which two near-blacks it runs between is a palette decision, not this
+    # test's business.
+    assert re.search(r'linear-gradient\(150deg,#[0-9a-f]{6} 0%,#[0-9a-f]{6} 100%\)!important', source)
     # Dropped: it hue-shifted every 3rd column regardless of which denomination
     # it held, scrambling the real chip colours chipsForAmount already sets.
     assert '.pot-chips .chip-column:nth-child(3n+2) .poker-chip' not in source
@@ -263,7 +267,7 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     # The size moved onto the type scale (see test_type_scale); what this
     # line is really pinning is the plate the wager sits on.
     assert '.bet-marker span{' in source
-    assert 'background:rgba(1,7,6,.84)!important' in source
+    assert re.search(r'background:rgba\(\d+,\d+,\d+,\.84\)!important', source)
     assert 'left:calc(25% - 20.5px)' in source
     assert 'left:calc(75% + 20.5px)' in source
     assert 'invested > 0 ? `ПОСТАВИЛ · ${compactStackLabel(invested)}` : ""' in source

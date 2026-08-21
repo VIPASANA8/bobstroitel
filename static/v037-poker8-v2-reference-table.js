@@ -33,7 +33,7 @@
       body.v014.poker8-v2-sixmax .mobile-chat-button{
         display:grid;place-items:center;width:42px;height:42px;padding:0;
         border:1px solid rgba(66,226,255,.72);border-radius:12px;
-        background:rgba(3,16,20,.78);box-shadow:0 0 14px rgba(46,213,255,.18),inset 0 0 12px rgba(78,234,255,.08);
+        background:rgba(3,16,20,.78);box-shadow:0 0 14px rgba(52,214,255,.18),inset 0 0 12px rgba(78,234,255,.08);
         color:#89efff;
       }
       body.v014.poker8-v2-sixmax .mobile-chat-button svg{
@@ -43,34 +43,34 @@
       body.v014.poker8-v2-sixmax .mobile-chat-button .chat-bubble{fill:rgba(91,229,255,.20);}
       body.v014.poker8-v2-sixmax .mobile-chat-button circle{fill:currentColor;stroke:none;}
       body.v014.poker8-v2-sixmax .table-frame{
-        background:radial-gradient(ellipse at 50% 10%,rgba(96,57,22,.28),transparent 48%),linear-gradient(180deg,#110905,#050403 82%,#010202)!important;
+        background:radial-gradient(ellipse at 50% 10%,rgba(96,57,22,.28),transparent 48%),linear-gradient(180deg,#0c0503,#000000 82%,#000000)!important;
       }
       body.v014.poker8-v2-sixmax .felt{
         border-width:13px!important;border-radius:49% / 35%!important;
         background:
-          radial-gradient(ellipse at 50% 46%,rgba(5,74,43,.05),rgba(0,21,12,.38) 70%) padding-box,
-          linear-gradient(145deg,#075234,#023820 56%,#012619) padding-box,
-          linear-gradient(90deg,#220f04,#794016 18%,#301405 34%,#8d4c1c 50%,#321505 66%,#704017 82%,#200d03) border-box!important;
-        outline:1px solid rgba(54,255,191,.56)!important;
-        box-shadow:inset 0 0 72px rgba(0,0,0,.45),inset 0 0 0 2px rgba(60,255,190,.1),0 0 0 2px rgba(7,4,3,.95),0 0 22px rgba(40,255,183,.16)!important;
+          radial-gradient(ellipse at 50% 46%,rgba(0,74,43,.05),rgba(6,22,17,.38) 70%) padding-box,
+          linear-gradient(145deg,#075234,#003b24 56%,#002316) padding-box,
+          linear-gradient(90deg,#231005,#794016 18%,#301405 34%,#8d4c1c 50%,#301405 66%,#6f3c16 82%,#231005) border-box!important;
+        outline:1px solid rgba(29,255,192,.56)!important;
+        box-shadow:inset 0 0 72px rgba(0,0,0,.45),inset 0 0 0 2px rgba(29,255,192,.1),0 0 0 2px rgba(0,0,0,.95),0 0 22px rgba(40,255,183,.16)!important;
       }
       body.v014.poker8-v2-sixmax .felt::before{
-        inset:7px!important;border-color:rgba(54,255,190,.58)!important;
+        inset:7px!important;border-color:rgba(29,255,192,.58)!important;
         box-shadow:0 0 9px rgba(44,255,198,.22),inset 0 0 8px rgba(44,255,198,.08)!important;
       }
       body.v014.poker8-v2-sixmax .seat-card{
-        background:linear-gradient(180deg,rgba(9,11,10,.97),rgba(1,3,3,.99))!important;
+        background:linear-gradient(180deg,rgba(0,8,5,.97),rgba(0,0,0,.99))!important;
         border-color:hsla(var(--avatar-hue),88%,62%,.56)!important;
         box-shadow:0 0 13px hsla(var(--avatar-hue),88%,58%,.18),0 9px 22px rgba(0,0,0,.48)!important;
       }
       body.v014.poker8-v2-sixmax .seat-stack{color:hsl(var(--avatar-hue),92%,68%)!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-card{
-        border-color:rgba(48,188,255,.9)!important;
-        box-shadow:0 0 18px rgba(46,180,255,.28),0 10px 24px rgba(0,0,0,.52)!important;
+        border-color:rgba(53,191,255,.9)!important;
+        box-shadow:0 0 18px rgba(47,179,255,.28),0 10px 24px rgba(0,0,0,.52)!important;
       }
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-stack{color:#35c6ff!important;}
       body.v014.poker8-v2-sixmax .pot-total{
-        background:rgba(2,29,17,.86)!important;border-color:rgba(64,237,167,.26)!important;
+        background:rgba(4,31,20,.86)!important;border-color:rgba(64,237,167,.26)!important;
       }
     }
   `;
@@ -106,7 +106,7 @@
 
   if (!document.querySelector('script[data-v038-poker8-v2-cinematic-table]')) {
     const v038 = document.createElement("script");
-    v038.src = "/static/v038-poker8-v2-cinematic-table.js?v=accent-4";
+    v038.src = "/static/v038-poker8-v2-cinematic-table.js?v=palette-1";
     v038.setAttribute("data-v038-poker8-v2-cinematic-table", "");
     v038.addEventListener("load", ensureDynamicSeatLayout, { once: true });
     document.body.appendChild(v038);

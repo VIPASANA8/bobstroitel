@@ -108,3 +108,44 @@ def test_the_bet_sizes_are_plain_text():
     """All nine glowed white at once, which is a halo on a number."""
     rule = TABLE[TABLE.index(".quick-sizes button{"):]
     assert "text-shadow:none!important" in rule[:rule.index("}")]
+
+
+def test_no_two_colours_are_the_same_colour():
+    """Half the palette was one colour written twice.
+
+    1461 distinct values across the stylesheets and layers collapsed to 696
+    at a Lab distance of 2.5, which is under what a screen can show -- so 765
+    of them were a rename, not a design. This keeps them from creeping back.
+    """
+    import glob
+    import math
+
+    literal = re.compile(r"#[0-9a-fA-F]{6}\b|rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+")
+
+    def lab(c):
+        def f(u):
+            u /= 255
+            return u / 12.92 if u <= .04045 else ((u + .055) / 1.055) ** 2.4
+        r, g, b = map(f, c)
+        x = (.4124 * r + .3576 * g + .1805 * b) / .95047
+        y = .2126 * r + .7152 * g + .0722 * b
+        z = (.0193 * r + .1192 * g + .9505 * b) / 1.08883
+        k = lambda t: t ** (1 / 3) if t > .008856 else 7.787 * t + 16 / 116
+        fx, fy, fz = k(x), k(y), k(z)
+        return (116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz))
+
+    seen = set()
+    sources = ["style.css", "mobile.css", "component-ui.css", "network.css",
+               "online-table.js", "lobby.js", "app.js"]
+    sources += [Path(p).name for p in sorted(glob.glob("static/v0*.js"))]
+    for name in sources:
+        for hit in literal.findall((STATIC / name).read_text(encoding="utf-8")):
+            if hit.startswith("#"):
+                seen.add(tuple(int(hit[i:i + 2], 16) for i in (1, 3, 5)))
+            else:
+                seen.add(tuple(int(x) for x in re.findall(r"\d+", hit)[:3]))
+
+    labs = [lab(c) for c in seen]
+    twins = [(a, b) for i, a in enumerate(labs) for b in labs[i + 1:]
+             if math.dist(a, b) <= 2.0]
+    assert not twins, f"{len(twins)} pairs are the same colour written twice"

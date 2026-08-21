@@ -28,12 +28,12 @@
          a rounded rect for the plate, instead of a detached halo. */
       body.v014.poker8-v2-sixmax .seat .seat-card.p8-turn-gradient .player-avatar{
         border-color:var(--turn)!important;
-        box-shadow:0 0 0 3px rgba(1,5,5,.93),0 0 13px var(--turn),inset 0 -10px 18px rgba(0,0,0,.50)!important;
+        box-shadow:0 0 0 3px rgba(0,0,0,.93),0 0 13px var(--turn),inset 0 -10px 18px rgba(0,0,0,.50)!important;
         animation:v041AvatarPulse 1.6s ease-in-out infinite;
       }
       body.v014.poker8-v2-sixmax .seat .seat-card.p8-turn-gradient .seat-identity{
         border-color:var(--turn)!important;
-        background:linear-gradient(120deg,color-mix(in srgb,var(--turn) 26%,#050b0c),rgba(6,10,14,.98))!important;
+        background:linear-gradient(120deg,color-mix(in srgb,var(--turn) 26%,#07100f),rgba(1,3,10,.98))!important;
         box-shadow:0 0 0 1px color-mix(in srgb,var(--turn) 40%,transparent),0 0 18px color-mix(in srgb,var(--turn) 62%,transparent)!important;
         animation:v041PlatePulse 1.6s ease-in-out infinite;
       }
@@ -56,7 +56,7 @@
         box-shadow:0 2px 6px rgba(0,0,0,.45)!important;
       }
       body.v014.poker8-v2-sixmax .seat-card:not(.p8-turn-gradient) .player-avatar{
-        box-shadow:0 0 0 3px rgba(1,5,5,.93),inset 0 -10px 18px rgba(0,0,0,.50)!important;
+        box-shadow:0 0 0 3px rgba(0,0,0,.93),inset 0 -10px 18px rgba(0,0,0,.50)!important;
       }
       body.v014.poker8-v2-sixmax .seat-name,
       body.v014.poker8-v2-sixmax .seat-stack,

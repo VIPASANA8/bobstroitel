@@ -207,8 +207,8 @@
       display:grid;
       place-items:center;
       border-radius:50%;
-      background:rgba(68,197,255,.16);
-      color:#78ddff;
+      background:rgba(53,198,255,.16);
+      color:#6edcff;
       font-size:12px;
       font-weight:950;
       line-height:1;
@@ -226,7 +226,7 @@
       align-items:flex-end;
       justify-content:center;
       padding:14px;
-      background:rgba(0,3,12,.72);
+      background:rgba(1,3,10,.72);
       backdrop-filter:blur(8px);
     }
     .v022-topup-backdrop[hidden]{display:none !important}
@@ -237,9 +237,9 @@
       padding:18px 16px calc(18px + env(safe-area-inset-bottom));
       border:1px solid rgba(70,164,255,.34);
       border-radius:22px;
-      background:linear-gradient(180deg,rgba(5,13,31,.99),rgba(2,7,19,.995));
+      background:linear-gradient(180deg,rgba(4,12,31,.99),rgba(2,6,18,.995));
       box-shadow:0 20px 70px rgba(0,0,0,.55),inset 0 0 28px rgba(48,116,255,.05);
-      color:#f5f8ff;
+      color:#f2f6ff;
     }
     .v022-topup-close{
       position:absolute;
@@ -250,19 +250,19 @@
       border:0;
       border-radius:10px;
       background:rgba(255,255,255,.055);
-      color:#9caac0;
+      color:#9aa9c1;
       font-size:27px;
     }
-    .v022-topup-kicker{font-size:10px;font-weight:900;letter-spacing:.15em;color:#61d8ff}
+    .v022-topup-kicker{font-size:10px;font-weight:900;letter-spacing:.15em;color:#60d8ff}
     .v022-topup-modal h3{margin:4px 0 7px;font-size:20px;line-height:1.1}
-    .v022-topup-current,.v022-topup-preview{font-size:12px;color:#8493ac}
-    .v022-topup-current strong,.v022-topup-preview strong{color:#fff}
+    .v022-topup-current,.v022-topup-preview{font-size:12px;color:#7e91ab}
+    .v022-topup-current strong,.v022-topup-preview strong{color:#ffffff}
     .v022-topup-presets{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:14px 0 12px}
     .v022-topup-presets button{
       min-height:42px;
       border:1px solid rgba(82,141,230,.34);
       border-radius:11px;
-      background:rgba(8,20,43,.88);
+      background:rgba(4,20,42,.88);
       color:#dceaff;
       font-weight:900;
       font-size:12px;
@@ -277,14 +277,14 @@
       padding:0 12px;
       border:1px solid rgba(84,155,255,.42);
       border-radius:12px;
-      background:rgba(3,9,22,.94);
+      background:rgba(2,6,18,.94);
     }
     .v022-topup-field input{
       width:100%;
       border:0;
       outline:0;
       background:transparent;
-      color:#fff;
+      color:#ffffff;
       font-size:20px;
       font-weight:950;
     }

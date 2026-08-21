@@ -6,20 +6,20 @@
 
   const tablePageStyle = document.createElement("style");
   tablePageStyle.textContent = `
-    .poker8-online .online-state-panel{display:flex;align-items:center;gap:14px;margin:0 0 12px;padding:12px 14px;border:1px solid rgba(64,237,167,.28);border-radius:14px;background:rgba(2,29,17,.82)}
+    .poker8-online .online-state-panel{display:flex;align-items:center;gap:14px;margin:0 0 12px;padding:12px 14px;border:1px solid rgba(64,237,167,.28);border-radius:14px;background:rgba(4,31,20,.82)}
     .poker8-online .online-state-panel[hidden]{display:none!important}
     .poker8-online .online-state-panel strong{color:#8ff2c0;font-size:12px}
     .poker8-online .online-state-panel span{flex:1;color:#9aada3;font-size:12px}
     .poker8-online .online-state-panel button{padding:10px 14px;font-size:15px;border:1px solid rgba(64,237,167,.5);border-radius:10px;background:#0a3b2b;color:#b8ffda;font-weight:850;cursor:pointer}
-    .poker8-online .online-connection-status{position:fixed;right:14px;bottom:12px;z-index:1000;padding:5px 9px;border:1px solid rgba(64,237,167,.28);border-radius:999px;background:rgba(3,13,10,.82);color:#91e8ba;font:700 10px monospace}
-    .poker8-online .online-chat-panel{display:block;grid-column:2;align-self:start;margin-top:0;padding:16px;border:1px solid rgba(64,237,167,.28);border-radius:18px;background:rgba(6,25,18,.86)}
+    .poker8-online .online-connection-status{position:fixed;right:14px;bottom:12px;z-index:1000;padding:5px 9px;border:1px solid rgba(64,237,167,.28);border-radius:999px;background:rgba(7,16,15,.82);color:#91e8ba;font:700 10px monospace}
+    .poker8-online .online-chat-panel{display:block;grid-column:2;align-self:start;margin-top:0;padding:16px;border:1px solid rgba(64,237,167,.28);border-radius:18px;background:rgba(10,26,18,.86)}
     .poker8-online .online-chat-panel h2{margin:0 0 12px;color:#91e8ba;font-size:15px}
     .poker8-online #chatMessages{max-height:240px;overflow:auto;color:#c3d7cc;font-size:12px;line-height:1.6}
     .poker8-online #chatForm{display:flex;gap:8px;margin-top:12px}
     /* Chat formatting, ported from board2 with the renderer. */
     .poker8-online .p8-chat-row{line-height:1.45;word-break:break-word}
     .poker8-online .p8-chat-code{padding:1px 4px;border-radius:4px;background:rgba(120,255,200,.10);border:1px solid rgba(120,255,200,.18);font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.92em}
-    .poker8-online .p8-chat-block{margin:5px 0;padding:7px 9px;border-radius:8px;overflow-x:auto;background:rgba(4,16,12,.82);border:1px solid rgba(120,255,200,.16)}
+    .poker8-online .p8-chat-block{margin:5px 0;padding:7px 9px;border-radius:8px;overflow-x:auto;background:rgba(7,16,15,.82);border:1px solid rgba(120,255,200,.16)}
     .poker8-online .p8-chat-block code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.9em;white-space:pre}
     .poker8-online .p8-chat-link{color:#7dffd0;text-decoration:underline;text-underline-offset:2px}
     /* Blurred rather than blanked: the line keeps its shape, so the length of
@@ -31,7 +31,7 @@
     .poker8-online .p8-chat-toolbar button:hover{border-color:rgba(120,255,200,.44)}
     @media (prefers-reduced-motion:reduce){.poker8-online .p8-chat-spoiler{transition:none}}
     .poker8-online #chatInput{min-width:0;flex:1;padding:11px;border:1px solid #294d3e;border-radius:10px;background:#07100f;color:#f4f5ee}
-    .poker8-online #chatForm button{padding:0 15px;border:0;border-radius:10px;background:#91e8ba;color:#082018;font-weight:900}
+    .poker8-online #chatForm button{padding:0 15px;border:0;border-radius:10px;background:#91e8ba;color:#041f14;font-weight:900}
     .poker8-online .local-only-control,.poker8-online .solver-panel,.poker8-online .stats-panel,.poker8-online .saved-tables-panel,.poker8-online .format-panel{display:none!important}
     .poker8-online .mobile-drawer-divider{height:1px;margin:8px 0;border:0;background:rgba(126,202,165,.20)}
     .poker8-online .mobile-drawer .network-table-action{display:block;width:100%;margin:6px 0;padding:12px;border:1px solid rgba(95,237,170,.34);border-radius:10px;background:rgba(4,31,20,.84);color:#c9ffe3;text-align:left;font-weight:850}
@@ -51,8 +51,8 @@
     .poker8-online.p8-observer-mode{--p8-hud-h:0px!important;--p8-bottom-reserve:0px!important}
     .poker8-online.p8-observer-mode .sidebar,
     .poker8-online.p8-observer-mode .action-panel{display:none!important}
-    .p8-funds-dialog{width:min(92vw,360px);padding:22px 20px 18px;border:1px solid rgba(64,237,167,.42);border-radius:16px;background:linear-gradient(160deg,#0b1f18,#061210);color:#dcf7e8;box-shadow:0 24px 70px rgba(0,0,0,.62)}
-    .p8-funds-dialog::backdrop{background:rgba(2,8,6,.72)}
+    .p8-funds-dialog{width:min(92vw,360px);padding:22px 20px 18px;border:1px solid rgba(64,237,167,.42);border-radius:16px;background:linear-gradient(160deg,#031b13,#07100f);color:#dcf7e8;box-shadow:0 24px 70px rgba(0,0,0,.62)}
+    .p8-funds-dialog::backdrop{background:rgba(0,8,5,.72)}
     .p8-funds-dialog h2{margin:0 0 12px;color:#ffd9a8;font:800 20px/1.15 Inter,ui-sans-serif,system-ui;letter-spacing:-.01em}
     .p8-funds-lead{margin:0 0 12px;color:#d6ece0;font-size:12px;line-height:1.45}
     .p8-funds-lead[hidden]{display:none}
@@ -61,16 +61,16 @@
     .p8-funds-offer[hidden]{display:none}
     .p8-funds-sums{margin:0 0 18px;color:#a9c6b8;font-size:12px;line-height:1.75}
     .p8-funds-sums b{color:#eaffef;font-size:15px;font-variant-numeric:tabular-nums}
-    .p8-funds-offer{display:grid;gap:8px;padding:14px;border:1px solid rgba(80,200,255,.34);border-radius:12px;background:rgba(6,26,36,.72)}
+    .p8-funds-offer{display:grid;gap:8px;padding:14px;border:1px solid rgba(86,200,255,.34);border-radius:12px;background:rgba(6,26,36,.72)}
     .p8-funds-offer strong{color:#bde9ff;font-size:15px}
     .p8-funds-offer span{color:#8fb3c4;font-size:12px;line-height:1.35}
-    .p8-funds-offer button{margin-top:2px;padding:12px;border:0;border-radius:10px;background:linear-gradient(120deg,#2fd6a0,#39c8ff);color:#04211c;font:800 12px/1 Inter,ui-sans-serif,system-ui;cursor:pointer}
-    .p8-funds-offer button:disabled{background:rgba(120,150,150,.26);color:#8ea8a2;cursor:default}
+    .p8-funds-offer button{margin-top:2px;padding:12px;border:0;border-radius:10px;background:linear-gradient(120deg,#2fd6a0,#35c6ff);color:#04211c;font:800 12px/1 Inter,ui-sans-serif,system-ui;cursor:pointer}
+    .p8-funds-offer button:disabled{background:rgba(120,150,150,.26);color:#8ca59c;cursor:default}
     .p8-funds-close{width:100%;margin-top:14px;padding:12px;border:1px solid rgba(95,237,170,.34);border-radius:10px;background:rgba(4,31,20,.84);color:#c9ffe3;font:800 12px/1 Inter,ui-sans-serif,system-ui;cursor:pointer}
     .poker8-online.p8-action-pending #actionButtons{opacity:.62;pointer-events:none;filter:saturate(.72)}
     .poker8-online.p8-action-pending #actionButtons::after{content:'Отправляем действие…';display:block;grid-column:1 / -1;text-align:center;color:#a8ffd4;font-size:10px;font-weight:800;padding:5px}
     @media(max-width:780px){
-      .poker8-online .felt > .online-state-panel{position:absolute;left:50%;top:59%;right:auto;bottom:auto;z-index:76;width:min(84vw,348px);margin:0;padding:10px 12px;transform:translate(-50%,-50%);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 12px;border-color:rgba(64,237,167,.48);background:linear-gradient(135deg,rgba(1,29,18,.94),rgba(2,14,11,.96));box-shadow:0 12px 28px rgba(0,0,0,.42),0 0 20px rgba(44,247,169,.10);transition:width 180ms ease,padding 180ms ease,top 180ms ease}
+      .poker8-online .felt > .online-state-panel{position:absolute;left:50%;top:59%;right:auto;bottom:auto;z-index:76;width:min(84vw,348px);margin:0;padding:10px 12px;transform:translate(-50%,-50%);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 12px;border-color:rgba(64,237,167,.48);background:linear-gradient(135deg,rgba(4,31,20,.94),rgba(7,16,15,.96));box-shadow:0 12px 28px rgba(0,0,0,.42),0 0 20px rgba(44,247,169,.10);transition:width 180ms ease,padding 180ms ease,top 180ms ease}
       .poker8-online .felt > .online-state-panel strong{grid-column:1;color:#a8ffd4;font-size:15px;line-height:1.1}
       .poker8-online .felt > .online-state-panel span{grid-column:1;color:#c3d7cc;font-size:10px;line-height:1.25}
       .poker8-online .felt > .online-state-panel button{grid-column:2;grid-row:1 / span 2;align-self:center;min-height:42px;padding:9px 12px;white-space:nowrap}
@@ -92,7 +92,7 @@
            came out 375x215 in an 812px viewport. Say the height outright. */
         align-self:stretch;height:100dvh;max-height:100dvh;
         z-index:140;margin:0;padding:0;border-radius:0;border:0;
-        background:linear-gradient(180deg,#061410,#030b09)
+        background:linear-gradient(180deg,#021312,#07100f)
       }
       .poker8-online .online-chat-panel.is-open > h2{
         flex:none;margin:0;padding:calc(12px + env(safe-area-inset-top)) 14px 10px;
@@ -172,7 +172,7 @@
       .poker8-online .mobile-header-seat-actions #mobileHeaderTakeSeat.mode-active::after{
         content:"";position:absolute;inset:1px;z-index:-1;border-radius:inherit;background:#0a3b2b;
       }
-      .poker8-online .mobile-header-seat-actions #mobileHeaderObserve.mode-active{color:#eafcff;}
+      .poker8-online .mobile-header-seat-actions #mobileHeaderObserve.mode-active{color:#e7faff;}
       .poker8-online .mobile-header-seat-actions #mobileHeaderObserve.mode-active::before{
         content:"";position:absolute;inset:-1px;z-index:-1;border-radius:inherit;
         background:linear-gradient(90deg,#38bdf8,#a6f1ff,#38bdf8,#1d7fb8);
@@ -223,7 +223,7 @@
 
   const units = value => Math.round(Number(value || 0));
   const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, char => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;",
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#003399;",
   }[char]));
   let table = null;
   let viewerState = "spectator";

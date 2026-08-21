@@ -10,7 +10,7 @@
       body.v014.poker8-v2-sixmax{
         --seat-0-y:85.2%!important;
         min-height:100dvh!important;
-        background:linear-gradient(180deg,#080705 0,#020404 68%,#010304 100%)!important;
+        background:linear-gradient(180deg,#000000 0,#000000 68%,#000000 100%)!important;
       }
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"]{
         top:85.2%!important;
@@ -35,7 +35,7 @@
         height:38px!important;
         border-radius:11px!important;
         font-size:12px!important;
-        box-shadow:0 0 10px rgba(47,179,255,.10),inset 0 0 12px rgba(65,197,255,.035)!important;
+        box-shadow:0 0 10px rgba(47,179,255,.10),inset 0 0 12px rgba(53,198,255,.035)!important;
       }
 
       /* Keep intrinsic control height, but extend its visual surface to the phone bottom.
@@ -63,14 +63,14 @@
         pointer-events:none;
         background:
           radial-gradient(circle at 50% 0,rgba(24,95,84,.055),transparent 48%),
-          linear-gradient(180deg,rgba(1,4,5,1),rgba(1,3,4,1));
+          linear-gradient(180deg,rgba(0,0,0,1),rgba(0,0,0,1));
         border-left:1px solid rgba(40,76,80,.18);
         border-right:1px solid rgba(40,76,80,.18);
       }
 
       body.v014.poker8-v2-sixmax .app-shell{
         min-height:100dvh!important;
-        background:linear-gradient(180deg,transparent 0,transparent 72%,rgba(1,3,4,.98) 72%,#010304 100%)!important;
+        background:linear-gradient(180deg,transparent 0,transparent 72%,rgba(0,0,0,.98) 72%,#000000 100%)!important;
       }
 
       /* Make the amount slider feel like the end of the dock instead of floating

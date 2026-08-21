@@ -107,10 +107,10 @@
         min-width:126px !important;
         height:31px !important;
         padding:0 16px !important;
-        border:1px solid rgba(255,169,67,.48) !important;
+        border:1px solid rgba(255,171,67,.48) !important;
         border-radius:999px !important;
         background:linear-gradient(180deg,rgba(56,30,5,.96),rgba(31,16,3,.98)) !important;
-        box-shadow:0 7px 18px rgba(0,0,0,.28),inset 0 0 15px rgba(255,166,64,.035) !important;
+        box-shadow:0 7px 18px rgba(0,0,0,.28),inset 0 0 15px rgba(255,163,65,.035) !important;
         color:#ffd79d !important;
         font-size:12px !important;
         font-weight:950 !important;
@@ -125,19 +125,19 @@
         height:8px !important;
         flex:0 0 8px !important;
         border-radius:50% !important;
-        background:#ff9f38 !important;
+        background:#ff9e31 !important;
         box-shadow:0 0 10px rgba(255,153,48,.72) !important;
       }
 
       body.v014 .v028-center-status.ready{
-        border-color:rgba(75,239,178,.56) !important;
-        background:linear-gradient(180deg,rgba(7,53,37,.97),rgba(4,31,22,.99)) !important;
+        border-color:rgba(61,239,176,.56) !important;
+        background:linear-gradient(180deg,rgba(7,53,37,.97),rgba(4,31,20,.99)) !important;
         color:#cffff0 !important;
       }
 
       body.v014 .v028-center-status.ready i{
-        background:#56efad !important;
-        box-shadow:0 0 11px rgba(76,239,176,.76) !important;
+        background:#5fedaa !important;
+        box-shadow:0 0 11px rgba(61,239,176,.76) !important;
       }
 
       body.v014 .v028-center-ready-button{
@@ -147,8 +147,8 @@
         border:1px solid rgba(66,226,171,.68) !important;
         border-radius:13px !important;
         background:linear-gradient(180deg,rgba(7,79,56,.98),rgba(4,48,35,.99)) !important;
-        box-shadow:0 0 18px rgba(69,231,174,.14),0 8px 22px rgba(0,0,0,.30),inset 0 0 18px rgba(103,255,204,.055) !important;
-        color:#dcfff1 !important;
+        box-shadow:0 0 18px rgba(66,226,171,.14),0 8px 22px rgba(0,0,0,.30),inset 0 0 18px rgba(103,255,204,.055) !important;
+        color:#d7ffef !important;
         font-size:12px !important;
         font-weight:950 !important;
         letter-spacing:.055em !important;
@@ -157,10 +157,10 @@
       }
 
       body.v014 .v028-center-ready-button.start{
-        border-color:rgba(70,203,255,.76) !important;
+        border-color:rgba(47,203,255,.76) !important;
         background:linear-gradient(180deg,rgba(7,65,100,.98),rgba(3,36,66,.99)) !important;
-        color:#e9fbff !important;
-        box-shadow:0 0 19px rgba(64,202,255,.17),0 8px 22px rgba(0,0,0,.30),inset 0 0 18px rgba(101,215,255,.06) !important;
+        color:#e7faff !important;
+        box-shadow:0 0 19px rgba(47,203,255,.17),0 8px 22px rgba(0,0,0,.30),inset 0 0 18px rgba(96,216,255,.06) !important;
       }
 
       body.v014 .v028-center-ready-button:not(:disabled):active{
@@ -174,16 +174,16 @@
 
       /* Keep the existing header action as a compact secondary control. */
       body.v014 .mobile-primary-action.v024-ready-button{
-        border-color:rgba(70,230,174,.62) !important;
+        border-color:rgba(66,226,171,.62) !important;
         background:linear-gradient(180deg,rgba(7,65,47,.94),rgba(4,38,29,.97)) !important;
         color:#d7ffef !important;
         font-weight:950 !important;
         letter-spacing:.045em !important;
-        box-shadow:0 0 15px rgba(70,225,170,.10),inset 0 0 15px rgba(104,255,205,.04) !important;
+        box-shadow:0 0 15px rgba(66,226,171,.10),inset 0 0 15px rgba(103,255,204,.04) !important;
       }
 
       body.v014 .mobile-primary-action.v024-ready-button.v024-all-ready{
-        border-color:rgba(73,205,255,.67) !important;
+        border-color:rgba(85,207,255,.67) !important;
         background:linear-gradient(180deg,rgba(7,56,87,.96),rgba(4,31,56,.98)) !important;
         color:#e7faff !important;
       }
