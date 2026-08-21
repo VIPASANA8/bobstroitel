@@ -26,7 +26,7 @@
         min-width:92px!important;
         height:19px!important;
         padding:0 7px!important;
-        font-size:8px!important;
+        font-size:10px!important;
         letter-spacing:.045em!important;
         opacity:.82!important;
       }
@@ -34,7 +34,7 @@
         width:138px!important;
         height:38px!important;
         border-radius:11px!important;
-        font-size:11px!important;
+        font-size:12px!important;
         box-shadow:0 0 10px rgba(47,179,255,.10),inset 0 0 12px rgba(65,197,255,.035)!important;
       }
 

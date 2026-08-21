@@ -201,7 +201,7 @@
       body.poker8-v2-sixmax .avatar-wrap{top:-20px!important}
       body.poker8-v2-sixmax .seat-name{max-width:72px!important;font-size:10px!important;font-weight:850!important}
       body.poker8-v2-sixmax .seat-stack{font-size:12px!important;color:#57e1a6!important;font-weight:900!important}
-      body.poker8-v2-sixmax .position-chip{font-size:7px!important;padding:2px 4px!important}
+      body.poker8-v2-sixmax .position-chip{font-size:10px!important;padding:2px 4px!important}
 
       body.poker8-v2-sixmax .seat-card.v032-in-hand:not(.v032-active-turn){
         border-color:rgba(199,70,255,.46)!important;
@@ -221,7 +221,7 @@
         min-height:0!important;gap:2px!important;z-index:-1!important;transition:opacity .22s ease,transform .22s ease!important;
       }
       body.poker8-v2-sixmax .player-cards .card{
-        width:34px!important;height:47px!important;border-radius:6px!important;font-size:13px!important;
+        width:34px!important;height:47px!important;border-radius:6px!important;font-size:15px!important;
         background:linear-gradient(160deg,#07100d,#020403)!important;color:#eafff6!important;
         border:1px solid rgba(85,244,192,.58)!important;
         box-shadow:0 0 8px rgba(63,238,188,.18),inset 0 0 12px rgba(33,160,119,.08)!important;
@@ -240,18 +240,18 @@
          size and offset, hero included) -- this compound selector otherwise
          outranks v038's own flat sizing (4 classes vs 3) and was silently
          winning on top of it. */
-      body.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .seat-name{font-size:11px!important}
-      body.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .seat-stack{font-size:14px!important;color:#31b8ff!important}
+      body.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .seat-name{font-size:12px!important}
+      body.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .seat-stack{font-size:15px!important;color:#31b8ff!important}
       body.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .player-cards{top:-60px!important;z-index:-1!important;gap:3px!important}
-      body.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .player-cards .card{width:46px!important;height:64px!important;font-size:17px!important;border-color:rgba(45,174,255,.78)!important;box-shadow:0 0 12px rgba(38,166,255,.25)!important}
+      body.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .player-cards .card{width:46px!important;height:64px!important;font-size:20px!important;border-color:rgba(45,174,255,.78)!important;box-shadow:0 0 12px rgba(38,166,255,.25)!important}
 
       body.poker8-v2-sixmax .pot-total{top:var(--pot-y)!important;min-width:104px!important;padding:5px 10px!important;border-radius:11px!important;background:rgba(3,16,10,.58)!important;border:1px solid rgba(72,211,156,.20)!important}
-      body.poker8-v2-sixmax .pot-total-label{font-size:9px!important;color:#a5b9ae!important}
-      body.poker8-v2-sixmax .pot-total strong{font-size:24px!important;color:#f4fff8!important;text-shadow:0 1px 5px rgba(0,0,0,.9)!important}
+      body.poker8-v2-sixmax .pot-total-label{font-size:10px!important;color:#a5b9ae!important}
+      body.poker8-v2-sixmax .pot-total strong{font-size:27px!important;color:#f4fff8!important;text-shadow:0 1px 5px rgba(0,0,0,.9)!important}
       body.poker8-v2-sixmax .pot-chips{top:var(--pot-chips-y)!important}
       body.poker8-v2-sixmax .board-cards{top:var(--board-y)!important;gap:4px!important}
       body.poker8-v2-sixmax .board-cards .card{
-        width:43px!important;height:61px!important;font-size:16px!important;border-radius:7px!important;
+        width:43px!important;height:61px!important;font-size:15px!important;border-radius:7px!important;
         background:linear-gradient(155deg,#07100d,#010302)!important;color:#effff8!important;
         border:1px solid rgba(66,255,195,.63)!important;
         box-shadow:0 0 9px rgba(60,255,196,.22),inset 0 0 14px rgba(42,161,122,.08)!important;
@@ -295,7 +295,7 @@
       body.poker8-v2-sixmax .seat{width:82px!important}
       body.poker8-v2-sixmax .seat[data-visual-seat="0"]{width:118px!important}
       body.poker8-v2-sixmax .board-cards .card{width:40px!important;height:57px!important;font-size:15px!important}
-      body.poker8-v2-sixmax .action-grid .action-slot{min-height:48px!important;font-size:9px!important}
+      body.poker8-v2-sixmax .action-grid .action-slot{min-height:48px!important;font-size:10px!important}
     }
   `;
   document.head.appendChild(style);

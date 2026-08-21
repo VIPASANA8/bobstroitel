@@ -277,7 +277,7 @@
       padding:0 6px;
       box-sizing:border-box;
       border-radius:999px;
-      font-size:7px;
+      font-size:10px;
       font-weight:950;
       line-height:1;
       letter-spacing:.035em;
@@ -336,7 +336,7 @@
 
     @media (max-width:780px){
       body.v014 .mobile-primary-action.v024-ready-button{
-        font-size:9px !important;
+        font-size:10px !important;
         letter-spacing:.01em !important;
         padding-left:9px !important;
         padding-right:9px !important;

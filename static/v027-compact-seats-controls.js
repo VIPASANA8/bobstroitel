@@ -210,7 +210,7 @@
 
       body.v014 .quick-sizes button strong{
         display:block !important;
-        font-size:13px !important;
+        font-size:15px !important;
         font-weight:950 !important;
         line-height:1 !important;
       }
@@ -218,7 +218,7 @@
       body.v014 .quick-sizes button small{
         display:block !important;
         margin-top:4px !important;
-        font-size:8px !important;
+        font-size:10px !important;
         font-weight:800 !important;
         line-height:1 !important;
         color:rgba(229,238,255,.72) !important;
@@ -260,7 +260,7 @@
         transform:translateX(-50%) !important;
         width:auto !important;
         color:#7382a2 !important;
-        font-size:7px !important;
+        font-size:10px !important;
         font-weight:850 !important;
         letter-spacing:.11em !important;
         white-space:nowrap !important;
@@ -273,7 +273,7 @@
         border:1px solid rgba(201,71,255,.52) !important;
         background:linear-gradient(180deg,rgba(39,9,55,.95),rgba(20,4,34,.99)) !important;
         color:#f1baff !important;
-        font-size:24px !important;
+        font-size:27px !important;
         font-weight:800 !important;
         box-shadow:inset 0 0 14px rgba(220,82,255,.035) !important;
       }
@@ -294,7 +294,7 @@
         background:transparent !important;
         box-shadow:none !important;
         color:#fff !important;
-        font-size:25px !important;
+        font-size:27px !important;
         font-weight:950 !important;
         line-height:46px !important;
         text-align:center !important;
@@ -318,7 +318,7 @@
 
       body.v014 .bet-slider-row span{
         min-width:42px !important;
-        font-size:7px !important;
+        font-size:10px !important;
         font-weight:800 !important;
         color:#687895 !important;
       }

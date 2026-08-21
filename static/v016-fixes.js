@@ -181,7 +181,7 @@
         gap:6px !important;
       }
       body.v014 .action-grid .v016-primary-action{
-        font-size:11px !important;
+        font-size:12px !important;
         letter-spacing:.015em !important;
       }
 
@@ -266,7 +266,7 @@
       body.v014 .mobile-selected-card.invalid #mobileSelectedAmount{
         max-width:82px !important;
         margin-top:5px !important;
-        font-size:8px !important;
+        font-size:10px !important;
         line-height:1.15 !important;
         font-weight:650 !important;
         color:#9ba8bc !important;

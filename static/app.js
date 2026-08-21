@@ -912,13 +912,15 @@ function avatarHue(seat, isBot = false) {
 //: ones. Cutting mid-word gave "Яромир Пятниц…" and "Институт Неловк…";
 //: showing the first word whole gives "Яромир" and "Институт", which is a name
 //: somebody can read and remember. A single long token has no seam to cut on,
-//: so that one still ends in an ellipsis.
+//: so that one still ends in an ellipsis. Half the roster joins its words with
+//: underscores -- "Девочка_С_Проблемами" reads as words, so an underscore is a
+//: seam too.
 const SEAT_NAME_MAX = 14;
 
 function seatDisplayName(raw) {
   const name = String(raw ?? "").trim() || "Игрок";
   if (name.length <= SEAT_NAME_MAX) return name;
-  const firstWord = name.split(/\s+/)[0];
+  const firstWord = name.split(/[\s_]+/)[0];
   if (firstWord && firstWord !== name && firstWord.length <= SEAT_NAME_MAX) return firstWord;
   return `${name.slice(0, SEAT_NAME_MAX - 1)}…`;
 }

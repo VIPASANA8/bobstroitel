@@ -123,7 +123,7 @@
       body.v014 .v028-center-ready-button.start::after{
         content:"▶";
         color:#7ff0bf;
-        font-size:11px;
+        font-size:12px;
       }
 
       body.v014 .v028-center-ready-button:not(:disabled):hover{

@@ -149,7 +149,7 @@
       }
       body.v014.poker8-v2-sixmax .bot-level{
         color:#899690!important;
-        font-size:7px!important;
+        font-size:10px!important;
         font-weight:800!important;
       }
       body.v014.poker8-v2-sixmax .position-chip{
@@ -171,7 +171,7 @@
         box-shadow:0 0 0 1px rgba(255,255,255,.06),0 0 12px hsla(var(--avatar-hue),90%,58%,.28)!important;
       }
       body.v014.poker8-v2-sixmax .player-avatar span{
-        position:relative;z-index:2;font-size:13px!important;font-weight:950!important;
+        position:relative;z-index:2;font-size:15px!important;font-weight:950!important;
       }
 
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"]{width:132px!important}
@@ -181,7 +181,7 @@
         border-color:rgba(49,178,255,.82)!important;
         box-shadow:0 0 0 1px rgba(49,178,255,.14),0 0 16px rgba(46,174,255,.20),0 10px 24px rgba(0,0,0,.46)!important;
       }
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-stack{color:#35bfff!important;font-size:14px!important}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-stack{color:#35bfff!important;font-size:15px!important}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .player-avatar{
         width:48px!important;height:48px!important;
         border-color:rgba(52,185,255,.90)!important;
@@ -193,7 +193,7 @@
         min-width:42px!important;
         height:14px!important;
         padding:0 5px!important;
-        font-size:6px!important;
+        font-size:10px!important;
         opacity:.72!important;
       }
 
@@ -206,12 +206,12 @@
         background:rgba(2,28,18,.82)!important;
         box-shadow:0 6px 18px rgba(0,0,0,.22),inset 0 0 14px rgba(58,220,165,.025)!important;
       }
-      body.v014.poker8-v2-sixmax .pot-total-label{color:#9bc5b5!important;font-size:8px!important;letter-spacing:.10em!important}
-      body.v014.poker8-v2-sixmax .pot-total strong{color:#fff!important;font-size:21px!important;text-shadow:0 0 9px rgba(72,239,180,.16)!important}
+      body.v014.poker8-v2-sixmax .pot-total-label{color:#9bc5b5!important;font-size:10px!important;letter-spacing:.10em!important}
+      body.v014.poker8-v2-sixmax .pot-total strong{color:#fff!important;font-size:20px!important;text-shadow:0 0 9px rgba(72,239,180,.16)!important}
 
       body.v014.poker8-v2-sixmax .v028-center-ready{top:56%!important;width:158px!important;gap:7px!important}
       body.v014.poker8-v2-sixmax .v028-center-status{
-        min-width:105px!important;height:22px!important;padding:0 10px!important;font-size:9px!important;
+        min-width:105px!important;height:22px!important;padding:0 10px!important;font-size:10px!important;
         background:transparent!important;border:0!important;box-shadow:none!important;
       }
       body.v014.poker8-v2-sixmax .v028-center-status i{width:6px!important;height:6px!important;flex-basis:6px!important}
@@ -234,17 +234,17 @@
       body.v014.poker8-v2-sixmax .action-grid .action-slot{min-height:46px!important;border-radius:11px!important;font-size:10px!important}
       body.v014.poker8-v2-sixmax .quick-sizes{gap:6px!important}
       body.v014.poker8-v2-sixmax .quick-sizes button{min-height:38px!important;border-radius:10px!important}
-      body.v014.poker8-v2-sixmax .quick-sizes button strong{font-size:11px!important}
+      body.v014.poker8-v2-sixmax .quick-sizes button strong{font-size:12px!important}
       body.v014.poker8-v2-sixmax .amount-row{min-height:50px!important;margin-top:14px!important;padding:4px!important;border-radius:13px!important}
       body.v014.poker8-v2-sixmax .amount-step{width:40px!important;height:40px!important}
-      body.v014.poker8-v2-sixmax .amount-row input[type=number]{height:40px!important;font-size:22px!important}
-      body.v014.poker8-v2-sixmax .amount-row::before{content:"BET SIZE"!important;color:#6f8f89!important;font-size:6px!important;letter-spacing:.13em!important}
+      body.v014.poker8-v2-sixmax .amount-row input[type=number]{height:40px!important;font-size:20px!important}
+      body.v014.poker8-v2-sixmax .amount-row::before{content:"BET SIZE"!important;color:#6f8f89!important;font-size:10px!important;letter-spacing:.13em!important}
       body.v014.poker8-v2-sixmax .bet-slider-row{padding:0 5px!important}
-      body.v014.poker8-v2-sixmax .bet-slider-row span{font-size:6px!important;color:#728680!important}
+      body.v014.poker8-v2-sixmax .bet-slider-row span{font-size:10px!important;color:#728680!important}
       body.v014.poker8-v2-sixmax .mobile-auto-action{display:none!important}
 
       body.v014.poker8-v2-sixmax .board-cards{top:49%!important;gap:4px!important}
-      body.v014.poker8-v2-sixmax .board-cards .card{width:45px!important;height:64px!important;font-size:16px!important}
+      body.v014.poker8-v2-sixmax .board-cards .card{width:45px!important;height:64px!important;font-size:15px!important}
     }
 
     @media (max-width:370px){

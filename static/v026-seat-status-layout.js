@@ -53,7 +53,7 @@
         margin:0 !important;
         padding:0 7px !important;
         border-radius:999px !important;
-        font-size:7px !important;
+        font-size:10px !important;
         font-weight:950 !important;
         line-height:1 !important;
         letter-spacing:.035em !important;

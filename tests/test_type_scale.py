@@ -20,6 +20,20 @@ def test_the_table_sets_type_only_on_the_scale():
     assert len(sizes) >= 4, "a scale nobody uses is not a scale"
 
 
+def test_every_override_layer_holds_the_scale():
+    """v038 alone was not enough -- 7, 11, 14 and 17 arrived from other layers.
+
+    Twenty-seven files stack their styles onto this table and the last one wins,
+    so a scale that only one of them honours is not a scale on the screen.
+    """
+    strays = {}
+    for layer in sorted(Path("static").glob("v0*.js")):
+        sizes = {int(size) for size in re.findall(r"font-size:(\d+)px", layer.read_text(encoding="utf-8"))}
+        if sizes - SCALE:
+            strays[layer.name] = sorted(sizes - SCALE)
+    assert not strays, f"off the scale: {strays}"
+
+
 def test_the_stack_reads_louder_than_the_name():
     """The number you scan sits a step above the name beside it."""
     name = re.search(r"\.seat-name\{[^}]*font-size:(\d+)px", TABLE)
