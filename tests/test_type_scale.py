@@ -98,10 +98,20 @@ def test_the_name_gets_the_whole_plate():
     assert "max-width:100%!important" in rule[:rule.index("}")]
 
 
+#: Node has no canvas, so the policy takes its measurement as an argument and
+#: the test supplies one. These are the real widths of Inter 800 10px, taken
+#: from the browser: Cyrillic runs wider than Latin, which is the whole reason
+#: counting characters could not do this job.
+_WIDTH = "const w = t => [...t].reduce((n, c) => n + (/[А-Яа-яЁё]/.test(c) ? 6.4 : 5.6), 0);"
+
+
 def _trim(*names):
-    source = APP[APP.index("const SEAT_NAME_MAX"):]
-    source = source[:source.index(chr(10) + "}") + 2]
-    probe = ("const out = " + json.dumps(list(names)) + ".map(seatDisplayName);"
+    source = APP[APP.index("const SEAT_NAME_PX"):]
+    source = source[:source.index("function seatDisplayName")]
+    body = APP[APP.index("function seatDisplayName"):]
+    source += body[:body.index(chr(10) + "}") + 2]
+    probe = (_WIDTH + chr(10)
+             + "const out = " + json.dumps(list(names)) + ".map(n => seatDisplayName(n, w));"
              + chr(10) + "console.log(JSON.stringify(out));" + chr(10))
     with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False, encoding="utf-8") as handle:
         handle.write(source + chr(10) + probe)
@@ -119,9 +129,15 @@ def test_a_name_of_several_words_shows_its_first_one_whole():
         "Яромир", "Институт", "Гоша"]
 
 
-def test_a_single_long_token_has_no_seam_so_it_ends_in_an_ellipsis():
+def test_a_single_long_token_is_left_for_the_plate_to_cut():
+    """It has no seam, so JS has nothing to decide.
+
+    Slicing the string here was worse than useless: it guessed at where the
+    plate would run out using a character count, and the plate already knows
+    exactly, with text-overflow. So the name goes through whole and CSS cuts it.
+    """
     [trimmed] = _trim("xXxBrokenHeartxXx")
-    assert trimmed.endswith("…") and len(trimmed) <= 14
+    assert trimmed == "xXxBrokenHeartxXx"
 
 
 def test_a_name_that_already_fits_is_left_alone():
@@ -138,3 +154,10 @@ def test_the_lobby_gets_the_same_base():
     assert "button,input,select,textarea{font:inherit}" in sheet
     assert "small{font-size:12px}" in sheet
     assert "body{font-size:15px;" in sheet
+
+
+def test_the_name_box_is_the_plate_on_every_seat():
+    """The hero seat kept a max-width of 66px inside an 84px plate -- the same
+    cap, in the same units, that started this."""
+    for rule in re.findall(r"\.seat-name\{[^}]*\}", TABLE) +                 re.findall(r'\[data-visual-seat="0"\] \.seat-name\{[^}]*\}', TABLE):
+        assert "max-width:100%!important" in rule, rule

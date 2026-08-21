@@ -231,14 +231,19 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'v038-armed' in source
     assert 'v038-size-selected' in source
     assert '.quick-sizes button.v038-max-size{' in source
-    # Was a pinned magenta literal. Selection wears the colour of the action
-    # it selects now, and magenta belongs to the turn alone.
-    assert 'border-color:var(--act-raise)!important' in source
+    # Was a pinned magenta literal, then the raise colour. A pressed size chip
+    # lights up in that chip's own colour now -- the five sizes are a ramp and
+    # each step owns one.
+    assert 'border-color:var(--size-accent)!important' in source
     assert 'transition:color 180ms' in source
     assert '@media (prefers-reduced-motion:reduce)' in source
     assert 'teardownFinalReference' in source
     assert 'estimatedLocalToCall()' in source
-    assert 'rotate:x -5deg' in source
+    # Was the felt's 3D tilt and the counter-rotation that cancelled it on
+    # every child. Both are gone: the scale that came with the tilt sized
+    # each seat plate to a fractional pixel and softened the text.
+    assert 'rotate:x -5deg' not in source
+    assert 'transform:rotateX(' not in source
     assert 'fetch(' not in source
     assert 'data-v038-all-in-trigger' in source
     assert 'source === "aggressive"' in source
@@ -262,7 +267,10 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'syncSeatActionStates' in source
     assert all(token in source for token in ('v038-action-fold', 'v038-action-passive', 'v038-action-aggressive', 'v038-action-all-in'))
     assert '.seat-card.v032-active-turn .seat-identity' in source
-    assert '@keyframes v038ActiveTurnPulse' in source
+    # Was the cyan pulse. Three layers drew the turn in three colours and
+    # only this one declared an animation, so a cyan pulse ran on top of
+    # the magenta ring. The turn is drawn once now, in v041.
+    assert 'border-color:var(--turn)!important' in source
     assert '.seat .seat-card.v032-in-hand:not(.v032-active-turn){\n        border:0!important;background:transparent!important;box-shadow:none!important;outline:0!important;' in source
     # The size moved onto the type scale (see test_type_scale); what this
     # line is really pinning is the plate the wager sits on.

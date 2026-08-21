@@ -180,3 +180,26 @@ def test_the_hud_numbers_line_up():
     #: They were cyan, green and orange. The labels above them already say
     #: which is which; three accents for three numbers says nothing more.
     assert len(re.findall(r"color:#[0-9a-f]{6}", rule)) == 1
+
+
+def test_all_in_is_announced_once():
+    """The badge over the avatar and the stack line both said ALL-IN.
+
+    The stack keeps it -- a stack of 0 says nothing, which is why it was put
+    there. The badge gave it up: it still carries ПАС and ДУМАЕТ, which the
+    stack line cannot show.
+    """
+    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    status = re.search(r'const status = folded \? "ПАС"[^;]*;', app)
+    assert status, "the status line moved"
+    assert "ALL-IN" not in status.group(0)
+    assert 'class="seat-stack">${allIn ? "ALL-IN" : formatBB(stack)}' in app
+
+
+def test_arming_a_press_survives_its_own_click():
+    """A document listener cancelled any armed action on a click outside
+    [data-v038-all-in-trigger] -- an attribute nothing sets. So the button's
+    own click bubbled up and disarmed what it had just armed, and fold and
+    all-in both did nothing at all."""
+    assert 'closest?.("[data-action-key],[data-v038-all-in-trigger]")' in TABLE
+    assert "button.dataset.actionKey = def.key" in TABLE

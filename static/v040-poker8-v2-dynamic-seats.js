@@ -40,7 +40,9 @@
       body.v014.poker8-v2-sixmax .seat.v040-dynamic-seat{
         left:var(--v040-seat-x)!important;top:var(--v040-seat-y)!important;
         transform:translate(calc(-50% + var(--v040-flip-x, 0px)),calc(-50% + var(--v040-flip-y, 0px)))!important;
-        will-change:transform;
+        /* No will-change here. It promoted every seat to its own raster layer,
+           which was then resampled through the felt's transform -- paying a
+           layer per seat to make the text softer. */
         /* Only the position needs to visibly flip. A live table re-renders
            this element from scratch on every snapshot, which restarts any
            transition on it before it can finish -- animating width/height

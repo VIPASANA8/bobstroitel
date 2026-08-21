@@ -91,9 +91,13 @@
         margin-inline:auto!important;
         border:0!important;
         border-radius:49% / 36%!important;
-        transform:rotateX(5deg) scale(.985,1.025)!important;
+        /* Was rotateX(5deg) scale(.985,1.025) with preserve-3d. Every child
+           that shows counter-rotated by -5deg to sit upright again, so the
+           tilt cancelled out -- but the scale did not, and it sized every
+           seat plate to a fractional pixel: 92.4 instead of 92. Text
+           rasterised at one size and resampled at another is what "blurry
+           nicknames" was. The felt's shape comes from its border-radius. */
         transform-origin:50% 54%!important;
-        transform-style:preserve-3d!important;
         background:transparent!important;
         outline:0!important;
         box-shadow:none!important;
@@ -102,9 +106,6 @@
       body.v014.poker8-v2-sixmax .felt::before,
       body.v014.poker8-v2-sixmax .felt::after{display:none!important;}
 
-      body.v014.poker8-v2-sixmax .felt :is(.seat-card,.board-cards .card,.pot-total>*,.pot-chips>*,.bet-marker>*){
-        rotate:x -5deg;
-      }
 
       body.v014.poker8-v2-sixmax .table-glow{
         display:none!important;
@@ -206,17 +207,16 @@
 
       body.v014.poker8-v2-sixmax .seat-identity{
         position:absolute!important;z-index:6;left:50%!important;top:47px!important;transform:translateX(-50%)!important;
-        width:96px!important;min-height:38px!important;padding:6px 7px 5px!important;border-radius:9px!important;
+        width:84px!important;min-height:32px!important;padding:3px 6px 4px!important;border-radius:8px!important;
         transition:border-color 220ms ease,box-shadow 220ms ease,filter 220ms ease!important;
         border:1px solid hsla(var(--seat-accent),90%,60%,.72)!important;background:linear-gradient(180deg,rgba(0,0,0,.98),rgba(0,0,0,.995))!important;
         box-shadow:0 0 12px hsla(var(--seat-accent),92%,55%,.24),0 7px 14px rgba(0,0,0,.62)!important;text-align:center!important;
       }
       body.v014.poker8-v2-sixmax .seat-topline{display:block!important;}
-      /* The plate is 92px wide; the name was capped at 68 and cut inside a box
-         that had room to spare. It takes the plate now, and seatDisplayName
-         keeps what it hands over short enough to land. */
+      /* The name takes the whole plate; seatDisplayName measures what it hands
+         over so it lands, and CSS finishes anything still too long. */
       body.v014.poker8-v2-sixmax .seat-name{max-width:100%!important;font-size:10px!important;line-height:1.1!important;}
-      body.v014.poker8-v2-sixmax .seat-stack{margin-top:3px!important;font-size:15px!important;line-height:1!important;color:var(--seat-neon)!important;}
+      body.v014.poker8-v2-sixmax .seat-stack{margin-top:1px!important;font-size:15px!important;line-height:1!important;color:var(--seat-neon)!important;}
       body.v014.poker8-v2-sixmax .seat-name,
       body.v014.poker8-v2-sixmax .seat-stack{margin-inline:auto!important;}
       body.v014.poker8-v2-sixmax .bot-level{display:none!important;}
@@ -295,7 +295,7 @@
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .player-avatar{border-color:#35bfff!important;font-size:15px!important;}
       /* Plate stays the same width and position as every other seat's --
          a wider hero plate was the last piece of asymmetric hero sizing. */
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-name{font-size:10px!important;max-width:66px!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-name{font-size:10px!important;max-width:100%!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-stack{font-size:15px!important;color:#35c6ff!important;}
 
       body.v014.poker8-v2-sixmax .seat-card.v038-action-fold .player-avatar{
@@ -422,23 +422,19 @@
       body.v014.poker8-v2-sixmax .seat .seat-card.v032-active-turn{
         border:0!important;background:transparent!important;box-shadow:none!important;outline:0!important;
       }
+      /* The turn is drawn once, in v041, in the turn colour. This layer used
+         to draw it again in cyan with a pulse of its own, and v032 draws it a
+         third time in orange -- so the acting seat carried three indicators in
+         three colours, and the cyan pulse survived on top of the magenta ring
+         because only this layer declared an animation. */
       body.v014.poker8-v2-sixmax .seat .seat-card.v032-active-turn .player-avatar{
-        border-color:#55fff2!important;
-        box-shadow:0 0 0 3px rgba(0,0,0,.92),0 0 25px rgba(85,255,242,.78),inset 0 -10px 18px rgba(0,0,0,.50)!important;
-      }
-      body.v014.poker8-v2-sixmax .seat .seat-card.v032-active-turn .player-avatar,
-      body.v014.poker8-v2-sixmax .seat .seat-card.v032-active-turn .seat-identity{
-        animation:v038ActiveTurnPulse 1.35s ease-in-out infinite;
+        border-color:var(--turn)!important;
+        box-shadow:0 0 0 3px rgba(0,0,0,.92),0 0 25px color-mix(in srgb,var(--turn) 78%,transparent),inset 0 -10px 18px rgba(0,0,0,.50)!important;
       }
       body.v014.poker8-v2-sixmax .seat .seat-card.v032-active-turn .seat-identity{
-        border-color:#55fff2!important;
-        box-shadow:0 0 18px rgba(85,255,242,.66),0 7px 14px rgba(0,0,0,.62)!important;
+        border-color:var(--turn)!important;
+        box-shadow:0 0 18px color-mix(in srgb,var(--turn) 66%,transparent),0 7px 14px rgba(0,0,0,.62)!important;
       }
-      /* Pulse the outline only: box-shadow here loses to the !important base rules,
-         so the glow has to ride on filter, and drop-shadow traces the element edge
-         instead of washing the whole plate like brightness() did. */
-      @keyframes v038ActiveTurnPulse{0%,100%{filter:drop-shadow(0 0 2px rgba(85,255,242,.40))}50%{filter:drop-shadow(0 0 9px rgba(85,255,242,.95))}}
-      @media (prefers-reduced-motion:reduce){body.v014.poker8-v2-sixmax .seat .seat-card.v032-active-turn :is(.player-avatar,.seat-identity){animation:none!important;}}
       /* Folding takes your cards, not your seat. Dimming the whole player to
          28% made them read as gone -- the name and stack you want to keep
          reading went with the hand. They stay lit like everyone else, and the
@@ -504,12 +500,14 @@
       body.v014.poker8-v2-sixmax .quick-sizes button strong{display:block;font-size:10px!important;line-height:1!important;color:#ffffff!important;}
       body.v014.poker8-v2-sixmax .quick-sizes button small{display:block;margin-top:3px;font-size:10px!important;line-height:1!important;color:#f2f6ff!important;}
       body.v014.poker8-v2-sixmax .quick-sizes button.v038-max-size{
+        --size-accent:var(--act-allin);
         color:#fff5bd!important;border-color:color-mix(in srgb,var(--act-allin) 88%,transparent)!important;background:rgba(44,29,2,.78)!important;
         box-shadow:0 0 11px rgba(255,184,45,.28),inset 0 0 8px rgba(255,196,77,.10)!important;
       }
       body.v014.poker8-v2-sixmax .quick-sizes button.v038-size-selected{
-        color:#ffffff!important;border-color:var(--act-raise)!important;background:rgba(6,42,20,.94)!important;
-        box-shadow:0 0 0 1px color-mix(in srgb,var(--act-raise) 55%,transparent),0 0 13px color-mix(in srgb,var(--act-raise) 62%,transparent),inset 0 0 10px color-mix(in srgb,var(--act-raise) 16%,transparent)!important;
+        color:#ffffff!important;border-color:var(--size-accent)!important;
+        background:color-mix(in srgb,var(--size-accent) 20%,#090a0a)!important;
+        box-shadow:0 0 0 1px color-mix(in srgb,var(--size-accent) 55%,transparent),0 0 13px color-mix(in srgb,var(--size-accent) 62%,transparent),inset 0 0 10px color-mix(in srgb,var(--size-accent) 16%,transparent)!important;
       }
       body.v014.poker8-v2-sixmax .bet-slider-row{
         position:absolute!important;left:10px;right:10px;top:79px!important;height:25px!important;padding:0!important;
@@ -1366,7 +1364,13 @@
       document.body.dataset.v038ClickSync = "1";
       document.addEventListener("click", event => {
         if (event.target?.closest?.("#amountMinus,#amountPlus")) clearPresetSelection();
-        if (armedSource && !event.target?.closest?.("[data-v038-all-in-trigger]")) clearArmedAction();
+        // Clicking away is how you cancel -- but the button that arms is not
+        // "away". This exempted [data-v038-all-in-trigger], an attribute
+        // nothing in the repo ever sets, so the document listener fired right
+        // after the button's own handler and disarmed what had just been
+        // armed. Fold and all-in both went nowhere: armed on mousedown's
+        // click, cleared by the same click on its way up.
+        if (armedSource && !event.target?.closest?.("[data-action-key],[data-v038-all-in-trigger]")) clearArmedAction();
       });
     }
   };

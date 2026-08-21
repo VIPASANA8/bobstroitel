@@ -208,8 +208,8 @@
         box-shadow:0 0 10px rgba(199,70,255,.08),0 8px 22px rgba(0,0,0,.44)!important;
       }
       body.poker8-v2-sixmax .seat-card.v032-active-turn{
-        border-color:rgba(255,158,49,.82)!important;
-        box-shadow:0 0 0 1px rgba(255,158,49,.18),0 0 18px rgba(255,137,24,.30),0 8px 24px rgba(0,0,0,.48)!important;
+        border-color:color-mix(in srgb,var(--turn) 82%,transparent)!important;
+        box-shadow:0 0 0 1px color-mix(in srgb,var(--turn) 18%,transparent),0 8px 24px rgba(0,0,0,.48)!important;
       }
       body.poker8-v2-sixmax .seat-card.v032-folded{
         opacity:.28!important;filter:saturate(.18) brightness(.68)!important;box-shadow:none!important;

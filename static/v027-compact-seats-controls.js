@@ -199,14 +199,18 @@
         opacity:.7;
       }
 
-      body.v014 .quick-sizes button:nth-child(1){border-color:rgba(47,179,255,.52) !important;color:#cdeeff !important}
-      body.v014 .quick-sizes button:nth-child(1)::before{background:#2fb3ff}
-      body.v014 .quick-sizes button:nth-child(2){border-color:rgba(99,117,255,.58) !important;color:#d8e2ff !important}
-      body.v014 .quick-sizes button:nth-child(2)::before{background:#6375ff}
-      body.v014 .quick-sizes button:nth-child(3){border-color:rgba(199,70,255,.60) !important;color:#f1d8ff !important}
-      body.v014 .quick-sizes button:nth-child(3)::before{background:#c746ff}
-      body.v014 .quick-sizes button:nth-child(4){border-color:rgba(255,161,57,.62) !important;color:#ffe0b4 !important}
-      body.v014 .quick-sizes button:nth-child(4)::before{background:#ffa139}
+      /* The five sizes are a ramp from a small bet to everything you have, and
+         each step owns its colour. Naming it lets the pressed state light up in
+         the colour of the button you pressed instead of one shared highlight. */
+      body.v014 .quick-sizes button{--size-accent:#2fb3ff;}
+      body.v014 .quick-sizes button:nth-child(2){--size-accent:#6375ff;}
+      body.v014 .quick-sizes button:nth-child(3){--size-accent:#c746ff;}
+      body.v014 .quick-sizes button:nth-child(4){--size-accent:#ffa139;}
+      body.v014 .quick-sizes button{
+        border-color:color-mix(in srgb,var(--size-accent) 56%,transparent) !important;
+        color:color-mix(in srgb,var(--size-accent) 30%,#ffffff) !important;
+      }
+      body.v014 .quick-sizes button::before{background:var(--size-accent)}
 
       body.v014 .quick-sizes button strong{
         display:block !important;

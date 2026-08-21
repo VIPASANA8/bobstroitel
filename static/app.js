@@ -907,22 +907,34 @@ function avatarHue(seat, isBot = false) {
   return (base + Number(seat || 0) * 37) % 360;
 }
 
-//: What fits on a seat plate. The plate is 92px wide with 7px of padding, so
-//: a name gets about fourteen characters -- and the roster is full of longer
-//: ones. Cutting mid-word gave "Яромир Пятниц…" and "Институт Неловк…";
-//: showing the first word whole gives "Яромир" and "Институт", which is a name
-//: somebody can read and remember. A single long token has no seam to cut on,
-//: so that one still ends in an ellipsis. Half the roster joins its words with
-//: underscores -- "Девочка_С_Проблемами" reads as words, so an underscore is a
-//: seam too.
-const SEAT_NAME_MAX = 14;
+//: What fits on a seat plate. Counting characters could not answer that: at
+//: 10px, fourteen Latin characters are 92px and fourteen Cyrillic ones are
+//: 144, so a cap that let "DarkPaladin" through cut "Глеб Остывший" in half.
+//: Measure instead. Cutting mid-word gave "Яромир Пятниц…"; the first word
+//: whole gives "Яромир", a name somebody can read and remember. Half the
+//: roster joins its words with underscores, so those count as seams too.
+//: Anything still too long is left to the plate's own ellipsis, which is
+//: better at this than arithmetic on string length.
+const SEAT_NAME_PX = 70;
+const SEAT_NAME_FONT = '800 10px Inter, ui-sans-serif, system-ui, sans-serif';
 
-function seatDisplayName(raw) {
+let seatNameRuler = null;
+function seatNameWidth(text) {
+  if (!seatNameRuler) {
+    seatNameRuler = document.createElement("canvas").getContext("2d");
+    if (seatNameRuler) seatNameRuler.font = SEAT_NAME_FONT;
+  }
+  //: No canvas (a stripped test DOM) means no measuring, so nothing is trimmed
+  //: and the plate's ellipsis handles it -- worse, never wrong.
+  return seatNameRuler ? seatNameRuler.measureText(text).width : 0;
+}
+
+function seatDisplayName(raw, measure = seatNameWidth) {
   const name = String(raw ?? "").trim() || "Игрок";
-  if (name.length <= SEAT_NAME_MAX) return name;
+  if (measure(name) <= SEAT_NAME_PX) return name;
   const firstWord = name.split(/[\s_]+/)[0];
-  if (firstWord && firstWord !== name && firstWord.length <= SEAT_NAME_MAX) return firstWord;
-  return `${name.slice(0, SEAT_NAME_MAX - 1)}…`;
+  if (firstWord && firstWord !== name && measure(firstWord) <= SEAT_NAME_PX) return firstWord;
+  return name;
 }
 
 function seatHtml(config, player, offerSeat = true) {
@@ -962,7 +974,7 @@ function seatHtml(config, player, offerSeat = true) {
   // A human's turn is shown by the seat's own glow (.active-turn) -- the
   // "ХОД" badge on top of it was redundant. Bots keep "ДУМАЕТ": it's the
   // only sign a bot is actually deciding, not just informational chrome.
-  const status = folded ? "ПАС" : allIn ? "ALL-IN" : activeTurn && !isHuman ? "ДУМАЕТ" : "";
+  const status = folded ? "ПАС" : activeTurn && !isHuman ? "ДУМАЕТ" : "";
   const typeClass = isHuman ? "seat-human" : "seat-bot";
   // game is null before a hand exists (waiting/countdown) -- tableData's own
   // copy survives those phases, so a freshly seated player still gets a hero
@@ -982,7 +994,7 @@ function seatHtml(config, player, offerSeat = true) {
       ${isDealer ? `<div class="dealer-button" title="Дилер / BTN">D</div>` : ""}
       <div class="avatar-wrap">
         <div class="player-avatar"><span>${escapeHtml(avatar)}</span></div>
-        ${status ? `<div class="player-status ${folded ? "status-fold" : allIn ? "status-allin" : activeTurn && !isHuman ? "status-thinking" : "status-turn"}">${status}${activeTurn && !isHuman ? `<i class="thinking-dots"><b></b><b></b><b></b></i>` : ""}</div>` : ""}
+        ${status ? `<div class="player-status ${folded ? "status-fold" : activeTurn && !isHuman ? "status-thinking" : "status-turn"}">${status}${activeTurn && !isHuman ? `<i class="thinking-dots"><b></b><b></b><b></b></i>` : ""}</div>` : ""}
       </div>
       <div class="seat-identity">
         <div class="seat-topline">
