@@ -497,7 +497,7 @@
       }
       body.v014.poker8-v2-sixmax .quick-sizes button{
         min-height:39px!important;height:39px!important;padding:3px 2px!important;border-radius:6px!important;font-size:10px!important;
-        color:#fff!important;text-shadow:0 0 5px rgba(255,255,255,.48)!important;
+        color:#fff!important;text-shadow:none!important;
         transition:color 180ms ease,border-color 180ms ease,box-shadow 180ms ease,background 180ms ease!important;
       }
       body.v014.poker8-v2-sixmax .quick-sizes button strong{display:block;font-size:10px!important;line-height:1!important;color:#fff!important;}

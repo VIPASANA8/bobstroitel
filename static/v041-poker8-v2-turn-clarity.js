@@ -76,6 +76,12 @@
       body.v014.poker8-v2-sixmax .pot-total,
       body.v014.poker8-v2-sixmax .pot-total-label{text-shadow:0 2px 4px rgba(0,0,0,.65)!important;}
 
+      /* Three "primary" buttons glowed at once, which is one call to action
+         too many twice over. A button is legible from its fill and its edge. */
+      body.v014.poker8-v2-sixmax .btn.primary,
+      body.v014.poker8-v2-sixmax .stats-panel span,
+      body.v014.poker8-v2-sixmax .modal-card{box-shadow:0 6px 18px rgba(0,0,0,.42)!important;}
+
       @media (prefers-reduced-motion:reduce){
         body.v014.poker8-v2-sixmax .seat .seat-card.p8-turn-gradient .player-avatar,
         body.v014.poker8-v2-sixmax .seat .seat-card.p8-turn-gradient .seat-identity{animation:none!important;}

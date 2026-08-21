@@ -93,3 +93,18 @@ def test_the_cards_keep_depth_and_lose_the_haze():
         glow = [p for p in shadow.group(1).split(",")
                 if re.match(r"\s*0 0 \d", p) and "inset" not in p]
         assert not glow, (anchor, glow)
+
+
+def test_the_desktop_timer_agrees_with_the_mobile_one():
+    """It was its own violet-pink at rgba(221,51,255,.16) -- close enough to
+    the turn colour to look like a mistake, far enough to not be one."""
+    rule = ROOT[ROOT.index(".neon-ref-v107 .action-timer {"):]
+    rule = rule[:rule.index("}")]
+    assert "var(--turn)" in rule
+    assert "221,51,255" not in rule
+
+
+def test_the_bet_sizes_are_plain_text():
+    """All nine glowed white at once, which is a halo on a number."""
+    rule = TABLE[TABLE.index(".quick-sizes button{"):]
+    assert "text-shadow:none!important" in rule[:rule.index("}")]
