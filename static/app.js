@@ -907,6 +907,22 @@ function avatarHue(seat, isBot = false) {
   return (base + Number(seat || 0) * 37) % 360;
 }
 
+//: What fits on a seat plate. The plate is 92px wide with 7px of padding, so
+//: a name gets about fourteen characters -- and the roster is full of longer
+//: ones. Cutting mid-word gave "Яромир Пятниц…" and "Институт Неловк…";
+//: showing the first word whole gives "Яромир" and "Институт", which is a name
+//: somebody can read and remember. A single long token has no seam to cut on,
+//: so that one still ends in an ellipsis.
+const SEAT_NAME_MAX = 14;
+
+function seatDisplayName(raw) {
+  const name = String(raw ?? "").trim() || "Игрок";
+  if (name.length <= SEAT_NAME_MAX) return name;
+  const firstWord = name.split(/\s+/)[0];
+  if (firstWord && firstWord !== name && firstWord.length <= SEAT_NAME_MAX) return firstWord;
+  return `${name.slice(0, SEAT_NAME_MAX - 1)}…`;
+}
+
 function seatHtml(config, player, offerSeat = true) {
   // Online, an empty seat is how you sit down: the request is queued and the
   // server seats you at the next hand boundary, so a hand in progress is no
@@ -968,7 +984,7 @@ function seatHtml(config, player, offerSeat = true) {
       </div>
       <div class="seat-identity">
         <div class="seat-topline">
-          <div class="seat-name">${escapeHtml(displayName)}</div>
+          <div class="seat-name">${escapeHtml(seatDisplayName(displayName))}</div>
           <div class="position-chip ${buttonClass}">${escapeHtml(position)}</div>
         </div>
         <div class="seat-stack">${allIn ? "ALL-IN" : formatBB(stack)}</div>

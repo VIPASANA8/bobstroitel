@@ -184,7 +184,7 @@
         background-size:cover!important;
         color:#f5fff9!important;
         box-shadow:0 0 0 3px rgba(1,5,5,.92),0 0 16px hsla(var(--seat-accent),96%,58%,.46),inset 0 -10px 18px rgba(0,0,0,.50)!important;
-        font-size:13px!important;
+        font-size:15px!important;
       }
       body.v014.poker8-v2-sixmax .player-avatar span{opacity:0!important;}
       body.v014.poker8-v2-sixmax .player-avatar::before{
@@ -212,12 +212,15 @@
         box-shadow:0 0 12px hsla(var(--seat-accent),92%,55%,.24),0 7px 14px rgba(0,0,0,.62)!important;text-align:center!important;
       }
       body.v014.poker8-v2-sixmax .seat-topline{display:block!important;}
-      body.v014.poker8-v2-sixmax .seat-name{max-width:68px!important;font-size:9px!important;line-height:1!important;}
-      body.v014.poker8-v2-sixmax .seat-stack{margin-top:3px!important;font-size:12px!important;line-height:1!important;color:var(--seat-neon)!important;}
+      /* The plate is 92px wide; the name was capped at 68 and cut inside a box
+         that had room to spare. It takes the plate now, and seatDisplayName
+         keeps what it hands over short enough to land. */
+      body.v014.poker8-v2-sixmax .seat-name{max-width:100%!important;font-size:10px!important;line-height:1.1!important;}
+      body.v014.poker8-v2-sixmax .seat-stack{margin-top:3px!important;font-size:15px!important;line-height:1!important;color:var(--seat-neon)!important;}
       body.v014.poker8-v2-sixmax .seat-name,
       body.v014.poker8-v2-sixmax .seat-stack{margin-inline:auto!important;}
       body.v014.poker8-v2-sixmax .bot-level{display:none!important;}
-      body.v014.poker8-v2-sixmax .position-chip{display:none!important;font-size:6px!important;padding:1px 3px!important;}
+      body.v014.poker8-v2-sixmax .position-chip{display:none!important;font-size:10px!important;padding:1px 3px!important;}
       body.v014.poker8-v2-sixmax .seat-meta{margin-top:3px!important;}
       body.v014.poker8-v2-sixmax .seat-card > .v024-ready-badge{display:none!important;}
       body.v014.poker8-v2-sixmax .player-status:is(.status-fold,.status-turn,.status-thinking){display:none!important;}
@@ -232,7 +235,7 @@
         display:none;place-items:center;width:62px;height:62px;border-radius:50%;
         border:2px solid #72ffb5;background:rgba(1,20,13,.88);color:#e8fff3;
         box-shadow:0 0 0 3px rgba(0,5,3,.72),0 0 22px rgba(72,255,169,.58),inset 0 0 18px rgba(70,255,170,.14);
-        font-size:29px;font-weight:950;text-shadow:0 0 10px rgba(98,255,190,.86);pointer-events:none;
+        font-size:27px;font-weight:950;text-shadow:0 0 10px rgba(98,255,190,.86);pointer-events:none;
       }
       body.v014.poker8-v2-sixmax .v038-ready-countdown.visible{display:grid;}
 
@@ -249,8 +252,8 @@
       body.v014.poker8-v2-sixmax .v038-turn-timer::before{
         content:"";position:absolute;inset:4px;border-radius:50%;background:#07100d;border:1px solid rgba(255,95,215,.72);
       }
-      body.v014.poker8-v2-sixmax .v038-turn-timer b{position:relative;color:#fff;font-size:18px;line-height:1;text-shadow:0 0 7px #ff38c7;}
-      body.v014.poker8-v2-sixmax .v038-turn-timer small{position:absolute;bottom:-11px;color:#ff87df;font-size:6px;font-weight:900;letter-spacing:.08em;}
+      body.v014.poker8-v2-sixmax .v038-turn-timer b{position:relative;color:#fff;font-size:20px;line-height:1;text-shadow:0 0 7px #ff38c7;}
+      body.v014.poker8-v2-sixmax .v038-turn-timer small{position:absolute;bottom:-11px;color:#ff87df;font-size:10px;font-weight:900;letter-spacing:.08em;}
       body.v014.poker8-v2-sixmax .v038-turn-context.visible{display:block;}
       body.v014.poker8-v2-sixmax .v038-turn-context{
         left:calc(75% + 20.5px);transform:translateX(-50%);width:max-content;min-width:82px;max-width:116px;padding:6px 8px;border:1px solid #2de8df;border-radius:9px;
@@ -269,7 +272,7 @@
         position:absolute;z-index:12;inset:4px;display:none;place-items:center;border-radius:50%;
         border:2px solid #72ffb5;background:rgba(0,30,20,.38);color:#dffff0;
         box-shadow:0 0 0 2px rgba(0,8,5,.72),0 0 18px rgba(72,255,169,.72),inset 0 0 14px rgba(83,255,181,.18);
-        font-size:30px;font-weight:950;line-height:1;text-shadow:0 0 10px rgba(104,255,190,.95);pointer-events:none;
+        font-size:27px;font-weight:950;line-height:1;text-shadow:0 0 10px rgba(104,255,190,.95);pointer-events:none;
       }
       body.v014.poker8-v2-sixmax.v028-prehand-center-ready .avatar-wrap.v038-viewer-ready .v038-ready-mark{display:grid;}
       /* v028 only marks "no hand at all", so while a hand ran without this seat
@@ -289,11 +292,11 @@
       /* Avatar size and position are dropped here on purpose (item 5: every
          seat's avatar is now the same size, hero included) -- only the
          cosmetic "this is you" cue (border color) stays hero-specific. */
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .player-avatar{border-color:#35bfff!important;font-size:14px!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .player-avatar{border-color:#35bfff!important;font-size:15px!important;}
       /* Plate stays the same width and position as every other seat's --
          a wider hero plate was the last piece of asymmetric hero sizing. */
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-name{font-size:10px!important;max-width:66px!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-stack{font-size:13px!important;color:#35c6ff!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-stack{font-size:15px!important;color:#35c6ff!important;}
 
       body.v014.poker8-v2-sixmax .seat-card.v038-action-fold .player-avatar{
         border-color:#ff4d42!important;box-shadow:0 0 0 3px rgba(1,5,5,.92),0 0 20px rgba(255,77,66,.64),inset 0 -10px 18px rgba(0,0,0,.50)!important;
@@ -325,8 +328,8 @@
          whenever this prompt is on screen. */
       body.v014.poker8-v2-sixmax.p8-player-count-5,
       body.v014.poker8-v2-sixmax.p8-player-count-6{--p8-prompt-y:47%;}
-      body.v014.poker8-v2-sixmax .v038-room-prompt strong{display:block;color:#7dffd0;font-size:13px;line-height:1.05;letter-spacing:.06em;}
-      body.v014.poker8-v2-sixmax .v038-room-prompt span{display:block;margin-top:5px;color:#dfffee;font-size:9px;line-height:1.1;}
+      body.v014.poker8-v2-sixmax .v038-room-prompt strong{display:block;color:#7dffd0;font-size:15px;line-height:1.05;letter-spacing:.06em;}
+      body.v014.poker8-v2-sixmax .v038-room-prompt span{display:block;margin-top:5px;color:#dfffee;font-size:10px;line-height:1.1;}
       body.v014.poker8-v2-sixmax.v038-room-awaiting .seat[data-visual-seat="0"] .avatar-wrap:not(.v038-viewer-ready) .player-avatar,
       body.v014.poker8-v2-sixmax.p8-can-ready .seat[data-visual-seat="0"] .avatar-wrap:not(.v038-viewer-ready) .player-avatar{
         animation:v038ReadyPulse 1.7s ease-in-out infinite;
@@ -360,8 +363,8 @@
         box-shadow:0 0 12px rgba(47,184,255,.54),0 5px 10px rgba(0,0,0,.50),inset 0 0 10px rgba(58,208,255,.08)!important;
       }
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .player-cards .card.red{color:#ff6759!important;border-color:#ff674d!important;box-shadow:0 0 12px rgba(255,87,70,.46),0 5px 10px rgba(0,0,0,.50)!important;}
-      body.v014.poker8-v2-sixmax .viewer-seat .player-cards .card-rank{left:5px!important;top:3px!important;font-size:13px!important;font-weight:950!important;}
-      body.v014.poker8-v2-sixmax .viewer-seat .player-cards .card-suit{font-size:24px!important;filter:drop-shadow(0 0 4px currentColor)!important;}
+      body.v014.poker8-v2-sixmax .viewer-seat .player-cards .card-rank{left:5px!important;top:3px!important;font-size:15px!important;font-weight:950!important;}
+      body.v014.poker8-v2-sixmax .viewer-seat .player-cards .card-suit{font-size:27px!important;filter:drop-shadow(0 0 4px currentColor)!important;}
       body.v014.poker8-v2-sixmax .player-cards .card:not(.back){
         background:linear-gradient(150deg,#07110d,#010303)!important;color:#edfff7!important;
         border-color:hsla(var(--seat-accent),100%,70%,.88)!important;box-shadow:0 0 10px hsla(var(--seat-accent),96%,58%,.42)!important;
@@ -382,7 +385,7 @@
         border-color:rgba(60,225,150,.22)!important;background:rgba(1,31,18,.66)!important;
         box-shadow:inset 0 0 12px rgba(57,228,152,.04),0 4px 11px rgba(0,0,0,.34)!important;
       }
-      body.v014.poker8-v2-sixmax .pot-total-label{font-size:8px!important;letter-spacing:.08em!important;}
+      body.v014.poker8-v2-sixmax .pot-total-label{font-size:10px!important;letter-spacing:.08em!important;}
       body.v014.poker8-v2-sixmax .pot-total strong{font-size:20px!important;line-height:1!important;}
       /* v019-center-polish sets display:flex!important on the same selector
          family, so the hide needs !important here to actually win. */
@@ -404,7 +407,7 @@
       body.v014.poker8-v2-sixmax .bet-marker .chip-cluster.compact{transform:scale(.82)!important;transform-origin:center bottom!important;}
       body.v014.poker8-v2-sixmax .bet-marker span{
         margin-top:-4px!important;padding:2px 6px!important;border:0!important;background:rgba(1,7,6,.84)!important;
-        color:#ecfff5!important;font-size:11px!important;font-weight:900!important;line-height:1!important;
+        color:#ecfff5!important;font-size:12px!important;font-weight:900!important;line-height:1!important;
         text-shadow:0 0 5px rgba(236,255,245,.42)!important;box-shadow:0 2px 5px rgba(0,0,0,.42)!important;
       }
 
@@ -481,9 +484,9 @@
       body.v014.poker8-v2-sixmax .v038-hud-summary{
         position:absolute!important;left:8px;right:8px;top:4px!important;height:28px;
         display:grid;grid-template-columns:repeat(3,1fr);align-items:center;text-align:center;
-        border-bottom:1px solid rgba(95,132,121,.18);font-size:6px;letter-spacing:.10em;color:#8ca59c;
+        border-bottom:1px solid rgba(95,132,121,.18);font-size:10px;letter-spacing:.10em;color:#8ca59c;
       }
-      body.v014.poker8-v2-sixmax .v038-hud-summary b{display:block;margin-top:1px;font-size:13px;line-height:1;color:#39bfff;letter-spacing:0;}
+      body.v014.poker8-v2-sixmax .v038-hud-summary b{display:block;margin-top:1px;font-size:15px;line-height:1;color:#39bfff;letter-spacing:0;}
       body.v014.poker8-v2-sixmax .v038-hud-summary span:nth-child(2) b{color:#59e77c;}
       body.v014.poker8-v2-sixmax .v038-hud-summary span:nth-child(3) b{color:#ff9e45;}
       body.v014.poker8-v2-sixmax .sizing-wrap{display:contents!important;}
@@ -493,12 +496,12 @@
         display:grid!important;grid-template-columns:repeat(5,1fr)!important;gap:4px!important;
       }
       body.v014.poker8-v2-sixmax .quick-sizes button{
-        min-height:39px!important;height:39px!important;padding:3px 2px!important;border-radius:6px!important;font-size:8px!important;
+        min-height:39px!important;height:39px!important;padding:3px 2px!important;border-radius:6px!important;font-size:10px!important;
         color:#fff!important;text-shadow:0 0 5px rgba(255,255,255,.48)!important;
         transition:color 180ms ease,border-color 180ms ease,box-shadow 180ms ease,background 180ms ease!important;
       }
-      body.v014.poker8-v2-sixmax .quick-sizes button strong{display:block;font-size:9px!important;line-height:1!important;color:#fff!important;}
-      body.v014.poker8-v2-sixmax .quick-sizes button small{display:block;margin-top:3px;font-size:8px!important;line-height:1!important;color:#f4f7ff!important;}
+      body.v014.poker8-v2-sixmax .quick-sizes button strong{display:block;font-size:10px!important;line-height:1!important;color:#fff!important;}
+      body.v014.poker8-v2-sixmax .quick-sizes button small{display:block;margin-top:3px;font-size:10px!important;line-height:1!important;color:#f4f7ff!important;}
       body.v014.poker8-v2-sixmax .quick-sizes button.v038-max-size{
         color:#fff5bd!important;border-color:rgba(255,196,77,.88)!important;background:rgba(45,31,6,.78)!important;
         box-shadow:0 0 11px rgba(255,184,45,.28),inset 0 0 8px rgba(255,196,77,.10)!important;
@@ -556,7 +559,7 @@
       }
       body.v014.poker8-v2-sixmax .action-grid .action-slot.queued::after{
         content:"✓"!important;position:absolute!important;top:-6px!important;right:-4px!important;width:20px!important;height:20px!important;
-        display:grid!important;place-items:center!important;border-radius:50%!important;background:#ff3bd5!important;color:#fff!important;font-size:11px!important;
+        display:grid!important;place-items:center!important;border-radius:50%!important;background:#ff3bd5!important;color:#fff!important;font-size:12px!important;
         box-shadow:0 0 10px rgba(255,59,213,.72)!important;
       }
       body.v014.poker8-v2-sixmax .action-grid .action-slot:disabled{
@@ -569,16 +572,16 @@
         color:#c7f9df;box-shadow:inset 0 0 18px rgba(76,255,181,.05);
       }
       body.v014.poker8-v2-sixmax .v038-actions-unavailable strong{font-size:12px;letter-spacing:.06em;color:#7dffd0;}
-      body.v014.poker8-v2-sixmax .v038-actions-unavailable span{margin-top:5px;font-size:9px;color:#9db9ad;}
+      body.v014.poker8-v2-sixmax .v038-actions-unavailable span{margin-top:5px;font-size:10px;color:#9db9ad;}
       body.v014.poker8-v2-sixmax .v038-action-label{display:block;font-weight:900;letter-spacing:.035em;line-height:1.05;}
-      body.v014.poker8-v2-sixmax .v038-action-amount{display:block;margin-top:2px;font-size:11px;font-weight:900;line-height:1;}
+      body.v014.poker8-v2-sixmax .v038-action-amount{display:block;margin-top:2px;font-size:12px;font-weight:900;line-height:1;}
       body.v014.poker8-v2-sixmax .v038-action-amount.v038-amount-pulse{animation:v038AmountPulse 180ms ease-out;}
       body.v014.poker8-v2-sixmax .action-slot.v038-armed::after{
         content:"";position:absolute;left:5px;right:5px;bottom:3px;height:2px;border-radius:9px;background:#ffc44d;
         transform-origin:left center;animation:v038ConfirmDrain var(--v038-arm-ms,3000ms) linear forwards;box-shadow:0 0 7px rgba(255,196,77,.85);
       }
       body.v014.poker8-v2-sixmax .action-slot.v038-armed::before{
-        content:attr(data-arm-label);position:absolute;right:6px;bottom:5px;color:#ffc44d;font-size:5px;font-weight:900;letter-spacing:.06em;
+        content:attr(data-arm-label);position:absolute;right:6px;bottom:5px;color:#ffc44d;font-size:10px;font-weight:900;letter-spacing:.06em;
       }
       @keyframes v038AmountPulse{50%{transform:scale(1.08);filter:brightness(1.45)}100%{transform:scale(1);filter:none}}
       @keyframes v038ConfirmDrain{to{transform:scaleX(0)}}
