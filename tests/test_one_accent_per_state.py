@@ -360,3 +360,33 @@ def test_spectator_wing_seats_stay_clear_of_the_board_band():
         for x, y in re.findall(r"\[(\d+),\s*(\d+)\]", line):
             y = int(y)
             assert not (22 < y < 56), f"{line.strip()} has a point at y:{y}, inside the reserved band"
+
+
+def test_the_first_fix_did_not_walk_into_the_pot_instead():
+    """Moving those two seats to y:20 cleared the board and created a new
+    collision with the pot label above it -- measured live, a 12-27px overlap
+    between the wing plate and .pot-total. y:14 clears both; the margin was
+    checked by sweeping y and reading the plate's real bottom edge, not
+    assumed from the percentage alone, because the seat box's own internal
+    offset made a 4-point y change move the plate 46px, not 4.
+    """
+    seats = (STATIC / "v040-poker8-v2-dynamic-seats.js").read_text(encoding="utf-8")
+    block = seats[seats.index("const SPECTATOR_LAYOUTS = {"):seats.index("const style = document.createElement")]
+    #: [pole, upper-right, lower-right, ..., upper-left] -- the same x repeats
+    #: for the upper and lower seat on each side, so only position picks out
+    #: the pair that actually moved.
+    upper_wing_indices = {"5": (1, 4), "6": (1, 5)}
+    for count, indices in upper_wing_indices.items():
+        line = next(l for l in block.splitlines() if re.match(rf"\s*{count}:", l))
+        points = re.findall(r"\[(\d+),\s*(\d+)\]", line)
+        wing_ys = [int(points[i][1]) for i in indices]
+        assert all(y <= 14 for y in wing_ys), line.strip()
+
+
+def test_the_board_moved_up_once_the_seats_were_out_of_its_way():
+    """34%, up from 38% -- the actual ask. Checked live at every player count,
+    1 through 6, in both hero and spectator layouts: no seat plate touches
+    the pot or a board card, with 17-25px to spare on every side."""
+    table = (STATIC / "v038-poker8-v2-cinematic-table.js").read_text(encoding="utf-8")
+    match = re.search(r"\.board-cards\{top:(\d+)%!important;\}", table)
+    assert match and int(match.group(1)) < 38

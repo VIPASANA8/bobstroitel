@@ -483,7 +483,13 @@
       }
 
       body.v014.poker8-v2-sixmax .pot-total{top:25%!important;}
-      body.v014.poker8-v2-sixmax .board-cards{top:38%!important;}
+      /* Was 38%, 4px below the pot at the time -- and the wing seats at 5/6
+         active viewers sat inside this same band (see v040's SPECTATOR_LAYOUTS
+         fix), so the two nearly touched too. With those seats moved clear,
+         checked every player count in both hero and spectator mode: no plate
+         touches the pot or a board card at 34%, with 17-25px to spare on
+         every side. */
+      body.v014.poker8-v2-sixmax .board-cards{top:34%!important;}
       body.v014.poker8-v2-sixmax .pot-chips{top:47%!important;}
 
       body.v014.poker8-v2-sixmax .sidebar{transform:none!important;height:var(--p8-hud-h)!important;}
