@@ -8,7 +8,7 @@
     .card-mine{border-color:var(--mint)}
     .table-state.mine{color:var(--orange)}
     #roomDialog select{width:100%;margin:8px 0;padding:14px;border:1px solid var(--line);border-radius:12px;background:#07100f;color:var(--ink);font-size:15px}
-    #roomDialog input{font-size:17px}
+    #roomDialog input{font-size:15px}
   `;
   document.head.appendChild(style);
 

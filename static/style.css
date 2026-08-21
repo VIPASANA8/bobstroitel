@@ -17,7 +17,9 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; min-height: 100vh; background:
+/* Everything unstyled inherits from here, so the browser's 16px default was
+   quietly the most common size on the page and the one step not on the scale. */
+body { font-size: 15px; margin: 0; min-height: 100vh; background:
   radial-gradient(circle at 42% 18%, rgba(31, 92, 74, .13), transparent 30%),
   linear-gradient(180deg, #080c12, #06080d 70%); }
 button, input { font: inherit; }

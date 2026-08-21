@@ -53,6 +53,19 @@ def test_the_stylesheets_under_the_layers_hold_it_too():
     assert not strays, f"off the scale: {strays}"
 
 
+def test_the_inherited_size_is_a_decision():
+    """The most common size on the page was the browser default nobody chose.
+
+    `button, input { font: inherit }` sends every unstyled control to the body,
+    and the body set no size at all -- so 16px, the one step off the scale,
+    was reaching more elements than any rule in any of the twenty-seven layers.
+    """
+    sheet = Path("static/style.css").read_text(encoding="utf-8")
+    rule = sheet[sheet.index(chr(10) + "body {"):]
+    size = re.search(r"font-size:\s*(\d+)px", rule[:rule.index("}")])
+    assert size and int(size.group(1)) in SCALE
+
+
 def test_the_stack_reads_louder_than_the_name():
     """The number you scan sits a step above the name beside it."""
     name = re.search(r"\.seat-name\{[^}]*font-size:(\d+)px", TABLE)
