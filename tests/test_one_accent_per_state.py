@@ -44,20 +44,27 @@ def test_a_queued_action_keeps_its_own_colour():
     assert "255,59,213" not in rule
 
 
-def test_the_acting_avatar_is_ringed_in_white():
-    """White carries no meaning of its own, which is why it can sit on top of
-    six different seat hues at full strength without arguing with any of them.
+def test_the_acting_avatar_is_lit_not_outlined():
+    """An opaque black ring sat between the avatar and its glow.
 
-    The plate under it and the timer keep the turn colour: the ring is the
-    spotlight, the magenta is the label.
+    `0 0 0 3px rgba(0,0,0,.93)` is a spacer: it pushed the light off the edge
+    it was meant to be coming from, so the result read as an outline drawn
+    around the avatar rather than a lamp behind it. The light touches the rim
+    now and falls off over three stops.
+
+    White carries no meaning of its own, which is why it can sit on top of six
+    seat hues at full strength. The plate under it and the timer keep the turn
+    colour: the light is the spotlight, the magenta is the label.
     """
-    for source in (TABLE, TURN):
-        rule = source[source.index(".player-avatar{", source.index("active-turn .player-avatar{")
-                                   if "active-turn .player-avatar{" in source
-                                   else source.index("p8-turn-gradient .player-avatar{")):]
+    for name, source in (("v038", TABLE), ("v041", TURN)):
+        anchor = ("active-turn .player-avatar{" if "active-turn .player-avatar{" in source
+                  else "p8-turn-gradient .player-avatar{")
+        rule = source[source.index(anchor):]
         rule = rule[:rule.index("}")]
-        assert "border-color:var(--turn-ring)!important" in rule, rule[:90]
-        assert "var(--turn)," not in rule
+        assert "border-color:var(--turn-ring)!important" in rule, name
+        assert "rgba(0,0,0,.9" not in rule.split("inset")[0], f"{name} still spaces the light off the rim"
+        stops = [p for p in rule.split("box-shadow:")[1].split(",") if "turn-ring" in p]
+        assert len(stops) >= 3, f"{name} has {len(stops)} light stops, not a falloff"
 
 
 def test_the_turn_is_one_colour_on_every_seat():
