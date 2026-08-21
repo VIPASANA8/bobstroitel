@@ -486,9 +486,10 @@
         display:grid;grid-template-columns:repeat(3,1fr);align-items:center;text-align:center;
         border-bottom:1px solid rgba(95,132,121,.18);font-size:10px;letter-spacing:.10em;color:#8ca59c;
       }
-      body.v014.poker8-v2-sixmax .v038-hud-summary b{display:block;margin-top:1px;font-size:15px;line-height:1;color:#35bfff;letter-spacing:0;}
-      body.v014.poker8-v2-sixmax .v038-hud-summary span:nth-child(2) b{color:#59e77c;}
-      body.v014.poker8-v2-sixmax .v038-hud-summary span:nth-child(3) b{color:#ff9e45;}
+      body.v014.poker8-v2-sixmax .v038-hud-summary b{
+        display:block;margin-top:1px;font-size:15px;line-height:1;letter-spacing:0;
+        color:#eafff6;font-variant-numeric:tabular-nums;
+      }
       body.v014.poker8-v2-sixmax .sizing-wrap{display:contents!important;}
       body.v014.poker8-v2-sixmax .sizing-wrap > label{display:none!important;}
       body.v014.poker8-v2-sixmax .quick-sizes{
@@ -519,10 +520,10 @@
         width:100%!important;height:25px!important;margin:0!important;appearance:none!important;background:transparent!important;
       }
       body.v014.poker8-v2-sixmax #amountSlider::-webkit-slider-runnable-track{
-        height:6px;border:0;border-radius:999px;background:linear-gradient(90deg,color-mix(in srgb,var(--act-raise) 34%,#0a1a12),var(--act-raise));
+        height:6px;border:0;border-radius:999px;background:linear-gradient(90deg,var(--act-check) 0%,var(--act-raise) 52%,var(--act-allin) 100%);
       }
       body.v014.poker8-v2-sixmax #amountSlider::-moz-range-track{
-        height:6px;border:0;border-radius:999px;background:linear-gradient(90deg,color-mix(in srgb,var(--act-raise) 34%,#0a1a12),var(--act-raise));
+        height:6px;border:0;border-radius:999px;background:linear-gradient(90deg,var(--act-check) 0%,var(--act-raise) 52%,var(--act-allin) 100%);
       }
       body.v014.poker8-v2-sixmax #amountSlider::-webkit-slider-thumb{
         width:17px;height:17px;margin-top:-6px;appearance:none;border:2px solid #ffffff;border-radius:50%;background:var(--act-raise);
@@ -1111,7 +1112,8 @@
     }
     const call = typeof estimatedLocalToCall === "function" ? formatBB(estimatedLocalToCall()) : "0.00 ББ";
     const pot = document.getElementById("pot")?.textContent?.trim() || "0.00 ББ";
-    const amount = document.getElementById("amount")?.value || "0.00";
+    const raw = Number(document.getElementById("amount")?.value);
+    const amount = typeof formatBB === "function" && Number.isFinite(raw) ? formatBB(raw) : "0.00";
     setText(summary.querySelector("[data-v038-call]"), stripHudUnit(call));
     setText(summary.querySelector("[data-v038-pot]"), stripHudUnit(pot));
     setText(summary.querySelector("[data-v038-bet]"), stripHudUnit(amount));

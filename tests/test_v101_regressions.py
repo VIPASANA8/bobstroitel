@@ -343,7 +343,10 @@ def test_no_layer_writes_a_turn_label_onto_the_seat():
     assert '.seat-name::after' not in v041
     # The highlight itself must stay -- it is now the only turn indicator.
     assert 'p8-turn-gradient' in v041
-    assert 'v041PlatePulse' in v041
+    # Was `v041PlatePulse`. The pulse is gone: it rode on elements that get
+    # rebuilt every render, so it restarted from frame zero and jumped.
+    # The steady ring is the indicator.
+    assert 'border-color:var(--turn)!important' in v041
 
 
 def test_idle_seat_decoration_never_shows_during_a_hand():

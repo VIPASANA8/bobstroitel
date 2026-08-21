@@ -50,7 +50,7 @@ def test_the_turn_is_one_colour_on_every_seat():
     A signal that never looks the same twice cannot be learned.
     """
     highlight = TURN[TURN.index(".p8-turn-gradient .player-avatar{"):]
-    highlight = highlight[:highlight.index("@keyframes")]
+    highlight = highlight[:highlight.index("/* Glow is an accent")]
     assert "--seat-accent" not in highlight
     assert "var(--turn)" in highlight
 
@@ -73,7 +73,7 @@ def test_glow_is_off_at_rest():
     """66 elements glowed with nobody to act, so the turn glow was the 67th."""
     assert "body.v014.poker8-v2-sixmax .poker-chip," in TURN
     diet = TURN[TURN.index("body.v014.poker8-v2-sixmax .poker-chip,"):]
-    diet = diet[:diet.index("@media (prefers-reduced-motion")]
+    diet = diet[:diet.index("/* The rest was a cyan haze")]
     assert "filter:none!important" in diet
     #: The acting seat is the exception -- it is what the glow is now for.
     assert ".seat-card:not(.p8-turn-gradient) .player-avatar" in diet
@@ -149,3 +149,34 @@ def test_no_two_colours_are_the_same_colour():
     twins = [(a, b) for i, a in enumerate(labs) for b in labs[i + 1:]
              if math.dist(a, b) <= 2.0]
     assert not twins, f"{len(twins)} pairs are the same colour written twice"
+
+
+def test_the_turn_ring_does_not_animate():
+    """It pulsed on the avatar and the plate, and those are rebuilt on every
+    render -- twice in five seconds on a live table -- so the animation
+    restarted from frame zero and the glow visibly jumped."""
+    assert "@keyframes" not in TURN
+    assert "animation:" not in TURN
+
+
+def test_the_three_hud_numbers_are_written_the_same_way():
+    """Call and pot went through formatBB, the bet came raw off the input.
+
+    So the row read "0.00  0.00  1" -- three amounts of the same kind, one of
+    them in a different notation, and the odd one sitting off the baseline the
+    other two shared.
+    """
+    fn = TABLE[TABLE.index("function ensureHudSummary()"):]
+    fn = fn[:fn.index("function configureReferenceActions")]
+    assert 'document.getElementById("amount")?.value || "0.00"' not in fn
+    assert "formatBB(raw)" in fn
+
+
+def test_the_hud_numbers_line_up():
+    """Digits in a three-column grid need equal widths, or they wander."""
+    rule = TABLE[TABLE.index(".v038-hud-summary b{"):]
+    rule = rule[:rule.index("}")]
+    assert "tabular-nums" in rule
+    #: They were cyan, green and orange. The labels above them already say
+    #: which is which; three accents for three numbers says nothing more.
+    assert len(re.findall(r"color:#[0-9a-f]{6}", rule)) == 1

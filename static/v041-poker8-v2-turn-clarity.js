@@ -14,7 +14,14 @@
       body.v014.poker8-v2-sixmax.p8-turn-active .felt{
         filter:drop-shadow(0 0 10px color-mix(in srgb,var(--turn) 20%,transparent))!important;
       }
-      /* One colour for the turn, the same on every seat. It used to be
+      /* No pulse. It rode on the avatar and the plate, and those elements are
+         rebuilt on every render -- twice in five seconds on a live table --
+         so the animation restarted from frame zero each time and the glow
+         visibly jumped. A steady ring says the same thing and holds still,
+         and with the felt down from 66 glowing elements to three it does not
+         need motion to be found.
+
+         One colour for the turn, the same on every seat. It used to be
          --seat-accent, so the signal was cyan on seat 0 and violet on seat 5 --
          a cue you cannot learn because it never looks the same twice. It is
          --turn now, matching the timer ring, and it is the only magenta left
@@ -29,16 +36,12 @@
       body.v014.poker8-v2-sixmax .seat .seat-card.p8-turn-gradient .player-avatar{
         border-color:var(--turn)!important;
         box-shadow:0 0 0 3px rgba(0,0,0,.93),0 0 13px var(--turn),inset 0 -10px 18px rgba(0,0,0,.50)!important;
-        animation:v041AvatarPulse 1.6s ease-in-out infinite;
       }
       body.v014.poker8-v2-sixmax .seat .seat-card.p8-turn-gradient .seat-identity{
         border-color:var(--turn)!important;
         background:linear-gradient(120deg,color-mix(in srgb,var(--turn) 26%,#07100f),rgba(1,3,10,.98))!important;
         box-shadow:0 0 0 1px color-mix(in srgb,var(--turn) 40%,transparent),0 0 18px color-mix(in srgb,var(--turn) 62%,transparent)!important;
-        animation:v041PlatePulse 1.6s ease-in-out infinite;
       }
-      @keyframes v041AvatarPulse{0%,100%{filter:drop-shadow(0 0 2px color-mix(in srgb,var(--turn) 55%,transparent))}50%{filter:drop-shadow(0 0 9px var(--turn))}}
-      @keyframes v041PlatePulse{0%,100%{filter:drop-shadow(0 0 1px color-mix(in srgb,var(--turn) 50%,transparent))}50%{filter:drop-shadow(0 0 6px color-mix(in srgb,var(--turn) 95%,transparent))}}
       /* Glow is an accent, and an accent that is everywhere is decoration.
          Measured with nobody to act: 66 elements were glowing -- every chip,
          every card, every avatar, every seat plate. So when the turn glow
@@ -82,10 +85,6 @@
       body.v014.poker8-v2-sixmax .stats-panel span,
       body.v014.poker8-v2-sixmax .modal-card{box-shadow:0 6px 18px rgba(0,0,0,.42)!important;}
 
-      @media (prefers-reduced-motion:reduce){
-        body.v014.poker8-v2-sixmax .seat .seat-card.p8-turn-gradient .player-avatar,
-        body.v014.poker8-v2-sixmax .seat .seat-card.p8-turn-gradient .seat-identity{animation:none!important;}
-      }
     }
   `;
   document.head.appendChild(style);
