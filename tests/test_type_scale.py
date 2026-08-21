@@ -131,3 +131,10 @@ def test_a_name_that_already_fits_is_left_alone():
 
 def test_an_empty_name_still_says_something():
     assert _trim("", "   ") == ["Игрок", "Игрок"]
+
+def test_the_lobby_gets_the_same_base():
+    """It links network.css and nothing else, so style.css never reaches it."""
+    sheet = Path("static/network.css").read_text(encoding="utf-8")
+    assert "button,input,select,textarea{font:inherit}" in sheet
+    assert "small{font-size:12px}" in sheet
+    assert "body{font-size:15px;" in sheet
