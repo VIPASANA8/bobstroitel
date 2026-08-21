@@ -48,7 +48,6 @@
       body.v014.poker8-v2-sixmax .poker-chip,
       body.v014.poker8-v2-sixmax .chip-column,
       body.v014.poker8-v2-sixmax .chip-cluster,
-      body.v014.poker8-v2-sixmax .card,
       body.v014.poker8-v2-sixmax .seat-card:not(.p8-turn-gradient) .player-avatar,
       body.v014.poker8-v2-sixmax .seat-card:not(.p8-turn-gradient) .seat-identity{
         filter:none!important;
@@ -67,7 +66,6 @@
          a signal, just enough to soften every edge it touched. Cards keep
          their depth shadow, which is what actually makes them look like
          cards; the pot keeps the black one it needs to stay legible. */
-      body.v014.poker8-v2-sixmax .card{box-shadow:0 6px 14px rgba(0,0,0,.42)!important;}
       body.v014.poker8-v2-sixmax .player-avatar span{text-shadow:none!important;}
       body.v014.poker8-v2-sixmax .empty-avatar,
       body.v014.poker8-v2-sixmax .mobile-menu-button,

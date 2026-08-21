@@ -350,7 +350,7 @@
         background:
           radial-gradient(circle at center,transparent 0 6px,hsla(var(--seat-accent),90%,74%,.42) 6px 7px,transparent 7px),
           repeating-linear-gradient(45deg,hsla(var(--seat-accent),62%,38%,.74) 0 3px,hsla(var(--seat-accent),62%,16%,.96) 3px 6px)!important;
-        box-shadow:inset 0 0 0 2px rgba(0,0,0,.48),0 0 9px hsla(var(--seat-accent),94%,58%,.28)!important;
+        box-shadow:inset 0 0 0 2px rgba(0,0,0,.48),0 4px 9px rgba(0,0,0,.46)!important;
       }
       body.v014.poker8-v2-sixmax .player-cards .card.back:first-child{transform:rotate(-8deg) translateX(2px)!important;}
       body.v014.poker8-v2-sixmax .player-cards .card.back:last-child{transform:rotate(8deg) translateX(-2px)!important;}
@@ -376,9 +376,9 @@
         border:1px solid rgba(98,255,170,.82)!important;border-radius:5px!important;
         background:linear-gradient(150deg,#07110d 0%,#010303 100%)!important;
         color:#ecfff4!important;
-        box-shadow:0 0 10px rgba(48,255,158,.36),0 6px 10px rgba(0,0,0,.58),inset 0 0 12px rgba(32,255,147,.07)!important;
+        box-shadow:0 6px 10px rgba(0,0,0,.58),inset 0 0 12px rgba(32,255,147,.07)!important;
       }
-      body.v014.poker8-v2-sixmax .board-cards .card.red{color:#df392c!important;border-color:#ff5f43!important;box-shadow:0 0 9px rgba(255,82,54,.26),0 5px 9px rgba(0,0,0,.48)!important;}
+      body.v014.poker8-v2-sixmax .board-cards .card.red{color:#df392c!important;border-color:#ff5f43!important;box-shadow:0 5px 9px rgba(0,0,0,.48)!important;}
 
       body.v014.poker8-v2-sixmax .pot-total{
         min-width:74px!important;padding:4px 9px!important;border-radius:7px!important;

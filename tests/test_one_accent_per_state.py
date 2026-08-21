@@ -80,8 +80,16 @@ def test_glow_is_off_at_rest():
 
 
 def test_the_cards_keep_depth_and_lose_the_haze():
-    """Their glow was cyan at alpha .28 -- what makes a card look like a card
-    is the shadow underneath it, not a halo around it."""
-    rule = TURN[TURN.index("body.v014.poker8-v2-sixmax .card{"):]
-    rule = rule[:rule.index("}")]
-    assert "0 6px 14px" in rule and "0 0 " not in rule
+    """What makes a card look like a card is the shadow underneath it.
+
+    A blanket `.card` rule in the last layer did not work: `.player-cards
+    .card.back` is more specific and won regardless of load order. The two
+    rules had to change where they are written.
+    """
+    for anchor in (".player-cards .card.back{", ".board-cards .card{"):
+        rule = TABLE[TABLE.index(anchor):]
+        shadow = re.search(r"box-shadow:([^;]+);", rule[:rule.index("}")])
+        assert shadow, anchor
+        glow = [p for p in shadow.group(1).split(",")
+                if re.match(r"\s*0 0 \d", p) and "inset" not in p]
+        assert not glow, (anchor, glow)
