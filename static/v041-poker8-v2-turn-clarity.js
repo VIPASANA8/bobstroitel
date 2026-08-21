@@ -34,8 +34,8 @@
          it follows each element's alpha silhouette, a circle for the avatar and
          a rounded rect for the plate, instead of a detached halo. */
       body.v014.poker8-v2-sixmax .seat .seat-card.p8-turn-gradient .player-avatar{
-        border-color:var(--turn)!important;
-        box-shadow:0 0 0 3px rgba(0,0,0,.93),0 0 13px var(--turn),inset 0 -10px 18px rgba(0,0,0,.50)!important;
+        border-color:var(--turn-ring)!important;
+        box-shadow:0 0 0 3px rgba(0,0,0,.93),0 0 14px color-mix(in srgb,var(--turn-ring) 82%,transparent),inset 0 -10px 18px rgba(0,0,0,.50)!important;
       }
       body.v014.poker8-v2-sixmax .seat .seat-card.p8-turn-gradient .seat-identity{
         border-color:var(--turn)!important;

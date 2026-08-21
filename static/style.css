@@ -20,7 +20,11 @@
      and magenta meant "your turn", "queued", "selected size" and "slider
      thumb" at once -- so the colour telling you the clock was running was
      also the colour of the control you were dragging. */
-  --turn: #ff38c7;      /* the clock is on you -- the seat ring and the timer */
+  --turn: #ff38c7;      /* the clock is on you -- the plate and the timer */
+  /* The spotlight on the acting avatar. White carries no meaning of its own,
+     which is the point: it reads at full strength against all six seat hues
+     instead of competing with the one underneath it. */
+  --turn-ring: #ffffff;
   --turn-dim: rgba(255,56,199,.12);
   --act-fold: #ff4d42;
   --act-check: #49caff;  /* check and call were two cyans nobody could tell apart */

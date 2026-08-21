@@ -44,6 +44,22 @@ def test_a_queued_action_keeps_its_own_colour():
     assert "255,59,213" not in rule
 
 
+def test_the_acting_avatar_is_ringed_in_white():
+    """White carries no meaning of its own, which is why it can sit on top of
+    six different seat hues at full strength without arguing with any of them.
+
+    The plate under it and the timer keep the turn colour: the ring is the
+    spotlight, the magenta is the label.
+    """
+    for source in (TABLE, TURN):
+        rule = source[source.index(".player-avatar{", source.index("active-turn .player-avatar{")
+                                   if "active-turn .player-avatar{" in source
+                                   else source.index("p8-turn-gradient .player-avatar{")):]
+        rule = rule[:rule.index("}")]
+        assert "border-color:var(--turn-ring)!important" in rule, rule[:90]
+        assert "var(--turn)," not in rule
+
+
 def test_the_turn_is_one_colour_on_every_seat():
     """It was hsla(var(--seat-accent), ...) -- cyan on seat 0, violet on seat 5.
 
@@ -52,7 +68,7 @@ def test_the_turn_is_one_colour_on_every_seat():
     highlight = TURN[TURN.index(".p8-turn-gradient .player-avatar{"):]
     highlight = highlight[:highlight.index("/* Glow is an accent")]
     assert "--seat-accent" not in highlight
-    assert "var(--turn)" in highlight
+    assert "var(--turn-ring)" in highlight or "var(--turn)" in highlight
 
 
 def test_the_timer_and_the_seat_ring_agree():

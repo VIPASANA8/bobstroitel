@@ -428,8 +428,8 @@
          three colours, and the cyan pulse survived on top of the magenta ring
          because only this layer declared an animation. */
       body.v014.poker8-v2-sixmax .seat .seat-card.v032-active-turn .player-avatar{
-        border-color:var(--turn)!important;
-        box-shadow:0 0 0 3px rgba(0,0,0,.92),0 0 25px color-mix(in srgb,var(--turn) 78%,transparent),inset 0 -10px 18px rgba(0,0,0,.50)!important;
+        border-color:var(--turn-ring)!important;
+        box-shadow:0 0 0 3px rgba(0,0,0,.92),0 0 25px color-mix(in srgb,var(--turn-ring) 78%,transparent),inset 0 -10px 18px rgba(0,0,0,.50)!important;
       }
       body.v014.poker8-v2-sixmax .seat .seat-card.v032-active-turn .seat-identity{
         border-color:var(--turn)!important;
