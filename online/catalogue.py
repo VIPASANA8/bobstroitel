@@ -21,6 +21,20 @@ DEFAULT_TABLES = (
 )
 
 
+#: How many bots a lobby table shows while nobody is sitting at it. Everything
+#: not named here uses the usual four.
+#:
+#: Low B keeps five, so there is always one open seat visible -- a table you
+#: can join on sight. Mid B keeps six, a full game to watch; a person joining
+#: that one queues and takes a bot's seat at the next hand boundary, which
+#: _choose_seat already does whenever more than the minimum three are sitting.
+#: Both drop back to the normal count as soon as people arrive.
+IDLE_BOT_COUNTS = {
+    "low-b": 5,
+    "mid-b": 6,
+}
+
+
 # What a player may pick when opening a room. Free-form blinds would let anyone
 # create a table nobody can afford to sit at, so the choice is the same three
 # levels the built-in tables already use.

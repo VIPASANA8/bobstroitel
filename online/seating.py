@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from online.ledger import PlayLedger
 from online.bot_names import BOT_NAMES
 from online.schema import play_accounts, poker_tables, seat_queue, system_players, table_runtimes, table_seats
+from online.catalogue import IDLE_BOT_COUNTS
 
 
 # A ready request has to survive the hand that is running when it is made,
@@ -627,7 +628,14 @@ class SeatingService:
         # Room policy: 1–2 humans play with four bots; 3 humans play with
         # three bots. New people wait once all six seats are occupied, rather
         # than evicting the third bot and turning the table into a human-only room.
-        target_bot_count = MAX_SYSTEM_BOTS if user_count <= 2 else MIN_SYSTEM_BOTS
+        idle_target = IDLE_BOT_COUNTS.get(table["id"], MAX_SYSTEM_BOTS)
+        if user_count == 0:
+            target_bot_count = idle_target
+        else:
+            # Once people are here the usual policy applies, and a table that
+            # shows more bots when empty must not hold on to them: the clamp is
+            # a ceiling on the idle count, not a floor under the live one.
+            target_bot_count = min(idle_target, MAX_SYSTEM_BOTS if user_count <= 2 else MIN_SYSTEM_BOTS)
         # The lobby's own six tables keep their bots whether or not anyone is
         # there: they are the shop window, and Quick Play exists to drop you
         # into a game that is already running. What made an always-populated
