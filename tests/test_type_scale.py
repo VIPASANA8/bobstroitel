@@ -11,7 +11,9 @@ TABLE = Path("static/v038-poker8-v2-cinematic-table.js").read_text(encoding="utf
 
 #: Five steps. Measured on the live table, the felt carried sixteen sizes --
 #: 6 through 29 -- which is not a hierarchy, it is the absence of a decision.
-SCALE = {10, 12, 15, 20, 27}
+#: The sixth step is for page headings outside the felt -- the lobby and
+#: profile share these stylesheets.
+SCALE = {10, 12, 15, 20, 27, 36}
 
 
 def test_the_table_sets_type_only_on_the_scale():
@@ -31,6 +33,23 @@ def test_every_override_layer_holds_the_scale():
         sizes = {int(size) for size in re.findall(r"font-size:(\d+)px", layer.read_text(encoding="utf-8"))}
         if sizes - SCALE:
             strays[layer.name] = sorted(sizes - SCALE)
+    assert not strays, f"off the scale: {strays}"
+
+
+def test_the_stylesheets_under_the_layers_hold_it_too():
+    """The layers were on the scale and the felt still showed nine sizes.
+
+    style.css and its three siblings paint first and are never fully covered,
+    so 7, 11, 14, 16 and 17 came through from underneath. Card faces are the
+    one exception and they need none: their rank and suit are sized in `em`
+    against the card, so they follow whatever the card is, not a text scale.
+    """
+    strays = {}
+    for sheet in ("style.css", "mobile.css", "component-ui.css", "network.css"):
+        text = (Path("static") / sheet).read_text(encoding="utf-8")
+        sizes = {int(size) for size in re.findall(r"font-size:\s*(\d+)px", text)}
+        if sizes - SCALE:
+            strays[sheet] = sorted(sizes - SCALE)
     assert not strays, f"off the scale: {strays}"
 
 
