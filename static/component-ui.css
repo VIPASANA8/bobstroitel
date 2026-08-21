@@ -200,7 +200,7 @@ body.component-ui .mobile-selected-card{right:var(--hud-edge)!important}
   body.v013:not(.poker8-v2-sixmax) .seat-card{min-height:86px!important;padding:18px 5px 5px!important;border-radius:14px!important}
   body.v013:not(.poker8-v2-sixmax) .player-avatar{width:35px!important;height:35px!important;font-size:15px!important;border-width:1.5px!important}
   body.v013:not(.poker8-v2-sixmax) .avatar-wrap{top:-16px!important}
-  body.v013:not(.poker8-v2-sixmax) .seat-name{max-width:64px!important;font-size:9.5px!important;line-height:1.05!important}
+  body.v013:not(.poker8-v2-sixmax) .seat-name{max-width:64px!important;font-size:10px!important;line-height:1.05!important}
   body.v013:not(.poker8-v2-sixmax) .position-chip{top:-8px!important;left:calc(50% + 16px)!important;font-size:10px!important;padding:2px 4px!important}
   body.v013:not(.poker8-v2-sixmax) .seat-stack{margin:2px 0 3px!important;font-size:10px!important;line-height:1!important}
   body.v013:not(.poker8-v2-sixmax) .player-cards{min-height:38px!important;gap:3px!important}
@@ -218,7 +218,7 @@ body.component-ui .mobile-selected-card{right:var(--hud-edge)!important}
   body.v013:not(.poker8-v2-sixmax) .seat-0:not([data-visual-seat="0"]) .seat-card{min-height:86px!important;padding:18px 5px 5px!important}
   body.v013:not(.poker8-v2-sixmax) .seat-0:not([data-visual-seat="0"]) .player-avatar{width:35px!important;height:35px!important;font-size:15px!important}
   body.v013:not(.poker8-v2-sixmax) .seat-0:not([data-visual-seat="0"]) .avatar-wrap{top:-16px!important}
-  body.v013:not(.poker8-v2-sixmax) .seat-0:not([data-visual-seat="0"]) .seat-name{font-size:9.5px!important;max-width:64px!important}
+  body.v013:not(.poker8-v2-sixmax) .seat-0:not([data-visual-seat="0"]) .seat-name{font-size:10px!important;max-width:64px!important}
   body.v013:not(.poker8-v2-sixmax) .seat-0:not([data-visual-seat="0"]) .seat-stack{font-size:10px!important}
   body.v013:not(.poker8-v2-sixmax) .seat-0:not([data-visual-seat="0"]) .player-cards{min-height:38px!important}
   body.v013:not(.poker8-v2-sixmax) .seat-0:not([data-visual-seat="0"]) .player-cards .card{width:28px!important;height:39px!important;font-size:12px!important}
@@ -248,7 +248,7 @@ body.component-ui .mobile-selected-card{right:var(--hud-edge)!important}
 
   /* Timer / selected cards are side widgets, not equal competitors to the hero. */
   body.v013:not(.poker8-v2-sixmax) .mobile-hud-card{width:96px!important;min-height:60px!important;border-radius:14px!important}
-  body.v013:not(.poker8-v2-sixmax) .mobile-hud-card>span{font-size:7.5px!important}
+  body.v013:not(.poker8-v2-sixmax) .mobile-hud-card>span{font-size:10px!important}
   body.v013:not(.poker8-v2-sixmax) .mobile-hud-card strong{font-size:20px!important}
   body.v013:not(.poker8-v2-sixmax) .mobile-selected-card strong{font-size:15px!important}
   body.v013:not(.poker8-v2-sixmax) .mobile-selected-card b{font-size:12px!important}
@@ -281,7 +281,7 @@ body.component-ui .mobile-selected-card{right:var(--hud-edge)!important}
 
   body.v013:not(.poker8-v2-sixmax) .mobile-auto-action{min-height:39px!important;margin-top:4px!important;padding:5px 8px!important;border-radius:11px!important;gap:7px!important}
   body.v013:not(.poker8-v2-sixmax) .mobile-auto-action-icon{flex-basis:24px!important;width:24px!important;height:24px!important;font-size:10px!important}
-  body.v013:not(.poker8-v2-sixmax) .mobile-auto-action strong{font-size:9.5px!important}
+  body.v013:not(.poker8-v2-sixmax) .mobile-auto-action strong{font-size:10px!important}
   body.v013:not(.poker8-v2-sixmax) .mobile-auto-action small{font-size:10px!important;margin-top:1px!important}
 }
 

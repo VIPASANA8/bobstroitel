@@ -233,7 +233,7 @@
         background:rgba(1,7,18,.94) !important;
         box-shadow:0 3px 10px rgba(0,0,0,.62), inset 0 0 10px rgba(73,145,255,.08) !important;
         color:#ffffff !important;
-        font-size:10.5px !important;
+        font-size:10px !important;
         font-weight:950 !important;
         line-height:1 !important;
         letter-spacing:-.02em !important;

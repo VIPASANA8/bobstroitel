@@ -17,7 +17,7 @@ SCALE = {10, 12, 15, 20, 27, 36}
 
 
 def test_the_table_sets_type_only_on_the_scale():
-    sizes = {int(size) for size in re.findall(r"font-size:(\d+)px", TABLE)}
+    sizes = {float(size) for size in re.findall(r"font-size:\s*([0-9.]+)px", TABLE)}
     assert sizes <= SCALE, f"off the scale: {sorted(sizes - SCALE)}"
     assert len(sizes) >= 4, "a scale nobody uses is not a scale"
 
@@ -30,7 +30,7 @@ def test_every_override_layer_holds_the_scale():
     """
     strays = {}
     for layer in sorted(Path("static").glob("v0*.js")):
-        sizes = {int(size) for size in re.findall(r"font-size:(\d+)px", layer.read_text(encoding="utf-8"))}
+        sizes = {float(size) for size in re.findall(r"font-size:\s*([0-9.]+)px", layer.read_text(encoding="utf-8"))}
         if sizes - SCALE:
             strays[layer.name] = sorted(sizes - SCALE)
     assert not strays, f"off the scale: {strays}"
@@ -45,9 +45,10 @@ def test_the_stylesheets_under_the_layers_hold_it_too():
     against the card, so they follow whatever the card is, not a text scale.
     """
     strays = {}
-    for sheet in ("style.css", "mobile.css", "component-ui.css", "network.css"):
+    for sheet in ("style.css", "mobile.css", "component-ui.css", "network.css",
+                  "online-table.js", "lobby.js"):
         text = (Path("static") / sheet).read_text(encoding="utf-8")
-        sizes = {int(size) for size in re.findall(r"font-size:\s*(\d+)px", text)}
+        sizes = {float(size) for size in re.findall(r"font-size:\s*([0-9.]+)px", text)}
         if sizes - SCALE:
             strays[sheet] = sorted(sizes - SCALE)
     assert not strays, f"off the scale: {strays}"
@@ -62,8 +63,21 @@ def test_the_inherited_size_is_a_decision():
     """
     sheet = Path("static/style.css").read_text(encoding="utf-8")
     rule = sheet[sheet.index(chr(10) + "body {"):]
-    size = re.search(r"font-size:\s*(\d+)px", rule[:rule.index("}")])
-    assert size and int(size.group(1)) in SCALE
+    size = re.search(r"font-size:\s*([0-9.]+)px", rule[:rule.index("}")])
+    assert size and float(size.group(1)) in SCALE
+
+
+def test_nothing_is_left_at_a_browser_default():
+    """Three sizes on the page came from the UA sheet, not from this project.
+
+    `font: inherit` covered button and input but not select or textarea, and
+    <small> keeps its 0.83em unless told otherwise -- so a form control and a
+    caption sat at 13.33px and 12.5px while everything around them was on the
+    scale.
+    """
+    sheet = Path("static/style.css").read_text(encoding="utf-8")
+    assert "button, input, select, textarea { font: inherit; }" in sheet
+    assert 'small { font-size: 12px; }' in sheet
 
 
 def test_the_stack_reads_louder_than_the_name():
