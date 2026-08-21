@@ -227,7 +227,9 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'v038-armed' in source
     assert 'v038-size-selected' in source
     assert '.quick-sizes button.v038-max-size{' in source
-    assert '#ff3bd5' in source
+    # Was a pinned magenta literal. Selection wears the colour of the action
+    # it selects now, and magenta belongs to the turn alone.
+    assert 'border-color:var(--act-raise)!important' in source
     assert 'transition:color 180ms' in source
     assert '@media (prefers-reduced-motion:reduce)' in source
     assert 'teardownFinalReference' in source
@@ -242,7 +244,9 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'pendingAction?.kind === def.key' in source
     assert '.amount-row{display:none!important' in source
     assert 'min-height:39px!important;height:39px!important' in source
-    assert 'linear-gradient(90deg,#21b8ff 0%,#7357ff 34%,#ff39cf 68%,#ffc83d 100%)' in source
+    # The track was a four-stop rainbow ending in the turn colour. The
+    # slider sets a raise, so it is the raise colour end to end.
+    assert 'var(--act-raise)' in source
     assert 'width:max-content;min-width:82px;max-width:116px' in source
     assert 'text-align:center' in source
     assert 'PRESET_SETTLE_MS = 1000' in source

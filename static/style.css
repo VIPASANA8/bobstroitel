@@ -14,6 +14,18 @@
   --blue: #6ca7ff;
   --red: #ff727d;
   --gold: #f4c76b;
+
+  /* One colour per state, and each of these is used for nothing else.
+     Measured first: fold was red in four shades and magenta in two more,
+     and magenta meant "your turn", "queued", "selected size" and "slider
+     thumb" at once -- so the colour telling you the clock was running was
+     also the colour of the control you were dragging. */
+  --turn: #ff38c7;      /* the clock is on you -- the seat ring and the timer */
+  --turn-dim: rgba(255,56,199,.12);
+  --act-fold: #ff4d42;
+  --act-check: #49caff;  /* check and call were two cyans nobody could tell apart */
+  --act-raise: #55f16e;
+  --act-allin: #ffc44d;
 }
 
 * { box-sizing: border-box; }

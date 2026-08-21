@@ -12,27 +12,57 @@
        width; desktop geometry is tuned in v039. */
     @media all{
       body.v014.poker8-v2-sixmax.p8-turn-active .felt{
-        filter:drop-shadow(0 0 8px rgba(65,255,214,.16))!important;
+        filter:drop-shadow(0 0 10px color-mix(in srgb,var(--turn) 20%,transparent))!important;
       }
-      /* The highlight lives on the avatar and the plate themselves -- their own
+      /* One colour for the turn, the same on every seat. It used to be
+         --seat-accent, so the signal was cyan on seat 0 and violet on seat 5 --
+         a cue you cannot learn because it never looks the same twice. It is
+         --turn now, matching the timer ring, and it is the only magenta left
+         on the felt.
+
+         The highlight lives on the avatar and the plate themselves -- their own
          edge, traced by their own shape -- not a separate ring floating around
          the seat. box-shadow can't be animated here (an earlier !important base
          rule always wins over a keyframe), so the pulse rides on drop-shadow:
          it follows each element's alpha silhouette, a circle for the avatar and
          a rounded rect for the plate, instead of a detached halo. */
       body.v014.poker8-v2-sixmax .seat .seat-card.p8-turn-gradient .player-avatar{
-        border-color:#d8fff7!important;
-        box-shadow:0 0 0 3px rgba(1,5,5,.93),0 0 13px hsla(var(--seat-accent),100%,70%,.94),inset 0 -10px 18px rgba(0,0,0,.50)!important;
+        border-color:var(--turn)!important;
+        box-shadow:0 0 0 3px rgba(1,5,5,.93),0 0 13px var(--turn),inset 0 -10px 18px rgba(0,0,0,.50)!important;
         animation:v041AvatarPulse 1.6s ease-in-out infinite;
       }
       body.v014.poker8-v2-sixmax .seat .seat-card.p8-turn-gradient .seat-identity{
-        border-color:#c9fff2!important;
-        background:linear-gradient(120deg,hsla(var(--seat-accent),55%,16%,.97),rgba(39,3,35,.97) 54%,rgba(1,10,9,.98))!important;
-        box-shadow:0 0 0 1px hsla(var(--seat-accent),100%,72%,.24),0 0 18px hsla(var(--seat-accent),100%,66%,.62)!important;
+        border-color:var(--turn)!important;
+        background:linear-gradient(120deg,color-mix(in srgb,var(--turn) 26%,#050b0c),rgba(6,10,14,.98))!important;
+        box-shadow:0 0 0 1px color-mix(in srgb,var(--turn) 40%,transparent),0 0 18px color-mix(in srgb,var(--turn) 62%,transparent)!important;
         animation:v041PlatePulse 1.6s ease-in-out infinite;
       }
-      @keyframes v041AvatarPulse{0%,100%{filter:drop-shadow(0 0 2px hsla(var(--seat-accent),100%,70%,.55))}50%{filter:drop-shadow(0 0 9px hsla(var(--seat-accent),100%,70%,1))}}
-      @keyframes v041PlatePulse{0%,100%{filter:drop-shadow(0 0 1px hsla(var(--seat-accent),100%,68%,.5))}50%{filter:drop-shadow(0 0 6px hsla(var(--seat-accent),100%,68%,.95))}}
+      @keyframes v041AvatarPulse{0%,100%{filter:drop-shadow(0 0 2px color-mix(in srgb,var(--turn) 55%,transparent))}50%{filter:drop-shadow(0 0 9px var(--turn))}}
+      @keyframes v041PlatePulse{0%,100%{filter:drop-shadow(0 0 1px color-mix(in srgb,var(--turn) 50%,transparent))}50%{filter:drop-shadow(0 0 6px color-mix(in srgb,var(--turn) 95%,transparent))}}
+      /* Glow is an accent, and an accent that is everywhere is decoration.
+         Measured with nobody to act: 66 elements were glowing -- every chip,
+         every card, every avatar, every seat plate. So when the turn glow
+         arrived it was the sixty-seventh, and it read as more of the same.
+         At rest these keep their edge and their shadow and lose the halo;
+         the acting seat, the timer and the winner keep theirs. */
+      body.v014.poker8-v2-sixmax .poker-chip,
+      body.v014.poker8-v2-sixmax .chip-column,
+      body.v014.poker8-v2-sixmax .chip-cluster,
+      body.v014.poker8-v2-sixmax .card,
+      body.v014.poker8-v2-sixmax .seat-card:not(.p8-turn-gradient) .player-avatar,
+      body.v014.poker8-v2-sixmax .seat-card:not(.p8-turn-gradient) .seat-identity{
+        filter:none!important;
+      }
+      body.v014.poker8-v2-sixmax .seat-card:not(.p8-turn-gradient) .seat-identity{
+        box-shadow:0 2px 6px rgba(0,0,0,.45)!important;
+      }
+      body.v014.poker8-v2-sixmax .seat-card:not(.p8-turn-gradient) .player-avatar{
+        box-shadow:0 0 0 3px rgba(1,5,5,.93),inset 0 -10px 18px rgba(0,0,0,.50)!important;
+      }
+      body.v014.poker8-v2-sixmax .seat-name,
+      body.v014.poker8-v2-sixmax .seat-stack,
+      body.v014.poker8-v2-sixmax .bet-marker span{text-shadow:none!important;}
+
       @media (prefers-reduced-motion:reduce){
         body.v014.poker8-v2-sixmax .seat .seat-card.p8-turn-gradient .player-avatar,
         body.v014.poker8-v2-sixmax .seat .seat-card.p8-turn-gradient .seat-identity{animation:none!important;}
