@@ -22,12 +22,20 @@
 
   // В режиме наблюдения у стола нет закреплённого нижнего места.
   // Поэтому два активных игрока выводятся слева и справа, а не друг напротив друга.
+  // The upper-side points in the 5 and 6 entries used to sit at y:38 and
+  // y:31 -- squarely inside the pot/board band the comment above warns
+  // about, unlike every other entry here. Measured live: the board's actual
+  // card rects overlapped the seat-identity plate by up to 54px, and the
+  // plate painted over the card (it has the higher z-index), so part of a
+  // community card was hidden behind a player's name. Moved to y:20, next to
+  // the top pole the same way LAYOUTS[6]'s own upper-side seats sit near its
+  // top pole (13 and 19) -- clear of the band, not just barely.
   const SPECTATOR_LAYOUTS = {
     2: [[12, 50], [88, 50]],
     3: [[50, 13], [18, 70], [82, 70]],
     4: [[50, 13], [86, 66], [50, 88], [14, 66]],
-    5: [[50, 16], [82, 38], [70, 78], [30, 78], [18, 38]],
-    6: [[50, 15], [83, 31], [83, 69], [50, 85], [17, 69], [17, 31]],
+    5: [[50, 16], [82, 20], [70, 78], [30, 78], [18, 20]],
+    6: [[50, 15], [83, 20], [83, 69], [50, 85], [17, 69], [17, 20]],
   };
 
   const style = document.createElement("style");

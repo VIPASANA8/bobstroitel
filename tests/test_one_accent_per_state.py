@@ -337,3 +337,26 @@ def test_the_room_prompt_is_narrower_than_it_was():
     # last match in the block -- the live declaration, not the history note.
     matches = re.findall(r"max-width:(\d+)%", rule)
     assert matches and int(matches[-1]) < 78
+
+
+def test_spectator_wing_seats_stay_clear_of_the_board_band():
+    """LAYOUTS keeps every seat's y outside 22-56 -- the band the pot, board
+    and chip cluster occupy, per the comment above LAYOUTS in v040. The
+    upper-side seats at 5 and 6 active viewers sat at y:38 and y:31, both
+    inside it, and measured live the board's actual card rects overlapped
+    those seats' plates by up to 54px, with the plate painted on top and
+    hiding part of a card.
+
+    2's y:50 is not covered by this check: measured live it does not collide
+    (its x:12/88 sit far enough outside the board's real horizontal reach
+    that the abstract band rule is too strict for it), so it is left as is
+    rather than "fixed" against a case that was never broken.
+    """
+    seats = (STATIC / "v040-poker8-v2-dynamic-seats.js").read_text(encoding="utf-8")
+    block = seats[seats.index("const SPECTATOR_LAYOUTS = {"):seats.index("const style = document.createElement")]
+    for line in block.splitlines():
+        if not re.match(r"\s*[56]:", line):
+            continue
+        for x, y in re.findall(r"\[(\d+),\s*(\d+)\]", line):
+            y = int(y)
+            assert not (22 < y < 56), f"{line.strip()} has a point at y:{y}, inside the reserved band"
