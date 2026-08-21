@@ -294,7 +294,7 @@ def test_the_stake_is_written_in_the_avatar_not_on_the_felt():
     seat, so there is no separate pass to get out of order with anything.
     """
     app = (STATIC / "app.js").read_text(encoding="utf-8")
-    assert '<b class="seat-wager">${formatBB(wager)}</b>' in app
+    assert '<b class="seat-wager">${bareBB(wager)}</b>' in app
     for layer in ("v016-fixes.js", "v031-pot-cluster-mobile-fix.js"):
         assert "renderWagerMarkers = function" not in (STATIC / layer).read_text(encoding="utf-8"), layer
     body = app[app.index("function renderWagerMarkers() {"):]
@@ -316,3 +316,12 @@ def test_collected_money_still_leaves_from_somewhere():
     app = (STATIC / "app.js").read_text(encoding="utf-8")
     assert '.seat-wager:not(.fx-collected)' in app
     assert '.bet-marker:not(.fx-collected)' not in app
+
+
+def test_the_stake_drops_the_unit_inside_the_avatar():
+    """Measured on the live table: "0.50 ББ" is 54px wide inside a 49px
+    avatar, and 20 of those pixels are a unit the stack below already gives."""
+    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    assert "function bareBB(value)" in app
+    body = app[app.index("function bareBB(value) {"):]
+    assert "ББ" not in body[:body.index(chr(10) + "}")]

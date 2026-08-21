@@ -852,6 +852,13 @@ function formatBB(value) {
   return `${Number(value || 0).toFixed(2)} ББ`;
 }
 
+//: Inside a 49px avatar the unit costs 20 of those pixels and says nothing the
+//: stack right below it has not already said. Every number on this felt is in
+//: big blinds.
+function bareBB(value) {
+  return Number(value || 0).toFixed(2);
+}
+
 function signedBB(value) {
   const n = Number(value || 0);
   return `${n >= 0 ? "+" : ""}${n.toFixed(2)} ББ`;
@@ -995,7 +1002,7 @@ function seatHtml(config, player, offerSeat = true) {
       ${!locked ? `<button class="seat-edit" data-edit-seat="${config.seat}" title="Настроить место">•••</button>` : ""}
       ${isDealer ? `<div class="dealer-button" title="Дилер / BTN">D</div>` : ""}
       <div class="avatar-wrap">
-        <div class="player-avatar"><span>${escapeHtml(avatar)}</span>${wager > 0 ? `<b class="seat-wager">${formatBB(wager)}</b>` : ""}</div>
+        <div class="player-avatar"><span>${escapeHtml(avatar)}</span>${wager > 0 ? `<b class="seat-wager">${bareBB(wager)}</b>` : ""}</div>
         ${status ? `<div class="player-status ${folded ? "status-fold" : activeTurn && !isHuman ? "status-thinking" : "status-turn"}">${status}${activeTurn && !isHuman ? `<i class="thinking-dots"><b></b><b></b><b></b></i>` : ""}</div>` : ""}
       </div>
       <div class="seat-identity">
