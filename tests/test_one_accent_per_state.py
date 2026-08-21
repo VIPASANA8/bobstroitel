@@ -283,3 +283,36 @@ def test_wager_markers_are_placed_after_the_seats_have_moved():
     body = body[:body.index("\n}\n")]
     assert body.index('runRenderHooks("seats")') < body.index("renderWagerMarkers()"), \
         "the markers are measuring seats that have not been positioned yet"
+
+
+def test_the_stake_is_written_in_the_avatar_not_on_the_felt():
+    """One implementation, and it draws nothing on the felt.
+
+    Two layers used to reassign renderWagerMarkers to place a chip stack
+    between each player and the pot; the last one won, as always. The stake is
+    a number inside the avatar now, built by seatHtml with the rest of the
+    seat, so there is no separate pass to get out of order with anything.
+    """
+    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    assert '<b class="seat-wager">${formatBB(wager)}</b>' in app
+    for layer in ("v016-fixes.js", "v031-pot-cluster-mobile-fix.js"):
+        assert "renderWagerMarkers = function" not in (STATIC / layer).read_text(encoding="utf-8"), layer
+    body = app[app.index("function renderWagerMarkers() {"):]
+    body = body[:body.index("\n}")]
+    assert "chipStackHtml" not in body and "bet-marker" not in body
+
+
+def test_the_pot_cluster_was_left_alone():
+    """The instruction was explicit about that, and they are separate things."""
+    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    pot = app[app.index("function renderPotChips(value) {"):]
+    pot = pot[:pot.index("\n}")]
+    assert "chipStackHtml(visualValue, false)" in pot
+
+
+def test_collected_money_still_leaves_from_somewhere():
+    """The flight used to start at the marker on the felt. Deleting the marker
+    without moving the flight would have made the pot grow out of nothing."""
+    app = (STATIC / "app.js").read_text(encoding="utf-8")
+    assert '.seat-wager:not(.fx-collected)' in app
+    assert '.bet-marker:not(.fx-collected)' not in app

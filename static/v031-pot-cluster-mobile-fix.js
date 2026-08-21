@@ -50,27 +50,10 @@
     };
   };
 
-  renderWagerMarkers = function renderWagerMarkersV031() {
-    const layer = $("wagerLayer");
-    if (!layer) return;
-    layer.innerHTML = "";
-    if (!game || game.terminal) return;
-
-    for (const player of Object.values(game.players || {})) {
-      const wager = Number(player.street_invested || 0);
-      if (!(wager > 0)) continue;
-      const point = wagerPointForPlayer(game, player.id);
-      if (!point) continue;
-
-      const marker = document.createElement("div");
-      marker.className = `bet-marker ${game?.acting_player === player.id ? "acting-wager" : ""}`.trim();
-      marker.dataset.playerId = player.id;
-      marker.style.left = `${point.x}px`;
-      marker.style.top = `${point.y}px`;
-      marker.innerHTML = `${chipStackHtml(wager, true)}<span>${formatBB(wager)}</span>`;
-      layer.appendChild(marker);
-    }
-  };
+  //: This layer used to reassign renderWagerMarkers to draw a chip stack in
+  //: front of each player. The stake is written inside the avatar now, so
+  //: there is nothing here to override -- app.js owns the one
+  //: implementation, and it draws nothing.
 
   const style = document.createElement("style");
   style.id = "v031-pot-cluster-mobile-fix-style";

@@ -212,6 +212,24 @@
         border:1px solid hsla(var(--seat-accent),90%,60%,.72)!important;background:linear-gradient(180deg,rgba(0,0,0,.98),rgba(0,0,0,.995))!important;
         box-shadow:0 0 12px hsla(var(--seat-accent),92%,55%,.24),0 7px 14px rgba(0,0,0,.62)!important;text-align:center!important;
       }
+      /* What this player has put in this street, written where they are
+         rather than on the felt beside them. The avatar is 49px and the
+         number can be five characters, so it takes the middle of the disc on
+         its own ground -- the silhouette behind it is decoration, the number
+         is not. */
+      body.v014.poker8-v2-sixmax .player-avatar{position:relative!important;}
+      body.v014.poker8-v2-sixmax .seat-wager{
+        position:absolute!important;left:50%!important;top:50%!important;
+        transform:translate(-50%,-50%)!important;z-index:4;
+        min-width:34px;padding:2px 5px;border-radius:7px;
+        background:rgba(9,10,10,.86);
+        color:#eafff6;font-size:12px;font-weight:900;line-height:1;letter-spacing:-.01em;
+        font-variant-numeric:tabular-nums;text-align:center;white-space:nowrap;
+        box-shadow:0 1px 4px rgba(0,0,0,.55);
+      }
+      /* The felt between the players and the pot is empty now. */
+      body.v014.poker8-v2-sixmax .wager-layer .bet-marker{display:none!important;}
+
       body.v014.poker8-v2-sixmax .seat-topline{display:block!important;}
       /* The name takes the whole plate; seatDisplayName measures what it hands
          over so it lands, and CSS finishes anything still too long. */

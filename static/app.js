@@ -716,12 +716,14 @@ async function collectParkedPackets(includeExistingMarkers = false) {
   // Уже лежавшие на столе ставки из предыдущего состояния.
   // Они нужны, когда новое действие закрывает улицу.
   if (includeExistingMarkers) {
-    for (const marker of [...document.querySelectorAll(".bet-marker:not(.fx-collected)")]) {
-      const from = centerInsideFelt(marker);
+    for (const wagerLabel of [...document.querySelectorAll(".seat-wager:not(.fx-collected)")]) {
+      // The stake used to sit on the felt and fly from there. It sits in the
+      // avatar now, so that is where it leaves from -- the money is still seen
+      // travelling, it just starts at the player rather than beside them.
+      const from = centerInsideFelt(wagerLabel);
       if (!from) continue;
-      const text = marker.querySelector("span")?.textContent || "1";
-      const amount = Number.parseFloat(text.replace(",", ".")) || 1;
-      marker.classList.add("fx-collected");
+      const amount = Number.parseFloat(wagerLabel.textContent.replace(",", ".")) || 1;
+      wagerLabel.classList.add("fx-collected");
       moves.push(flyPacket(from, target, amount, { duration:225 }));
     }
   }
@@ -993,7 +995,7 @@ function seatHtml(config, player, offerSeat = true) {
       ${!locked ? `<button class="seat-edit" data-edit-seat="${config.seat}" title="Настроить место">•••</button>` : ""}
       ${isDealer ? `<div class="dealer-button" title="Дилер / BTN">D</div>` : ""}
       <div class="avatar-wrap">
-        <div class="player-avatar"><span>${escapeHtml(avatar)}</span></div>
+        <div class="player-avatar"><span>${escapeHtml(avatar)}</span>${wager > 0 ? `<b class="seat-wager">${formatBB(wager)}</b>` : ""}</div>
         ${status ? `<div class="player-status ${folded ? "status-fold" : activeTurn && !isHuman ? "status-thinking" : "status-turn"}">${status}${activeTurn && !isHuman ? `<i class="thinking-dots"><b></b><b></b><b></b></i>` : ""}</div>` : ""}
       </div>
       <div class="seat-identity">
@@ -1018,26 +1020,14 @@ function escapeHtml(value) {
     .replaceAll("'", "&#003399;");
 }
 
+//: What a player has put in this street is written inside their avatar now,
+//: by seatHtml, so there is nothing to place on the felt between them and the
+//: pot. The layer stays and stays empty: chip flights are still appended to it
+//: while money is travelling. (The pot's own cluster is untouched -- that is
+//: renderPotChips, and it is a different thing entirely.)
 function renderWagerMarkers() {
   const layer = $("wagerLayer");
-  if (!layer) return;
-  layer.innerHTML = "";
-  if (!game || game.terminal) return;
-
-  for (const player of Object.values(game.players || {})) {
-    const wager = Number(player.street_invested || 0);
-    if (!(wager > 0)) continue;
-    const point = wagerPointForPlayer(game, player.id);
-    if (!point) continue;
-
-    const marker = document.createElement("div");
-    marker.className = "bet-marker";
-    marker.dataset.playerId = player.id;
-    marker.style.left = `${point.x}px`;
-    marker.style.top = `${point.y}px`;
-    marker.innerHTML = `${chipStackHtml(wager, true)}<span>${formatBB(wager)}</span>`;
-    layer.appendChild(marker);
-  }
+  if (layer) layer.innerHTML = "";
 }
 
 //: Post-render hooks. Four layers used to reassign renderSeats, each wrapping
