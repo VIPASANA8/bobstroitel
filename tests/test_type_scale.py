@@ -13,11 +13,15 @@ TABLE = Path("static/v038-poker8-v2-cinematic-table.js").read_text(encoding="utf
 #: 6 through 29 -- which is not a hierarchy, it is the absence of a decision.
 #: The sixth step is for page headings outside the felt -- the lobby and
 #: profile share these stylesheets.
+#: Both spellings. `font:800 11px/1 Inter` is a size too, and reading only
+#: `font-size:` is how thirteen of them survived four passes.
+SIZE = re.compile(r"font(?:-size)?:\s*(?:(?:normal|italic|oblique|small-caps|bold|bolder|lighter|\d{3})\s+)*([0-9.]+)px")
+
 SCALE = {10, 12, 15, 20, 27, 36}
 
 
 def test_the_table_sets_type_only_on_the_scale():
-    sizes = {float(size) for size in re.findall(r"font-size:\s*([0-9.]+)px", TABLE)}
+    sizes = {float(size) for size in SIZE.findall(TABLE)}
     assert sizes <= SCALE, f"off the scale: {sorted(sizes - SCALE)}"
     assert len(sizes) >= 4, "a scale nobody uses is not a scale"
 
@@ -30,7 +34,7 @@ def test_every_override_layer_holds_the_scale():
     """
     strays = {}
     for layer in sorted(Path("static").glob("v0*.js")):
-        sizes = {float(size) for size in re.findall(r"font-size:\s*([0-9.]+)px", layer.read_text(encoding="utf-8"))}
+        sizes = {float(size) for size in SIZE.findall(layer.read_text(encoding="utf-8"))}
         if sizes - SCALE:
             strays[layer.name] = sorted(sizes - SCALE)
     assert not strays, f"off the scale: {strays}"
@@ -48,7 +52,7 @@ def test_the_stylesheets_under_the_layers_hold_it_too():
     for sheet in ("style.css", "mobile.css", "component-ui.css", "network.css",
                   "online-table.js", "lobby.js"):
         text = (Path("static") / sheet).read_text(encoding="utf-8")
-        sizes = {float(size) for size in re.findall(r"font-size:\s*([0-9.]+)px", text)}
+        sizes = {float(size) for size in SIZE.findall(text)}
         if sizes - SCALE:
             strays[sheet] = sorted(sizes - SCALE)
     assert not strays, f"off the scale: {strays}"

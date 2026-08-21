@@ -53,10 +53,10 @@
     .poker8-online.p8-observer-mode .action-panel{display:none!important}
     .p8-funds-dialog{width:min(92vw,360px);padding:22px 20px 18px;border:1px solid rgba(64,237,167,.42);border-radius:16px;background:linear-gradient(160deg,#0b1f18,#061210);color:#dcf7e8;box-shadow:0 24px 70px rgba(0,0,0,.62)}
     .p8-funds-dialog::backdrop{background:rgba(2,8,6,.72)}
-    .p8-funds-dialog h2{margin:0 0 12px;color:#ffd9a8;font:800 19px/1.15 Inter,ui-sans-serif,system-ui;letter-spacing:-.01em}
+    .p8-funds-dialog h2{margin:0 0 12px;color:#ffd9a8;font:800 20px/1.15 Inter,ui-sans-serif,system-ui;letter-spacing:-.01em}
     .p8-funds-lead{margin:0 0 12px;color:#d6ece0;font-size:12px;line-height:1.45}
     .p8-funds-lead[hidden]{display:none}
-    .p8-funds-again{width:100%;padding:13px;border:0;border-radius:11px;background:linear-gradient(120deg,#3defb0,#2aa87c);color:#04211c;font:800 14px/1 Inter,ui-sans-serif,system-ui;cursor:pointer}
+    .p8-funds-again{width:100%;padding:13px;border:0;border-radius:11px;background:linear-gradient(120deg,#3defb0,#2aa87c);color:#04211c;font:800 15px/1 Inter,ui-sans-serif,system-ui;cursor:pointer}
     .p8-funds-again[hidden]{display:none}
     .p8-funds-offer[hidden]{display:none}
     .p8-funds-sums{margin:0 0 18px;color:#a9c6b8;font-size:12px;line-height:1.75}
@@ -64,9 +64,9 @@
     .p8-funds-offer{display:grid;gap:8px;padding:14px;border:1px solid rgba(80,200,255,.34);border-radius:12px;background:rgba(6,26,36,.72)}
     .p8-funds-offer strong{color:#bde9ff;font-size:15px}
     .p8-funds-offer span{color:#8fb3c4;font-size:12px;line-height:1.35}
-    .p8-funds-offer button{margin-top:2px;padding:12px;border:0;border-radius:10px;background:linear-gradient(120deg,#2fd6a0,#39c8ff);color:#04211c;font:800 13px/1 Inter,ui-sans-serif,system-ui;cursor:pointer}
+    .p8-funds-offer button{margin-top:2px;padding:12px;border:0;border-radius:10px;background:linear-gradient(120deg,#2fd6a0,#39c8ff);color:#04211c;font:800 12px/1 Inter,ui-sans-serif,system-ui;cursor:pointer}
     .p8-funds-offer button:disabled{background:rgba(120,150,150,.26);color:#8ea8a2;cursor:default}
-    .p8-funds-close{width:100%;margin-top:14px;padding:12px;border:1px solid rgba(95,237,170,.34);border-radius:10px;background:rgba(4,31,20,.84);color:#c9ffe3;font:800 13px/1 Inter,ui-sans-serif,system-ui;cursor:pointer}
+    .p8-funds-close{width:100%;margin-top:14px;padding:12px;border:1px solid rgba(95,237,170,.34);border-radius:10px;background:rgba(4,31,20,.84);color:#c9ffe3;font:800 12px/1 Inter,ui-sans-serif,system-ui;cursor:pointer}
     .poker8-online.p8-action-pending #actionButtons{opacity:.62;pointer-events:none;filter:saturate(.72)}
     .poker8-online.p8-action-pending #actionButtons::after{content:'Отправляем действие…';display:block;grid-column:1 / -1;text-align:center;color:#a8ffd4;font-size:10px;font-weight:800;padding:5px}
     @media(max-width:780px){
@@ -141,7 +141,7 @@
       .poker8-online .mobile-header-seat-actions[hidden]{display:none!important}
       .poker8-online .mobile-header-seat-actions button{
         padding:8px 11px;border:1px solid rgba(64,237,167,.42);border-radius:10px;
-        background:rgba(4,31,20,.86);color:#b8ffda;font:800 11px/1 Inter,ui-sans-serif,system-ui;
+        background:rgba(4,31,20,.86);color:#b8ffda;font:800 10px/1 Inter,ui-sans-serif,system-ui;
         white-space:nowrap;cursor:pointer;
       }
       .poker8-online .mobile-header-seat-actions #mobileHeaderTakeSeat{
