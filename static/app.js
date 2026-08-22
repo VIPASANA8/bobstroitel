@@ -858,8 +858,120 @@ function cardEl(code) {
   const suit = code[1];
   const symbol = { s: "♠", h: "♥", d: "♦", c: "♣" }[suit] || suit;
   el.className = "card " + ((suit === "h" || suit === "d") ? "red" : "");
+  el.dataset.code = code;
   el.innerHTML = `<span class="card-rank">${rank}</span><span class="card-suit">${symbol}</span>`;
   return el;
+}
+
+//: Same evaluator shape as v025-showdown-compare.js (that layer is optional
+//: and loads after this one, so it can't be reused directly) -- extended to
+//: keep the winning 5-card combo itself, not just its score, since this one
+//: highlights the actual cards on the felt rather than only comparing hands.
+const HAND_RANK_VALUE = { "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7, "8": 8, "9": 9, "T": 10, "J": 11, "Q": 12, "K": 13, "A": 14 };
+
+function handStraightHigh(ranks) {
+  const unique = [...new Set(ranks)].sort((a, b) => b - a);
+  if (unique.includes(14)) unique.push(1);
+  let run = 1;
+  for (let i = 1; i < unique.length; i++) {
+    if (unique[i - 1] - 1 === unique[i]) {
+      run += 1;
+      if (run >= 5) return unique[i - 4];
+    } else {
+      run = 1;
+    }
+  }
+  return null;
+}
+
+function evaluateFiveScore(cards) {
+  const ranks = cards.map(card => HAND_RANK_VALUE[card?.[0]]).filter(Boolean);
+  const suits = cards.map(card => card?.[1]);
+  const counts = new Map();
+  ranks.forEach(rank => counts.set(rank, (counts.get(rank) || 0) + 1));
+  const groups = [...counts.entries()].map(([rank, count]) => [count, rank]).sort((a, b) => b[0] - a[0] || b[1] - a[1]);
+  const flush = new Set(suits).size === 1;
+  const straight = handStraightHigh(ranks);
+  if (flush && straight) return [8, straight];
+  if (groups[0]?.[0] === 4) {
+    const quad = groups[0][1];
+    return [7, quad, Math.max(...ranks.filter(r => r !== quad))];
+  }
+  const trips = [...counts.entries()].filter(([, c]) => c === 3).map(([r]) => r).sort((a, b) => b - a);
+  const pairs = [...counts.entries()].filter(([, c]) => c === 2).map(([r]) => r).sort((a, b) => b - a);
+  if (trips.length && (trips.length >= 2 || pairs.length)) return [6, trips[0], trips.length >= 2 ? trips[1] : pairs[0]];
+  if (flush) return [5, ...[...ranks].sort((a, b) => b - a)];
+  if (straight) return [4, straight];
+  if (trips.length) {
+    const kickers = ranks.filter(r => r !== trips[0]).sort((a, b) => b - a).slice(0, 2);
+    return [3, trips[0], ...kickers];
+  }
+  if (pairs.length >= 2) {
+    const [high, low] = pairs;
+    return [2, high, low, Math.max(...ranks.filter(r => r !== high && r !== low))];
+  }
+  if (pairs.length === 1) {
+    const pair = pairs[0];
+    return [1, pair, ...ranks.filter(r => r !== pair).sort((a, b) => b - a).slice(0, 3)];
+  }
+  return [0, ...[...ranks].sort((a, b) => b - a)];
+}
+
+function compareHandScore(a, b) {
+  const n = Math.max(a.length, b.length);
+  for (let i = 0; i < n; i++) {
+    const av = a[i] || 0, bv = b[i] || 0;
+    if (av !== bv) return av > bv ? 1 : -1;
+  }
+  return 0;
+}
+
+function fiveCardCombinations(cards) {
+  const out = [];
+  for (let a = 0; a < cards.length - 4; a++)
+    for (let b = a + 1; b < cards.length - 3; b++)
+      for (let c = b + 1; c < cards.length - 2; c++)
+        for (let d = c + 1; d < cards.length - 1; d++)
+          for (let e = d + 1; e < cards.length; e++) out.push([cards[a], cards[b], cards[c], cards[d], cards[e]]);
+  return out;
+}
+
+//: null for fewer than 5 real cards (nothing to evaluate yet) or when the
+//: best hand is only a high card -- there is no combination to point at.
+function bestHandCombo(hole, board) {
+  const cards = [...(hole || []), ...(board || [])].filter(code => code && code !== "??");
+  if (cards.length < 5) return null;
+  let best = null;
+  let bestCards = null;
+  for (const combo of fiveCardCombinations(cards)) {
+    const score = evaluateFiveScore(combo);
+    if (!best || compareHandScore(score, best) > 0) {
+      best = score;
+      bestCards = combo;
+    }
+  }
+  return best && best[0] > 0 ? bestCards : null;
+}
+
+function highlightLocalHandCombo() {
+  document.querySelectorAll(".card.hand-combo").forEach(el => el.classList.remove("hand-combo"));
+  const player = localViewerPlayer();
+  if (!player) return;
+  const combo = bestHandCombo(player.hole_cards, game?.board);
+  if (!combo) return;
+  const remaining = [...combo];
+  const mark = container => {
+    if (!container) return;
+    [...container.children].forEach(el => {
+      const idx = remaining.indexOf(el.dataset.code);
+      if (idx !== -1) {
+        el.classList.add("hand-combo");
+        remaining.splice(idx, 1);
+      }
+    });
+  };
+  mark(document.querySelector(`.seat[data-seat="${player.seat}"] .player-cards`));
+  mark($("board"));
 }
 
 function renderCards(target, cards) {
@@ -1609,6 +1721,7 @@ function renderGame() {
   $("pot").textContent = formatBB(game.pot);
   renderPotChips(game.pot);
   renderCards($("board"), game.board);
+  highlightLocalHandCombo();
   $("result").textContent = game.result_text || "";
   $("analysisLink").href = `/api/game/${game.hand_id}/analysis`;
   $("analysisLink").classList.remove("disabled");

@@ -403,6 +403,15 @@
         box-shadow:0 6px 10px rgba(0,0,0,.58),inset 0 0 12px rgba(32,255,147,.07)!important;
       }
       body.v014.poker8-v2-sixmax .board-cards .card.red{color:#df392c!important;border-color:#ff5f43!important;box-shadow:0 5px 9px rgba(0,0,0,.48)!important;}
+      /* Which of your own cards -- hole or board -- make up your current best
+         hand, live as the board fills in. Reuses the all-in glow colour
+         (.seat-card.all-in .player-avatar below) rather than a new one: both
+         mean "this is the strong part," so one colour does both jobs. */
+      body.v014.poker8-v2-sixmax .board-cards .card.hand-combo,
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .player-cards .card.hand-combo{
+        border-color:#f1c867!important;
+        box-shadow:0 0 0 2px rgba(238,180,65,.42),0 0 16px rgba(238,180,65,.62),inset 0 0 10px rgba(238,180,65,.16)!important;
+      }
 
       body.v014.poker8-v2-sixmax .pot-total{
         min-width:74px!important;padding:4px 9px!important;border-radius:7px!important;
