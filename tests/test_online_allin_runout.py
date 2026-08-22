@@ -167,14 +167,39 @@ def test_a_redundant_snapshot_mid_reveal_does_not_restart_or_commit_early():
 
 
 def test_a_new_hand_arriving_mid_reveal_is_not_clobbered_when_the_old_reveal_finishes():
-    """however unlikely given the server's own hold time, a stale reveal
-    finishing after a newer hand already went live must not stomp it."""
+    """The server starts the next hand a fixed 7s after the current one ends
+    (next_hand_at in online/runtime.py), with no idea a client-side reveal is
+    still playing out -- so h2's own first snapshot can arrive before h1's
+    reveal resolves. It must not be committed early (that would skip h1's
+    winner entirely), and it must not be dropped either (that was the actual
+    bug report: the felt jumped straight to h2 with no result shown, and the
+    pot h1 already paid out looked like it had vanished). It waits, then
+    catches up right after h1 finally commits."""
     log = _run([
         {"op": "snapshot", "state": _state("h1", [], False)},
         {"op": "snapshot", "state": _state("h1", ["Ah", "Kd", "Qs", "2c", "3d"], True, phase="result")},
         {"op": "snapshot", "state": _state("h2", [], False)},  # a new hand takes over mid-reveal
+    ])
+    checkpoints = [row for row in log if row[0] == "checkpoint"]
+    # h1's own terminal snapshot must still not be committed, and h2 must not
+    # have jumped ahead of it either.
+    assert checkpoints[-1][1] == "h1"
+    assert checkpoints[-1][2] is False
+
+    log = _run([
+        {"op": "snapshot", "state": _state("h1", [], False)},
+        {"op": "snapshot", "state": _state("h1", ["Ah", "Kd", "Qs", "2c", "3d"], True, phase="result")},
+        {"op": "snapshot", "state": _state("h2", [], False)},
         {"op": "resolveReveal"},
         {"op": "resolveSleep"},
     ])
+    render_calls = [row for row in log if row[0] == "renderGame"]
+    # h1's winner is shown (terminal:true) before h2 is ever painted -- not
+    # skipped, and not raced.
+    assert render_calls == [
+        ["renderGame", "h1", False],
+        ["renderGame", "h1", True],
+        ["renderGame", "h2", False],
+    ]
     final = log[-1]
-    assert final == ["final", "h2", None], "the stale h1 reveal overwrote the live h2 hand"
+    assert final == ["final", "h2", None]

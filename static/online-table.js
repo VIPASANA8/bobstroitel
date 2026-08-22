@@ -195,7 +195,13 @@
       @media (prefers-reduced-motion:reduce){
         .poker8-online .mobile-header-seat-actions button.mode-active::before{animation:none;background-position:0% 0}
       }
-      .poker8-online .mobile-chat-button{order:2}
+      /* Was .mobile-chat-button itself, back when it sat directly in the
+         header next to #mobileHeaderSeatActions -- v037 and this file append
+         their header items independently, so whichever ran last used to
+         decide the visual order. Chat now sits inside its own utility group
+         with the rankings hint (see v037's ensureChatButton); the order
+         belongs on that group so it is still always last/rightmost. */
+      .poker8-online .mobile-header-utility{order:2}
       /* v038 derives --table-stage-h from these two vars, so zeroing them here
          (custom-property !important still beats v038's later non-important
          declaration) expands the felt into the space the hidden action panel
@@ -899,6 +905,23 @@
     // gets out too.
     document.addEventListener("keydown", event => {
       if (event.key === "Escape" && $("chatPanel")?.classList.contains("is-open")) closeChat();
+    });
+    // Same reason as the chat button above: v037 creates it, and v037 runs
+    // after boot.
+    document.addEventListener("click", event => {
+      if (event.target?.closest?.("#mobileHintButton")) {
+        const modal = $("handRankingsModal");
+        if (modal) modal.hidden = false;
+        return;
+      }
+      if (event.target?.closest?.(".hr-backdrop, #handRankingsClose")) {
+        const modal = $("handRankingsModal");
+        if (modal) modal.hidden = true;
+      }
+    });
+    document.addEventListener("keydown", event => {
+      const modal = $("handRankingsModal");
+      if (event.key === "Escape" && modal && !modal.hidden) modal.hidden = true;
     });
     $("readyButton")?.addEventListener("click", () => ready().catch(error => { alert(error.message); }));
     // The toolbar wraps the selection; an empty selection drops the pair in and

@@ -1774,29 +1774,7 @@ window.Poker8LegacyView = {
     // the hand" only ever happens for a run-out. Reveal those cards first,
     // the way an all-in should feel, instead of the felt just snapping
     // straight to five cards and a verdict.
-    const priorBoardCount = game?.board?.length ?? 0;
-    const isRunout = Boolean(onlineGame?.terminal) && (onlineGame?.board?.length || 0) === 5 && priorBoardCount < 5;
-    if (isRunout) {
-      // Either this is the snapshot that starts the reveal, or a redundant
-      // one (the poll timer, a resync) for a hand that is already revealing
-      // -- both must leave `game` alone and return without committing, or a
-      // second snapshot arriving mid-reveal would jump straight to the
-      // result and skip the rest of the sequence below.
-      if (onlineRunoutHandId !== onlineGame.hand_id) {
-        onlineRunoutHandId = onlineGame.hand_id;
-        // tableData is already the new snapshot (assigned above) -- seats,
-        // stacks and ready state can update freely during the reveal, since
-        // nothing repaints them until renderGame() runs at the end of it.
-        // Only `game` itself -- the board, the terminal result, the modal it
-        // drives -- waits.
-        revealOnlineRunout(game, onlineGame);
-      }
-      return;
-    }
-    onlineRunoutHandId = null;
-
-    game = onlineGame;
-    renderGame();
+    commitOnlineGame(onlineGame);
   },
 };
 
@@ -1805,19 +1783,62 @@ window.Poker8LegacyView = {
 //: push) does not restart the animation or double the 3s wait.
 let onlineRunoutHandId = null;
 
+//: The server starts the next hand a fixed 7s after the CURRENT one ends
+//: (see next_hand_at in online/runtime.py) -- it has no idea a reveal is
+//: playing out client-side, so a new hand's snapshot can and does arrive
+//: before the reveal is done. Committing it right away used to skip the
+//: winner entirely (the still-revealing hand's own commit was later refused
+//: by the onlineRunoutHandId guard below, since the flag had moved on) --
+//: the felt would just jump to the new hand with no result ever shown, and
+//: the pot it already paid out looked like it had vanished. Held here
+//: instead, and applied the moment the reveal in front of it finishes.
+let deferredOnlineSnapshot = null;
+
+function commitOnlineGame(onlineGame) {
+  const priorBoardCount = game?.board?.length ?? 0;
+  const isRunout = Boolean(onlineGame?.terminal) && (onlineGame?.board?.length || 0) === 5 && priorBoardCount < 5;
+  if (isRunout) {
+    // Either this is the snapshot that starts the reveal, or a redundant
+    // one (the poll timer, a resync) for a hand that is already revealing
+    // -- both must leave `game` alone and return without committing, or a
+    // second snapshot arriving mid-reveal would jump straight to the
+    // result and skip the rest of the sequence below.
+    if (onlineRunoutHandId !== onlineGame.hand_id) {
+      onlineRunoutHandId = onlineGame.hand_id;
+      // tableData is already the new snapshot (assigned in renderSnapshot)
+      // -- seats, stacks and ready state can update freely during the
+      // reveal, since nothing repaints them until renderGame() runs at the
+      // end of it. Only `game` itself -- the board, the terminal result,
+      // the modal it drives -- waits.
+      revealOnlineRunout(game, onlineGame);
+    }
+    return;
+  }
+  if (onlineRunoutHandId) {
+    deferredOnlineSnapshot = onlineGame;
+    return;
+  }
+  game = onlineGame;
+  renderGame();
+}
+
 async function revealOnlineRunout(previousGame, finishedGame) {
   try {
     await revealRemainingBoard(previousGame, finishedGame);
     await sleep(3000);
   } finally {
     // A snapshot for a newer hand can only have won onlineRunoutHandId away
-    // from this one by taking the non-runout branch above, which already
-    // committed `game` itself -- this reveal finishing after that must not
-    // overwrite it with the hand it was showing.
+    // from this one by taking the deferred branch above, which leaves this
+    // check the only place that hand's commit can still happen.
     if (onlineRunoutHandId === finishedGame.hand_id) {
+      onlineRunoutHandId = null;
       game = finishedGame;
       renderGame();
-      onlineRunoutHandId = null;
+      if (deferredOnlineSnapshot) {
+        const next = deferredOnlineSnapshot;
+        deferredOnlineSnapshot = null;
+        commitOnlineGame(next);
+      }
     }
   }
 }
