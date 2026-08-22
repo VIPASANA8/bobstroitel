@@ -7,6 +7,36 @@ APP = Path("static/app.js").read_text(encoding="utf-8")
 POT_LAYER = Path("static/v020-fixes.js").read_text(encoding="utf-8")
 
 
+def test_pot_chips_render_at_full_opacity_without_relying_on_a_transition():
+    """.pot-chips's base rule (style.css) fades opacity .15 -> 1 over .18s
+    when .has-chips is toggled on, via a CSS transition. renderPotChips can
+    repaint several times a second while a decision is on the clock, and
+    each repaint that touches the element restarts that transition -- caught
+    live via getAnimations(): the transition sat at playState "running",
+    localTime 0, progress 0, indefinitely. The pot chips never actually
+    reached visible opacity; a screenshot from a real table showed the two
+    wing slots empty. v038 now sets opacity directly instead of leaning on
+    the transition ever finishing."""
+    table = Path("static/v038-poker8-v2-cinematic-table.js").read_text(encoding="utf-8")
+    rule = table[table.index(".pot-chips{"):]
+    rule = rule[:rule.index("}") + 1]
+    assert "opacity:1!important" in rule
+    assert "transition:none!important" in rule
+
+
+def test_the_pot_amount_stays_the_top_layer_over_the_chip_wings():
+    """Explicit stacking order, not left to default paint order: the number
+    must stay readable if a wing's chips ever sit close enough to graze it."""
+    table = Path("static/v038-poker8-v2-cinematic-table.js").read_text(encoding="utf-8")
+    total_rule = table[table.index(".pot-total{top:25%"):]
+    total_rule = total_rule[:total_rule.index("}") + 1]
+    chips_rule = table[table.index(".pot-chips{"):]
+    chips_rule = chips_rule[:chips_rule.index("}") + 1]
+    total_z = int(re.search(r"z-index:(\d+)", total_rule).group(1))
+    chips_z = int(re.search(r"z-index:(\d+)", chips_rule).group(1))
+    assert total_z > chips_z
+
+
 def test_a_wager_is_one_stack_whatever_it_is_worth():
     """It sits inches from the player it belongs to, beside a label that
     already says the number; spreading it sideways only made it wider."""

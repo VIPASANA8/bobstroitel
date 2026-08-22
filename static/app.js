@@ -936,6 +936,17 @@ function fiveCardCombinations(cards) {
   return out;
 }
 
+//: Straight/flush/full-house/straight-flush use all 5 cards -- there is no
+//: separate kicker. Pair/two-pair/trips/quads carry 1-3 kickers that only
+//: matter for breaking ties, not for the category itself, so only the
+//: ranks that actually define the category get highlighted.
+function coreComboCards(score, cards) {
+  const category = score[0];
+  if (category === 4 || category === 5 || category === 6 || category === 8) return cards;
+  const coreRanks = new Set(category === 2 ? [score[1], score[2]] : [score[1]]);
+  return cards.filter(code => coreRanks.has(HAND_RANK_VALUE[code[0]]));
+}
+
 //: null when either hole card is still hidden (hot-seat mode shows them only
 //: on that player's own turn -- board-only cards are not "your combination"),
 //: for fewer than 5 real cards (nothing to evaluate yet), or when the best
@@ -953,7 +964,7 @@ function bestHandCombo(hole, board) {
       bestCards = combo;
     }
   }
-  return best && best[0] > 0 ? bestCards : null;
+  return best && best[0] > 0 ? coreComboCards(best, bestCards) : null;
 }
 
 function highlightLocalHandCombo() {

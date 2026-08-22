@@ -58,21 +58,46 @@ def test_one_hidden_hole_card_also_suppresses_the_highlight():
     assert combo is None
 
 
-def test_a_pair_highlights_the_full_best_five_including_kickers():
+def test_a_pair_highlights_only_the_two_paired_cards_not_the_kickers():
+    """A pair of aces with a 9-6-2 board is still the best 5-card hand you
+    have, but the 9/6/2 only matter for breaking a tie against another pair
+    of aces -- they are not what makes this hand a pair, so only the two
+    aces light up."""
     combo = _best_combo(["Ah", "Ad"], ["9c", "6s", "2h"])
-    assert sorted(combo) == sorted(["Ah", "Ad", "9c", "6s", "2h"])
+    assert sorted(combo) == sorted(["Ah", "Ad"])
+
+
+def test_two_pair_highlights_all_four_paired_cards_not_the_kicker():
+    combo = _best_combo(["Ah", "Ad"], ["9c", "9s", "2h"])
+    assert sorted(combo) == sorted(["Ah", "Ad", "9c", "9s"])
+
+
+def test_trips_highlights_only_the_three_matching_cards():
+    combo = _best_combo(["Ah", "Ad"], ["Ac", "9s", "2h"])
+    assert sorted(combo) == sorted(["Ah", "Ad", "Ac"])
+
+
+def test_quads_highlights_the_four_matching_cards_not_the_kicker():
+    combo = _best_combo(["Ah", "Ad"], ["Ac", "As", "2h"])
+    assert sorted(combo) == sorted(["Ah", "Ad", "Ac", "As"])
 
 
 def test_a_flush_picks_the_five_matching_suit_cards_over_a_pair():
+    """No kicker to strip here -- a flush is defined by all five cards."""
     combo = _best_combo(["Ah", "Kh"], ["9h", "6h", "2h", "As", "9s"])
     assert sorted(combo) == sorted(["Ah", "Kh", "9h", "6h", "2h"])
 
 
 def test_best_of_seven_cards_is_the_highest_scoring_five():
     """Board alone makes a straight (7-8-9-10-J); the two hole cards should
-    not get pulled in over it."""
+    not get pulled in over it. A straight uses all five cards -- no kicker."""
     combo = _best_combo(["2c", "3d"], ["7s", "8h", "9c", "Td", "Jh"])
     assert sorted(combo) == sorted(["7s", "8h", "9c", "Td", "Jh"])
+
+
+def test_full_house_highlights_all_five_cards():
+    combo = _best_combo(["Ah", "Ad"], ["Ac", "9s", "9h"])
+    assert sorted(combo) == sorted(["Ah", "Ad", "Ac", "9s", "9h"])
 
 
 def _extract_highlight_fn():
@@ -135,11 +160,9 @@ def test_highlight_marks_the_right_dom_elements_and_clears_stale_ones():
         path = handle.name
     result = subprocess.run(["node", path], capture_output=True, text=True, encoding="utf-8", check=True)
     marks = json.loads(result.stdout)
-    # Both hole cards and all three board cards are the pair's kickers here --
-    # everything lights up, and nothing stale survives from the fake previous
-    # render (there was nothing stale to survive in this particular hand, but
-    # the removal pass at the top of the function ran regardless).
-    assert marks == {"hole1": True, "hole2": True, "b1": True, "b2": True, "b3": True}
+    # Only the pair (both hole cards) lights up -- the three board cards are
+    # kickers, not part of what makes this a pair.
+    assert marks == {"hole1": True, "hole2": True, "b1": False, "b2": False, "b3": False}
 
 
 def test_stale_highlights_are_cleared_even_when_the_new_hand_has_nothing_to_show():

@@ -507,10 +507,16 @@
       /* The two piles sit on the same row as the amount and flank it, rather
          than piling up as one cluster under the board -- the row is wide
          enough that both piles clear the amount plate on every player count
-         checked (min-width:74px on .pot-total, 25-45px to spare each side). */
+         checked (min-width:74px on .pot-total, 25-45px to spare each side).
+         Full opacity immediately, no transition: the base .has-chips rule
+         fades opacity in over .18s, and renderPotChips can repaint several
+         times a second while a decision is on the clock -- each repaint
+         restarts that transition, so the piles could sit at their
+         .15-opacity starting point indefinitely instead of ever reaching 1. */
       body.v014.poker8-v2-sixmax .pot-chips{
         top:25%!important;width:230px!important;max-width:82%!important;
         display:flex!important;justify-content:space-between!important;align-items:flex-end!important;
+        opacity:1!important;transition:none!important;z-index:2!important;
       }
 
       body.v014.poker8-v2-sixmax .sidebar{transform:none!important;height:var(--p8-hud-h)!important;}
