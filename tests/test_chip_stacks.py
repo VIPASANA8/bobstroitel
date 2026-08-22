@@ -24,17 +24,28 @@ def test_pot_chips_render_at_full_opacity_without_relying_on_a_transition():
     assert "transition:none!important" in rule
 
 
-def test_the_pot_amount_stays_the_top_layer_over_the_chip_wings():
-    """Explicit stacking order, not left to default paint order: the number
-    must stay readable if a wing's chips ever sit close enough to graze it."""
+def test_three_explicit_layers_plaque_below_chips_below_the_amount():
+    """Plaque < chips < number, not just "the pot wins." .pot-total (the
+    plaque, including its background) must NOT carry its own z-index -- any
+    explicit value, even a low one, would make it a stacking context and cap
+    every child (including the number) at that level regardless of the
+    child's own z-index. Only .pot-total strong gets one, and it needs
+    position:relative to take effect at all."""
     table = Path("static/v038-poker8-v2-cinematic-table.js").read_text(encoding="utf-8")
     total_rule = table[table.index(".pot-total{top:25%"):]
     total_rule = total_rule[:total_rule.index("}") + 1]
+    assert "z-index" not in total_rule, "the plaque must stay at auto to not trap the number below it"
+
     chips_rule = table[table.index(".pot-chips{"):]
     chips_rule = chips_rule[:chips_rule.index("}") + 1]
-    total_z = int(re.search(r"z-index:(\d+)", total_rule).group(1))
     chips_z = int(re.search(r"z-index:(\d+)", chips_rule).group(1))
-    assert total_z > chips_z
+
+    number_rule = table[table.index(".pot-total strong{"):]
+    number_rule = number_rule[:number_rule.index("}") + 1]
+    assert "position:relative!important" in number_rule
+    number_z = int(re.search(r"z-index:(\d+)", number_rule).group(1))
+
+    assert number_z > chips_z
 
 
 def test_the_pot_wings_stay_clear_of_the_felts_own_border_at_the_worst_case_column_count():

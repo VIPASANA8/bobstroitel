@@ -911,7 +911,7 @@
     document.addEventListener("click", event => {
       if (event.target?.closest?.("#mobileHintButton")) {
         const modal = $("handRankingsModal");
-        if (modal) modal.hidden = false;
+        if (modal) modal.hidden = !modal.hidden;
         return;
       }
       if (event.target?.closest?.(".hr-backdrop, #handRankingsClose")) {

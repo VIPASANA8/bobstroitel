@@ -8,17 +8,22 @@
   // Highest to lowest -- the same order shown on the felt's own showdown
   // comparison, so a player checking this mid-hand and then seeing the
   // result modal reads the same list twice, not two different ones.
+  //
+  // Only the cards that actually define each category -- same rule as the
+  // live highlight on the felt (see app.js's coreComboCards): a pair shows
+  // two cards, not a pair plus three kickers. Straight/flush/full-house/
+  // straight-flush have no separate kicker, so those keep all five.
   const HAND_RANKINGS = [
     { name: "Роял-флеш", desc: "A, K, Q, J, 10 одной масти", cards: ["As", "Ks", "Qs", "Js", "Ts"] },
     { name: "Стрит-флеш", desc: "Пять карт подряд одной масти", cards: ["9h", "8h", "7h", "6h", "5h"] },
-    { name: "Каре", desc: "Четыре карты одного достоинства", cards: ["9s", "9h", "9d", "9c", "2c"] },
+    { name: "Каре", desc: "Четыре карты одного достоинства", cards: ["9s", "9h", "9d", "9c"] },
     { name: "Фулл-хаус", desc: "Тройка и пара", cards: ["Ks", "Kh", "Kd", "4c", "4h"] },
     { name: "Флеш", desc: "Пять карт одной масти", cards: ["Ad", "Jd", "8d", "6d", "3d"] },
     { name: "Стрит", desc: "Пять карт подряд, масти любые", cards: ["8h", "7s", "6d", "5c", "4h"] },
-    { name: "Сет", desc: "Три карты одного достоинства", cards: ["7c", "7h", "7d", "Ks", "2c"] },
-    { name: "Две пары", desc: "Две разные пары", cards: ["Qs", "Qh", "5d", "5c", "9h"] },
-    { name: "Пара", desc: "Две карты одного достоинства", cards: ["Th", "Td", "8s", "5h", "2c"] },
-    { name: "Старшая карта", desc: "Комбинации нет — решает старшая карта", cards: ["Ah", "Jd", "8s", "5h", "2c"] },
+    { name: "Сет", desc: "Три карты одного достоинства", cards: ["7c", "7h", "7d"] },
+    { name: "Две пары", desc: "Две разные пары", cards: ["Qs", "Qh", "5d", "5c"] },
+    { name: "Пара", desc: "Две карты одного достоинства", cards: ["Th", "Td"] },
+    { name: "Старшая карта", desc: "Комбинации нет — решает старшая карта", cards: ["Ah"] },
   ];
 
   function miniCardHtml(code) {
@@ -145,7 +150,7 @@
       }
       .hand-rankings-modal .hr-row:first-child{border-top:0;}
       .hand-rankings-modal .hr-rank{color:#6f8b81;font-size:12px;font-weight:800;font-variant-numeric:tabular-nums;}
-      .hand-rankings-modal .hr-cards{display:flex;}
+      .hand-rankings-modal .hr-cards{display:flex;justify-content:center;}
       .hand-rankings-modal .hr-card{
         display:grid;place-items:center;width:20px;height:28px;margin-left:-7px;
         border:1px solid rgba(255,255,255,.5);border-radius:4px;background:#ffffff;color:#1a1a1a;
@@ -221,7 +226,7 @@
 
   if (!document.querySelector('script[data-v038-poker8-v2-cinematic-table]')) {
     const v038 = document.createElement("script");
-    v038.src = "/static/v038-poker8-v2-cinematic-table.js?v=pot-inset-1";
+    v038.src = "/static/v038-poker8-v2-cinematic-table.js?v=pot-zlayer-1";
     v038.setAttribute("data-v038-poker8-v2-cinematic-table", "");
     v038.addEventListener("load", ensureDynamicSeatLayout, { once: true });
     document.body.appendChild(v038);

@@ -38,19 +38,22 @@ def test_v037_stays_decorative_like_the_chat_button():
     assert 'addEventListener("click"' not in SOURCE
 
 
-def test_the_modal_opens_and_closes_three_ways_delegated_off_document():
+def test_the_hint_button_toggles_and_also_closes_two_other_ways():
     body = ONLINE_TABLE[ONLINE_TABLE.index('"#mobileHintButton"') - 200:]
     body = body[:body.index("modal.hidden = true;\n    });") + 30]
-    assert 'modal.hidden = false;' in body
+    assert 'modal.hidden = !modal.hidden;' in body, "the button must toggle, not just open"
     assert '".hr-backdrop, #handRankingsClose"' in body
     assert 'event.key === "Escape"' in ONLINE_TABLE
     assert 'modal && !modal.hidden) modal.hidden = true;' in ONLINE_TABLE
 
 
-def test_the_rankings_are_ten_hands_highest_to_lowest_with_five_real_cards_each():
+def test_the_rankings_are_ten_hands_highest_to_lowest_with_only_the_defining_cards_shown():
     """Extracts and evaluates the real HAND_RANKINGS array plus miniCardHtml,
     so a typo'd card code (bad rank/suit letter) fails loudly instead of
-    silently rendering a blank or mislabelled card."""
+    silently rendering a blank or mislabelled card. Card counts match
+    coreComboCards in app.js: a category's kickers are not shown, since they
+    are not what makes the hand that category -- a pair is two cards, not a
+    pair plus three kickers."""
     start = SOURCE.index("const HAND_RANKINGS")
     end = SOURCE.index("];", start) + 2
     data = SOURCE[start:end]
@@ -62,13 +65,18 @@ def test_the_rankings_are_ten_hands_highest_to_lowest_with_five_real_cards_each(
     result = subprocess.run(["node", path], capture_output=True, text=True, encoding="utf-8", check=True)
     hands = json.loads(result.stdout)
 
-    assert [h["name"] for h in hands] == [
-        "Роял-флеш", "Стрит-флеш", "Каре", "Фулл-хаус", "Флеш",
-        "Стрит", "Сет", "Две пары", "Пара", "Старшая карта",
-    ]
+    expected_counts = {
+        "Роял-флеш": 5, "Стрит-флеш": 5, "Каре": 4, "Фулл-хаус": 5, "Флеш": 5,
+        "Стрит": 5, "Сет": 3, "Две пары": 4, "Пара": 2, "Старшая карта": 1,
+    }
+    assert [h["name"] for h in hands] == list(expected_counts)
     valid_ranks = set("23456789TJQKA")
     valid_suits = set("shdc")
     for hand in hands:
-        assert len(hand["cards"]) == 5, hand["name"]
+        assert len(hand["cards"]) == expected_counts[hand["name"]], hand["name"]
         for code in hand["cards"]:
             assert len(code) == 2 and code[0] in valid_ranks and code[1] in valid_suits, (hand["name"], code)
+
+
+def test_the_mini_cards_are_centered_so_a_short_row_does_not_look_left_jammed():
+    assert ".hr-cards{display:flex;justify-content:center;}" in SOURCE

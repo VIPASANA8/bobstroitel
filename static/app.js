@@ -1893,6 +1893,10 @@ window.Poker8LegacyView = {
       // function, so it has to be persisted here to still be reachable from
       // renderSeats(), which runs later off the module-level game/tableData.
       current_seats: state?.current_seats || null,
+      // sendAction's wire format is BB-units scaled by the table's own big
+      // blind, not a fixed 100 -- see the comment there. Only "micro" rooms
+      // (online/catalogue.py's ROOM_BLIND_LEVELS) happen to use 100.
+      big_blind_units: Number(table?.big_blind_units) || 100,
     };
 
     // All-in before the board is complete: the engine deals whatever is left
@@ -2173,7 +2177,16 @@ async function newHand(fromAutomation = false) {
 
 async function sendAction(action, amount = 0) {
   if (!game || animationBusy) return;
-  if (window.Poker8OnlineTable && window.Poker8Transport) return Poker8Transport.sendAction(action, Math.round(Number(amount || 0) * 100));
+  if (window.Poker8OnlineTable && window.Poker8Transport) {
+    // The server decodes amount_units as amount_units / table.big_blind_units
+    // (online/runtime.py) -- a hardcoded *100 here only matched "micro"
+    // rooms (big_blind_units=100). On "low" (200) or "mid" (1000) tables it
+    // silently sent a smaller number than typed, so a raise well above the
+    // displayed minimum (e.g. 7 when the minimum read 4) still failed the
+    // engine's own min-raise check on the rescaled-down amount.
+    const bbUnits = Number(tableData?.big_blind_units) || 100;
+    return Poker8Transport.sendAction(action, Math.round(Number(amount || 0) * bbUnits));
+  }
   if (isLocalHumanTurn()) clearPendingAction(false);
   solverPreview = null;
   document.querySelectorAll("#actionButtons button").forEach(b => b.disabled = true);

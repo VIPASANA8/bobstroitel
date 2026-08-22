@@ -419,7 +419,15 @@
         box-shadow:inset 0 0 12px rgba(60,225,150,.04),0 4px 11px rgba(0,0,0,.34)!important;
       }
       body.v014.poker8-v2-sixmax .pot-total-label{font-size:10px!important;letter-spacing:.08em!important;}
-      body.v014.poker8-v2-sixmax .pot-total strong{font-size:20px!important;line-height:1!important;}
+      /* Above the chip wings even though the plaque behind it (.pot-total,
+         below) is not -- position+z-index here lets the number escape its
+         own parent's stacking context, so it stays readable if a wing ever
+         grazes the plaque, without the plaque's own background needing to
+         out-rank the chips too. */
+      body.v014.poker8-v2-sixmax .pot-total strong{
+        font-size:20px!important;line-height:1!important;
+        position:relative!important;z-index:3!important;
+      }
       /* v019-center-polish sets display:flex!important on the same selector
          family, so the hide needs !important here to actually win. */
       body.v014.poker8-v2-sixmax.p8-no-pot .pot-total{display:none!important;}
@@ -496,7 +504,14 @@
         box-shadow:0 0 0 3px rgba(0,0,0,.92),0 0 18px rgba(238,180,65,.45),inset 0 -10px 18px rgba(0,0,0,.50)!important;
       }
 
-      body.v014.poker8-v2-sixmax .pot-total{top:25%!important;z-index:3!important;}
+      /* No z-index here on purpose -- any explicit value (even a low one)
+         would make .pot-total its own stacking context and trap the number
+         inside it below the chip wings regardless of the number's own
+         z-index. Left at auto, the plaque paints at the base level (below
+         .pot-chips's explicit z-index:2), while .pot-total strong's own
+         z-index (above) escapes upward into the shared ancestor context
+         instead of being capped by its parent. */
+      body.v014.poker8-v2-sixmax .pot-total{top:25%!important;}
       /* Was 38%, 4px below the pot at the time -- and the wing seats at 5/6
          active viewers sat inside this same band (see v040's SPECTATOR_LAYOUTS
          fix), so the two nearly touched too. With those seats moved clear,
