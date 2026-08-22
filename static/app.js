@@ -332,61 +332,33 @@ function chipLayers(value, col, compact) {
   return Math.max(2, Math.min(6, Math.round(base) + POT_LAYER_RIPPLE[col % POT_LAYER_RIPPLE.length]));
 }
 
-function potClusterOffsets(stackCount) {
-  // x and y place each stack in the cluster; y translates downward, and a
-  // column grows up from its own base, so y is where its bottom sits.
-  const patterns = {
-    1: [{ x: 0, y: 10 }],
-    2: [{ x: -9, y: 12 }, { x: 8, y: 10 }],
-    3: [{ x: -14, y: 13 }, { x: 1, y: 4 }, { x: 15, y: 11 }],
-    4: [{ x: -18, y: 15 }, { x: -5, y: 8 }, { x: 8, y: 4 }, { x: 19, y: 12 }],
-    5: [{ x: -23, y: 16 }, { x: -11, y: 10 }, { x: 0, y: 2 }, { x: 12, y: 8 }, { x: 23, y: 14 }],
-    6: [{ x: -25, y: 17 }, { x: -15, y: 12 }, { x: -4, y: 6 }, { x: 7, y: 2 }, { x: 18, y: 9 }, { x: 28, y: 15 }],
-    7: [{ x: -28, y: 18 }, { x: -18, y: 13 }, { x: -8, y: 8 }, { x: 1, y: 1 }, { x: 10, y: 6 }, { x: 20, y: 11 }, { x: 30, y: 17 }],
-  };
-  const points = patterns[stackCount] || patterns[7];
-  // Depth comes from the base, never from a hand-written number. The stack
-  // whose bottom sits higher up the felt is the one further away, so it goes
-  // behind; the nearest stack is the lowest one. The old table had these the
-  // wrong way round -- the frontmost stack carried the highest z and sat at
-  // the top of the cluster, so the far chips were drawn over the near ones.
-  const bases = points.map(point => point.y).sort((a, b) => a - b);
-  return points.map(point => ({ ...point, z: bases.indexOf(point.y) + 1 }));
-}
-
-
-function chipStackHtml(value, compact = false) {
+function chipStackHtml(value) {
   const n = Number(value || 0);
   if (!(n > 0)) return "";
-
-  // A wager is a single upright stack; the pot is a scattered cluster, laid
-  // out by potClusterOffsets. Both used to live in v031, which overrode this
-  // function -- so the pot had one implementation here, another in v020 and a
-  // third there, and only the last one drew anything.
-  const stackCount = compact
-    ? 1
-    : Math.min(7, Math.max(1, visualStackCount(n, false) + (n >= 8 ? 1 : 0)));
-  const palette = chipsForAmount(n, compact ? 8 : 16);
+  const palette = chipsForAmount(n, 8);
   const fallback = ["chip-1", "chip-25", "chip-5", "chip-100", "chip-05"];
-  const offsets = compact ? null : potClusterOffsets(stackCount);
+  const cls = palette[0] || fallback[0];
+  const chips = Array.from({ length: chipLayers(n, 0, true) }, (_, i) =>
+    `<i class="poker-chip ${cls}" style="--i:${i}"></i>`
+  ).join("");
+  return `<div class="chip-cluster compact"><span class="chip-column" style="--col:0;--cols:1">${chips}</span></div>`;
+}
+
+function potWingHtml(value, columnCount, colorOffset) {
+  if (columnCount <= 0) return "";
+  const n = Number(value || 0);
+  const palette = chipsForAmount(n, 16);
+  const fallback = ["chip-1", "chip-25", "chip-5", "chip-100", "chip-05"];
   const columns = [];
-
-  for (let col = 0; col < stackCount; col++) {
+  for (let i = 0; i < columnCount; i++) {
+    const col = colorOffset + i;
     const cls = palette[col % Math.max(1, palette.length)] || fallback[col % fallback.length];
-    const chips = Array.from({ length: chipLayers(n, col, compact) }, (_, i) =>
-      `<i class="poker-chip ${cls}" style="--i:${i}"></i>`
+    const chips = Array.from({ length: chipLayers(n, col, false) }, (_, k) =>
+      `<i class="poker-chip ${cls}" style="--i:${k}"></i>`
     ).join("");
-    if (offsets) {
-      const pos = offsets[col] || { x: 0, y: 0, z: 1 };
-      columns.push(
-        `<span class="chip-column pot-stack" style="--col:${col};--cols:${stackCount};--stack-x:${pos.x}px;--stack-y:${pos.y}px;--stack-z:${pos.z}">${chips}</span>`
-      );
-    } else {
-      columns.push(`<span class="chip-column" style="--col:${col};--cols:${stackCount}">${chips}</span>`);
-    }
+    columns.push(`<span class="chip-column" style="--col:${i};--cols:${columnCount}">${chips}</span>`);
   }
-
-  return `<div class="chip-cluster ${compact ? "compact" : "pot-cluster"}">${columns.join("")}</div>`;
+  return `<div class="chip-cluster pot-wing">${columns.join("")}</div>`;
 }
 
 function renderPotChips(value) {
@@ -403,7 +375,14 @@ function renderPotChips(value) {
     );
     visualValue = Math.max(visualValue, Number(game.pot || 0) + liveWagers);
   }
-  target.innerHTML = chipStackHtml(visualValue, false);
+  // Split into two piles flanking the amount instead of one cluster piled
+  // underneath it -- right gets the extra column on an odd count.
+  const stackCount = visualValue > 0
+    ? Math.min(7, Math.max(1, visualStackCount(visualValue, false) + (visualValue >= 8 ? 1 : 0)))
+    : 0;
+  const rightCount = Math.floor(stackCount / 2);
+  const leftCount = stackCount - rightCount;
+  target.innerHTML = potWingHtml(visualValue, leftCount, 0) + potWingHtml(visualValue, rightCount, leftCount);
   target.classList.toggle("has-chips", visualValue > 0);
 }
 
@@ -657,7 +636,7 @@ function makeFlyingPacket(amount, label = "") {
   const el = document.createElement("div");
   el.className = "chip-flight";
   el.dataset.amount = String(Number(amount || .5));
-  el.innerHTML = `${chipStackHtml(Math.max(.5, amount || .5), true)}${label ? `<span>${escapeHtml(label)}</span>` : ""}`;
+  el.innerHTML = `${chipStackHtml(Math.max(.5, amount || .5))}${label ? `<span>${escapeHtml(label)}</span>` : ""}`;
   felt.appendChild(el);
   return el;
 }

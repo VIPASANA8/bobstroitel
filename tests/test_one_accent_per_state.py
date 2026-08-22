@@ -302,12 +302,14 @@ def test_the_stake_is_written_in_the_avatar_not_on_the_felt():
     assert "chipStackHtml" not in body and "bet-marker" not in body
 
 
-def test_the_pot_cluster_was_left_alone():
-    """The instruction was explicit about that, and they are separate things."""
+def test_the_pot_cluster_splits_into_two_wings():
+    """renderPotChips draws its own two-wing layout now (see test_chip_stacks)
+    rather than delegating to chipStackHtml, which wager markers still use."""
     app = (STATIC / "app.js").read_text(encoding="utf-8")
     pot = app[app.index("function renderPotChips(value) {"):]
     pot = pot[:pot.index("\n}")]
-    assert "chipStackHtml(visualValue, false)" in pot
+    assert "potWingHtml(visualValue, leftCount, 0)" in pot
+    assert "chipStackHtml" not in pot
 
 
 def test_collected_money_still_leaves_from_somewhere():

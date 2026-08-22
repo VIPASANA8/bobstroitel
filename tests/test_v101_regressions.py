@@ -295,7 +295,7 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'v038-room-prompt' in source
     # Dead center of the felt, independent of the (now mostly silent) room
     # label -- nothing else occupies that ground before a hand deals.
-    assert 'top:41%' in source[source.index('.v038-ready-countdown{'):]
+    assert 'top:50%' in source[source.index('.v038-ready-countdown{'):source.index('.v038-ready-countdown{') + 200]
     assert 'НОВАЯ РАЗДАЧА' in source
     assert 'Нажмите на свою аватарку' in source
     assert 'previousQueueAutomation' in source

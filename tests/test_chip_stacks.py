@@ -29,7 +29,7 @@ def test_only_one_place_draws_chips():
     and v031 -- and only the last one loaded drew anything. A fix in either of
     the others was invisible, which cost two rounds of chasing before the chips
     changed at all. One owner now, and the layers may not take it back."""
-    for name in ("chipStackHtml", "renderPotChips", "potClusterOffsets"):
+    for name in ("chipStackHtml", "renderPotChips", "potWingHtml"):
         assert f"function {name}(" in APP, f"{name} belongs in app.js"
 
     layers = sorted(Path("static").glob("v0*.js"))
@@ -48,32 +48,48 @@ def test_layers_never_run_away_or_collapse():
     assert "Math.max(2, Math.min(7," in body, "and the single wager stack"
 
 
-def test_a_stack_whose_base_sits_higher_is_drawn_behind():
-    """Depth comes from the base, never a hand-written number. The old table
-    had it inverted: the frontmost z sat on the stack at the top of the
-    cluster, so the far chips were drawn over the near ones."""
+def test_the_pot_splits_into_two_wings_flanking_the_amount():
+    """renderPotChips used to draw one scattered cluster piled under the
+    board; it now splits the same column count into a left and a right wing
+    so the amount sits between them, with the extra column on an odd count
+    going to the right."""
     import json
     import subprocess
     import tempfile
 
-    source = APP[APP.index("function potClusterOffsets("):]
-    source = source[:source.index(chr(10) + "}") + 2]
-    probe = (
-        "const out = {};" + chr(10)
-        + "for (const n of [1,2,3,4,5,6,7]) out[n] = potClusterOffsets(n);" + chr(10)
-        + "console.log(JSON.stringify(out));" + chr(10)
-    )
+    start = APP.index("const CHIP_DENOMS")
+    end = APP.index("\n}", APP.index("function renderPotChips(value) {")) + 2
+    source = APP[start:end]
+    probe = """
+    let game = null;
+    function $() { return { innerHTML: "", classList: { toggle() {} } }; }
+    const out = {};
+    for (const n of [1, 3, 8, 30, 90, 400]) {
+      const target = { innerHTML: "", classList: { toggle() {} } };
+      const originalDollar = $;
+      $ = () => target;
+      renderPotChips(n);
+      $ = originalDollar;
+      const [left, right] = target.innerHTML.split("</div>").filter(s => s.includes("chip-column"));
+      out[n] = {
+        left: (left.match(/chip-column/g) || []).length,
+        right: (right ? right.match(/chip-column/g) : [] || []).length,
+      };
+    }
+    console.log(JSON.stringify(out));
+    """
     with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False, encoding="utf-8") as handle:
         handle.write(source + chr(10) + probe)
         path = handle.name
 
     result = subprocess.run(["node", path], capture_output=True, text=True, check=True)
-    for count, points in json.loads(result.stdout).items():
-        ordered = sorted(points, key=lambda point: point["y"])
-        depths = [point["z"] for point in ordered]
-        assert depths == sorted(depths), f"{count} stacks layered out of order: {ordered}"
-        layers = {point["z"] for point in points}
-        assert len(layers) == len(points), f"{count} stacks share a layer: {points}"
+    counts = json.loads(result.stdout)
+    for pot, sides in counts.items():
+        total = sides["left"] + sides["right"]
+        assert total >= 1
+        # Right never gets fewer than left minus one -- the split is even or
+        # the odd one out goes right, never left.
+        assert sides["right"] in (sides["left"], sides["left"] - 1), (pot, sides)
 
 def test_the_countdown_sits_at_the_center_of_the_felt():
     """No longer tied to the room label's variable -- the label is silent for
@@ -81,6 +97,6 @@ def test_the_countdown_sits_at_the_center_of_the_felt():
     ground the board and pot occupy once a hand actually deals."""
     layer = Path("static/v038-poker8-v2-cinematic-table.js").read_text(encoding="utf-8")
     ring = layer[layer.index(".v038-ready-countdown{"):]
-    assert "top:41%" in ring[:200]
+    assert "top:50%" in ring[:200]
     assert "top:calc(var(--p8-prompt-y, 36%) - 64px)" not in layer
     assert "top:calc(55% - 66px)" not in layer

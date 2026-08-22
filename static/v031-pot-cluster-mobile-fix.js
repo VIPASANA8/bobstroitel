@@ -58,25 +58,6 @@
   const style = document.createElement("style");
   style.id = "v031-pot-cluster-mobile-fix-style";
   style.textContent = `
-    .chip-cluster.pot-cluster{
-      position:relative !important;
-      display:block !important;
-      width:100% !important;
-      min-width:132px !important;
-      height:64px !important;
-    }
-
-    .chip-cluster.pot-cluster .chip-column.pot-stack{
-      position:absolute !important;
-      left:50% !important;
-      bottom:0 !important;
-      width:26px !important;
-      height:58px !important;
-      margin:0 !important;
-      transform:translate(calc(-50% + var(--stack-x, 0px)), var(--stack-y, 0px)) rotate(calc((var(--col) - 3) * 1deg)) !important;
-      z-index:var(--stack-z, 1) !important;
-    }
-
     .bet-marker.acting-wager span{
       padding:0 !important;
       border-radius:0 !important;
@@ -87,14 +68,14 @@
     }
 
     @media (max-width:780px){
-      body.v014 .pot-chips .chip-cluster.pot-cluster,
-      .neon-ref-v107 .pot-chips .chip-cluster.pot-cluster{
-        min-width:132px !important;
+      body.v014 .pot-chips .chip-cluster.pot-wing,
+      .neon-ref-v107 .pot-chips .chip-cluster.pot-wing{
+        min-width:0 !important;
         height:56px !important;
       }
 
-      body.v014 .pot-chips .chip-column.pot-stack,
-      .neon-ref-v107 .pot-chips .chip-column.pot-stack{
+      body.v014 .pot-chips .chip-column,
+      .neon-ref-v107 .pot-chips .chip-column{
         width:22px !important;
         height:50px !important;
       }

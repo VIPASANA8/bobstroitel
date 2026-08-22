@@ -245,11 +245,12 @@
       body.v014.poker8-v2-sixmax .v028-center-ready{display:none!important;}
       body.v014.poker8-v2-sixmax .deck-anchor{display:none!important;}
 
-      /* Dead center of the felt -- nothing else occupies that ground before
-         a hand deals (no board, no pot), which is the only time this ring
-         shows. */
+      /* Dead center of the felt -- verified against the live table: the pot
+         chips sat at this exact row before the pot moved to flank the amount
+         (see .pot-chips below), so 50% is the felt's real visual middle, not
+         a guess. Nothing else occupies that ground before a hand deals. */
       body.v014.poker8-v2-sixmax .v038-ready-countdown{
-        position:absolute;z-index:74;left:50%;top:41%;transform:translate(-50%,-50%);
+        position:absolute;z-index:74;left:50%;top:50%;transform:translate(-50%,-50%);
         display:none;place-items:center;width:62px;height:62px;border-radius:50%;
         border:2px solid #72ffb5;background:rgba(6,22,17,.88);color:#eafff6;
         box-shadow:0 0 0 3px rgba(0,0,0,.72),0 0 22px rgba(72,255,169,.58),inset 0 0 18px rgba(72,255,169,.14);
@@ -414,8 +415,12 @@
          family, so the hide needs !important here to actually win. */
       body.v014.poker8-v2-sixmax.p8-no-pot .pot-total{display:none!important;}
 
-      body.v014.poker8-v2-sixmax .pot-chips .chip-cluster.pot-cluster{height:52px!important;min-width:124px!important;filter:drop-shadow(0 8px 6px rgba(0,0,0,.54))!important;}
-      body.v014.poker8-v2-sixmax .pot-chips .chip-column.pot-stack{width:22px!important;height:48px!important;}
+      /* Two piles flanking the amount instead of one cluster piled under the
+         board -- renderPotChips now splits the count into a left and a right
+         .chip-cluster.pot-wing, laid out with the same flex row every other
+         cluster on the felt already uses (see .chip-cluster in style.css). */
+      body.v014.poker8-v2-sixmax .pot-chips .chip-cluster.pot-wing{height:52px!important;min-width:0!important;filter:drop-shadow(0 8px 6px rgba(0,0,0,.54))!important;}
+      body.v014.poker8-v2-sixmax .pot-chips .chip-column{width:22px!important;height:48px!important;margin:0 -5px!important;}
       body.v014.poker8-v2-sixmax .pot-chips .poker-chip{
         width:22px!important;height:9px!important;border-width:1px!important;
         transform:translateX(-50%) translateY(calc(var(--i) * -3.6px))!important;
@@ -482,7 +487,7 @@
         box-shadow:0 0 0 3px rgba(0,0,0,.92),0 0 18px rgba(238,180,65,.45),inset 0 -10px 18px rgba(0,0,0,.50)!important;
       }
 
-      body.v014.poker8-v2-sixmax .pot-total{top:25%!important;}
+      body.v014.poker8-v2-sixmax .pot-total{top:25%!important;z-index:3!important;}
       /* Was 38%, 4px below the pot at the time -- and the wing seats at 5/6
          active viewers sat inside this same band (see v040's SPECTATOR_LAYOUTS
          fix), so the two nearly touched too. With those seats moved clear,
@@ -490,7 +495,14 @@
          touches the pot or a board card at 34%, with 17-25px to spare on
          every side. */
       body.v014.poker8-v2-sixmax .board-cards{top:34%!important;}
-      body.v014.poker8-v2-sixmax .pot-chips{top:47%!important;}
+      /* The two piles sit on the same row as the amount and flank it, rather
+         than piling up as one cluster under the board -- the row is wide
+         enough that both piles clear the amount plate on every player count
+         checked (min-width:74px on .pot-total, 25-45px to spare each side). */
+      body.v014.poker8-v2-sixmax .pot-chips{
+        top:25%!important;width:230px!important;max-width:82%!important;
+        display:flex!important;justify-content:space-between!important;align-items:flex-end!important;
+      }
 
       body.v014.poker8-v2-sixmax .sidebar{transform:none!important;height:var(--p8-hud-h)!important;}
       body.v014.poker8-v2-sixmax .action-panel,
@@ -636,6 +648,7 @@
            always won regardless of viewport width. Removed as dead weight. */
         body.v014.poker8-v2-sixmax .avatar-wrap{transform:translateX(-50%) scale(.92)!important;transform-origin:center bottom;}
         body.v014.poker8-v2-sixmax .board-cards .card{width:39px!important;height:56px!important;}
+        body.v014.poker8-v2-sixmax .pot-chips{width:190px!important;}
       }
     }
   `;

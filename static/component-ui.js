@@ -172,7 +172,7 @@
 
     if (!document.querySelector('script[data-v030-seat-ready-fix]')) {
       const v030 = document.createElement("script");
-      v030.src = "/static/v030-seat-ready-fix.js";
+      v030.src = "/static/v030-seat-ready-fix.js?v=pot-wings-1";
       v030.dataset.v030SeatReadyFix = "1";
       document.body.appendChild(v030);
     }
@@ -184,7 +184,7 @@
       v032.addEventListener("load", () => {
         if (!document.querySelector('script[data-v037-poker8-v2-reference-table]')) {
           const finalMobile = document.createElement("script");
-          finalMobile.src = "/static/v037-poker8-v2-reference-table.js?v=center-countdown-1";
+          finalMobile.src = "/static/v037-poker8-v2-reference-table.js?v=pot-wings-1";
           finalMobile.dataset.v037Poker8V2ReferenceTable = "1";
           document.body.appendChild(finalMobile);
         }
@@ -192,7 +192,7 @@
       document.body.appendChild(v032);
     } else if (!document.querySelector('script[data-v037-poker8-v2-reference-table]')) {
       const finalMobile = document.createElement("script");
-      finalMobile.src = "/static/v037-poker8-v2-reference-table.js?v=center-countdown-1";
+      finalMobile.src = "/static/v037-poker8-v2-reference-table.js?v=pot-wings-1";
       finalMobile.dataset.v037Poker8V2ReferenceTable = "1";
       document.body.appendChild(finalMobile);
     }
