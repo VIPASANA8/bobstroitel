@@ -643,9 +643,14 @@
     renderOnlineChrome(state);
     // v038's ready-countdown ring already renders from any endsAt timestamp
     // (it was built for the local table's own 5s grace period) -- reused
-    // here as-is, just fed from the server's hand_starts_at instead.
+    // here as-is, just fed from the server's own deadlines. hand_starts_at
+    // (everyone ready, cards land in 5s) takes priority when it's armed;
+    // otherwise ready_deadline (the 30s some-still-not-ready window) drives
+    // the same ring, so players who haven't clicked ready see their clock
+    // running instead of no countdown at all.
+    const countdownEndsAt = state?.hand_starts_at || state?.ready_deadline;
     window.dispatchEvent(new CustomEvent("poker8:ready-countdown", {
-      detail: { endsAt: state?.hand_starts_at ? Date.parse(state.hand_starts_at) : 0 },
+      detail: { endsAt: countdownEndsAt ? Date.parse(countdownEndsAt) : 0 },
     }));
     const key = snapshotRenderKey(state);
     if (key === lastRenderKey) return;

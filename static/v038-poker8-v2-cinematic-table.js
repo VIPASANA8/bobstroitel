@@ -245,11 +245,11 @@
       body.v014.poker8-v2-sixmax .v028-center-ready{display:none!important;}
       body.v014.poker8-v2-sixmax .deck-anchor{display:none!important;}
 
-      /* Above the label, not across it. Both hang off one variable, so the
-         ring follows the prompt when a five or six handed layout moves it
-         down -- they used to be positioned independently and overlapped. */
+      /* Dead center of the felt -- nothing else occupies that ground before
+         a hand deals (no board, no pot), which is the only time this ring
+         shows. */
       body.v014.poker8-v2-sixmax .v038-ready-countdown{
-        position:absolute;z-index:74;left:50%;top:calc(var(--p8-prompt-y, 36%) - 64px);transform:translate(-50%,-50%);
+        position:absolute;z-index:74;left:50%;top:41%;transform:translate(-50%,-50%);
         display:none;place-items:center;width:62px;height:62px;border-radius:50%;
         border:2px solid #72ffb5;background:rgba(6,22,17,.88);color:#eafff6;
         box-shadow:0 0 0 3px rgba(0,0,0,.72),0 0 22px rgba(72,255,169,.58),inset 0 0 18px rgba(72,255,169,.14);

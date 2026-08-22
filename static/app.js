@@ -1337,8 +1337,11 @@ function amountBounds() {
   const max = Math.max(1, Number(player.street_invested || 0) + Number(player.stack || 0));
   let min = 1;
   if (isLocalHumanTurn()) {
-    if (Number(game.human_to_call || 0) > 0) min = Math.max(Number(game.human_min_raise_to || 0), Number(game.current_bet || 0) + Number(game.min_raise_size || 1));
-    else min = Math.min(max, 1);
+    // human_min_raise_to is already current_bet + min_raise_size (server's real
+    // floor for a bet or a raise alike) -- the to_call === 0 case used to
+    // ignore it and hardcode 1, so an opening bet below the big blind looked
+    // legal on the slider and then got rejected by the engine.
+    min = Math.max(Number(game.human_min_raise_to || 0), Number(game.current_bet || 0) + Number(game.min_raise_size || 1));
   } else {
     const estimated = Math.max(1, Number(game.current_bet || 0) + Math.max(1, Number(game.min_raise_size || 1)));
     min = Math.min(max, estimated);

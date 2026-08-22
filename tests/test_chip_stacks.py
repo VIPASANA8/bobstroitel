@@ -75,10 +75,12 @@ def test_a_stack_whose_base_sits_higher_is_drawn_behind():
         layers = {point["z"] for point in points}
         assert len(layers) == len(points), f"{count} stacks share a layer: {points}"
 
-def test_the_countdown_sits_above_the_label_it_belongs_to():
-    """They were positioned independently -- 55% - 66px against 36% or 47% --
-    and overlapped whenever the layout moved the label down."""
+def test_the_countdown_sits_at_the_center_of_the_felt():
+    """No longer tied to the room label's variable -- the label is silent for
+    a seated player now, so the ring has the felt center to itself, the same
+    ground the board and pot occupy once a hand actually deals."""
     layer = Path("static/v038-poker8-v2-cinematic-table.js").read_text(encoding="utf-8")
-    assert "top:var(--p8-prompt-y, 36%)" in layer, "the label reads the variable"
-    assert "top:calc(var(--p8-prompt-y, 36%) - 64px)" in layer, "and the ring sits above it"
+    ring = layer[layer.index(".v038-ready-countdown{"):]
+    assert "top:41%" in ring[:200]
+    assert "top:calc(var(--p8-prompt-y, 36%) - 64px)" not in layer
     assert "top:calc(55% - 66px)" not in layer
