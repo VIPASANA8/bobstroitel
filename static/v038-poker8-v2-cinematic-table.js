@@ -514,7 +514,7 @@
          restarts that transition, so the piles could sit at their
          .15-opacity starting point indefinitely instead of ever reaching 1. */
       body.v014.poker8-v2-sixmax .pot-chips{
-        top:25%!important;width:230px!important;max-width:82%!important;
+        top:25%!important;width:170px!important;max-width:66%!important;
         display:flex!important;justify-content:space-between!important;align-items:flex-end!important;
         opacity:1!important;transition:none!important;z-index:2!important;
       }
@@ -663,7 +663,7 @@
            always won regardless of viewport width. Removed as dead weight. */
         body.v014.poker8-v2-sixmax .avatar-wrap{transform:translateX(-50%) scale(.92)!important;transform-origin:center bottom;}
         body.v014.poker8-v2-sixmax .board-cards .card{width:39px!important;height:56px!important;}
-        body.v014.poker8-v2-sixmax .pot-chips{width:190px!important;}
+        body.v014.poker8-v2-sixmax .pot-chips{width:150px!important;}
       }
     }
   `;

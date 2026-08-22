@@ -37,6 +37,38 @@ def test_the_pot_amount_stays_the_top_layer_over_the_chip_wings():
     assert total_z > chips_z
 
 
+def test_the_pot_wings_stay_clear_of_the_felts_own_border_at_the_worst_case_column_count():
+    """A real screenshot at pot=41 (5 columns split 3/2) showed the chip
+    piles overlapping the felt's own decorative border. .table-center spans
+    the felt's full border-box width (measured live: 321px felt, .table-
+    center also 0-321 relative to it) -- not just the inner surface inside
+    the 13px border -- so a wide .pot-chips row centers into that same
+    border-box span and its outer wing can end up sitting on the border
+    itself. Reproduces the live measurement (17px per column once the -5px
+    overlap margin is accounted for) for the widest case a real pot can
+    reach -- 7 stacks, split 4/3 -- and checks real clearance, not just
+    "technically not touching"."""
+    table = Path("static/v038-poker8-v2-cinematic-table.js").read_text(encoding="utf-8")
+    rule = table[table.index(".pot-chips{"):]
+    rule = rule[:rule.index("}") + 1]
+    width = int(re.search(r"width:(\d+)px", rule).group(1))
+
+    felt_w, border, column_step, column_w = 321, 13, 17, 22
+    # 62.5px measured live at the fixed width (170px); 32.5px measured live
+    # at the width that produced the reported overlap (230px) -- the
+    # midpoint is a real threshold, not an arbitrary one.
+    required_clearance_from_border = 50
+
+    def wing_width(count):
+        return column_w + max(0, count - 1) * column_step
+
+    left_edge = (felt_w - width) / 2  # where the whole row (and its first wing) starts
+    left_wing_far_edge = left_edge + wing_width(4)  # the wider half of a 4/3 split
+
+    assert left_edge - border > required_clearance_from_border, "the row starts too close to the border again"
+    assert left_wing_far_edge < felt_w / 2, "the widest wing reaches past the felt's own center"
+
+
 def test_a_wager_is_one_stack_whatever_it_is_worth():
     """It sits inches from the player it belongs to, beside a label that
     already says the number; spreading it sideways only made it wider."""
