@@ -125,9 +125,11 @@ def test_an_allin_before_the_river_reveals_then_waits_then_commits():
     # snapshot already committed normally) -- not a null `game`, which would
     # only be true before any hand had ever been seen.
     assert reveal_calls == [["reveal", "h1", "h1"]]
-    # The 3s wait only starts once the reveal itself resolves -- not exercised
-    # here (see test_the_reveal_completing_is_what_finally_commits_and_renders).
-    assert not [row for row in log if row[0] == "sleep"]
+    # The 12s safety-net timeout races the reveal from the start (see
+    # test_a_hung_reveal_still_commits_via_the_safety_net_timeout); the 3s
+    # post-reveal hold only starts once the reveal itself resolves -- not
+    # exercised here (see test_the_reveal_completing_is_what_finally_commits_and_renders).
+    assert [row for row in log if row[0] == "sleep"] == [["sleep", 12000]]
     # `game` after the runout snapshot must still be the pre-terminal hand --
     # the checkpoint logged immediately after that snapshot event.
     checkpoints = [row for row in log if row[0] == "checkpoint"]
@@ -203,3 +205,56 @@ def test_a_new_hand_arriving_mid_reveal_is_not_clobbered_when_the_old_reveal_fin
     ]
     final = log[-1]
     assert final == ["final", "h2", None]
+
+
+def test_a_hung_reveal_still_commits_via_the_safety_net_timeout():
+    """A backgrounded tab can pause the Web Animations API's own `.finished`
+    promise indefinitely (confirmed against a real browser earlier in this
+    project) -- revealRemainingBoard here never resolves at all, standing in
+    for that hang. Without the 12s race, onlineRunoutHandId would stay armed
+    forever and every later snapshot would pile silently into
+    deferredOnlineSnapshot, which is exactly what "buttons stop working mid-
+    game" turned out to be: the felt frozen on the hand before the hang,
+    nothing ever committing again. sleep() here resolves immediately
+    regardless of its argument, standing in for real wall-clock time passing
+    -- the point under test is that the race settles at all, not how long it
+    takes in this harness."""
+    legacy_view = _extract("window.Poker8LegacyView = {", "async function revealOnlineRunout")
+    runout_fn = _extract("async function revealOnlineRunout(previousGame, finishedGame) {\n", "\n}\n")
+    harness = r"""
+    let game = null;
+    let tableData = null;
+    const window = {};
+    const log = [];
+    function revealRemainingBoard() {
+      log.push(["reveal"]);
+      return new Promise(() => {}); // never settles -- the hang
+    }
+    function sleep(ms) {
+      log.push(["sleep", ms]);
+      return new Promise(resolve => setTimeout(resolve, 0));
+    }
+    function renderGame() {
+      log.push(["renderGame", game && game.hand_id || null, game && game.terminal || false]);
+    }
+
+    """ + legacy_view + "\n" + runout_fn + "\n}\n" + r"""
+
+    (async () => {
+      window.Poker8LegacyView.renderSnapshot({ table: {}, state: %s, viewerState: "seated" });
+      window.Poker8LegacyView.renderSnapshot({ table: {}, state: %s, viewerState: "seated" });
+      await new Promise(resolve => setTimeout(resolve, 50));
+      console.log(JSON.stringify({ log, gameHandId: game && game.hand_id, gameTerminal: game && game.terminal, guard: onlineRunoutHandId }));
+    })();
+    """ % (
+        json.dumps(_state("h1", [], False)),
+        json.dumps(_state("h1", ["Ah", "Kd", "Qs", "2c", "3d"], True, phase="result")),
+    )
+    with tempfile.NamedTemporaryFile("w", suffix=".mjs", delete=False, encoding="utf-8") as handle:
+        handle.write(harness)
+        path = handle.name
+    result = subprocess.run(["node", path], capture_output=True, text=True, encoding="utf-8", check=True)
+    out = json.loads(result.stdout)
+    assert out["gameHandId"] == "h1"
+    assert out["gameTerminal"] is True, "the hung reveal's own hand must still commit, not stay frozen forever"
+    assert out["guard"] is None, "onlineRunoutHandId must clear even though revealRemainingBoard itself never resolved"

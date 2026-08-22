@@ -43,6 +43,21 @@ def test_fewer_than_five_real_cards_has_nothing_to_highlight():
     assert combo is None
 
 
+def test_a_hidden_hole_card_has_nothing_to_highlight_even_with_a_full_board():
+    """Hot-seat mode (multiple humans on one device) shows a player's hole
+    cards only on their own turn -- the rest of the time hole_cards comes
+    back as ["??", "??"]. The five real board cards alone could still score
+    as a straight or better, but that is not "your combination" if your own
+    two cards are not even visible yet."""
+    combo = _best_combo(["??", "??"], ["7s", "8h", "9c", "Td", "Jh"])
+    assert combo is None
+
+
+def test_one_hidden_hole_card_also_suppresses_the_highlight():
+    combo = _best_combo(["Ah", "??"], ["7s", "8h", "9c", "Td", "Jh"])
+    assert combo is None
+
+
 def test_a_pair_highlights_the_full_best_five_including_kickers():
     combo = _best_combo(["Ah", "Ad"], ["9c", "6s", "2h"])
     assert sorted(combo) == sorted(["Ah", "Ad", "9c", "6s", "2h"])

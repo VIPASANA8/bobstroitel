@@ -34,7 +34,12 @@
     2: [[12, 50], [88, 50]],
     3: [[50, 13], [18, 70], [82, 70]],
     4: [[50, 13], [86, 66], [50, 88], [14, 66]],
-    5: [[50, 16], [82, 14], [70, 78], [30, 78], [18, 14]],
+    // Was three seats crammed onto the same y:14-16 top band and only two
+    // down at y:78, leaving the whole middle band empty on both sides --
+    // lopsided, not a pentagon. Reuses the 4-seat entry's own proven y bands
+    // (13, 66, 88) plus the top pair's x spread from LAYOUTS[5] (24/76)
+    // instead of inventing new numbers: two top, two mid-sides, one bottom.
+    5: [[24, 14], [76, 14], [88, 66], [50, 88], [12, 66]],
     6: [[50, 15], [83, 14], [83, 69], [50, 85], [17, 69], [17, 14]],
   };
 

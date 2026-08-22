@@ -376,13 +376,48 @@ def test_the_first_fix_did_not_walk_into_the_pot_instead():
     block = seats[seats.index("const SPECTATOR_LAYOUTS = {"):seats.index("const style = document.createElement")]
     #: [pole, upper-right, lower-right, ..., upper-left] -- the same x repeats
     #: for the upper and lower seat on each side, so only position picks out
-    #: the pair that actually moved.
-    upper_wing_indices = {"5": (1, 4), "6": (1, 5)}
+    #: the pair that actually moved. 5's own points were reshuffled into a
+    #: proper pentagon later (see test_five_spectators_form_a_balanced_
+    #: pentagon_not_a_lopsided_cluster) -- indices 0 and 1 are its top pair now.
+    upper_wing_indices = {"5": (0, 1), "6": (1, 5)}
     for count, indices in upper_wing_indices.items():
         line = next(l for l in block.splitlines() if re.match(rf"\s*{count}:", l))
         points = re.findall(r"\[(\d+),\s*(\d+)\]", line)
         wing_ys = [int(points[i][1]) for i in indices]
         assert all(y <= 14 for y in wing_ys), line.strip()
+
+
+def test_five_spectators_form_a_balanced_pentagon_not_a_lopsided_cluster():
+    """Was [[50,16],[82,14],[70,78],[30,78],[18,14]] -- three seats crammed
+    onto the same y:14-16 top band and only two down at y:78, leaving the
+    whole middle band empty on both sides. Reproduces the same collision
+    check applied live via the browser tools at this session's own measured
+    felt/seat box dimensions (321x761 felt, 67x77 seat) to confirm the new
+    five points -- spread top/top/side/bottom/side -- clear each other with
+    real margin, not just in the abstract."""
+    seats = (STATIC / "v040-poker8-v2-dynamic-seats.js").read_text(encoding="utf-8")
+    block = seats[seats.index("const SPECTATOR_LAYOUTS = {"):seats.index("const style = document.createElement")]
+    line = next(l for l in block.splitlines() if re.match(r"\s*5:", l))
+    points = [(int(x), int(y)) for x, y in re.findall(r"\[(\d+),\s*(\d+)\]", line)]
+    assert len(points) == 5
+
+    felt_w, felt_h = 321, 761
+    seat_w, seat_h = 67, 77
+    boxes = []
+    for x, y in points:
+        cx, cy = x / 100 * felt_w, y / 100 * felt_h
+        boxes.append((cx - seat_w / 2, cy - seat_h / 2, cx + seat_w / 2, cy + seat_h / 2))
+
+    def overlaps(a, b):
+        return a[0] < b[2] and a[2] > b[0] and a[1] < b[3] and a[3] > b[1]
+
+    for i in range(len(boxes)):
+        for j in range(i + 1, len(boxes)):
+            assert not overlaps(boxes[i], boxes[j]), (points[i], points[j])
+
+    # Not just non-overlapping -- actually spread across more than one y band,
+    # which is what "pentagon" means here (the old layout had exactly two).
+    assert len({y for _, y in points}) >= 3
 
 
 def test_the_board_moved_up_once_the_seats_were_out_of_its_way():

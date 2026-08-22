@@ -936,10 +936,13 @@ function fiveCardCombinations(cards) {
   return out;
 }
 
-//: null for fewer than 5 real cards (nothing to evaluate yet) or when the
-//: best hand is only a high card -- there is no combination to point at.
+//: null when either hole card is still hidden (hot-seat mode shows them only
+//: on that player's own turn -- board-only cards are not "your combination"),
+//: for fewer than 5 real cards (nothing to evaluate yet), or when the best
+//: hand is only a high card -- there is no combination to point at.
 function bestHandCombo(hole, board) {
-  const cards = [...(hole || []), ...(board || [])].filter(code => code && code !== "??");
+  if (!Array.isArray(hole) || hole.length !== 2 || hole.some(code => !code || code === "??")) return null;
+  const cards = [...hole, ...(board || [])].filter(code => code && code !== "??");
   if (cards.length < 5) return null;
   let best = null;
   let bestCards = null;
@@ -1721,7 +1724,10 @@ function renderGame() {
   $("pot").textContent = formatBB(game.pot);
   renderPotChips(game.pot);
   renderCards($("board"), game.board);
-  highlightLocalHandCombo();
+  // Same isolation as runRenderHooks: everything from here down (result text,
+  // the action panel, the amount slider) must render even if this one piece
+  // of decoration throws on some hand shape it did not anticipate.
+  try { highlightLocalHandCombo(); } catch (error) { console.error("highlightLocalHandCombo failed", error); }
   $("result").textContent = game.result_text || "";
   $("analysisLink").href = `/api/game/${game.hand_id}/analysis`;
   $("analysisLink").classList.remove("disabled");
@@ -1937,8 +1943,19 @@ function commitOnlineGame(onlineGame) {
 
 async function revealOnlineRunout(previousGame, finishedGame) {
   try {
-    await revealRemainingBoard(previousGame, finishedGame);
-    await sleep(3000);
+    // Card-flight animations use the Web Animations API's own `.finished`
+    // promise, which browsers can pause indefinitely for a backgrounded tab
+    // (switching away from Telegram mid-reveal, the screen locking) -- with
+    // no timeout, that promise never settling left onlineRunoutHandId armed
+    // forever, and every snapshot after it silently piled into
+    // deferredOnlineSnapshot instead of ever rendering: the whole table,
+    // action buttons included, froze until the page reloaded. 12s is well
+    // past the real reveal's own worst case (five cards, three street
+    // splashes, the 3s hold) so it never fires in the ordinary path.
+    await Promise.race([
+      revealRemainingBoard(previousGame, finishedGame).then(() => sleep(3000)),
+      sleep(12000),
+    ]);
   } finally {
     // A snapshot for a newer hand can only have won onlineRunoutHandId away
     // from this one by taking the deferred branch above, which leaves this
