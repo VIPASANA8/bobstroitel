@@ -860,9 +860,15 @@
     } else {
       const heroSeatNo = Number(heroSeat.dataset.seat);
       const viewerReady = (tableData?.ready_seats || []).includes(heroSeatNo);
-      prompt.innerHTML = viewerReady
-        ? "<strong>ЖДЁМ ОСТАЛЬНЫХ</strong><span>Раздача начнётся, как только все будут готовы</span>"
-        : "<strong>НАЖМИТЕ НА АВАТАР</strong><span>Отметьте готовность, чтобы начать раздачу</span>";
+      // Not ready is no longer said here. It used to be a card over the felt
+      // -- covering the board and the pot for someone who never got up from
+      // the table -- saying exactly what the avatar's own pulse and checkmark
+      // already say. That case now lives in the header, next to where the
+      // seat/observe pair sits for everyone who isn't seated yet
+      // (#mobileHeaderReadyUp in online-table.js). "Ждём остальных" stays: it
+      // is not about this viewer's own avatar, so nothing else says it.
+      if (!viewerReady) return false;
+      prompt.innerHTML = "<strong>ЖДЁМ ОСТАЛЬНЫХ</strong><span>Раздача начнётся, как только все будут готовы</span>";
     }
     prompt.setAttribute("role", "status");
     prompt.removeAttribute("tabindex");

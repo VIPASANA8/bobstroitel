@@ -1592,7 +1592,16 @@ function renderGame() {
     $("street").textContent = "СТОЛ ГОТОВ";
     $("pot").textContent = "0.00 ББ";
     renderPotChips(0);
-    renderCards($("board"), []);
+    // Online only: `game` goes null between hands -- waiting for ready-up,
+    // the result hold, the countdown -- for everyone still at the table, not
+    // just whoever stood up. Clearing the board here wiped the hand that was
+    // just shown before anyone had a chance to look at it. Leaving the call
+    // out keeps whatever renderCards(board, game.board) last drew on screen;
+    // the next hand's own (empty, preflop) board overwrites it the moment
+    // `game` is real again. The offline trainer keeps clearing immediately --
+    // there the lineup itself can change while idle, and a stale board next
+    // to a different set of seats is the confusing case there instead.
+    if (!ONLINE_TABLE_ID) renderCards($("board"), []);
     $("result").textContent = "Посадите людей или ботов и начните раздачу";
     $("turnTitle").textContent = spectatorOnly() ? "Стол наблюдения готов" : "Стол не запущен";
     $("actionPanelKicker").textContent = spectatorOnly() ? "НАБЛЮДЕНИЕ" : activeBotPlayer() ? "БОТ ДУМАЕТ" : "ВАШ ХОД";

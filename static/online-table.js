@@ -181,6 +181,16 @@
       .poker8-online .mobile-header-seat-actions #mobileHeaderObserve.mode-active::after{
         content:"";position:absolute;inset:1px;z-index:-1;border-radius:inherit;background:#0a2b3b;
       }
+      /* Same green as #mobileHeaderTakeSeat just above -- it is the same kind
+         of element, a go-ahead button in this header, not a new colour. */
+      .poker8-online .mobile-header-seat-actions #mobileHeaderReadyUp{
+        border-color:rgba(64,237,167,.7);background:#0a3b2b;color:#b8ffda;
+        animation:p8HeaderReadyPulse 1.6s ease-in-out infinite;
+      }
+      @keyframes p8HeaderReadyPulse{0%,100%{box-shadow:0 0 0 0 rgba(64,237,167,.35)}50%{box-shadow:0 0 0 4px rgba(64,237,167,0)}}
+      @media (prefers-reduced-motion:reduce){
+        .poker8-online .mobile-header-seat-actions #mobileHeaderReadyUp{animation:none}
+      }
       @keyframes p8HeaderModeShimmer{from{background-position:0% 0}to{background-position:300% 0}}
       @media (prefers-reduced-motion:reduce){
         .poker8-online .mobile-header-seat-actions button.mode-active::before{animation:none;background-position:0% 0}
@@ -283,6 +293,7 @@
     wrap.innerHTML = `
       <button id="mobileHeaderTakeSeat" type="button">Занять место</button>
       <button id="mobileHeaderObserve" type="button">Наблюдатель</button>
+      <button id="mobileHeaderReadyUp" type="button" hidden>Нажмите на аватар</button>
     `;
     header.appendChild(wrap);
     $("mobileHeaderTakeSeat").addEventListener("click", () => {
@@ -294,6 +305,28 @@
       if (viewerState !== "waiting") return;
       cancelQueue().catch(error => alert(error.message));
     });
+    // Same action the avatar itself performs -- this is just a second place
+    // to reach it, for someone who stayed seated between hands and would
+    // otherwise have no way back to "ready" without a card sitting over the
+    // board they came to keep watching.
+    $("mobileHeaderReadyUp").addEventListener("click", () => {
+      readyUp().catch(error => alert(error.message));
+    });
+  }
+
+  // The seat-number equivalent of state.viewer_player_id: players only lists
+  // whoever was dealt into the last hand, so between hands (or for a seat
+  // that bought in mid-hand) the seat has to come from current_seats instead
+  // -- same fallback app.js's own seatHtml uses to find this same viewer.
+  function viewerSeatNo(state) {
+    const viewerId = state?.viewer_player_id;
+    if (!viewerId) return null;
+    const fromHand = state.players?.[viewerId];
+    if (fromHand) return Number(fromHand.seat);
+    for (const [seatNo, row] of Object.entries(state.current_seats || {})) {
+      if (row?.id === viewerId) return Number(seatNo);
+    }
+    return null;
   }
 
   // A native <dialog>: it brings its own backdrop, focus trap and Esc handling,
@@ -372,19 +405,33 @@
     await refreshState();
   }
 
-  function syncHeaderSeatButtons() {
+  function syncHeaderSeatButtons(state) {
     const wrap = $("mobileHeaderSeatActions");
     if (!wrap) return;
+    const readyButton = $("mobileHeaderReadyUp");
+    const take = $("mobileHeaderTakeSeat");
+    const observe = $("mobileHeaderObserve");
+
+    // Seated and nothing dealt to them yet -- the case that used to be a card
+    // over the felt saying "НАЖМИТЕ НА АВАТАР" for someone who never got up.
+    // The avatar's own checkmark and pulse already carry the state; this is
+    // just a second way to reach the same toggle, up where the seat/observe
+    // pair lives when there's no seat/observe choice to make.
+    const seatNo = viewerState === "seated" ? viewerSeatNo(state) : null;
+    const awaitingReady = viewerState === "seated" && isPreHand() && seatNo != null
+      && !(state?.ready_seats || []).includes(seatNo);
+    if (readyButton) readyButton.hidden = !awaitingReady;
+
     const offer = ["spectator", "waiting"].includes(viewerState);
-    wrap.hidden = !offer;
+    if (take) take.hidden = !offer;
+    if (observe) observe.hidden = !offer;
+    wrap.hidden = !offer && !awaitingReady;
     if (!offer) return;
     // The pair reads as "where you are now / what you can switch to", both
     // driven by the server's own answer. The old version highlighted a stored
     // preference instead, which could disagree with the actual state -- and
     // "Наблюдатель" did nothing at all beyond moving that highlight.
     const queued = viewerState === "waiting";
-    const take = $("mobileHeaderTakeSeat");
-    const observe = $("mobileHeaderObserve");
     if (take) {
       take.textContent = queued ? "В очереди" : "Занять место";
       take.disabled = queued;
@@ -473,7 +520,7 @@
     const observerMode = ["spectator", "waiting"].includes(viewerState);
     document.body.classList.toggle("p8-observer-mode", observerMode);
     ensureHeaderSeatButtons();
-    syncHeaderSeatButtons();
+    syncHeaderSeatButtons(state);
     // Stays available even after the header prompt is dismissed -- it's the
     // way back once someone decides they want to play after all.
     const drawerTakeSeat = $("mobileDrawerTakeSeat");

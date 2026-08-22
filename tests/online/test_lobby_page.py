@@ -85,10 +85,19 @@ def test_online_waiting_prompt_reflects_the_viewers_own_ready_state():
     """A hand no longer starts purely on seat count -- every seated human
     must click ready first (online/coordinator.py's _may_start_hand). The
     prompt used to just claim the table deals itself; it now tells the
-    viewer whether their own click is still needed."""
-    source = Path("static/v038-poker8-v2-cinematic-table.js").read_text(encoding="utf-8")
-    assert "НАЖМИТЕ НА АВАТАР" in source
-    assert "ЖДЁМ ОСТАЛЬНЫХ" in source
+    viewer whether their own click is still needed -- except for the "still
+    needs to click" case itself, which moved off the felt entirely (see
+    below): it used to cover the board and the pot for a player who never
+    stood up, saying exactly what the avatar's own pulse and checkmark
+    already say."""
+    v038 = Path("static/v038-poker8-v2-cinematic-table.js").read_text(encoding="utf-8")
+    assert "ЖДЁМ ОСТАЛЬНЫХ" in v038
+    assert "НАЖМИТЕ НА АВАТАР" not in v038
+    assert "if (!viewerReady) return false;" in v038
+
+    header = Path("static/online-table.js").read_text(encoding="utf-8")
+    assert "НАЖМИТЕ НА АВАТАР" in header
+    assert "mobileHeaderReadyUp" in header
 
 
 def test_online_ready_up_posts_to_the_server_not_the_local_event_bus():
@@ -124,7 +133,6 @@ def test_online_table_header_shows_the_real_seat_state_not_a_stored_choice():
     assert "mobileHeaderTakeSeat" in source
     assert "mobileHeaderObserve" in source
     assert 'const offer = ["spectator", "waiting"].includes(viewerState);' in source
-    assert "wrap.hidden = !offer;" in source
     # Derived from viewerState, never from a stored preference.
     assert "OBSERVE_MODE_KEY" not in source
     assert 'const queued = viewerState === "waiting";' in source
@@ -132,6 +140,30 @@ def test_online_table_header_shows_the_real_seat_state_not_a_stored_choice():
     assert "take.disabled = queued;" in source
     # Observing is now a real action while queued: it hands the seat back.
     assert "cancelQueue()" in source
+
+
+def test_the_header_offers_ready_up_for_a_seated_player_with_nothing_dealt():
+    """A third case shares the same header slot as the seat/observe pair --
+    seated, but the current hand (if any) does not include this viewer, and
+    they have not clicked ready. Mutually exclusive with the pair: one
+    requires no seat, the other requires one, so the wrap stays open exactly
+    when either has something to offer."""
+    source = Path("static/online-table.js").read_text(encoding="utf-8")
+    assert 'const seatNo = viewerState === "seated" ? viewerSeatNo(state) : null;' in source
+    assert "isPreHand()" in source[source.index("function syncHeaderSeatButtons"):]
+    assert "wrap.hidden = !offer && !awaitingReady;" in source
+    assert 'readyButton.hidden = !awaitingReady;' in source
+    assert "readyUp().catch(error => alert(error.message));" in source
+
+
+def test_the_board_stays_up_online_between_hands():
+    """`game` goes null between hands for everyone still at the table, not
+    just whoever stood up -- clearing the board there wiped the hand that was
+    just shown before anyone had a chance to look at it."""
+    source = Path("static/app.js").read_text(encoding="utf-8")
+    body = source[source.index("if (!game) {"):]
+    body = body[:body.index('$("result").textContent = "Посадите людей')]
+    assert 'if (!ONLINE_TABLE_ID) renderCards($("board"), []);' in body
 
 
 def test_no_card_covers_the_felt_while_a_hand_is_running():
