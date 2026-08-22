@@ -26,6 +26,7 @@ let pendingInvalidReason = "";
 let actionTimerId = null;
 let actionDeadline = 0;
 let actionTurnToken = null;
+let amountSeededForTurn = null;
 
 
 const $ = (id) => document.getElementById(id);
@@ -1654,7 +1655,27 @@ function renderGame() {
 
 renderPersistentActionButtons();
 $("sizingWrap").hidden = false;
-if (localPlayerAlive()) syncAmountControls(isLocalHumanTurn() && game.human_min_raise_to ? game.human_min_raise_to : null);
+if (localPlayerAlive()) {
+  // Was: reseed to the server's minimum on every render, unconditionally.
+  // renderGame() runs on every incoming snapshot, several a second once a
+  // decision is on the clock (each bot pre-action, each timer tick still
+  // pushes one) -- so a raise picked from a preset, the slider, or MAX got
+  // silently overwritten back to the minimum a moment later, before the
+  // player could even press the button. What they saw and what #amount
+  // actually held had already diverged; the number sent on click was
+  // whichever of the two survived the race, not the one they chose. Seed
+  // once per decision -- the same hand:street:actor:history identity used
+  // for arming a commit -- and leave the field alone for the rest of it.
+  const humanTurn = isLocalHumanTurn();
+  const token = humanTurn ? turnToken() : null;
+  if (humanTurn && game.human_min_raise_to && token !== amountSeededForTurn) {
+    amountSeededForTurn = token;
+    syncAmountControls(game.human_min_raise_to);
+  } else {
+    if (!humanTurn) amountSeededForTurn = null;
+    syncAmountControls();
+  }
+}
 renderQueuedActionStatus();
 updateActionTimerState();
 renderMobileHud();
