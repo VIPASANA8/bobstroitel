@@ -1914,6 +1914,22 @@ let onlineRunoutHandId = null;
 let deferredOnlineSnapshot = null;
 
 function commitOnlineGame(onlineGame) {
+  // Checked first, before even asking whether *this* snapshot looks like a
+  // runout: bots can go all-in preflop hand after hand, so a second hand's
+  // own runout snapshot can arrive while the first one's reveal is still in
+  // flight. That used to fall into the isRunout branch below and overwrite
+  // onlineRunoutHandId with the second hand's id -- which permanently
+  // orphaned the first reveal (its own finally block checks
+  // onlineRunoutHandId === its own hand_id, and that guard would then never
+  // match again) and, worse, called revealOnlineRunout a second time
+  // concurrently with `game` still pinned at the first hand's own
+  // pre-terminal board, so the "prior board" the second reveal compared
+  // against belonged to neither hand. Every snapshot for any other hand
+  // now waits its turn instead, however it looks.
+  if (onlineRunoutHandId && onlineRunoutHandId !== onlineGame?.hand_id) {
+    deferredOnlineSnapshot = onlineGame;
+    return;
+  }
   const priorBoardCount = game?.board?.length ?? 0;
   const isRunout = Boolean(onlineGame?.terminal) && (onlineGame?.board?.length || 0) === 5 && priorBoardCount < 5;
   if (isRunout) {
@@ -1931,10 +1947,6 @@ function commitOnlineGame(onlineGame) {
       // the modal it drives -- waits.
       revealOnlineRunout(game, onlineGame);
     }
-    return;
-  }
-  if (onlineRunoutHandId) {
-    deferredOnlineSnapshot = onlineGame;
     return;
   }
   game = onlineGame;

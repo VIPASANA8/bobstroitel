@@ -207,6 +207,42 @@ def test_a_new_hand_arriving_mid_reveal_is_not_clobbered_when_the_old_reveal_fin
     assert final == ["final", "h2", None]
 
 
+def test_a_second_hands_own_runout_arriving_mid_reveal_does_not_start_a_second_reveal():
+    """Bots can go all-in preflop hand after hand -- h2's own runout snapshot
+    (non-terminal, then straight to terminal) can both arrive while h1's
+    reveal is still in flight. The old code only deferred non-runout
+    snapshots; a second hand's own isRunout=true snapshot fell into the
+    reveal branch instead and overwrote onlineRunoutHandId with h2's id --
+    permanently orphaning h1's reveal (its finally block's hand_id check
+    would then never match again) while also starting a second concurrent
+    revealOnlineRunout call against `game` still pinned at h1's own
+    pre-terminal board. That combination is what a real, not-hung, "buttons
+    still freeze" report traced back to -- the guard now applies to every
+    snapshot for a different hand, runout or not, before isRunout is even
+    checked."""
+    log = _run([
+        {"op": "snapshot", "state": _state("h1", [], False)},
+        {"op": "snapshot", "state": _state("h1", ["Ah", "Kd", "Qs", "2c", "3d"], True, phase="result")},
+        {"op": "snapshot", "state": _state("h2", [], False)},
+        {"op": "snapshot", "state": _state("h2", ["9h", "8h", "7h", "6h", "5h"], True, phase="result")},
+        {"op": "resolveReveal"},
+        {"op": "resolveSleep"},
+    ])
+    reveal_calls = [row for row in log if row[0] == "reveal"]
+    assert reveal_calls == [["reveal", "h1", "h1"]], "h2's own runout must not start a second concurrent reveal"
+    render_calls = [row for row in log if row[0] == "renderGame"]
+    # h1's winner shows via the full reveal; h2 commits right behind it (no
+    # animation for h2 since the board it would compare against is now h1's
+    # own committed 5 cards -- that is an acceptable downgrade, not a loss).
+    assert render_calls == [
+        ["renderGame", "h1", False],
+        ["renderGame", "h1", True],
+        ["renderGame", "h2", True],
+    ]
+    final = log[-1]
+    assert final == ["final", "h2", None], "the guard must end up cleared, or every button stays disabled"
+
+
 def test_a_hung_reveal_still_commits_via_the_safety_net_timeout():
     """A backgrounded tab can pause the Web Animations API's own `.finished`
     promise indefinitely (confirmed against a real browser earlier in this
