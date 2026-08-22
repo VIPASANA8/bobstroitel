@@ -83,17 +83,19 @@ def test_online_ready_panel_is_hidden_for_seated_users_and_duplicate_clicks():
 
 def test_online_waiting_prompt_reflects_the_viewers_own_ready_state():
     """A hand no longer starts purely on seat count -- every seated human
-    must click ready first (online/coordinator.py's _may_start_hand). The
-    prompt used to just claim the table deals itself; it now tells the
-    viewer whether their own click is still needed -- except for the "still
-    needs to click" case itself, which moved off the felt entirely (see
-    below): it used to cover the board and the pot for a player who never
-    stood up, saying exactly what the avatar's own pulse and checkmark
-    already say."""
+    must click ready first (online/coordinator.py's _may_start_hand). Neither
+    ready state is said on the felt any more: "not ready" moved to the header
+    (a real action, reachable from where the seat/observe pair lives), and
+    "waiting on the others" says nothing at all, because there is nothing
+    left for this viewer to do and the avatar's own checkmark already shows
+    they clicked ready. Both used to be a card over the felt, covering the
+    board and the pot, for a player who never stood up."""
     v038 = Path("static/v038-poker8-v2-cinematic-table.js").read_text(encoding="utf-8")
-    assert "ЖДЁМ ОСТАЛЬНЫХ" in v038
+    assert "ЖДЁМ ОСТАЛЬНЫХ" not in v038
     assert "НАЖМИТЕ НА АВАТАР" not in v038
-    assert "if (!viewerReady) return false;" in v038
+    seated = v038[v038.index("if (!heroSeat) {"):]
+    seated = seated[seated.index("return false;"):]
+    assert "МЕСТО ЗАНЯТО" not in seated[:200], "the seated branch must fall through to a bare return false"
 
     header = Path("static/online-table.js").read_text(encoding="utf-8")
     assert "НАЖМИТЕ НА АВАТАР" in header
