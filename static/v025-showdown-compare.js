@@ -105,32 +105,44 @@
     return Array.isArray(player?.hole_cards) && player.hole_cards.length === 2 && player.hole_cards.every(code => code && code !== "??");
   }
 
-  function primaryWinnerIds() {
-    const firstPot = Array.isArray(game?.result_details) ? game.result_details.find(row => Array.isArray(row?.winners) && row.winners.length) : null;
-    return firstPot?.winners || game?.winners || [];
+  function primaryWinnerIds(activeGame) {
+    const firstPot = Array.isArray(activeGame?.result_details) ? activeGame.result_details.find(row => Array.isArray(row?.winners) && row.winners.length) : null;
+    return firstPot?.winners || activeGame?.winners || [];
   }
 
-  function strongestPlayer(ids) {
+  function strongestPlayer(activeGame, ids) {
     let best = null;
     for (const id of ids) {
-      const player = game?.players?.[id];
+      const player = activeGame?.players?.[id];
       if (!player || !hasVisibleCards(player)) continue;
-      const score = scoreHand(player.hole_cards, game.board);
+      const score = scoreHand(player.hole_cards, activeGame.board);
       if (!score) continue;
       if (!best || compareScore(score,best.score) > 0) best = { player, score };
     }
     return best;
   }
 
-  function showdownComparison() {
-    if (!game?.terminal || !Array.isArray(game.board) || game.board.length !== 5) return null;
-    const viewer = typeof localViewerPlayer === "function" ? localViewerPlayer() : null;
+  // Same lookup as app.js's own localViewerPlayer(), which only ever reads
+  // the live `game` -- and during the gap between "result" and the next hand
+  // actually dealing, that is null, exactly while this modal still needs to
+  // know who "you" were in the hand it is showing.
+  function viewerInGame(activeGame) {
+    if (!activeGame) return null;
+    return Object.values(activeGame.players || {}).find(p =>
+      (activeGame.viewer_player_id && p.id === activeGame.viewer_player_id)
+      || (p.profile_id && p.profile_id === activeGame.active_profile_id)
+    ) || null;
+  }
+
+  function showdownComparison(activeGame) {
+    if (!activeGame?.terminal || !Array.isArray(activeGame.board) || activeGame.board.length !== 5) return null;
+    const viewer = viewerInGame(activeGame);
     if (!viewer || viewer.folded || !hasVisibleCards(viewer)) return null;
 
-    const winners = primaryWinnerIds();
+    const winners = primaryWinnerIds(activeGame);
     if (!winners.length) return null;
 
-    const viewerScore = scoreHand(viewer.hole_cards, game.board);
+    const viewerScore = scoreHand(viewer.hole_cards, activeGame.board);
     if (!viewerScore) return null;
 
     const viewerWonPrimary = winners.includes(viewer.id);
@@ -140,15 +152,15 @@
     if (viewerWonPrimary) {
       if (winners.length > 1) {
         outcome = "tie";
-        opponentInfo = strongestPlayer(winners.filter(id => id !== viewer.id));
+        opponentInfo = strongestPlayer(activeGame, winners.filter(id => id !== viewer.id));
       } else {
         outcome = "win";
-        const others = (game.seat_order || []).filter(id => id !== viewer.id && !game.players?.[id]?.folded);
-        opponentInfo = strongestPlayer(others);
+        const others = (activeGame.seat_order || []).filter(id => id !== viewer.id && !activeGame.players?.[id]?.folded);
+        opponentInfo = strongestPlayer(activeGame, others);
       }
     } else {
       outcome = "loss";
-      opponentInfo = strongestPlayer(winners);
+      opponentInfo = strongestPlayer(activeGame, winners);
     }
 
     if (!opponentInfo) return null;
@@ -158,7 +170,7 @@
       viewerScore,
       opponent: opponentInfo.player,
       opponentScore: opponentInfo.score,
-      amount: Number(game.result_details?.[0]?.amount || 0),
+      amount: Number(activeGame.result_details?.[0]?.amount || 0),
     };
   }
 
@@ -194,7 +206,7 @@
     modal.innerHTML = `<section><button class="v025-close" type="button" aria-label="Закрыть">×</button><div class="v025-body"></div></section>`;
     document.body.appendChild(modal);
     modal.querySelector(".v025-close")?.addEventListener("click", () => {
-      dismissedHand = game?.hand_id || dismissedHand;
+      dismissedHand = lastTerminalGame?.hand_id || dismissedHand;
       modal.hidden = true;
     });
     return modal;
@@ -202,13 +214,14 @@
 
   function renderComparisonModal() {
     const modal = modalNode();
-    if (!game?.terminal) {
+    const activeGame = lastTerminalGame;
+    if (!activeGame?.terminal) {
       modal.hidden = true;
       return;
     }
-    if (dismissedHand === game.hand_id) return;
+    if (dismissedHand === activeGame.hand_id) return;
 
-    const info = showdownComparison();
+    const info = showdownComparison(activeGame);
     if (!info) {
       modal.hidden = true;
       return;
@@ -239,7 +252,7 @@
   }
 
   function syncShowdownLayout() {
-    const active = Boolean(game?.terminal && Array.isArray(game.board) && game.board.length === 5);
+    const active = Boolean(lastTerminalGame?.terminal && Array.isArray(lastTerminalGame.board) && lastTerminalGame.board.length === 5);
     document.body.classList.toggle("v025-showdown-layout", active);
     if (!active) {
       const modal = document.getElementById("v025ShowdownModal");
@@ -253,9 +266,21 @@
     return originalAnimateShowdownReveal(previousState, nextState);
   };
 
+  // Online, `game` goes null in the gap between "result" and the next hand
+  // actually dealing (see app.js's onlineGame/`live` check) -- every seat is
+  // still sitting at the table looking at the board that was just run out,
+  // and this used to read that null as "nothing to show" and close the
+  // card mid-read. Caching the last hand that WAS terminal, and clearing it
+  // only once a genuinely new hand goes live (game is real again and not
+  // terminal), is what "not before the next hand starts" actually requires.
+  let lastTerminalGame = null;
+
   const originalRenderGame = renderGame;
   renderGame = function renderGameV025() {
     originalRenderGame();
+    if (game?.terminal) lastTerminalGame = game;
+    else if (game && !game.terminal) lastTerminalGame = null;
+    // else: game is null (the between-hands gap) -- leave lastTerminalGame as is.
     syncShowdownLayout();
     renderComparisonModal();
   };

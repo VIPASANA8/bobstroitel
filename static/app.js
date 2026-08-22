@@ -1782,10 +1782,63 @@ window.Poker8LegacyView = {
       // renderSeats(), which runs later off the module-level game/tableData.
       current_seats: state?.current_seats || null,
     };
+
+    // All-in before the board is complete: the engine deals whatever is left
+    // and reaches showdown in the one step that also sets terminal -- see
+    // PokerEngine._runout_and_showdown. A hand that reached the river the
+    // ordinary way already showed 5 cards in the snapshot BEFORE this one
+    // (the river is its own non-terminal snapshot with a chance to act), so
+    // "still short of 5 cards, and this snapshot both fills it in and ends
+    // the hand" only ever happens for a run-out. Reveal those cards first,
+    // the way an all-in should feel, instead of the felt just snapping
+    // straight to five cards and a verdict.
+    const priorBoardCount = game?.board?.length ?? 0;
+    const isRunout = Boolean(onlineGame?.terminal) && (onlineGame?.board?.length || 0) === 5 && priorBoardCount < 5;
+    if (isRunout) {
+      // Either this is the snapshot that starts the reveal, or a redundant
+      // one (the poll timer, a resync) for a hand that is already revealing
+      // -- both must leave `game` alone and return without committing, or a
+      // second snapshot arriving mid-reveal would jump straight to the
+      // result and skip the rest of the sequence below.
+      if (onlineRunoutHandId !== onlineGame.hand_id) {
+        onlineRunoutHandId = onlineGame.hand_id;
+        // tableData is already the new snapshot (assigned above) -- seats,
+        // stacks and ready state can update freely during the reveal, since
+        // nothing repaints them until renderGame() runs at the end of it.
+        // Only `game` itself -- the board, the terminal result, the modal it
+        // drives -- waits.
+        revealOnlineRunout(game, onlineGame);
+      }
+      return;
+    }
+    onlineRunoutHandId = null;
+
     game = onlineGame;
     renderGame();
   },
 };
+
+//: Set while an all-in reveal is in flight, keyed by hand_id so a repeat
+//: snapshot of the same still-revealing hand (the poll timer, a redundant
+//: push) does not restart the animation or double the 3s wait.
+let onlineRunoutHandId = null;
+
+async function revealOnlineRunout(previousGame, finishedGame) {
+  try {
+    await revealRemainingBoard(previousGame, finishedGame);
+    await sleep(3000);
+  } finally {
+    // A snapshot for a newer hand can only have won onlineRunoutHandId away
+    // from this one by taking the non-runout branch above, which already
+    // committed `game` itself -- this reveal finishing after that must not
+    // overwrite it with the hand it was showing.
+    if (onlineRunoutHandId === finishedGame.hand_id) {
+      game = finishedGame;
+      renderGame();
+      onlineRunoutHandId = null;
+    }
+  }
+}
 
 function renderHistory() {
   const target = $("history");
