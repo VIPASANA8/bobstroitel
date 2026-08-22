@@ -88,6 +88,14 @@ _BOT_READY_BAND = (0.9, 6.0)
 #: Slots the ready band is divided into -- one per bot a table can hold, so
 #: the gap between two checkmarks is never smaller than half a slot.
 MAX_READY_SLOTS = 4
+#: Missing ready-up sits a human out of just that one hand -- the seat and
+#: stack are untouched, and they are asked again next time (_may_start_hand's
+#: own docstring). That is deliberately soft: PokerStars gives an AFK player
+#: 15 minutes or two full orbits of missed blinds before it acts, nothing
+#: close to one 30s window. This is the harder consequence for genuinely not
+#: being there, at roughly the same patience -- three hands running is about
+#: half an orbit at a six-max table, not one slow response.
+AFK_EVICT_STREAK = 3
 _BOT_DIFFICULTY_FACTOR = {"easy": 0.84, "normal": 1.0, "hard": 1.12, "maximum": 1.25}
 _BOT_STREET_FACTOR = {"preflop": 0.88, "flop": 1.0, "turn": 1.10, "river": 1.22}
 # How often a bot stops dead over a spot that did not look hard. People do
@@ -172,6 +180,11 @@ class TableRuntimeManager:
         # instant a table opened -- obviously machines. Cleared with the rest
         # of the ready cycle, so every hand gets a fresh set of beats.
         self._bot_ready_at: dict[str, dict[int, datetime]] = {}
+        # Consecutive hands a seated human has missed ready-up for, in a row.
+        # Same lifetime as the rest of this manager's state: in-memory, gone
+        # on restart, and a restart is a fresh start for this exactly like it
+        # is for ready_seats.
+        self._afk_streak: dict[str, dict[int, int]] = {}
 
     def _lock(self, table_id: str) -> asyncio.Lock:
         return self._locks.setdefault(table_id, asyncio.Lock())
@@ -196,6 +209,26 @@ class TableRuntimeManager:
         self._ready_deadline.pop(table_id, None)
         self._hand_starts_at.pop(table_id, None)
         self._bot_ready_at.pop(table_id, None)
+
+    def record_ready_outcome(self, table_id: str, human_seats: set[int], sit_out: set[int]) -> set[int]:
+        """Bumps each human seat's consecutive-miss count and resets it for
+        anyone who was ready this time. Returns the seats that just reached
+        AFK_EVICT_STREAK -- call only once a hand is actually about to start,
+        the one moment `sit_out` means something (see _may_start_hand).
+        """
+        streak = self._afk_streak.setdefault(table_id, {})
+        for seat_no in list(streak):
+            if seat_no not in human_seats:
+                streak.pop(seat_no, None)  # stood up or already evicted
+        evict = set()
+        for seat_no in human_seats:
+            if seat_no in sit_out:
+                streak[seat_no] = streak.get(seat_no, 0) + 1
+                if streak[seat_no] >= AFK_EVICT_STREAK:
+                    evict.add(seat_no)
+            else:
+                streak.pop(seat_no, None)
+        return evict
 
     def schedule_bot_ready(self, table_id: str, seat_nos: set[int], now: datetime) -> None:
         """Give each bot seat its own moment to click ready.

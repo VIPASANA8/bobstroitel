@@ -416,6 +416,43 @@ class SeatingService:
                 if immediate:
                     await self._process_leaving(session, table_id, only_user_id=user_id)
 
+    async def evict_afk_seats(self, table_id: str, seat_nos: set[int]) -> list[str]:
+        """The stronger consequence behind ready-up's soft sit-out: called
+        only for seats the coordinator has seen miss several hands running
+        (runtime.AFK_EVICT_STREAK), never for a single miss. Same pipeline as
+        clicking "leave" -- stack and escrow returned, seat freed -- and
+        immediate is correct here the way it is in request_leave: the hand
+        about to be dealt already excludes these seats, so there is nothing
+        of theirs left to wait for.
+
+        Returns the released seats' user ids, so the caller can tell them why
+        if it wants to.
+        """
+        if not seat_nos:
+            return []
+        async with self.session_factory() as session:
+            async with session.begin():
+                user_ids = (
+                    await session.execute(
+                        select(table_seats.c.user_id).where(
+                            table_seats.c.table_id == table_id,
+                            table_seats.c.seat_no.in_(seat_nos),
+                            table_seats.c.occupant_kind == "user",
+                            table_seats.c.state == "seated",
+                        )
+                    )
+                ).scalars().all()
+                user_ids = [user_id for user_id in user_ids if user_id]
+                if not user_ids:
+                    return []
+                await session.execute(
+                    update(table_seats)
+                    .where(table_seats.c.table_id == table_id, table_seats.c.user_id.in_(user_ids))
+                    .values(state="leaving")
+                )
+                await self._process_leaving(session, table_id)
+        return user_ids
+
     async def add_on(self, user_id: str, table_id: str, amount_units: int, request_id: str) -> None:
         async with self.session_factory() as session:
             async with session.begin():

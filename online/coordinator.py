@@ -207,23 +207,29 @@ class OnlineCoordinator:
         if self.on_change is not None and self._signature(table_id) != before:
             await self.on_change(table_id)
 
-    async def _may_start_hand(self, table_id: str, now: datetime) -> tuple[bool, set[int]]:
-        """Returns (should_start, sit_out_seat_nos). Seat count in range and
-        every seated human ready -- or, past the 30s AFK deadline, excluded
-        from just this hand instead of blocking the table forever. Bots are
-        implicitly ready. Sitting out never touches the seat's DB state (that
-        pipeline ends in eviction); it only narrows who start_hand deals in,
-        so the seat and stack are untouched and everyone's asked again next
-        hand. The single gate for both places a hand can start, so the
-        cold-start and post-countdown paths can't drift apart.
+    async def _may_start_hand(self, table_id: str, now: datetime) -> tuple[bool, set[int], set[int]]:
+        """Returns (should_start, sit_out_seat_nos, evict_seat_nos). Seat count
+        in range and every seated human ready -- or, past the 30s AFK
+        deadline, excluded from just this hand instead of blocking the table
+        forever. Bots are implicitly ready. Sitting out never touches the
+        seat's DB state; it only narrows who start_hand deals in, so the seat
+        and stack are untouched and everyone's asked again next hand. The
+        single gate for both places a hand can start, so the cold-start and
+        post-countdown paths can't drift apart.
+
+        evict_seat_nos is the harder consequence, for seats sat out several
+        hands running rather than just this one -- see AFK_EVICT_STREAK.
+        Bumping the streak happens here, exactly once per seat per hand that
+        actually starts, which is the only reason to widen this return rather
+        than have the caller recompute the same thing.
         """
         # One query for all three questions -- see seated_composition.
         human_seats, bot_seats = await self.seating.seated_composition(table_id)
         if not (2 <= len(human_seats) + len(bot_seats) <= 6):
-            return False, set()
+            return False, set(), set()
 
         if not human_seats:
-            return True, set()
+            return True, set(), set()
 
         # Bots confirm on their own uneven beat rather than being implicitly
         # ready, so their checkmarks appear one at a time like people's do.
@@ -239,13 +245,18 @@ class OnlineCoordinator:
                 # A beat between "everyone's in" and the cards actually
                 # landing -- the client's ready countdown ring times this.
                 self.runtime.arm_hand_starts_at(table_id, now + timedelta(seconds=5))
-                return False, set()
-            return starts_at <= now, set()
+                return False, set(), set()
+            if starts_at > now:
+                return False, set(), set()
+            # Everyone was ready -- resets every human seat's miss streak,
+            # including anyone who was one hand away from being evicted.
+            self.runtime.record_ready_outcome(table_id, human_seats, set())
+            return True, set(), set()
 
         deadline = self.runtime.ready_deadline(table_id)
         if deadline is None:
             self.runtime.arm_ready_deadline(table_id, now + timedelta(seconds=30))
-            return False, set()
+            return False, set(), set()
         if deadline <= now:
             sit_out = human_seats - ready
             # The count above included the very people about to be sat out.
@@ -255,9 +266,10 @@ class OnlineCoordinator:
             # 139 of them in four minutes on the live site. Staggering the
             # bots' arrival did not create this, it just made it common.
             if len(human_seats | bot_seats) - len(sit_out) < 2:
-                return False, set()
-            return True, sit_out
-        return False, set()
+                return False, set(), set()
+            evict = self.runtime.record_ready_outcome(table_id, human_seats, sit_out)
+            return True, sit_out, evict
+        return False, set(), set()
 
     async def _advance_table(self, table_id: str) -> None:
         now = self.now()
@@ -266,10 +278,12 @@ class OnlineCoordinator:
             await self.seating.process_boundary(table_id, now=now)
             loaded = await self.runtime.load(table_id)
             if loaded is None or loaded.phase == "waiting":
-                should_start, sit_out = await self._may_start_hand(table_id, now)
+                should_start, sit_out, evict = await self._may_start_hand(table_id, now)
                 if should_start:
                     await self.runtime.start_hand(table_id, sit_out_seat_nos=sit_out)
                     self.runtime.clear_ready_cycle(table_id)
+                    if evict:
+                        await self.seating.evict_afk_seats(table_id, evict)
             return
 
         if loaded.phase == "active":
@@ -316,10 +330,12 @@ class OnlineCoordinator:
         if loaded.phase == "countdown" and loaded.next_hand_at is not None and loaded.next_hand_at <= now:
             await self.runtime.prepare_next_hand(table_id)
             await self.seating.process_boundary(table_id, now=now)
-            should_start, sit_out = await self._may_start_hand(table_id, now)
+            should_start, sit_out, evict = await self._may_start_hand(table_id, now)
             if should_start:
                 await self.runtime.start_hand(table_id, sit_out_seat_nos=sit_out)
                 self.runtime.clear_ready_cycle(table_id)
+                if evict:
+                    await self.seating.evict_afk_seats(table_id, evict)
             return
 
         if loaded.phase == "paused":

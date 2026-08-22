@@ -131,6 +131,89 @@ async def test_an_afk_human_is_sat_out_after_the_deadline_not_evicted(two_humans
     assert row.stack_units == 100_000
 
 
+def test_record_ready_outcome_evicts_only_on_the_third_miss_running(two_humans):
+    """PokerStars gives an AFK player 15 minutes or two full orbits of missed
+    blinds before it acts at all -- nothing close to one 30s sit-out. This is
+    the harder consequence, and it needs several misses running, not one."""
+    coordinator, _clock = two_humans
+    runtime = coordinator.runtime
+    for expected_evict, call in ((set(), 1), (set(), 2), ({1}, 3)):
+        evict = runtime.record_ready_outcome("t1", {0, 1}, sit_out={1})
+        assert evict == expected_evict, f"miss #{call}"
+
+
+def test_readying_up_once_resets_the_streak(two_humans):
+    coordinator, _clock = two_humans
+    runtime = coordinator.runtime
+    runtime.record_ready_outcome("t1", {0, 1}, sit_out={1})
+    runtime.record_ready_outcome("t1", {0, 1}, sit_out={1})
+    # Ready this time -- not in sit_out at all.
+    evict = runtime.record_ready_outcome("t1", {0, 1}, sit_out=set())
+    assert evict == set()
+    # Two more misses land on a fresh count, not the two from before the reset.
+    assert runtime.record_ready_outcome("t1", {0, 1}, sit_out={1}) == set()
+    assert runtime.record_ready_outcome("t1", {0, 1}, sit_out={1}) == set()
+    assert runtime.record_ready_outcome("t1", {0, 1}, sit_out={1}) == {1}
+
+
+def test_standing_up_drops_the_streak_not_just_the_seat(two_humans):
+    """A seat that is no longer occupied has nothing left to track -- someone
+    new sitting there later starts at zero, not wherever the last person
+    left off."""
+    coordinator, _clock = two_humans
+    runtime = coordinator.runtime
+    runtime.record_ready_outcome("t1", {0, 1}, sit_out={1})
+    runtime.record_ready_outcome("t1", {0, 1}, sit_out={1})
+    # Seat 1 is gone from the table entirely on this render.
+    runtime.record_ready_outcome("t1", {0}, sit_out=set())
+    # Seat 1 is occupied again (a new player) and immediately misses once --
+    # if the old streak had survived, this alone would already evict them.
+    assert runtime.record_ready_outcome("t1", {0, 1}, sit_out={1}) == set()
+
+
+@pytest.mark.anyio
+async def test_an_afk_human_is_evicted_after_three_hands_running(two_humans):
+    """Three consecutive misses -- not one -- convert the seat to spectator
+    and hand the stack back, the same pipeline as clicking "leave". Seeding
+    the streak to one below the threshold exercises the real coordinator path
+    for the crossing itself without needing three full hands played out."""
+    coordinator, clock = two_humans
+    ledger = coordinator.seating.ledger
+    start = await ledger.available_units("u2")
+    # The fixture seats u2 by inserting the row directly, which -- unlike the
+    # real seating.ready() path -- never moves the stack into the table's
+    # escrow, and a freshly created test user has nothing in their wallet to
+    # move it from either. Funding both the way ready() would is what makes
+    # the eviction's stack return below a real, checkable transfer rather
+    # than a transfer from accounts that were never credited.
+    await ledger.grant("u2", 100_000, "test-fund-wallet-u2")
+    await ledger.reserve_buy_in("u2", "t1", 100_000, "test-fund-seat-u2")
+
+    coordinator.runtime.record_ready_outcome("t1", {0, 1}, sit_out={1})
+    coordinator.runtime.record_ready_outcome("t1", {0, 1}, sit_out={1})
+
+    await coordinator.runtime.toggle_ready("t1", 0)  # only seat 0 readies up
+    await coordinator.tick()  # arms the 30s AFK deadline for seat 1
+    clock.advance(31)
+    await coordinator.tick()  # the third miss -- crosses AFK_EVICT_STREAK
+
+    loaded = coordinator.runtime._tables["t1"]
+    assert loaded.phase == "active"
+    assert "u1" in loaded.state.players
+    assert "u2" not in loaded.state.players
+
+    async with coordinator.runtime.session_factory() as session:
+        row = (await session.execute(
+            select(table_seats.c.state, table_seats.c.occupant_kind, table_seats.c.stack_units)
+            .where(table_seats.c.id == "seat-u2")
+        )).one()
+    assert row.state == "empty"
+    assert row.occupant_kind == "empty"
+    assert row.stack_units == 0
+    # Granted, spent into escrow, then returned -- back to the grant, not zero.
+    assert await ledger.available_units("u2") == start + 100_000
+
+
 @pytest.mark.anyio
 async def test_a_lobby_table_stays_populated_with_nobody_at_it(two_humans):
     """The six lobby tables are the shop window, and Quick Play exists to drop
@@ -174,11 +257,11 @@ async def test_the_table_does_not_ask_to_deal_to_one_player(two_humans):
             system_player_id="bot-1", stack_units=10_000, state="seated"))
         await session.commit()
 
-    should_start, _ = await coordinator._may_start_hand("t1", coordinator.now())
+    should_start, _, _ = await coordinator._may_start_hand("t1", coordinator.now())
     assert should_start is False
 
     clock.advance(31)
-    should_start, sit_out = await coordinator._may_start_hand("t1", coordinator.now())
+    should_start, sit_out, _ = await coordinator._may_start_hand("t1", coordinator.now())
     assert should_start is False, f"asked to deal to {2 - len(sit_out)} player(s)"
 
     # And it starts as soon as a second player is actually there.
@@ -188,5 +271,5 @@ async def test_the_table_does_not_ask_to_deal_to_one_player(two_humans):
             system_player_id="bot-2", stack_units=10_000, state="seated"))
         await session.commit()
     clock.advance(31)
-    should_start, _ = await coordinator._may_start_hand("t1", coordinator.now())
+    should_start, _, _ = await coordinator._may_start_hand("t1", coordinator.now())
     assert should_start is True
