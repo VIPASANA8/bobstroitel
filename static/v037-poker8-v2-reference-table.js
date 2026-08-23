@@ -206,7 +206,7 @@
   function ensureTurnClarityPatch() {
     if (document.querySelector("script[data-v041-poker8-v2-turn-clarity]")) return;
     const v041 = document.createElement("script");
-    v041.src = "/static/v041-poker8-v2-turn-clarity.js?v=desktop-parity-1";
+    v041.src = "/static/v041-poker8-v2-turn-clarity.js?v=chat-clip-1";
     v041.setAttribute("data-v041-poker8-v2-turn-clarity", "");
     document.body.appendChild(v041);
   }
