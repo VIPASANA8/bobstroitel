@@ -89,3 +89,9 @@ button,input,select,textarea{font:inherit}small{font-size:12px}body{font-size:15
 .card-bottom span{display:inline-flex;align-items:center}
 
 .lobby-copy h1,.table-card h3,.network-brand b,.buyin-dialog h2,.section-heading h2,.fs-copy b{font-family:'Unbounded','Manrope',ui-sans-serif,system-ui,sans-serif;letter-spacing:-.01em}
+
+/* Unbounded is wider than the Inter this size/tracking was tuned for --
+   "Доступные столы" wrapped to two lines and squeezed the status-dot badge
+   into a wrap of its own. Shrink the heading, keep the badge on one line. */
+.section-heading h2{font-size:21px}
+.status-dot{white-space:nowrap;flex:none}
