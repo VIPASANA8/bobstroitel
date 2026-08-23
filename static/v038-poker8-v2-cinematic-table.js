@@ -67,12 +67,17 @@
         overflow:visible!important;
       }
 
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"]{left:50%!important;top:80%!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="1"]{left:7%!important;top:58%!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="2"]{left:7%!important;top:22%!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="3"]{left:50%!important;top:13%!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="4"]{left:84%!important;top:22%!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="5"]{left:84%!important;top:58%!important;}
+      /* $= (suffix match), not =, so a spectator's "spectator-N" dataset (v040)
+         still resolves a hexagon slot -- an exact ="N" match leaves every
+         spectator seat with no left/top at all, and every earlier layer
+         (component-ui.css, v032, v039) has the same exact-match gap, so
+         nothing in the chain positions a spectator's seats. */
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat$="0"]{left:50%!important;top:80%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat$="1"]{left:7%!important;top:58%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat$="2"]{left:7%!important;top:22%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat$="3"]{left:50%!important;top:13%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat$="4"]{left:84%!important;top:22%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat$="5"]{left:84%!important;top:58%!important;}
 
       body.v014.poker8-v2-sixmax .table-frame{
         padding:0 5px 1px!important;

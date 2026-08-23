@@ -128,6 +128,12 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     # $= (suffix match), not =, so a spectator's "spectator-N" dataset still
     # resolves an accent color instead of leaving every avatar unstyled.
     assert '[data-visual-seat$="3"]{--seat-accent:142' in source
+    # Same suffix-match gap for the actual hexagon placement: an exact ="N"
+    # match here left every spectator seat with no left/top at all, since
+    # every earlier layer (component-ui.css, v032, v039) has the identical
+    # exact-match gap -- nothing in the chain ever positions a spectator.
+    assert 'body.v014.poker8-v2-sixmax .seat[data-visual-seat$="0"]{left:50%!important;top:80%!important;}' in source
+    assert 'body.v014.poker8-v2-sixmax .seat[data-visual-seat$="3"]{left:50%!important;top:13%!important;}' in source
     assert '--seat-2-x:7%' in source and '--seat-4-x:84%' in source
     assert '--seat-1-y:58%' in source and '--seat-5-y:58%' in source
     assert '--seat-2-y:22%' in source and '--seat-4-y:22%' in source
@@ -329,6 +335,17 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert '/static/style.css?v=' in index_source
     assert '/static/app.js?v=' in index_source
     assert '/static/component-ui.js?v=' in index_source
+
+
+def test_v039_desktop_seat_positions_also_resolve_for_a_spectator():
+    # Same bug as v038's hexagon placement, on the desktop parity layer:
+    # an exact ="N" match on data-visual-seat leaves a spectator's
+    # "spectator-N" dataset (v040) with no left/top at all.
+    root = Path(__file__).resolve().parents[1]
+    source = (root / 'static' / 'v039-poker8-v2-desktop-parity.js').read_text(encoding='utf-8')
+    for n in range(7):
+        assert f'[data-visual-seat$="{n}"]{{left:var(--seat-{n}-x)' in source
+        assert f'[data-visual-seat="{n}"]{{left:var(--seat-{n}-x)' not in source
 
 
 def test_no_layer_writes_a_turn_label_onto_the_seat():
