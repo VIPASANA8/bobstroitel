@@ -18,9 +18,9 @@ def client(tmp_path):
         yield test_client
 
 
-def _room(client, name="Вечерний стол", level="micro", visibility="public"):
+def _room(client, name="Вечерний стол", level="micro", password=None):
     return client.post("/api/lobby/rooms", json={
-        "name": name, "level": level, "visibility": visibility,
+        "name": name, "level": level, "password": password,
     })
 
 
@@ -52,18 +52,75 @@ def test_only_one_open_room_per_player_and_the_refusal_names_it(client):
     assert _room(client, name="Второй стол").status_code == 200
 
 
-def test_a_link_only_room_is_hidden_from_the_lobby_but_not_from_its_url(client):
+def test_a_password_room_is_listed_for_everyone_but_only_seats_the_right_password(client):
+    """The old link-only room hid from the listing but had no actual gate on
+    the join path -- anyone holding the URL got in for free. A password is a
+    real gate on the one action that matters (taking a seat, i.e. putting
+    chips at risk); the room itself stays listed and spectating stays open,
+    same as it always was."""
     client.post("/api/auth/dev/101")
-    room = _room(client, name="Только свои", visibility="link").json()["room"]
-
-    mine = client.get("/api/lobby/tables?per_page=100").json()["tables"]
-    assert room["id"] in {row["id"] for row in mine}, "its owner still sees it"
+    room = _room(client, name="Только свои", password="letmein").json()["room"]
+    assert room["has_password"] is True
+    assert "password_hash" not in room, "the hash must never reach the client"
 
     client.post("/api/auth/dev/102")
     theirs = client.get("/api/lobby/tables?per_page=100").json()["tables"]
-    assert room["id"] not in {row["id"] for row in theirs}, "nobody else does"
-    # The door is open to anyone holding the link -- visibility governs listing.
-    assert client.get(f"/api/tables/{room['id']}").status_code == 200
+    assert room["id"] in {row["id"] for row in theirs}, "listed for everyone, not hidden"
+    matching = next(row for row in theirs if row["id"] == room["id"])
+    assert matching["has_password"] is True
+    assert "password_hash" not in matching
+
+    # Spectating (viewing the snapshot) needs no password -- only seating does.
+    snapshot = client.get(f"/api/tables/{room['id']}")
+    assert snapshot.status_code == 200
+    assert "password_hash" not in snapshot.json()["table"]
+
+    wrong = client.post(f"/api/tables/{room['id']}/ready", json={
+        "seat_no": 1, "buy_in_units": 4_000, "request_id": "r-wrong", "password": "guess",
+    })
+    assert wrong.status_code == 403
+    assert wrong.json()["detail"]["code"] == "wrong_password"
+
+    missing = client.post(f"/api/tables/{room['id']}/ready", json={
+        "seat_no": 1, "buy_in_units": 4_000, "request_id": "r-missing",
+    })
+    assert missing.status_code == 403
+    assert missing.json()["detail"]["code"] == "wrong_password"
+
+    right = client.post(f"/api/tables/{room['id']}/ready", json={
+        "seat_no": 1, "buy_in_units": 4_000, "request_id": "r-right", "password": "letmein",
+    })
+    assert right.status_code == 200
+
+
+def test_a_room_with_no_password_needs_none_to_seat(client):
+    client.post("/api/auth/dev/101")
+    room = _room(client, name="Открытая").json()["room"]
+    assert room["has_password"] is False
+
+    client.post("/api/auth/dev/102")
+    ready = client.post(f"/api/tables/{room['id']}/ready", json={
+        "seat_no": 1, "buy_in_units": 4_000, "request_id": "r-open",
+    })
+    assert ready.status_code == 200
+
+
+def test_quick_play_never_lands_on_a_password_room(client):
+    client.post("/api/auth/dev/101")
+    _room(client, name="Закрытая", password="letmein")
+
+    client.post("/api/auth/dev/102")
+    for _ in range(10):
+        chosen = client.post("/api/lobby/quick-play")
+        if chosen.status_code != 200:
+            continue
+        assert chosen.json()["table"]["has_password"] is False
+
+
+def test_a_password_must_be_a_real_length_not_a_single_character(client):
+    client.post("/api/auth/dev/101")
+    too_short = _room(client, name="Слишком короткий", password="ab")
+    assert too_short.status_code == 400
 
 
 def test_a_closed_room_disappears_for_everyone(client):
@@ -120,35 +177,40 @@ def test_bots_are_never_a_room_setting():
 
 
 def test_the_lobby_offers_room_creation_without_mentioning_bots():
-    """The creator picks a name, stakes and who may see it. Seat count is fixed
-    at six and bots are not a setting, so neither appears in the form."""
+    """The creator picks a name, stakes and an optional password. Seat count
+    is fixed at six and bots are not a setting, so neither appears in the
+    form."""
     markup = Path("static/lobby.html").read_text(encoding="utf-8")
     script = Path("static/lobby.js").read_text(encoding="utf-8")
 
     assert 'id="createRoom"' in markup
-    for field in ('id="roomName"', 'id="roomLevel"', 'id="roomVisibility"'):
+    for field in ('id="roomName"', 'id="roomLevel"', 'id="roomPassword"'):
         assert field in markup
     form = markup[markup.index('id="roomDialog"'):markup.index("</dialog>", markup.index('id="roomDialog"'))]
     assert "бот" not in form.lower() and "bot" not in form.lower()
     assert "мест" not in form.lower() or "шесть мест" in form.lower()
 
-    # Its owner can hand out the link and close it again.
-    assert "data-copy-room" in script and "data-close-room" in script
+    # No more copying a link out -- a password protects the seat instead.
+    assert "data-copy-room" not in script and "copyRoomLink" not in script
+    assert "data-close-room" in script
     # And a second attempt goes to the room they already have, not a refusal.
     assert 'detail.code === "room_limit_reached"' in script
 
 
-def test_the_owner_gets_an_invite_link_and_a_way_to_close_it_from_the_table():
-    """Both live in the table's own menu -- the creator is at the table, not in
-    the lobby, when they want to invite somebody or shut the room down."""
+def test_the_owner_gets_a_way_to_close_the_room_from_the_table():
+    """Lives in the table's own menu -- the creator is at the table, not the
+    lobby, when they want to shut the room down. The invite-link twin of this
+    button is gone: the room is always listed now, and a password protects
+    the seat instead of a link protecting the listing."""
     markup = Path("static/index.html").read_text(encoding="utf-8")
     script = Path("static/online-table.js").read_text(encoding="utf-8")
 
-    for button in ("mobileDrawerInvite", "mobileDrawerCloseRoom"):
-        assert f'id="{button}"' in markup
-        # Hidden by default: everyone else at the table must never see them.
-        assert markup[markup.index(f'id="{button}"'):].split(">", 1)[0].endswith("hidden")
-        assert button in script
+    assert 'id="mobileDrawerInvite"' not in markup
+    assert "copyInviteLink" not in script
+    assert 'id="mobileDrawerCloseRoom"' in markup
+    # Hidden by default: everyone else at the table must never see it.
+    assert markup[markup.index('id="mobileDrawerCloseRoom"'):].split(">", 1)[0].endswith("hidden")
+    assert "mobileDrawerCloseRoom" in script
 
     # Ownership is asked from the endpoint the lobby already uses, not guessed
     # from a snapshot that never says who is looking.

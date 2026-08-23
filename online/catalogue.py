@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import re
 import uuid
 from dataclasses import asdict, dataclass, replace
@@ -46,6 +47,17 @@ ROOM_BLIND_LEVELS = {
 ROOM_NAME_MAX = 40
 # Seat count is not a room setting: every seat layout is drawn for six.
 ROOM_SEATS = 6
+ROOM_PASSWORD_MIN = 4
+ROOM_PASSWORD_MAX = 32
+
+
+def hash_room_password(table_id: str, password: str) -> str:
+    """Salted with the room's own id -- unique per room, so the same password
+    reused across two rooms does not hash the same way, without needing a
+    separate salt column. Low-stakes on purpose: this gates a virtual-chips
+    practice room, not a real account, so sha256 (already this codebase's
+    pattern for secrets -- see online/auth.py) is enough."""
+    return hashlib.sha256(f"{table_id}:{password}".encode()).hexdigest()
 
 
 
@@ -78,6 +90,9 @@ class TableSummary:
     visibility: str = "public"
     created_by: str | None = None
     join_mode: str = "buy_in"
+    # Never the hash itself -- just enough for the lobby to show a lock icon
+    # and the table page to know it needs to ask.
+    has_password: bool = False
 
     def public_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -176,9 +191,12 @@ class Catalogue:
             return [await self._summary(session, row) for row in rows]
 
     async def quick_play(self, user_id: str, available_units: int) -> TableSummary:
-        # Public only: quick play is for finding a game, not for wandering into
-        # a room somebody opened for their own friends.
-        rows = [row for row in await self.list_tables(page=1, per_page=100) if row.visibility == "public"]
+        # Public and password-free only: quick play is for finding a game, not
+        # for wandering into a room somebody opened for their own friends.
+        rows = [
+            row for row in await self.list_tables(page=1, per_page=100)
+            if row.visibility == "public" and not row.has_password
+        ]
         affordable = [row for row in rows if row.min_buy_in_units <= available_units]
         if not affordable:
             raise LookupError("no affordable table")
@@ -194,18 +212,24 @@ class Catalogue:
         return replace(chosen, join_mode="buy_in" if chosen.human_join_available else "queue")
 
     async def create_room(
-        self, user_id: str, name: str, level: str, visibility: str = "public"
+        self, user_id: str, name: str, level: str, password: str | None = None
     ) -> TableSummary:
-        """Open a room for a player. One at a time, so the lobby cannot be flooded."""
+        """Open a room for a player. One at a time, so the lobby cannot be flooded.
+
+        Always listed publicly now -- a password gates the seat instead of a
+        secret URL gating the listing (see hash_room_password's docstring for
+        why the old link-only rooms did not actually protect anything).
+        """
         if level not in ROOM_BLIND_LEVELS:
             raise RoomError("unknown blind level")
-        if visibility not in ("public", "link"):
-            raise RoomError("unknown visibility")
         name = re.sub(r"\s+", " ", str(name or "")).strip()
         if not name:
             raise RoomError("room needs a name")
         if len(name) > ROOM_NAME_MAX:
             raise RoomError(f"name is longer than {ROOM_NAME_MAX} characters")
+        password = (password or "").strip() or None
+        if password is not None and not (ROOM_PASSWORD_MIN <= len(password) <= ROOM_PASSWORD_MAX):
+            raise RoomError(f"password must be {ROOM_PASSWORD_MIN}-{ROOM_PASSWORD_MAX} characters")
 
         small_blind, big_blind = ROOM_BLIND_LEVELS[level]
         async with self.session_factory() as session:
@@ -231,7 +255,8 @@ class Catalogue:
                     max_buy_in_bb=100,
                     max_seats=ROOM_SEATS,
                     created_by=user_id,
-                    visibility=visibility,
+                    visibility="public",
+                    password_hash=hash_room_password(table_id, password) if password else None,
                 ))
             row = (
                 await session.execute(select(poker_tables).where(poker_tables.c.id == table_id))
@@ -321,4 +346,5 @@ class Catalogue:
             visibility=row["visibility"],
             created_by=row["created_by"],
             human_join_available=occupied_count < row["max_seats"] or system_count > 0,
+            has_password=bool(row["password_hash"]),
         )

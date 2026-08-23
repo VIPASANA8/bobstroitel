@@ -144,6 +144,10 @@ poker_tables = Table(
     # alone cost the migration both its downgrade and its repeatability.
     Column("created_by", String(64)),
     Column("visibility", String(16), nullable=False, server_default=text("'public'")),
+    # Salted with the room's own id (see online/catalogue.py) and checked on
+    # SeatingService.ready() -- replaces the old link-only rooms, which had
+    # no check at all on the join path once you had the URL.
+    Column("password_hash", String(64)),
     Column("created_at", timestamp, **created_at),
     Column("updated_at", timestamp, **created_at),
     CheckConstraint("scope IN ('network', 'tenant')"),

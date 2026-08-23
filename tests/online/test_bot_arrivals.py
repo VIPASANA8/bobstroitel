@@ -36,8 +36,8 @@ def room(db_session_factory):
     catalogue = Catalogue(db_session_factory)
     seating = SeatingService(db_session_factory, ledger)
 
-    async def make(visibility="public"):
-        created = await catalogue.create_room("u1", f"Стол {visibility}", "micro", visibility)
+    async def make(password=None):
+        created = await catalogue.create_room("u1", f"Стол {password or 'public'}", "micro", password)
         await _sit(db_session_factory, created.id)
         return created.id
 
@@ -65,7 +65,7 @@ async def _bot_count(session_factory, table_id):
 @pytest.mark.anyio
 async def test_they_arrive_one_at_a_time_across_the_window(room):
     seating, make, session_factory = room
-    table_id = await make("public")
+    table_id = await make()
     start = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
     await seating.process_boundary(table_id, now=start)
@@ -83,9 +83,9 @@ async def test_they_arrive_one_at_a_time_across_the_window(room):
 
 
 @pytest.mark.anyio
-async def test_a_link_only_room_is_left_for_the_people_you_invited(room):
+async def test_a_password_room_is_left_for_the_people_you_invited(room):
     seating, make, session_factory = room
-    table_id = await make("link")
+    table_id = await make("letmein")
     start = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
     for minutes in (0, 1, 5, 30):
@@ -98,7 +98,7 @@ async def test_a_link_only_room_is_left_for_the_people_you_invited(room):
 async def test_the_wait_starts_over_for_the_next_person_to_open_the_room(room):
     """A schedule left behind would let the next arrival be instant."""
     seating, make, session_factory = room
-    table_id = await make("public")
+    table_id = await make()
     start = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
     await seating.process_boundary(table_id, now=start)  # draws the schedule
@@ -122,7 +122,7 @@ async def test_they_do_not_all_turn_up_together(room):
     """Independent draws across the window bunch: three arriving at once is the
     thing the wait exists to avoid, so each gets a slot of its own."""
     seating, make, session_factory = room
-    table_id = await make("public")
+    table_id = await make()
     start = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
     await seating.process_boundary(table_id, now=start)

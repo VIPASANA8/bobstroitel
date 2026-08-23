@@ -9,7 +9,7 @@ from sqlalchemy import select
 from app.dependencies import AuthenticatedUser, get_current_user
 from online.runtime import EMPTY_SNAPSHOT
 from online.schema import poker_tables, seat_queue, table_seats
-from online.seating import AlreadySeated, InsufficientFunds, SeatingError
+from online.seating import AlreadySeated, InsufficientFunds, SeatingError, WrongPassword
 
 
 logger = logging.getLogger(__name__)
@@ -21,6 +21,7 @@ class ReadyRequest(BaseModel):
     seat_no: int = Field(ge=0, le=5)
     buy_in_units: int = Field(gt=0)
     request_id: str = Field(min_length=1, max_length=128)
+    password: str | None = Field(default=None, max_length=32)
 
 
 class AddOnRequest(BaseModel):
@@ -33,6 +34,10 @@ async def _table(request: Request, table_id: str):
         row = (await session.execute(select(poker_tables).where(poker_tables.c.id == table_id))).mappings().first()
     if row is None:
         raise HTTPException(status_code=404, detail="table not found")
+    # password_hash never leaves this process -- has_password is all a client
+    # needs to know to show a lock icon and ask.
+    row = dict(row)
+    row["has_password"] = bool(row.pop("password_hash", None))
     return row
 
 
@@ -55,6 +60,8 @@ def _error(exc: Exception) -> HTTPException:
             "required_units": exc.required_units,
             "available_units": exc.available_units,
         })
+    if isinstance(exc, WrongPassword):
+        return HTTPException(status_code=403, detail={"code": "wrong_password", "message": message})
     code = "between_hands_only" if "active hand" in message else "invalid_seating_request"
     return HTTPException(status_code=409, detail={"code": code, "message": message})
 
@@ -115,7 +122,7 @@ async def table_snapshot(
 async def ready(table_id: str, payload: ReadyRequest, request: Request, user: AuthenticatedUser = Depends(get_current_user)):
     try:
         result = await request.app.state.seating.ready(
-            user.user_id, table_id, payload.seat_no, payload.buy_in_units
+            user.user_id, table_id, payload.seat_no, payload.buy_in_units, payload.password
         )
     except SeatingError as exc:
         raise _error(exc) from exc

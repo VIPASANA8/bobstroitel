@@ -695,6 +695,15 @@
 
   async function ready(seatNo = null) {
     if (readyInFlight || viewerState === "seated" || viewerState === "held" || viewerState === "leaving") return;
+    // Asked up front when the table is known to need one, to skip a request
+    // that would only come back asking for it -- the server checks again
+    // regardless (table.has_password reflects what it knew at the last
+    // snapshot, not necessarily this instant).
+    let password = null;
+    if (table?.has_password) {
+      password = window.prompt("Эта комната закрыта паролем. Введите пароль:");
+      if (password == null) return;
+    }
     readyInFlight = true;
     const button = $("readyButton");
     if (button) button.disabled = true;
@@ -702,7 +711,7 @@
     try {
       // A seat the player actually pointed at wins over the first free one.
       const result = await window.Poker8Transport.ready(
-        seatNo == null ? firstOpenSeat(latestState) : seatNo, buyInUnits);
+        seatNo == null ? firstOpenSeat(latestState) : seatNo, buyInUnits, password);
       viewerState = result.queue_state === "waiting" ? "waiting" : viewerState;
       await refreshState();
     } catch (error) {
@@ -725,6 +734,10 @@
           );
           if (go) location.href = `/table?table=${encodeURIComponent(detail.table_id)}`;
         }
+        return;
+      }
+      if (detail?.code === "wrong_password") {
+        alert("Неверный пароль.");
         return;
       }
       throw error;
@@ -792,22 +805,8 @@
   }
 
   function syncOwnerMenu() {
-    for (const id of ["mobileDrawerInvite", "mobileDrawerCloseRoom"]) {
-      const button = $(id);
-      if (button) button.hidden = !ownsThisRoom;
-    }
-  }
-
-  async function copyInviteLink() {
-    const url = `${location.origin}/table?table=${encodeURIComponent(tableId)}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      alert("Ссылка скопирована — отправьте её тем, кого зовёте.");
-    } catch {
-      // Clipboard access is refused in some in-app browsers; showing the link
-      // still lets the player copy it by hand.
-      window.prompt("Скопируйте ссылку на комнату:", url);
-    }
+    const button = $("mobileDrawerCloseRoom");
+    if (button) button.hidden = !ownsThisRoom;
   }
 
   async function closeOwnRoom() {
@@ -867,7 +866,6 @@
     $("mobileDrawerTakeSeat")?.addEventListener("click", () => {
       ready().catch(error => alert(error.message));
     });
-    $("mobileDrawerInvite")?.addEventListener("click", () => copyInviteLink());
     $("mobileDrawerCloseRoom")?.addEventListener("click", () => closeOwnRoom().catch(error => alert(error.message)));
     $("mobileDrawerLobby")?.addEventListener("click", () => returnToLobby().catch(error => alert(error.message)));
     $("mobileDrawerLeave")?.addEventListener("click", async () => {

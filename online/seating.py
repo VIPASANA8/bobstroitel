@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from online.ledger import PlayLedger
 from online.bot_names import BOT_NAMES
 from online.schema import play_accounts, poker_tables, seat_queue, system_players, table_runtimes, table_seats
-from online.catalogue import IDLE_BOT_COUNTS, ROOM_SEATS
+from online.catalogue import IDLE_BOT_COUNTS, ROOM_SEATS, hash_room_password
 
 
 # A ready request has to survive the hand that is running when it is made,
@@ -54,6 +54,12 @@ class AlreadySeated(SeatingError):
         self.seat_state = seat_state
 
 
+class WrongPassword(SeatingError):
+    """Missing or incorrect -- the client cannot tell which from this alone,
+    on purpose: distinguishing them would let a bot detect "empty means
+    prompt, wrong means guess again" and iterate."""
+
+
 @dataclass(frozen=True)
 class SeatingRequest:
     id: str
@@ -84,11 +90,15 @@ class SeatingService:
         # simply staggers them again, which is no worse than the first time.
         self._bot_arrivals: dict[str, list[datetime]] = {}
 
-    async def ready(self, user_id: str, table_id: str, seat_no: int, buy_in_units: int) -> SeatingRequest:
+    async def ready(
+        self, user_id: str, table_id: str, seat_no: int, buy_in_units: int, password: str | None = None
+    ) -> SeatingRequest:
         async with self.session_factory() as session:
             async with session.begin():
                 now = datetime.now(timezone.utc)
                 table = await self._table(session, table_id)
+                if table["password_hash"] and hash_room_password(table_id, password or "") != table["password_hash"]:
+                    raise WrongPassword("this room needs a password")
                 if not 0 <= seat_no <= 5:
                     raise SeatingError("seat_no must be between 0 and 5")
                 minimum = table["big_blind_units"] * table["min_buy_in_bb"]
@@ -684,10 +694,10 @@ class SeatingService:
         #
         # A player's room is the opposite: it is empty until its owner sits
         # down, or opening one meant walking into a hand already in progress
-        # instead of your own table. And a room reachable only by its link is
-        # being filled with invited people -- a bot in one of those seats is
-        # taking it from them.
-        if table["created_by"] and (user_count == 0 or table["visibility"] == "link"):
+        # instead of your own table. And a password-gated room is being
+        # filled with invited people -- a bot in one of those seats is taking
+        # it from them.
+        if table["created_by"] and (user_count == 0 or table["password_hash"]):
             target_bot_count = 0
 
         seated_bots = sorted(

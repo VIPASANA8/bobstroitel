@@ -13,6 +13,22 @@ LOBBY_JS = Path("static/lobby.js").read_text(encoding="utf-8")
 NETWORK_CSS = Path("static/network.css").read_text(encoding="utf-8")
 
 
+def test_the_two_entry_ctas_have_no_description_text():
+    ctas = LOBBY_HTML[LOBBY_HTML.index('class="lobby-ctas"'):LOBBY_HTML.index('id="activeSession"')]
+    assert "<small>" not in ctas
+    assert "Быстрая игра" in ctas and "Создать комнату" in ctas
+
+
+def test_the_two_ctas_stay_side_by_side_even_on_a_narrow_phone():
+    """.lobby-ctas used to collapse to one column under 640px -- the button
+    pair now has to fit one row at every width the description text used to
+    justify wrapping under."""
+    narrow = NETWORK_CSS[NETWORK_CSS.index("@media (max-width:640px)"):]
+    narrow = narrow[:narrow.index("}\n") + 2]
+    assert "grid-template-columns:1fr" not in narrow
+    assert "grid-template-columns:repeat(2" in NETWORK_CSS
+
+
 def test_seat_dots_stay_a_compact_row_on_a_narrow_card():
     """The pre-existing @media(max-width:760px) rule set every .card-bottom
     span to display:block -- written for two lines of text ("Бай-ин ..."
@@ -133,20 +149,23 @@ def test_an_empty_lobby_invites_instead_of_reporting_zero_flatly():
     assert result["sub"] == "столы свободны — начните первым"
 
 
-def test_the_table_card_gains_tier_and_seats_and_keeps_the_room_owner_controls():
+def test_the_table_card_gains_tier_and_seats_and_a_lock_for_password_rooms():
     """The card's own seat-vs-buy-in decision moved onto the table page
     itself (its "Занять место" header button, already built) -- one "Войти"
     now opens the table exactly like the eye icon used to, so there is only
-    ever one way in from a card. The owner-only controls (copy link, close
-    room) are untouched."""
+    ever one way in from a card. Copying a link is gone entirely -- a
+    password protects the seat instead -- so the only owner-only control
+    left on a card is closing the room."""
     body = _extract("function renderTables()", "document.querySelectorAll(\"[data-observe-table]\")")
     assert 'class="tier-tag' in body
     assert 'class="seats' in body
     assert "data-table=" not in body, "the buy-in-dialog path was retired from the card"
+    assert "data-copy-room" not in body
     assert ">Войти<" in body
     assert "→" not in body, "no arrow on the entry button"
     assert 'data-observe-table="${escape(table.id)}"' in body
-    assert 'data-copy-room="${escape(table.id)}"' in body
+    assert 'data-close-room="${escape(table.id)}"' in body
+    assert "table.has_password" in body
     assert 'data-close-room="${escape(table.id)}"' in body
 
 

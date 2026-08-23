@@ -28,7 +28,7 @@ from online.schema import metadata, tenant_bots, tenants
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
-EXPECTED_MIGRATION_REVISION = "20260820_0006"
+EXPECTED_MIGRATION_REVISION = "20260823_0007"
 
 # Revalidate every time. Without it these responses carry an ETag and a
 # Last-Modified but no Cache-Control at all, which puts a browser into

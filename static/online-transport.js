@@ -167,9 +167,9 @@
   window.Poker8Transport = {
     connect, disconnect, reconnect, resync, setRevision, sendAction,
     isActionPending: () => Boolean(actionInFlight),
-    ready: (seatNo, buyInUnits) => request(`/api/tables/${id()}/ready`, {
+    ready: (seatNo, buyInUnits, password) => request(`/api/tables/${id()}/ready`, {
       method: 'POST', headers: {'content-type': 'application/json'},
-      body: JSON.stringify({seat_no: seatNo, buy_in_units: buyInUnits, request_id: requestId()}),
+      body: JSON.stringify({seat_no: seatNo, buy_in_units: buyInUnits, password: password || null, request_id: requestId()}),
     }),
     cancelReady: () => request(`/api/tables/${id()}/ready/cancel`, {method: 'POST'}),
     readyUp: () => request(`/api/tables/${id()}/ready-up`, {method: 'POST'}),

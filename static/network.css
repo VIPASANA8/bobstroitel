@@ -16,28 +16,24 @@ button,input,select,textarea{font:inherit}small{font-size:12px}body{font-size:15
 @media (prefers-reduced-motion: reduce){.session-spinner{animation-duration:2.4s}}
 @keyframes session-spin{to{transform:rotate(360deg)}}
 
-/* Two ways in, side by side, where the hero paragraph used to be. The line
-   that paragraph carried -- what Quick Play actually does -- lives on the
-   button itself now, which is where somebody deciding needs to read it. */
+/* Two ways in, one row, always -- even on a narrow phone. Each used to carry
+   a description line explaining what it does; the label alone has to do
+   that job now, so both stay short verbs/nouns rather than sentences. */
 .lobby-control{grid-template-columns:1fr}
-.lobby-ctas{grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;gap:12px}
+.lobby-ctas{grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;gap:10px}
 .lobby-ctas #activeSession{grid-column:1/-1}
-.entry-action{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:13px;min-height:74px;padding:14px 16px;border-radius:14px;cursor:pointer;text-align:left;font:inherit;transition:transform .16s,filter .16s}
+.entry-action{display:flex;align-items:center;justify-content:center;gap:10px;min-height:52px;padding:12px 14px;border-radius:14px;cursor:pointer;font:inherit;transition:transform .16s,filter .16s}
 .entry-action:hover{transform:translateY(-1px);filter:brightness(1.05)}
 .entry-action:active{transform:translateY(0)}
-.entry-mark{display:grid;place-items:center;width:34px;height:34px;border-radius:11px;font-size:15px;font-weight:800;line-height:1}
-.entry-text{display:grid;gap:5px;min-width:0}
-.entry-text b{font-size:15px;font-weight:800;letter-spacing:-.01em}
-.entry-text small{font-size:10px;line-height:1.4;font-weight:500}
+.entry-mark{display:grid;place-items:center;width:26px;height:26px;flex:none;border-radius:9px;font-size:15px;font-weight:800;line-height:1}
+.entry-text b{font-size:15px;font-weight:800;letter-spacing:-.01em;white-space:nowrap}
 .entry-primary{border:0;background:var(--mint);color:#041f14;box-shadow:0 12px 28px #65e0a828}
 .entry-primary .entry-mark{background:#041f14;color:var(--mint)}
-.entry-primary .entry-text small{color:#043023;opacity:.82}
 .entry-secondary{border:1px solid var(--line);background:var(--panel);color:var(--ink)}
 .entry-secondary .entry-mark{background:var(--mint-deep);color:var(--mint)}
-.entry-secondary .entry-text small{color:var(--muted)}
 @media (max-width:640px){
-  .lobby-ctas{grid-template-columns:1fr}
-  .entry-action{min-height:66px;padding:12px 14px}
+  .entry-action{min-height:48px;padding:10px 10px;gap:8px}
+  .entry-text b{font-size:12px}
 }
 @media (prefers-reduced-motion: reduce){.entry-action{transition:none}.entry-action:hover{transform:none}}
 

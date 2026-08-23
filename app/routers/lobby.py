@@ -5,14 +5,17 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.dependencies import AuthenticatedUser, get_current_user
-from online.catalogue import ROOM_BLIND_LEVELS, ROOM_NAME_MAX, RoomError, RoomLimitReached
+from online.catalogue import ROOM_BLIND_LEVELS, ROOM_NAME_MAX, ROOM_PASSWORD_MAX, RoomError, RoomLimitReached
 from online.schema import poker_tables, seat_queue, table_runtimes, table_seats
 
 
 class CreateRoomRequest(BaseModel):
     name: str = Field(min_length=1, max_length=ROOM_NAME_MAX)
     level: str = Field(min_length=1, max_length=16)
-    visibility: str = Field(default="public", pattern="^(public|link)$")
+    # Empty/omitted means open to anyone -- catalogue.create_room is the one
+    # place that actually enforces the length bounds; this just keeps an
+    # absurdly long value from reaching it.
+    password: str | None = Field(default=None, max_length=ROOM_PASSWORD_MAX)
 
 
 router = APIRouter(prefix="/api/lobby", tags=["lobby"])
@@ -119,7 +122,7 @@ async def create_room(
 ):
     try:
         room = await request.app.state.catalogue.create_room(
-            user.user_id, payload.name, payload.level, payload.visibility
+            user.user_id, payload.name, payload.level, payload.password
         )
     except RoomLimitReached as exc:
         # Name the room they already have, so the client can offer to open it

@@ -99,9 +99,9 @@
       <article class="table-card" style="--delay:${index * 45}ms;--tier-glow:${TIER_GLOW[tier]}">
         <div class="card-top">
           <span class="top-left"><span class="table-index">${String(index + 1).padStart(2, "0")}</span><span class="tier-tag ${tier}">${tier}</span></span>
-          <span class="table-state${table.id === myRoom?.id ? " mine" : ""}">${table.id === myRoom?.id ? (table.visibility === "link" ? "● ПО ССЫЛКЕ" : "● ВАША") : "● ОТКРЫТ"}</span>
+          <span class="table-state${table.id === myRoom?.id ? " mine" : ""}">${table.id === myRoom?.id ? "● ВАША" : "● ОТКРЫТ"}</span>
         </div>
-        <h3>${escape(table.name)}</h3>
+        <h3>${table.has_password ? '<span class="lock" aria-label="Закрыта паролем" title="Закрыта паролем">🔒</span> ' : ""}${escape(table.name)}</h3>
         <p class="blinds">Блайнды <b>${format(table.small_blind_units)} / ${format(table.big_blind_units)}</b></p>
         <div class="card-bottom">
           <span>Бай-ин ${buyInRange(table)}</span>
@@ -109,12 +109,11 @@
         </div>
         <div class="card-actions">
           <button class="card-action" data-observe-table="${escape(table.id)}" type="button">Войти</button>
-          ${table.id === myRoom?.id ? `<button class="card-observe card-mine" data-copy-room="${escape(table.id)}" type="button" aria-label="Скопировать ссылку" title="Ссылка">🔗</button><button class="card-observe" data-close-room="${escape(table.id)}" type="button" aria-label="Закрыть комнату" title="Закрыть">×</button>` : ""}
+          ${table.id === myRoom?.id ? `<button class="card-observe" data-close-room="${escape(table.id)}" type="button" aria-label="Закрыть комнату" title="Закрыть">×</button>` : ""}
         </div>
       </article>`;
     }).join("");
     document.querySelectorAll("[data-observe-table]").forEach(button => button.addEventListener("click", () => openTable(button.dataset.observeTable)));
-    document.querySelectorAll("[data-copy-room]").forEach(button => button.addEventListener("click", () => copyRoomLink(button.dataset.copyRoom)));
     document.querySelectorAll("[data-close-room]").forEach(button => button.addEventListener("click", () => closeRoom(button.dataset.closeRoom)));
   }
 
@@ -208,20 +207,6 @@
   });
 
 
-  const roomUrl = id => `${location.origin}/table?table=${encodeURIComponent(id)}`;
-
-  async function copyRoomLink(id) {
-    const url = roomUrl(id);
-    try {
-      await navigator.clipboard.writeText(url);
-      alert("Ссылка скопирована — отправьте её тем, кого зовёте.");
-    } catch {
-      // Clipboard access is refused in some in-app browsers; showing the link
-      // still lets the player copy it by hand.
-      window.prompt("Скопируйте ссылку на комнату:", url);
-    }
-  }
-
   async function closeRoom(id) {
     if (!window.confirm("Закрыть комнату? Все, кто за столом, выйдут, а фишки вернутся на балансы.")) return;
     const response = await fetch(`/api/lobby/rooms/${encodeURIComponent(id)}/close`, { method: "POST" });
@@ -245,6 +230,7 @@
       .map(level => `<option value="${escape(level.key)}">${format(level.small_blind_units)} / ${format(level.big_blind_units)}</option>`)
       .join("");
     $("roomName").value = "";
+    $("roomPassword").value = "";
     $("roomDialog").showModal();
   }
 
@@ -255,7 +241,7 @@
     const body = {
       name: $("roomName").value,
       level: $("roomLevel").value,
-      visibility: $("roomVisibility").value,
+      password: $("roomPassword").value || null,
     };
     const response = await fetch("/api/lobby/rooms", {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
@@ -264,7 +250,6 @@
     if (response.ok) {
       const room = (await response.json()).room;
       await load();
-      if (room.visibility === "link") await copyRoomLink(room.id);
       return openTable(room.id);
     }
     const detail = (await response.json()).detail || {};
