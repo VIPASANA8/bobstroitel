@@ -7,6 +7,7 @@
     .card-observe:hover{border-color:var(--mint);color:var(--mint)}
     .card-mine{border-color:var(--mint)}
     .table-state.mine{color:var(--orange)}
+    .top-left{display:flex;align-items:center;gap:7px}
     #roomDialog select{width:100%;margin:8px 0;padding:14px;border:1px solid var(--line);border-radius:12px;background:#07100f;color:var(--ink);font-size:15px}
     #roomDialog input{font-size:15px}
   `;
@@ -21,6 +22,16 @@
 
   const format = units => (Number(units || 0) / 100).toFixed(2);
   const buyInRange = table => `${Math.round(table.min_buy_in_units / table.big_blind_units)}–${Math.round(table.max_buy_in_units / table.big_blind_units)} BB`;
+  // Buckets on the blind size itself, not the table name -- a player-created
+  // room's blinds (from /api/lobby/room-levels) still lands on a real tier
+  // this way instead of falling through unlabeled.
+  const TIER_GLOW = { micro: "rgba(145,232,186,.16)", low: "rgba(239,173,105,.16)", mid: "rgba(255,142,128,.18)" };
+  const tierFor = table => {
+    const bb = Number(table.big_blind_units || 0);
+    if (bb <= 100) return "micro";
+    if (bb <= 200) return "low";
+    return "mid";
+  };
   const requestId = () => crypto.randomUUID?.() || `guest-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const escape = value => String(value ?? "").replace(/[&<>"']/g, char => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[char]));
   const openTable = id => { window.location.href = `/table?table=${encodeURIComponent(id)}`; };
@@ -80,22 +91,47 @@
   }
 
   function renderTables() {
-    $("tableGrid").innerHTML = tables.map((table, index) => `
-      <article class="table-card" style="--delay:${index * 45}ms">
-        <div class="card-top"><span class="table-index">${String(index + 1).padStart(2, "0")}</span><span class="table-state${table.id === myRoom?.id ? " mine" : ""}">${table.id === myRoom?.id ? (table.visibility === "link" ? "● ПО ССЫЛКЕ" : "● ВАША") : "● ОТКРЫТ"}</span></div>
+    $("tableGrid").innerHTML = tables.map((table, index) => {
+      const tier = tierFor(table);
+      const full = table.occupied_count >= 6;
+      const seatDots = Array.from({ length: 6 }, (_, seat) => `<i class="${seat < table.occupied_count ? "on" : ""}"></i>`).join("");
+      return `
+      <article class="table-card" style="--delay:${index * 45}ms;--tier-glow:${TIER_GLOW[tier]}">
+        <div class="card-top">
+          <span class="top-left"><span class="table-index">${String(index + 1).padStart(2, "0")}</span><span class="tier-tag ${tier}">${tier}</span></span>
+          <span class="table-state${table.id === myRoom?.id ? " mine" : ""}">${table.id === myRoom?.id ? (table.visibility === "link" ? "● ПО ССЫЛКЕ" : "● ВАША") : "● ОТКРЫТ"}</span>
+        </div>
         <h3>${escape(table.name)}</h3>
         <p class="blinds">Блайнды <b>${format(table.small_blind_units)} / ${format(table.big_blind_units)}</b></p>
-        <div class="card-bottom"><span>Бай-ин ${buyInRange(table)}</span><span>${table.occupied_count} / 6</span></div>
+        <div class="card-bottom">
+          <span>Бай-ин ${buyInRange(table)}</span>
+          <span class="seats${full ? " full" : ""}" role="img" aria-label="Занято ${table.occupied_count} из 6 мест">${seatDots}</span>
+        </div>
         <div class="card-actions">
-          <button class="card-action" data-table="${escape(table.id)}">Выбрать стол</button>
-          <button class="card-observe" data-observe-table="${escape(table.id)}" type="button" aria-label="Наблюдать за столом" title="Наблюдать">👁</button>
+          <button class="card-action" data-observe-table="${escape(table.id)}" type="button">Войти</button>
           ${table.id === myRoom?.id ? `<button class="card-observe card-mine" data-copy-room="${escape(table.id)}" type="button" aria-label="Скопировать ссылку" title="Ссылка">🔗</button><button class="card-observe" data-close-room="${escape(table.id)}" type="button" aria-label="Закрыть комнату" title="Закрыть">×</button>` : ""}
         </div>
-      </article>`).join("");
-    document.querySelectorAll("[data-table]").forEach(button => button.addEventListener("click", () => openBuyIn(tables.find(table => table.id === button.dataset.table))));
+      </article>`;
+    }).join("");
     document.querySelectorAll("[data-observe-table]").forEach(button => button.addEventListener("click", () => openTable(button.dataset.observeTable)));
     document.querySelectorAll("[data-copy-room]").forEach(button => button.addEventListener("click", () => copyRoomLink(button.dataset.copyRoom)));
     document.querySelectorAll("[data-close-room]").forEach(button => button.addEventListener("click", () => closeRoom(button.dataset.closeRoom)));
+  }
+
+  function pluralRu(n, one, few, many) {
+    const mod100 = n % 100;
+    if (mod100 >= 11 && mod100 <= 14) return many;
+    const mod10 = n % 10;
+    if (mod10 === 1) return one;
+    if (mod10 >= 2 && mod10 <= 4) return few;
+    return many;
+  }
+
+  function renderLiveStrip() {
+    const totalPlayers = tables.reduce((sum, table) => sum + Number(table.occupied_count || 0), 0);
+    const activeTables = tables.filter(table => Number(table.occupied_count || 0) > 0).length;
+    $("liveHeadline").textContent = `${totalPlayers} ${pluralRu(totalPlayers, "игрок", "игрока", "игроков")} сейчас`;
+    $("liveSub").textContent = activeTables ? `за ${activeTables} активными столами` : "столы свободны — начните первым";
   }
 
   async function load() {
@@ -112,6 +148,7 @@
     myRoom = roomResponse.ok ? (await roomResponse.json()).room : null;
     tables = tablePayload.tables;
     renderTables();
+    renderLiveStrip();
     renderActiveSession(sessionPayload.session);
     $("loadStatus").textContent = "● В СЕТИ";
   }

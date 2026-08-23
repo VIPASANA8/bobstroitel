@@ -40,3 +40,48 @@ button,input,select,textarea{font:inherit}small{font-size:12px}body{font-size:15
   .entry-action{min-height:66px;padding:12px 14px}
 }
 @media (prefers-reduced-motion: reduce){.entry-action{transition:none}.entry-action:hover{transform:none}}
+
+/* A live pulse of real activity between the entry CTAs and the table list,
+   and per-tier identity on each card -- colour plus a seat-dot row instead
+   of bare "4 / 6" text, so scanning for a stake and an open seat reads
+   faster than parsing three numbers in a row. */
+.felt-strip{
+  margin:18px 0 0;padding:14px 16px;border-radius:14px;
+  background:radial-gradient(ellipse at 50% -20%,rgba(145,232,186,.14),transparent 60%),linear-gradient(160deg,var(--mint-deep),var(--panel) 70%);
+  border:1px solid #204634;position:relative;overflow:hidden;
+}
+.felt-strip::after{
+  content:"";position:absolute;inset:0;opacity:.05;mix-blend-mode:overlay;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.fs-row{display:flex;align-items:center;justify-content:space-between;gap:12px;position:relative}
+.fs-copy b{display:block;font-size:15px;letter-spacing:-.01em}
+.fs-copy small{display:block;margin-top:2px;color:var(--muted);font-size:12px}
+.live-dot{display:flex;align-items:center;gap:6px;font:800 10px monospace;color:var(--mint);letter-spacing:.08em}
+.live-dot i{width:6px;height:6px;border-radius:50%;background:var(--mint);box-shadow:0 0 0 0 rgba(145,232,186,.6);animation:live-pulse 1.8s infinite}
+@keyframes live-pulse{0%{box-shadow:0 0 0 0 rgba(145,232,186,.55)}70%{box-shadow:0 0 0 7px rgba(145,232,186,0)}100%{box-shadow:0 0 0 0 rgba(145,232,186,0)}}
+@media (prefers-reduced-motion: reduce){.live-dot i{animation:none}}
+
+.tier-tag{font:800 10px monospace;letter-spacing:.08em;padding:2px 6px;border-radius:6px;text-transform:uppercase}
+.tier-tag.micro{color:var(--mint);background:var(--mint-deep)}
+.tier-tag.low{color:var(--orange);background:#3a2410}
+.tier-tag.mid{color:var(--danger);background:#3a1712}
+
+.table-card{position:relative;overflow:hidden}
+.table-card:before{
+  content:"";position:absolute;top:-30%;right:-20%;width:120px;height:120px;border-radius:50%;
+  background:radial-gradient(circle,var(--tier-glow,rgba(145,232,186,.14)),transparent 70%);pointer-events:none;
+}
+.table-card>*{position:relative}
+
+.seats{display:flex;gap:3px}
+.seats i{width:6px;height:6px;border-radius:50%;background:var(--line);display:inline-block}
+.seats i.on{background:var(--mint)}
+.seats.full i.on{background:var(--danger)}
+/* The narrow-screen rule below (`.card-bottom span{display:block}`, in the
+   big minified block above) was written for two lines of text -- stacking
+   "Бай-ин ..." over "4 / 6". The second span is a compact dot row now, not
+   a line of text, and same-specificity-but-later here beats it back to a
+   single row instead of stretching six 6px dots across the full card. */
+.card-bottom{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.card-bottom span{display:inline-flex;align-items:center}

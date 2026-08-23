@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#07100f" />
   <title>Poker8 — Лобби</title>
-  <link rel="stylesheet" href="/static/network.css?v=prompt-1" />
+  <link rel="stylesheet" href="/static/network.css?v=live-strip-1" />
 </head>
 <body>
   <a class="skip-link" href="#tableGrid">К столам</a>
@@ -38,6 +38,12 @@
         </div>
       </section>
 
+      <section class="felt-strip" aria-live="polite">
+        <div class="fs-row">
+          <div class="fs-copy"><b id="liveHeadline">— игроков сейчас</b><small id="liveSub">за столами</small></div>
+        </div>
+      </section>
+
       <section class="section-heading"><div><p class="eyebrow">СТОЛЫ</p><h2>Доступные столы</h2></div><span id="loadStatus" class="status-dot">● ЗАГРУЗКА</span></section>
       <section id="tableGrid" class="table-grid" aria-live="polite" aria-label="Доступные столы"></section>
       <section class="network-footer"><span>Виртуальные фишки · без реальных денег</span><span>Poker8 Network</span></section>
@@ -47,6 +53,6 @@
   <dialog id="buyInDialog" class="buyin-dialog"><form method="dialog" id="buyInForm"><button class="dialog-close" type="button" aria-label="Закрыть">×</button><p class="eyebrow">ПОСАДКА ЗА СТОЛ</p><h2>Выберите бай-ин</h2><p id="buyInTable" class="dialog-muted"></p><label for="buyInUnits">Фишки</label><input id="buyInUnits" type="number" required /><p class="dialog-hint">Лимиты стола · виртуальный баланс</p><button id="confirmReady" class="primary-action" value="default" type="submit">Встать в очередь <strong>→</strong></button></form></dialog>
   <dialog id="roomDialog" class="buyin-dialog"><form method="dialog" id="roomForm"><button class="dialog-close" type="button" aria-label="Закрыть">×</button><p class="eyebrow">СВОЯ КОМНАТА</p><h2>Создать комнату</h2><label for="roomName">Название</label><input id="roomName" type="text" maxlength="40" required placeholder="Вечерний стол" /><label for="roomLevel">Ставки</label><select id="roomLevel"></select><label for="roomVisibility">Кто видит</label><select id="roomVisibility"><option value="public">Все — комната в лобби</option><option value="link">Только по ссылке</option></select><p class="dialog-hint">Стол на шесть мест · закроется через 1,5 минуты без игроков</p><button id="confirmRoom" class="primary-action" value="default" type="submit">Создать <strong>→</strong></button></form></dialog>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="/static/auth-client.js?v=telegram-session-3"></script><script src="/static/lobby.js?v=rooms-3"></script>
+  <script src="/static/auth-client.js?v=telegram-session-3"></script><script src="/static/lobby.js?v=live-strip-1"></script>
 </body>
 </html>
