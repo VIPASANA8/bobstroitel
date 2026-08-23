@@ -95,3 +95,15 @@ button,input,select,textarea{font:inherit}small{font-size:12px}body{font-size:15
    into a wrap of its own. Shrink the heading, keep the badge on one line. */
 .section-heading h2{font-size:21px}
 .status-dot{white-space:nowrap;flex:none}
+
+/* Buttons and table cards shift to violet to match the new purple lobby
+   background; the mint that's kept elsewhere (wallet, live-dot, tier
+   colours) still carries its own meaning and stays untouched. */
+:root{--violet:#c9a8ff;--violet-deep:#241040}
+.primary-action{background:var(--violet);color:#1c0f33;box-shadow:0 12px 28px #8b5cf628}
+.entry-primary{background:var(--violet);color:#1c0f33;box-shadow:0 12px 28px #8b5cf628}
+.entry-primary .entry-mark{background:#1c0f33;color:var(--violet)}
+.entry-secondary .entry-mark{background:var(--violet-deep);color:var(--violet)}
+.card-action{color:var(--violet)}
+.table-state{color:var(--violet)}
+.seats i.on{background:var(--violet)}
