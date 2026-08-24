@@ -4,8 +4,8 @@
     .card-actions{display:flex;align-items:center;gap:8px;margin-top:12px;padding-top:11px;border-top:1px solid var(--line)}
     .card-actions .card-action{flex:1;margin-top:0;padding:0;border-top:0}
     .card-observe{padding:8px 11px;border:1px solid var(--line);border-radius:10px;background:none;color:var(--muted);font-size:15px;line-height:1;cursor:pointer}
-    .card-observe:hover{border-color:var(--mint);color:var(--mint)}
-    .card-mine{border-color:var(--mint)}
+    .card-observe:hover{border-color:var(--violet);color:var(--violet)}
+    .card-mine{border-color:var(--violet)}
     .table-state.mine{color:var(--orange)}
     .top-left{display:flex;align-items:center;gap:7px}
     #roomDialog select{width:100%;margin:8px 0;padding:14px;border:1px solid var(--line);border-radius:12px;background:#07100f;color:var(--ink);font-size:15px}

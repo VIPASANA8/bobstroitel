@@ -113,14 +113,13 @@
       body.v014.poker8-v2-sixmax .mobile-header-utility{display:flex;gap:8px;align-items:center;}
       body.v014.poker8-v2-sixmax .mobile-chat-button,
       body.v014.poker8-v2-sixmax .mobile-hint-button{
-        display:grid;place-items:center;width:42px;height:42px;padding:0;
+        display:grid;place-items:center;width:42px;height:42px;padding:0;overflow:hidden;
         border:1px solid rgba(66,226,255,.72);border-radius:12px;
         background:rgba(3,16,20,.78);box-shadow:0 0 14px rgba(52,214,255,.18),inset 0 0 12px rgba(78,234,255,.08);
         color:#89efff;
       }
       body.v014.poker8-v2-sixmax .mobile-chat-button svg{
         width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;
-        filter:drop-shadow(0 0 3px rgba(100,236,255,.85));
       }
       body.v014.poker8-v2-sixmax .mobile-chat-button .chat-bubble{fill:rgba(91,229,255,.20);}
       body.v014.poker8-v2-sixmax .mobile-chat-button circle{fill:currentColor;stroke:none;}
@@ -207,7 +206,7 @@
   function ensureTurnClarityPatch() {
     if (document.querySelector("script[data-v041-poker8-v2-turn-clarity]")) return;
     const v041 = document.createElement("script");
-    v041.src = "/static/v041-poker8-v2-turn-clarity.js?v=desktop-parity-1";
+    v041.src = "/static/v041-poker8-v2-turn-clarity.js?v=chat-clip-1";
     v041.setAttribute("data-v041-poker8-v2-turn-clarity", "");
     document.body.appendChild(v041);
   }

@@ -100,7 +100,6 @@
       body.v014.poker8-v2-sixmax .mobile-chat-button,
       body.v014.poker8-v2-sixmax .brand-mark,
       body.v014.poker8-v2-sixmax .v028-center-ready-button{box-shadow:none!important;}
-      body.v014.poker8-v2-sixmax .mobile-chat-button svg{filter:none!important;}
       body.v014.poker8-v2-sixmax .pot-total,
       body.v014.poker8-v2-sixmax .pot-total-label{text-shadow:0 2px 4px rgba(0,0,0,.65)!important;}
 
