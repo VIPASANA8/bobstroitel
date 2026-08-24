@@ -143,10 +143,15 @@
          overlap structurally impossible at any width. */
       .poker8-online .mobile-header-seat-actions{
         display:flex;order:1;gap:6px;min-width:0;
+        /* The pair used to butt straight up against the hamburger on one
+           side and the chat/hint icons on the other -- fine once nothing
+           overlapped, but still touching both edges of its own slot. This
+           margin is the slack that keeps it visibly clear of both. */
+        margin:0 4px;
       }
       .poker8-online .mobile-header-seat-actions[hidden]{display:none!important}
       .poker8-online .mobile-header-seat-actions button{
-        min-height:42px;padding:8px 12px;border:1px solid rgba(255,212,71,.42);border-radius:12px;
+        min-height:38px;padding:7px 10px;border:1px solid rgba(255,212,71,.42);border-radius:12px;
         background:rgba(4,31,20,.86);color:#fff6e0;font:800 10px/1 Inter,ui-sans-serif,system-ui;
         white-space:nowrap;cursor:pointer;
         /* Both labels at full width leave ~16px of slack on a 374px screen and
@@ -155,7 +160,7 @@
         min-width:0;overflow:hidden;text-overflow:ellipsis;
       }
       .poker8-online .mobile-header-seat-actions #mobileHeaderTakeSeat{
-        border-color:rgba(255,212,71,.7);background:#3a2410;
+        border-color:rgba(64,237,167,.7);background:#0a3b2b;
       }
       /* "В очереди" is a state, not an offer -- it must not look pressable. */
       .poker8-online .mobile-header-seat-actions button:disabled{
@@ -172,15 +177,15 @@
       .poker8-online .mobile-header-seat-actions button.mode-active{
         /* !important: #mobileHeaderObserve's own id rule sets border-color
            too, and an id always outranks this class selector on specificity. */
-        position:relative;border-color:transparent!important;color:#fff6e0;
+        position:relative;border-color:transparent!important;color:#eafff6;
       }
       .poker8-online .mobile-header-seat-actions #mobileHeaderTakeSeat.mode-active::before{
         content:"";position:absolute;inset:-1px;z-index:-1;border-radius:inherit;
-        background:linear-gradient(90deg,#ffd447,#fff3c4,#ffd447,#c99a1f);
+        background:linear-gradient(90deg,#3defb0,#7dfff0,#3defb0,#2aa87c);
         background-size:300% 100%;animation:p8HeaderModeShimmer 2.6s linear infinite;
       }
       .poker8-online .mobile-header-seat-actions #mobileHeaderTakeSeat.mode-active::after{
-        content:"";position:absolute;inset:1px;z-index:-1;border-radius:inherit;background:#3a2410;
+        content:"";position:absolute;inset:1px;z-index:-1;border-radius:inherit;background:#0a3b2b;
       }
       .poker8-online .mobile-header-seat-actions #mobileHeaderObserve.mode-active{color:#f2e9ff;}
       .poker8-online .mobile-header-seat-actions #mobileHeaderObserve.mode-active::before{
@@ -194,10 +199,10 @@
       /* Same green as #mobileHeaderTakeSeat just above -- it is the same kind
          of element, a go-ahead button in this header, not a new colour. */
       .poker8-online .mobile-header-seat-actions #mobileHeaderReadyUp{
-        border-color:rgba(255,212,71,.7);background:#3a2410;color:#fff6e0;
+        border-color:rgba(64,237,167,.7);background:#0a3b2b;color:#b8ffda;
         animation:p8HeaderReadyPulse 1.6s ease-in-out infinite;
       }
-      @keyframes p8HeaderReadyPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,212,71,.35)}50%{box-shadow:0 0 0 4px rgba(255,212,71,0)}}
+      @keyframes p8HeaderReadyPulse{0%,100%{box-shadow:0 0 0 0 rgba(64,237,167,.35)}50%{box-shadow:0 0 0 4px rgba(64,237,167,0)}}
       @media (prefers-reduced-motion:reduce){
         .poker8-online .mobile-header-seat-actions #mobileHeaderReadyUp{animation:none}
       }
@@ -474,7 +479,11 @@
     if (take) {
       take.textContent = queued ? "В очереди" : "Занять место";
       take.disabled = queued;
-      take.classList.toggle("mode-active", !queued);
+      // mode-active marks which button reflects where the viewer actually is
+      // right now -- the same thing aria-pressed already says -- not which
+      // one is still on offer. Queued *is* "taking a seat" in progress, so
+      // that's when this one lights up, matching aria-pressed just below.
+      take.classList.toggle("mode-active", queued);
       take.setAttribute("aria-pressed", String(queued));
       take.title = queued
         ? "Место забронировано — вы сядете после текущей раздачи"
@@ -483,7 +492,7 @@
     if (observe) {
       observe.textContent = queued ? "Отменить" : "Наблюдатель";
       observe.disabled = false;
-      observe.classList.toggle("mode-active", queued);
+      observe.classList.toggle("mode-active", !queued);
       observe.setAttribute("aria-pressed", String(!queued));
       observe.title = queued
         ? "Отказаться от места и просто смотреть"
