@@ -132,17 +132,27 @@
       /* The header buttons below replace this card on mobile -- keeping both
          would mean two competing seat prompts on a screen with room for one. */
       .poker8-online #readyPanel{display:none!important}
-      /* Absolutely positioned (the header is position:fixed already) so it
-         centers on the header regardless of the hamburger/chat buttons on
-         either side, instead of just hugging whichever side flex leaves it. */
+      /* Was absolutely positioned at left:50% + translate(-50%,-50%) to centre
+         the pair on the header regardless of the buttons on either side. Out
+         of flow, nothing reserved its width: with both Russian labels showing,
+         the group runs ~198px wide and centres to x:88-286 on a 374px screen,
+         while the right-hand utility group (two 42px buttons + 8px gap, 13px
+         padding) starts at x:269 -- so the chat button painted on top of
+         "Наблюдатель" and the hint button ran off the edge. In flow, the
+         header's own space-between still puts it in the middle and makes the
+         overlap structurally impossible at any width. */
       .poker8-online .mobile-header-seat-actions{
-        display:flex;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);gap:6px;
+        display:flex;order:1;gap:6px;min-width:0;
       }
       .poker8-online .mobile-header-seat-actions[hidden]{display:none!important}
       .poker8-online .mobile-header-seat-actions button{
         padding:8px 11px;border:1px solid rgba(64,237,167,.42);border-radius:10px;
         background:rgba(4,31,20,.86);color:#b8ffda;font:800 10px/1 Inter,ui-sans-serif,system-ui;
         white-space:nowrap;cursor:pointer;
+        /* Both labels at full width leave ~16px of slack on a 374px screen and
+           none at all below ~358px. Shrinking to an ellipsis is the only
+           behaviour here that degrades instead of overflowing. */
+        min-width:0;overflow:hidden;text-overflow:ellipsis;
       }
       .poker8-online .mobile-header-seat-actions #mobileHeaderTakeSeat{
         border-color:rgba(64,237,167,.7);background:#0a3b2b;

@@ -158,6 +158,36 @@ def test_the_header_offers_ready_up_for_a_seated_player_with_nothing_dealt():
     assert "readyUp().catch(error => alert(error.message));" in source
 
 
+def test_the_header_seat_buttons_cannot_overlap_the_chat_and_hint_buttons():
+    """The pair used to be absolutely positioned at left:50% with a
+    translate(-50%,-50%), so nothing in the header reserved its width. Both
+    Russian labels together run ~198px, centring to x:88-286 on a 374px
+    screen, while the right-hand utility group (two 42px buttons + 8px gap,
+    inside v037's 13px padding) starts at x:269 -- the chat button painted
+    over "Наблюдатель" and the hint button ran off the edge, as reported live.
+
+    Staying in flow is what actually prevents it: the header is a flex row
+    with justify-content:space-between (v037), so an in-flow group is laid
+    out beside its siblings rather than on top of them, at any width.
+    """
+    source = Path("static/online-table.js").read_text(encoding="utf-8")
+    rule = source[source.index(".poker8-online .mobile-header-seat-actions{"):]
+    rule = rule[:rule.index("}")]
+    assert "position:absolute" not in rule
+    assert "translate(-50%,-50%)" not in rule
+    assert "display:flex" in rule
+    # Ordered after the hamburger and before the utility group, which carries
+    # order:2 -- otherwise flex would lay the three out in DOM append order.
+    assert "order:1" in rule
+
+    # Nowrap labels in a flex row overflow rather than wrap once the slack
+    # (~16px at 374px) runs out, so they have to be allowed to shrink.
+    button_rule = source[source.index(".poker8-online .mobile-header-seat-actions button{"):]
+    button_rule = button_rule[:button_rule.index("}")]
+    assert "min-width:0" in button_rule
+    assert "text-overflow:ellipsis" in button_rule
+
+
 def test_the_board_stays_up_online_between_hands():
     """`game` goes null between hands for everyone still at the table, not
     just whoever stood up -- clearing the board there wiped the hand that was
