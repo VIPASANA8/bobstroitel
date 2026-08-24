@@ -40,7 +40,15 @@
     // (13, 66, 88) plus the top pair's x spread from LAYOUTS[5] (24/76)
     // instead of inventing new numbers: two top, two mid-sides, one bottom.
     5: [[24, 14], [76, 14], [88, 66], [50, 88], [12, 66]],
-    6: [[50, 15], [83, 14], [83, 69], [50, 85], [17, 69], [17, 14]],
+    // Same lopsidedness the 5-seat entry had, one row flatter: the two
+    // lower-side seats sat at y:69, only 16 points off the bottom pole's
+    // 85 -- reported live as two dense rows, top and bottom, with no
+    // hexagon bulge. The upper pair stays at y:14 (the pot-label collision
+    // fix two comments up is specific to that y, not renegotiable here);
+    // the lower pair moves to y:61 -- LAYOUTS[6]'s own proven lower-wing
+    // value -- which clears the bottom pole by the same margin the upper
+    // wings already clear the top pole by.
+    6: [[50, 15], [83, 14], [83, 61], [50, 85], [17, 61], [17, 14]],
   };
 
   const style = document.createElement("style");

@@ -420,6 +420,28 @@ def test_five_spectators_form_a_balanced_pentagon_not_a_lopsided_cluster():
     assert len({y for _, y in points}) >= 3
 
 
+def test_six_spectators_get_a_hexagon_bulge_not_two_flat_rows():
+    """Was [[50,15],[83,14],[83,69],[50,85],[17,69],[17,14]] -- the lower
+    wings sat at y:69, only 16 points off the bottom pole's 85, so all three
+    bottom seats (and, mirrored, all three top seats) read as one flat row
+    each. The upper wings stay pinned at y:14 (a separate, previously
+    measured pot-label collision fix), but nothing constrains the lower
+    wings, so they move to y:61 -- clearing the bottom pole by the same
+    margin the upper wings already clear the top pole by, giving the
+    hexagon an actual bulge instead of two dense rows."""
+    seats = (STATIC / "v040-poker8-v2-dynamic-seats.js").read_text(encoding="utf-8")
+    block = seats[seats.index("const SPECTATOR_LAYOUTS = {"):seats.index("const style = document.createElement")]
+    line = next(l for l in block.splitlines() if re.match(r"\s*6:", l))
+    points = [(int(x), int(y)) for x, y in re.findall(r"\[(\d+),\s*(\d+)\]", line)]
+    assert len(points) == 6
+
+    lower_wing_ys = [points[2][1], points[4][1]]
+    bottom_pole_y = points[3][1]
+    for y in lower_wing_ys:
+        assert not (22 < y < 56), f"lower wing at y:{y} is inside the reserved band"
+        assert bottom_pole_y - y >= 20, "lower wings sit too close to the bottom pole to read as a bulge"
+
+
 def test_the_board_moved_up_once_the_seats_were_out_of_its_way():
     """34%, up from 38% -- the actual ask. Checked live at every player count,
     1 through 6, in both hero and spectator layouts: no seat plate touches
