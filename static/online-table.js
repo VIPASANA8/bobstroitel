@@ -146,8 +146,8 @@
       }
       .poker8-online .mobile-header-seat-actions[hidden]{display:none!important}
       .poker8-online .mobile-header-seat-actions button{
-        padding:8px 11px;border:1px solid rgba(64,237,167,.42);border-radius:10px;
-        background:rgba(4,31,20,.86);color:#b8ffda;font:800 10px/1 Inter,ui-sans-serif,system-ui;
+        min-height:42px;padding:8px 12px;border:1px solid rgba(255,212,71,.42);border-radius:12px;
+        background:rgba(4,31,20,.86);color:#fff6e0;font:800 10px/1 Inter,ui-sans-serif,system-ui;
         white-space:nowrap;cursor:pointer;
         /* Both labels at full width leave ~16px of slack on a 374px screen and
            none at all below ~358px. Shrinking to an ellipsis is the only
@@ -155,7 +155,7 @@
         min-width:0;overflow:hidden;text-overflow:ellipsis;
       }
       .poker8-online .mobile-header-seat-actions #mobileHeaderTakeSeat{
-        border-color:rgba(64,237,167,.7);background:#0a3b2b;
+        border-color:rgba(255,212,71,.7);background:#3a2410;
       }
       /* "В очереди" is a state, not an offer -- it must not look pressable. */
       .poker8-online .mobile-header-seat-actions button:disabled{
@@ -164,7 +164,7 @@
       /* Its own colour (not just the shimmer) reads as a distinct mode from
          "Занять место", not a dimmer variant of it. */
       .poker8-online .mobile-header-seat-actions #mobileHeaderObserve{
-        border-color:rgba(56,189,248,.55);background:#0a2b3b;color:#bdeeff;
+        border-color:rgba(201,168,255,.55);background:#24103e;color:#f2e9ff;
       }
       /* The picked mode gets a moving gradient ring instead of a flat border --
          a 1px inset keeps the button's own background as the solid interior,
@@ -172,32 +172,32 @@
       .poker8-online .mobile-header-seat-actions button.mode-active{
         /* !important: #mobileHeaderObserve's own id rule sets border-color
            too, and an id always outranks this class selector on specificity. */
-        position:relative;border-color:transparent!important;color:#eafff6;
+        position:relative;border-color:transparent!important;color:#fff6e0;
       }
       .poker8-online .mobile-header-seat-actions #mobileHeaderTakeSeat.mode-active::before{
         content:"";position:absolute;inset:-1px;z-index:-1;border-radius:inherit;
-        background:linear-gradient(90deg,#3defb0,#7dfff0,#3defb0,#2aa87c);
+        background:linear-gradient(90deg,#ffd447,#fff3c4,#ffd447,#c99a1f);
         background-size:300% 100%;animation:p8HeaderModeShimmer 2.6s linear infinite;
       }
       .poker8-online .mobile-header-seat-actions #mobileHeaderTakeSeat.mode-active::after{
-        content:"";position:absolute;inset:1px;z-index:-1;border-radius:inherit;background:#0a3b2b;
+        content:"";position:absolute;inset:1px;z-index:-1;border-radius:inherit;background:#3a2410;
       }
-      .poker8-online .mobile-header-seat-actions #mobileHeaderObserve.mode-active{color:#e7faff;}
+      .poker8-online .mobile-header-seat-actions #mobileHeaderObserve.mode-active{color:#f2e9ff;}
       .poker8-online .mobile-header-seat-actions #mobileHeaderObserve.mode-active::before{
         content:"";position:absolute;inset:-1px;z-index:-1;border-radius:inherit;
-        background:linear-gradient(90deg,#38bdf8,#a6f1ff,#38bdf8,#1d7fb8);
+        background:linear-gradient(90deg,#c9a8ff,#eaddff,#c9a8ff,#8b5cf6);
         background-size:300% 100%;animation:p8HeaderModeShimmer 2.6s linear infinite;
       }
       .poker8-online .mobile-header-seat-actions #mobileHeaderObserve.mode-active::after{
-        content:"";position:absolute;inset:1px;z-index:-1;border-radius:inherit;background:#0a2b3b;
+        content:"";position:absolute;inset:1px;z-index:-1;border-radius:inherit;background:#24103e;
       }
       /* Same green as #mobileHeaderTakeSeat just above -- it is the same kind
          of element, a go-ahead button in this header, not a new colour. */
       .poker8-online .mobile-header-seat-actions #mobileHeaderReadyUp{
-        border-color:rgba(64,237,167,.7);background:#0a3b2b;color:#b8ffda;
+        border-color:rgba(255,212,71,.7);background:#3a2410;color:#fff6e0;
         animation:p8HeaderReadyPulse 1.6s ease-in-out infinite;
       }
-      @keyframes p8HeaderReadyPulse{0%,100%{box-shadow:0 0 0 0 rgba(64,237,167,.35)}50%{box-shadow:0 0 0 4px rgba(64,237,167,0)}}
+      @keyframes p8HeaderReadyPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,212,71,.35)}50%{box-shadow:0 0 0 4px rgba(255,212,71,0)}}
       @media (prefers-reduced-motion:reduce){
         .poker8-online .mobile-header-seat-actions #mobileHeaderReadyUp{animation:none}
       }
@@ -212,6 +212,29 @@
          with the rankings hint (see v037's ensureChatButton); the order
          belongs on that group so it is still always last/rightmost. */
       .poker8-online .mobile-header-utility{order:2}
+      /* v037 built the chat/hint pair in the table's old cyan; recoloured to
+         the same violet as #mobileHeaderObserve above so the whole header
+         utility row -- seat actions, chat, hint -- reads as one accent
+         instead of three unrelated ones (mint, cyan, and now this). */
+      .poker8-online .mobile-chat-button,
+      .poker8-online .mobile-hint-button{
+        border-color:rgba(201,168,255,.6)!important;
+        background:rgba(18,7,30,.78)!important;
+        box-shadow:0 0 14px rgba(201,168,255,.16),inset 0 0 12px rgba(201,168,255,.08)!important;
+        color:#eaddff!important;
+      }
+      .poker8-online .mobile-chat-button .chat-bubble{fill:rgba(201,168,255,.20)!important;}
+      /* Observer mode's header borrowed the seated player's opaque black/
+         photo background (v032, v038) wholesale. A viewer with no seat has
+         nothing that contrast was protecting, so it can loosen into the same
+         violet glass the lobby already uses instead of a solid black bar. */
+      .poker8-online.p8-observer-mode .mobile-game-header{
+        background-image:none!important;
+        background:linear-gradient(180deg,rgba(36,16,62,.72),rgba(7,16,15,.90))!important;
+        backdrop-filter:blur(16px)!important;
+        border-bottom-color:rgba(201,168,255,.24)!important;
+        box-shadow:0 10px 26px rgba(18,7,30,.4)!important;
+      }
       /* v038 derives --table-stage-h from these two vars, so zeroing them here
          (custom-property !important still beats v038's later non-important
          declaration) expands the felt into the space the hidden action panel
