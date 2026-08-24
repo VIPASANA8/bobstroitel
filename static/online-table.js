@@ -67,6 +67,19 @@
     .p8-funds-offer button{margin-top:2px;padding:12px;border:0;border-radius:10px;background:linear-gradient(120deg,#2fd6a0,#35c6ff);color:#04211c;font:800 12px/1 Inter,ui-sans-serif,system-ui;cursor:pointer}
     .p8-funds-offer button:disabled{background:rgba(120,150,150,.26);color:#8ca59c;cursor:default}
     .p8-funds-close{width:100%;margin-top:14px;padding:12px;border:1px solid rgba(95,237,170,.34);border-radius:10px;background:rgba(4,31,20,.84);color:#c9ffe3;font:800 12px/1 Inter,ui-sans-serif,system-ui;cursor:pointer}
+    /* Same mint tokens as .p8-funds-dialog just above -- this is the same
+       kind of modal (a stop on the way into a seat), not a new colour. */
+    .p8-buyin-dialog{width:min(92vw,340px);padding:22px 20px 18px;border:1px solid rgba(64,237,167,.42);border-radius:16px;background:linear-gradient(160deg,#031b13,#07100f);color:#dcf7e8;box-shadow:0 24px 70px rgba(0,0,0,.62)}
+    .p8-buyin-dialog::backdrop{background:rgba(0,8,5,.72)}
+    .p8-buyin-dialog h2{margin:0 0 6px;color:#eaffef;font:800 20px/1.15 Inter,ui-sans-serif,system-ui;letter-spacing:-.01em}
+    .p8-buyin-note{margin:0 0 18px;color:#a9c6b8;font-size:12px;line-height:1.45}
+    .p8-buyin-value{margin:0 0 10px;color:#eaffef;font:800 27px/1 Inter,ui-sans-serif,system-ui;font-variant-numeric:tabular-nums;text-align:center}
+    .p8-buyin-value span{margin-left:6px;color:#8ff2c0;font-size:12px;font-weight:800}
+    .p8-buyin-dialog input[type="range"]{width:100%;margin:0 0 20px;accent-color:#3defb0}
+    .p8-buyin-actions{display:flex;gap:8px}
+    .p8-buyin-actions button{flex:1;padding:13px;border:0;border-radius:11px;font:800 15px/1 Inter,ui-sans-serif,system-ui;cursor:pointer}
+    .p8-buyin-actions [data-cancel]{background:rgba(4,31,20,.84);border:1px solid rgba(95,237,170,.34);color:#c9ffe3}
+    .p8-buyin-actions [data-confirm]{background:linear-gradient(120deg,#3defb0,#2aa87c);color:#04211c}
     .poker8-online.p8-action-pending #actionButtons{opacity:.62;pointer-events:none;filter:saturate(.72)}
     .poker8-online.p8-action-pending #actionButtons::after{content:'Отправляем действие…';display:block;grid-column:1 / -1;text-align:center;color:#a8ffd4;font-size:10px;font-weight:800;padding:5px}
     @media(max-width:780px){
@@ -151,13 +164,23 @@
       }
       .poker8-online .mobile-header-seat-actions[hidden]{display:none!important}
       .poker8-online .mobile-header-seat-actions button{
-        min-height:38px;padding:7px 10px;border:1px solid rgba(255,212,71,.42);border-radius:12px;
+        min-height:38px;padding:7px 8px;border:1px solid rgba(255,212,71,.42);border-radius:12px;
         background:rgba(4,31,20,.86);color:#fff6e0;font:800 10px/1 Inter,ui-sans-serif,system-ui;
         white-space:nowrap;cursor:pointer;
         /* Both labels at full width leave ~16px of slack on a 374px screen and
            none at all below ~358px. Shrinking to an ellipsis is the only
            behaviour here that degrades instead of overflowing. */
         min-width:0;overflow:hidden;text-overflow:ellipsis;
+      }
+      /* Fixed rather than content-width: "Занять место" swaps to "В очереди"
+         and "Наблюдатель" swaps to "Отменить" in the same slot (see
+         syncHeaderSeatButtons), and an auto width visibly resized the whole
+         pair on every click. 88px fits the longer label of each pair with
+         the tighter padding above; text-align centres the shorter one in it
+         instead of hugging the left edge. */
+      .poker8-online .mobile-header-seat-actions #mobileHeaderTakeSeat,
+      .poker8-online .mobile-header-seat-actions #mobileHeaderObserve{
+        width:88px;text-align:center;
       }
       .poker8-online .mobile-header-seat-actions #mobileHeaderTakeSeat{
         border-color:rgba(64,237,167,.7);background:#0a3b2b;
@@ -341,7 +364,13 @@
     `;
     header.appendChild(wrap);
     $("mobileHeaderTakeSeat").addEventListener("click", () => {
-      ready().catch(error => alert(error.message));
+      // Queued already means the seat request is in flight -- the label
+      // reads "В очереди" and the button is disabled, so a click here can
+      // only be the queued state's own listener firing on a disabled
+      // element in some browsers; showing the picker again would let
+      // someone queue a second buy-in choice mid-request.
+      if (viewerState === "waiting") return;
+      showBuyInDialog();
     });
     $("mobileHeaderObserve").addEventListener("click", () => {
       // Only does anything while queued: it gives the seat back and returns
@@ -442,6 +471,58 @@
 
   function showInsufficientFunds(requiredUnits, availableUnits) {
     showFundsDialog({ title: "Недостаточно средств", requiredUnits, availableUnits });
+  }
+
+  // A native <dialog>, same reasoning as ensureFundsDialog just above.
+  function ensureBuyInDialog() {
+    const existing = document.getElementById("p8BuyInDialog");
+    if (existing) return existing;
+    const dialog = document.createElement("dialog");
+    dialog.id = "p8BuyInDialog";
+    dialog.className = "p8-buyin-dialog";
+    dialog.innerHTML = `
+      <h2>Сколько фишек взять?</h2>
+      <p class="p8-buyin-note" data-note>От <b data-min>—</b> до <b data-max>—</b> ББ</p>
+      <div class="p8-buyin-value"><span data-value>—</span><span>ББ</span></div>
+      <input type="range" data-slider />
+      <div class="p8-buyin-actions">
+        <button type="button" data-cancel>Отмена</button>
+        <button type="button" data-confirm>Занять место</button>
+      </div>
+    `;
+    document.body.appendChild(dialog);
+    const slider = dialog.querySelector("[data-slider]");
+    slider.addEventListener("input", () => {
+      dialog.querySelector("[data-value]").textContent = slider.value;
+    });
+    dialog.querySelector("[data-cancel]").addEventListener("click", () => dialog.close());
+    dialog.querySelector("[data-confirm]").addEventListener("click", () => {
+      const bb = Number(slider.value);
+      dialog.close();
+      ready(null, bb).catch(error => alert(error.message));
+    });
+    return dialog;
+  }
+
+  // min/max_buy_in_bb come straight off the table row (see catalogue.py) --
+  // every table can set its own range, so nothing here is hardcoded.
+  function showBuyInDialog() {
+    const dialog = ensureBuyInDialog();
+    const min = Number(table?.min_buy_in_bb) || 40;
+    const max = Math.max(min, Number(table?.max_buy_in_bb) || 100);
+    const slider = dialog.querySelector("[data-slider]");
+    slider.min = String(min);
+    slider.max = String(max);
+    slider.step = "1";
+    // 40 was the flat default every ready() call used before this dialog
+    // existed -- clamped into range so a table whose own minimum sits above
+    // 40 does not start the slider outside its own bounds.
+    slider.value = String(Math.min(max, Math.max(min, 40)));
+    dialog.querySelector("[data-min]").textContent = String(min);
+    dialog.querySelector("[data-max]").textContent = String(max);
+    dialog.querySelector("[data-value]").textContent = slider.value;
+    if (typeof dialog.showModal === "function") dialog.showModal();
+    else dialog.setAttribute("open", "");
   }
 
   async function cancelQueue() {
@@ -735,7 +816,7 @@
     }
   }
 
-  async function ready(seatNo = null) {
+  async function ready(seatNo = null, buyInBB = null) {
     if (readyInFlight || viewerState === "seated" || viewerState === "held" || viewerState === "leaving") return;
     // Asked up front when the table is known to need one, to skip a request
     // that would only come back asking for it -- the server checks again
@@ -749,7 +830,12 @@
     readyInFlight = true;
     const button = $("readyButton");
     if (button) button.disabled = true;
-    const buyInUnits = units(table?.big_blind_units) * 40;
+    // 40 ББ stays the default for every caller that never offered a choice
+    // (a direct seat click, the ready-up avatar shortcut); the header's own
+    // "Занять место" is the one path that asks first, via showBuyInDialog.
+    const buyInUnits = buyInBB != null
+      ? Math.round(buyInBB * units(table?.big_blind_units))
+      : units(table?.big_blind_units) * 40;
     try {
       // A seat the player actually pointed at wins over the first free one.
       const result = await window.Poker8Transport.ready(
