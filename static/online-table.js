@@ -219,10 +219,13 @@
       .poker8-online .mobile-header-seat-actions #mobileHeaderTakeSeat.mode-active{
         box-shadow:0 0 16px rgba(64,237,167,.55);
       }
+      /* A wedge of the button's own accent colour, riding a rotating
+         --glow-angle around the ring -- not a shimmer sliding side to side,
+         an actual point of light that travels the full perimeter. */
       .poker8-online .mobile-header-seat-actions #mobileHeaderTakeSeat.mode-active::before{
         content:"";position:absolute;inset:-1px;z-index:-1;border-radius:inherit;
-        background:linear-gradient(90deg,#3defb0,#7dfff0,#3defb0,#2aa87c);
-        background-size:300% 100%;animation:p8HeaderModeShimmer 2.6s linear infinite;
+        background:conic-gradient(from var(--glow-angle),transparent 0 75%,#7dfff0 88%,transparent 100%);
+        animation:p8HeaderGlowSpin 2.6s linear infinite;
       }
       .poker8-online .mobile-header-seat-actions #mobileHeaderTakeSeat.mode-active::after{
         content:"";position:absolute;inset:1px;z-index:-1;border-radius:inherit;background:#0a3b2b;
@@ -232,8 +235,8 @@
       }
       .poker8-online .mobile-header-seat-actions #mobileHeaderObserve.mode-active::before{
         content:"";position:absolute;inset:-1px;z-index:-1;border-radius:inherit;
-        background:linear-gradient(90deg,#c9a8ff,#eaddff,#c9a8ff,#8b5cf6);
-        background-size:300% 100%;animation:p8HeaderModeShimmer 2.6s linear infinite;
+        background:conic-gradient(from var(--glow-angle),transparent 0 75%,#eaddff 88%,transparent 100%);
+        animation:p8HeaderGlowSpin 2.6s linear infinite;
       }
       .poker8-online .mobile-header-seat-actions #mobileHeaderObserve.mode-active::after{
         content:"";position:absolute;inset:1px;z-index:-1;border-radius:inherit;background:#24103e;
@@ -248,9 +251,10 @@
       @media (prefers-reduced-motion:reduce){
         .poker8-online .mobile-header-seat-actions #mobileHeaderReadyUp{animation:none}
       }
-      @keyframes p8HeaderModeShimmer{from{background-position:0% 0}to{background-position:300% 0}}
+      @property --glow-angle{syntax:'<angle>';inherits:false;initial-value:0deg}
+      @keyframes p8HeaderGlowSpin{to{--glow-angle:360deg}}
       @media (prefers-reduced-motion:reduce){
-        .poker8-online .mobile-header-seat-actions button.mode-active::before{animation:none;background-position:0% 0}
+        .poker8-online .mobile-header-seat-actions button.mode-active::before{animation:none}
       }
       /* Was .mobile-chat-button itself, back when it sat directly in the
          header next to #mobileHeaderSeatActions -- v037 and this file append
