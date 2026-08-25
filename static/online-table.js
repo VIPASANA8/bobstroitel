@@ -163,6 +163,14 @@
         margin:0 4px;
       }
       .poker8-online .mobile-header-seat-actions[hidden]{display:none!important}
+      /* Header is position:fixed already, so this centres on the header
+         itself regardless of the hamburger/utility groups' own widths --
+         safe here specifically because the wider two-button pair (the one
+         that overlapped chat/hint when this trick was tried for it) is
+         always hidden while this class is on. */
+      .poker8-online .mobile-header-seat-actions.ready-up-only{
+        position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);margin:0;
+      }
       .poker8-online .mobile-header-seat-actions button{
         min-height:38px;padding:7px 8px;border:1px solid rgba(255,212,71,.42);border-radius:12px;
         background:rgba(4,31,20,.86);color:#fff6e0;font:800 10px/1 Inter,ui-sans-serif,system-ui;
@@ -202,6 +210,15 @@
            too, and an id always outranks this class selector on specificity. */
         position:relative;border-color:transparent!important;color:#eafff6;
       }
+      /* Both the ring and the halo below used to fade to 62% with the rest
+         of the button under button:disabled's own opacity -- for
+         #mobileHeaderTakeSeat that's exactly "В очереди", the one state
+         this glow exists to announce, so it was dimming the very thing it
+         was supposed to highlight. */
+      .poker8-online .mobile-header-seat-actions button.mode-active:disabled{opacity:1;}
+      .poker8-online .mobile-header-seat-actions #mobileHeaderTakeSeat.mode-active{
+        box-shadow:0 0 16px rgba(64,237,167,.55);
+      }
       .poker8-online .mobile-header-seat-actions #mobileHeaderTakeSeat.mode-active::before{
         content:"";position:absolute;inset:-1px;z-index:-1;border-radius:inherit;
         background:linear-gradient(90deg,#3defb0,#7dfff0,#3defb0,#2aa87c);
@@ -210,7 +227,9 @@
       .poker8-online .mobile-header-seat-actions #mobileHeaderTakeSeat.mode-active::after{
         content:"";position:absolute;inset:1px;z-index:-1;border-radius:inherit;background:#0a3b2b;
       }
-      .poker8-online .mobile-header-seat-actions #mobileHeaderObserve.mode-active{color:#f2e9ff;}
+      .poker8-online .mobile-header-seat-actions #mobileHeaderObserve.mode-active{
+        color:#f2e9ff;box-shadow:0 0 16px rgba(201,168,255,.55);
+      }
       .poker8-online .mobile-header-seat-actions #mobileHeaderObserve.mode-active::before{
         content:"";position:absolute;inset:-1px;z-index:-1;border-radius:inherit;
         background:linear-gradient(90deg,#c9a8ff,#eaddff,#c9a8ff,#8b5cf6);
@@ -557,6 +576,14 @@
     const awaitingReady = viewerState === "seated" && isPreHand() && seatNo != null
       && !(state?.ready_seats || []).includes(seatNo);
     if (readyButton) readyButton.hidden = !awaitingReady;
+    // Solo mode: with the seat/observe pair hidden, the wrap shrinks to fit
+    // this one button and inherits wherever the header's hamburger-vs-utility
+    // width imbalance happens to land it -- off-centre, worse the longer this
+    // button's own label runs. Centring the wrap itself on the header only
+    // when it's carrying just this button is safe precisely because it's
+    // never sharing the row with the wider pair that overlapping chat/hint
+    // in the first place (see the wrap's own flow-layout fix above).
+    wrap.classList.toggle("ready-up-only", awaitingReady);
 
     const offer = ["spectator", "waiting"].includes(viewerState);
     if (take) take.hidden = !offer;
@@ -752,25 +779,52 @@
   }
 
   let heldSeatLastSnapshot = false;
+  // The seat's own stack, in units, from the last snapshot where the viewer
+  // still held it -- captured *before* it disappears, since by the time
+  // viewer_player_id is gone there is nothing left in the state naming which
+  // seat used to be theirs. Distinguishes the two things that both make the
+  // seat vanish the same way: a genuinely empty stack (below one big blind)
+  // versus coordinator.py's AFK eviction, which frees a seat that never
+  // confirmed ready for several hands running regardless of how many chips
+  // are still on it -- reported live as "Фишки закончились" showing after
+  // simply not pressing the avatar to start.
+  let lastKnownSeatStackUnits = null;
 
   // Losing the stack takes the seat away at the next boundary, and the player
   // simply became a spectator mid-session with nothing said. Leaving on purpose
   // navigates away from this page, so a seat that disappears under someone
-  // still sitting here is the table releasing it -- which it only does once the
-  // stack can no longer cover a big blind.
+  // still sitting here is the table releasing it.
   function noticeBustOut(state) {
     const seatedNow = Boolean(state?.viewer_player_id);
     const lost = heldSeatLastSnapshot && !seatedNow;
+    if (seatedNow) {
+      const viewerId = state.viewer_player_id;
+      const fromHand = state.players?.[viewerId];
+      const seatNo = fromHand ? Number(fromHand.seat) : viewerSeatNo(state);
+      const fromSeat = seatNo != null ? state.current_seats?.[seatNo] : null;
+      const bb = fromHand ? Number(fromHand.stack) : fromSeat ? Number(fromSeat.stack) : null;
+      if (bb != null) lastKnownSeatStackUnits = Math.round(bb * units(table?.big_blind_units));
+    }
     heldSeatLastSnapshot = seatedNow;
     if (!lost) return;
+    const bigBlindUnits = units(table?.big_blind_units);
+    // null (never captured a stack) reads as busted too -- the safer default
+    // when the cause genuinely can't be told apart.
+    const genuinelyBusted = lastKnownSeatStackUnits == null || lastKnownSeatStackUnits < bigBlindUnits;
+    lastKnownSeatStackUnits = null;
     // The wallet is only known to the profile endpoint, and this is a rare
     // moment, so one extra call is cheaper than tracking it on every snapshot.
     fetch("/api/profile")
       .then(response => (response.ok ? response.json() : null))
-      .then(profile => showFundsDialog({
+      .then(profile => showFundsDialog(genuinelyBusted ? {
         title: "Фишки закончились",
         lead: "Стек за столом опустел, и место освободилось.",
-        requiredUnits: units(table?.big_blind_units) * 40,
+        requiredUnits: bigBlindUnits * 40,
+        availableUnits: profile?.available_units ?? 0,
+      } : {
+        title: "Место освободилось",
+        lead: "Вы не подтвердили готовность вовремя, и место занял кто-то другой.",
+        requiredUnits: bigBlindUnits * 40,
         availableUnits: profile?.available_units ?? 0,
       }))
       .catch(() => {});

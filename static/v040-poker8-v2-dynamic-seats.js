@@ -48,7 +48,16 @@
     // the lower pair moves to y:61 -- LAYOUTS[6]'s own proven lower-wing
     // value -- which clears the bottom pole by the same margin the upper
     // wings already clear the top pole by.
-    6: [[50, 15], [83, 14], [83, 61], [50, 85], [17, 61], [17, 14]],
+    //
+    // That margin didn't actually exist yet: the top pole sat at y:15, one
+    // point off the wings' 14 -- reported live as the top-left/top-right
+    // seats reading at the same height as the top-center one, no bulge at
+    // all up there either. The pot-collision ceiling only bounds the wings
+    // from going lower (closer to the pot); moving the pole *up* moves it
+    // further from the pot, not closer, so it isn't bound by that fix --
+    // y:9 is the same clearance from y:14 the bottom pole (y:85) already
+    // gets from its own wings (y:61).
+    6: [[50, 9], [83, 14], [83, 61], [50, 85], [17, 61], [17, 14]],
   };
 
   const style = document.createElement("style");

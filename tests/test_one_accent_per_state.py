@@ -442,6 +442,28 @@ def test_six_spectators_get_a_hexagon_bulge_not_two_flat_rows():
         assert bottom_pole_y - y >= 20, "lower wings sit too close to the bottom pole to read as a bulge"
 
 
+def test_the_top_pole_also_clears_its_own_wings_not_just_the_bottom_one():
+    """The bulge fix above only touched the bottom half: the top pole sat at
+    y:15, one point off the upper wings' y:14 -- reported live as the
+    top-left/top-right seats reading at the same height as the top-center
+    one, no bulge up there either. The wings' own y:14 ceiling exists to
+    keep them clear of the pot label *below* them; moving the pole further
+    *up* moves it away from the pot, not toward it, so nothing stops it
+    from getting the same clearance the bottom pole already has from its
+    own wings."""
+    seats = (STATIC / "v040-poker8-v2-dynamic-seats.js").read_text(encoding="utf-8")
+    block = seats[seats.index("const SPECTATOR_LAYOUTS = {"):seats.index("const style = document.createElement")]
+    line = next(l for l in block.splitlines() if re.match(r"\s*6:", l))
+    points = [(int(x), int(y)) for x, y in re.findall(r"\[(\d+),\s*(\d+)\]", line)]
+    assert len(points) == 6
+
+    upper_wing_ys = [points[1][1], points[5][1]]
+    top_pole_y = points[0][1]
+    assert top_pole_y < min(upper_wing_ys), "top pole must sit above its own wings, not level with them"
+    for y in upper_wing_ys:
+        assert y - top_pole_y >= 4, "top pole sits too close to its wings to read as a bulge"
+
+
 def test_the_board_moved_up_once_the_seats_were_out_of_its_way():
     """34%, up from 38% -- the actual ask. Checked live at every player count,
     1 through 6, in both hero and spectator layouts: no seat plate touches

@@ -44,7 +44,10 @@ def _run(queued):
     function viewerSeatNo() { return null; }
     function isPreHand() { return false; }
     const elements = {
-      mobileHeaderSeatActions: { hidden: false },
+      mobileHeaderSeatActions: {
+        hidden: false,
+        classList: { set: new Set(), toggle(name, on) { on ? this.set.add(name) : this.set.delete(name); } },
+      },
       mobileHeaderReadyUp: { hidden: false },
       mobileHeaderTakeSeat: {
         textContent: "", disabled: false, title: "",
@@ -65,6 +68,7 @@ def _run(queued):
       takePressed: elements.mobileHeaderTakeSeat["aria-pressed"],
       observeActive: elements.mobileHeaderObserve.classList.set.has("mode-active"),
       observePressed: elements.mobileHeaderObserve["aria-pressed"],
+      soloClass: elements.mobileHeaderSeatActions.classList.set.has("ready-up-only"),
     }));
     """ % (json.dumps(queued), block)
     with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False, encoding="utf-8") as handle:
@@ -91,3 +95,66 @@ def test_a_queued_seat_request_flips_take_seat_to_the_active_mode():
     assert out["observeActive"] is False
     assert out["takePressed"] == "true"
     assert out["observePressed"] == "false"
+
+
+def _run_solo_ready_up():
+    # awaitingReady = viewerState === "seated" && isPreHand() && seatNo != null
+    #   && !ready_seats.includes(seatNo) -- built directly rather than routed
+    # through _run(queued), which only ever drives the spectator/waiting pair.
+    block = _extract_block()
+    harness = """
+    const viewerState = "seated";
+    function viewerSeatNo() { return 2; }
+    function isPreHand() { return true; }
+    const elements = {
+      mobileHeaderSeatActions: {
+        hidden: false,
+        classList: { set: new Set(), toggle(name, on) { on ? this.set.add(name) : this.set.delete(name); } },
+      },
+      mobileHeaderReadyUp: { hidden: false },
+      mobileHeaderTakeSeat: {
+        textContent: "", disabled: false, title: "",
+        classList: { set: new Set(), toggle(name, on) { on ? this.set.add(name) : this.set.delete(name); } },
+        setAttribute(name, value) { this[name] = value; },
+      },
+      mobileHeaderObserve: {
+        textContent: "", disabled: false, title: "",
+        classList: { set: new Set(), toggle(name, on) { on ? this.set.add(name) : this.set.delete(name); } },
+        setAttribute(name, value) { this[name] = value; },
+      },
+    };
+    function $(id) { return elements[id] || null; }
+    %s
+    syncHeaderSeatButtons({ ready_seats: [] });
+    console.log(JSON.stringify({
+      soloClass: elements.mobileHeaderSeatActions.classList.set.has("ready-up-only"),
+      readyHidden: elements.mobileHeaderReadyUp.hidden,
+      takeHidden: elements.mobileHeaderTakeSeat.hidden,
+    }));
+    """ % block
+    with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False, encoding="utf-8") as handle:
+        handle.write(harness)
+        path = handle.name
+    result = subprocess.run(["node", path], capture_output=True, text=True, encoding="utf-8", check=True)
+    return json.loads(result.stdout)
+
+
+def test_the_lone_ready_up_button_gets_centred_on_the_header():
+    """Was reported live as crooked: with the seat/observe pair hidden, the
+    wrap shrunk to fit this one button and inherited wherever the header's
+    hamburger-vs-utility width imbalance happened to land it. Centring is
+    only safe while this button is genuinely alone -- see the CSS comment on
+    .ready-up-only for why sharing the row with the wider pair is exactly
+    the overlap bug the flow-layout fix solved."""
+    out = _run_solo_ready_up()
+    assert out["soloClass"] is True
+    assert out["readyHidden"] is False
+    assert out["takeHidden"] is True
+
+
+def test_the_pair_never_gets_the_solo_centring_class():
+    # Absolute-centring the wrap while the wider pair shares it is exactly
+    # the overlap bug the flow-layout fix (see the CSS comment) solved --
+    # the class must stay off whenever the pair is what's showing.
+    assert _run("spectator")["soloClass"] is False
+    assert _run("waiting")["soloClass"] is False
