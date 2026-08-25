@@ -8,7 +8,8 @@
     .card-mine{border-color:var(--violet)}
     .table-state.mine{color:var(--orange)}
     .top-left{display:flex;align-items:center;gap:7px}
-    #roomDialog select{width:100%;margin:8px 0;padding:14px;border:1px solid var(--line);border-radius:12px;background:#07100f;color:var(--ink);font-size:15px}
+    #roomDialog select{width:100%;margin:8px 0;padding:14px;border:1px solid rgba(145,232,186,.32);border-radius:12px;background:var(--panel-2);color:var(--ink);font-size:15px}
+    #roomDialog select:focus{outline:none;border-color:var(--mint)}
     #roomDialog input{font-size:15px}
   `;
   document.head.appendChild(style);
@@ -162,6 +163,8 @@
     input.step = table.big_blind_units;
     input.value = table.min_buy_in_units;
     $("buyInDialog").showModal();
+    // Same Telegram Desktop webview focus gap as openRoomDialog() above.
+    requestAnimationFrame(() => input.focus());
   }
 
   $("buyInForm").addEventListener("submit", async event => {
@@ -232,6 +235,13 @@
     $("roomName").value = "";
     $("roomPassword").value = "";
     $("roomDialog").showModal();
+    // Telegram Desktop's own webview does not reliably move keyboard focus
+    // into a <dialog> on showModal() -- the fields render and accept clicks
+    // in a real browser, but in that webview specifically nothing was
+    // focused, so typing landed nowhere until the dialog was closed and
+    // reopened (reported live: "с компа не могу ничего ввести"). A regular
+    // browser already autofocuses correctly, so this is a no-op there.
+    requestAnimationFrame(() => $("roomName")?.focus());
   }
 
   $("createRoom").addEventListener("click", () => openRoomDialog().catch(error => alert(error.message)));

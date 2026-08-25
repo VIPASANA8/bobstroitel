@@ -59,6 +59,7 @@ def _run_slider_bounds(min_bb, max_bb):
     harness = """
     const table = { min_buy_in_bb: %s, max_buy_in_bb: %s };
     const calls = [];
+    function requestAnimationFrame(fn) { fn(); }
     function ensureBuyInDialog() {
       const store = {};
       return {
@@ -69,6 +70,7 @@ def _run_slider_bounds(min_bb, max_bb):
             set step(v) { store.step = v; }, get step() { return store.step; },
             set value(v) { store.value = v; }, get value() { return store.value; },
             set textContent(v) { calls.push([sel, v]); },
+            focus() {},
           };
         },
         showModal() {},

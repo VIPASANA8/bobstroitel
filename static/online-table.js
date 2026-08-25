@@ -151,7 +151,7 @@
          the group runs ~198px wide and centres to x:88-286 on a 374px screen,
          while the right-hand utility group (two 42px buttons + 8px gap, 13px
          padding) starts at x:269 -- so the chat button painted on top of
-         "Наблюдатель" and the hint button ran off the edge. In flow, the
+         "Наблюдать" and the hint button ran off the edge. In flow, the
          header's own space-between still puts it in the middle and makes the
          overlap structurally impossible at any width. */
       .poker8-online .mobile-header-seat-actions{
@@ -173,7 +173,7 @@
         min-width:0;overflow:hidden;text-overflow:ellipsis;
       }
       /* Fixed rather than content-width: "Занять место" swaps to "В очереди"
-         and "Наблюдатель" swaps to "Отменить" in the same slot (see
+         and "Наблюдать" swaps to "Отменить" in the same slot (see
          syncHeaderSeatButtons), and an auto width visibly resized the whole
          pair on every click. 88px fits the longer label of each pair with
          the tighter padding above; text-align centres the shorter one in it
@@ -359,7 +359,7 @@
     wrap.className = "mobile-header-seat-actions";
     wrap.innerHTML = `
       <button id="mobileHeaderTakeSeat" type="button">Занять место</button>
-      <button id="mobileHeaderObserve" type="button">Наблюдатель</button>
+      <button id="mobileHeaderObserve" type="button">Наблюдать</button>
       <button id="mobileHeaderReadyUp" type="button" hidden>Нажмите на аватар</button>
     `;
     header.appendChild(wrap);
@@ -523,9 +523,20 @@
     dialog.querySelector("[data-value]").textContent = slider.value;
     if (typeof dialog.showModal === "function") dialog.showModal();
     else dialog.setAttribute("open", "");
+    // Same Telegram Desktop webview focus gap as the lobby's own dialogs.
+    requestAnimationFrame(() => slider.focus());
   }
 
+  // Set right before a cancel this tab itself asked for, so the very next
+  // "cancelled" queue_state noticeLostSeatRequest sees doesn't get read as
+  // an involuntary loss -- the server marks both a self-cancel and an
+  // insufficient-funds cancel with the exact same "cancelled" state (see
+  // cancel_ready and the funds check in seating.py), so nothing in that
+  // state alone can tell them apart. Only this tab's own click can.
+  let voluntaryCancelInFlight = false;
+
   async function cancelQueue() {
+    voluntaryCancelInFlight = true;
     await window.Poker8Transport.cancelReady();
     await refreshState();
   }
@@ -555,7 +566,7 @@
     // The pair reads as "where you are now / what you can switch to", both
     // driven by the server's own answer. The old version highlighted a stored
     // preference instead, which could disagree with the actual state -- and
-    // "Наблюдатель" did nothing at all beyond moving that highlight.
+    // "Наблюдать" did nothing at all beyond moving that highlight.
     const queued = viewerState === "waiting";
     if (take) {
       take.textContent = queued ? "В очереди" : "Занять место";
@@ -571,7 +582,7 @@
         : "Занять свободное место за этим столом";
     }
     if (observe) {
-      observe.textContent = queued ? "Отменить" : "Наблюдатель";
+      observe.textContent = queued ? "Отменить" : "Наблюдать";
       observe.disabled = false;
       observe.classList.toggle("mode-active", !queued);
       observe.setAttribute("aria-pressed", String(!queued));
@@ -807,11 +818,13 @@
   // which reads as the request having been dropped for no reason.
   function noticeLostSeatRequest(queueState) {
     const previous = lastQueueState;
+    const selfCancelled = voluntaryCancelInFlight;
+    voluntaryCancelInFlight = false;
     lastQueueState = queueState || null;
     if (previous !== "waiting") return;
     if (lastQueueState === "expired") {
       alert("Место так и не освободилось, и заявка истекла.\nПопробуйте занять место ещё раз.");
-    } else if (lastQueueState === "cancelled") {
+    } else if (lastQueueState === "cancelled" && !selfCancelled) {
       alert("Заявка на место отменена — на балансе не хватило фишек на вход.");
     }
   }

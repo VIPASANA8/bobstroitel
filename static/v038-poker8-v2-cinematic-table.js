@@ -1421,6 +1421,19 @@
     });
   };
 
+  // A rejected action -- or a resync that lands back on unchanged state --
+  // never moves online-table.js's own snapshot-dedup hash (revision,
+  // acting_player, stacks, ...), so renderSnapshot() short-circuits and
+  // configureReferenceActions() never runs again. isActionPending() itself
+  // goes back to false (the transport is healthy, the overlay disappears),
+  // but the buttons stay disabled from the render that fired while it was
+  // still true -- inert for the rest of that turn, reported live as the
+  // action row simply freezing. Force one more pass whenever pending flips
+  // back off, independent of whether the snapshot actually changed.
+  window.addEventListener("poker8:action-pending", event => {
+    if (!event.detail?.pending) queueSync();
+  });
+
   const previousSync = window.syncComponentUi;
   window.syncComponentUi = function syncV038FinalReference(gameState, tableState) {
     previousSync?.(gameState, tableState);
