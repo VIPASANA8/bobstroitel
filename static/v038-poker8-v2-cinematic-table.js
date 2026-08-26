@@ -505,21 +505,11 @@
       body.v014.poker8-v2-sixmax .v038-action-label{display:block;font-weight:900;letter-spacing:.035em;line-height:1.05;}
       body.v014.poker8-v2-sixmax .v038-action-amount{display:block;margin-top:2px;font-size:11px;font-weight:900;line-height:1;}
       body.v014.poker8-v2-sixmax .v038-action-amount.v038-amount-pulse{animation:v038AmountPulse 180ms ease-out;}
-      body.v014.poker8-v2-sixmax .action-slot.v038-all-in-armed::after{
-        content:"";position:absolute;left:5px;right:5px;bottom:3px;height:2px;border-radius:9px;background:#ffc44d;
-        transform-origin:left center;animation:v038ConfirmDrain 3000ms linear forwards;box-shadow:0 0 7px rgba(255,196,77,.85);
-      }
-      body.v014.poker8-v2-sixmax .action-slot.v038-all-in-armed::before{
-        content:"3 SEC";position:absolute;right:6px;bottom:5px;color:#ffc44d;font-size:5px;font-weight:900;letter-spacing:.06em;
-      }
       @keyframes v038AmountPulse{50%{transform:scale(1.08);filter:brightness(1.45)}100%{transform:scale(1);filter:none}}
-      @keyframes v038ConfirmDrain{to{transform:scaleX(0)}}
       @media (prefers-reduced-motion:reduce){
         body.v014.poker8-v2-sixmax .quick-sizes button,
         body.v014.poker8-v2-sixmax .action-grid .action-slot{transition:none!important;}
         body.v014.poker8-v2-sixmax .v038-action-amount.v038-amount-pulse{animation:none!important;}
-        body.v014.poker8-v2-sixmax .action-slot.v038-all-in-armed::after{animation:none!important;}
-        body.v014.poker8-v2-sixmax .action-slot.v038-all-in-armed::before{content:"CONFIRM · 3 SEC";}
         body.v014.poker8-v2-sixmax.v038-room-awaiting .player-avatar{animation:none!important;}
         body.v014.poker8-v2-sixmax .felt{transition-duration:80ms!important;}
       }
@@ -620,6 +610,28 @@
       body.v014.poker8-v2-sixmax .action-slot[data-edge="right"]{right:0!important;left:auto!important;border-right:0!important;border-radius:16px 0 0 16px!important;}
       body.v014.poker8-v2-sixmax .action-slot[data-slot="top"]{top:auto!important;bottom:calc(152px + env(safe-area-inset-bottom))!important;}
       body.v014.poker8-v2-sixmax .action-slot[data-slot="bottom"]{top:auto!important;bottom:calc(84px + env(safe-area-inset-bottom))!important;}
+      body.v014.poker8-v2-sixmax .sizing-wrap{
+        display:none!important;position:fixed!important;z-index:96;left:50%!important;right:auto!important;top:auto!important;bottom:calc(150px + env(safe-area-inset-bottom))!important;
+        width:min(344px,calc(100vw - 16px))!important;height:auto!important;transform:translateX(-50%)!important;padding:10px!important;
+        border:1px solid rgba(77,255,188,.42)!important;border-radius:18px!important;background:rgba(2,10,7,.96)!important;box-shadow:0 0 28px rgba(33,242,164,.22)!important;
+      }
+      body.v014.poker8-v2-sixmax.v038-sizing-open .sizing-wrap{display:block!important;}
+      body.v014.poker8-v2-sixmax.v038-sizing-open .action-grid .action-slot{visibility:hidden!important;}
+      body.v014.poker8-v2-sixmax .mobile-sizing-head{display:flex;align-items:center;justify-content:center;min-height:44px;margin-bottom:7px;position:relative;}
+      body.v014.poker8-v2-sixmax #mobileSizingAmount{color:#fff;font-size:24px;font-weight:950;line-height:1;text-shadow:0 0 12px rgba(67,236,185,.46);}
+      body.v014.poker8-v2-sixmax #mobileSizingCancel{
+        position:absolute;right:0;top:0;width:44px;height:44px;border:1px solid rgba(139,184,164,.35);border-radius:12px;background:#07130f;color:#cbddd5;font-size:24px;
+      }
+      body.v014.poker8-v2-sixmax .quick-sizes{
+        position:static!important;height:auto!important;display:grid!important;grid-template-columns:repeat(5,minmax(48px,1fr))!important;gap:5px!important;margin:0!important;
+      }
+      body.v014.poker8-v2-sixmax .quick-sizes button{min-height:48px!important;height:48px!important;padding:4px 2px!important;font-size:10px!important;}
+      body.v014.poker8-v2-sixmax .bet-slider-row{position:static!important;height:32px!important;margin:7px 0 5px!important;display:block!important;}
+      body.v014.poker8-v2-sixmax #amountSlider{height:32px!important;}
+      body.v014.poker8-v2-sixmax #mobileSizingConfirm{
+        width:100%!important;min-height:50px!important;border:1px solid rgba(75,255,181,.72);border-radius:13px;background:linear-gradient(180deg,rgba(15,72,48,.96),rgba(4,32,21,.98));color:#eafff4;font-size:12px;font-weight:950;letter-spacing:.04em;box-shadow:0 0 17px rgba(62,244,170,.18);
+      }
+      body.v014.poker8-v2-sixmax #mobileBetRail[aria-hidden="true"]{display:none!important;}
     }
   `;
   document.head.appendChild(style);
@@ -899,12 +911,8 @@
 
   let referenceActive = false;
   let presetSnapshot = null;
-  let allInArmedUntil = 0;
-  let allInArmedSource = "";
-  let allInArmedFingerprint = "";
-  let allInTimer = 0;
+  let sizingMode = null;
   let presetSettleTimer = 0;
-  const ALL_IN_CONFIRM_MS = 3000;
   const PRESET_SETTLE_MS = 1000;
 
   const stripHudUnit = value => String(value ?? "").replace(/\s*ББ\s*$/i, "").trim();
@@ -947,6 +955,54 @@
     input.value = kind === "min" ? input.min : input.max;
     input.dispatchEvent(new Event("input", { bubbles:true }));
     selectPreset(button);
+  }
+
+  function closeSizingMode(render = true) {
+    sizingMode = null;
+    document.body.classList.remove("v038-sizing-open");
+    document.getElementById("sizingWrap")?.setAttribute("aria-hidden", "true");
+    if (render) queueSync();
+  }
+
+  function syncSizingModeText() {
+    const amount = Number(document.getElementById("amount")?.value || 0);
+    if (sizingMode) sizingMode.value = amount;
+    setText(document.getElementById("mobileSizingAmount"), `${stripHudUnit(formatBB(amount))} BB`);
+    setText(
+      document.getElementById("mobileSizingConfirm"),
+      sizingMode?.action === "raise" ? "ПОДТВЕРДИТЬ РЕЙЗ" : sizingMode?.action === "all_in" ? "ПОДТВЕРДИТЬ ALL-IN" : "ПОДТВЕРДИТЬ СТАВКУ",
+    );
+  }
+
+  function openSizingMode(action, amount = null) {
+    const bounds = amountBounds();
+    const value = Math.min(bounds.max, Math.max(bounds.min, amount ?? bounds.value));
+    sizingMode = { action, value };
+    syncAmountControls(value);
+    document.body.classList.add("v038-sizing-open");
+    const wrap = document.getElementById("sizingWrap");
+    if (wrap) {
+      wrap.hidden = false;
+      wrap.setAttribute("aria-hidden", "false");
+    }
+    syncSizingModeText();
+    queueSync();
+  }
+
+  function confirmSizingMode() {
+    if (!sizingMode || !game || game.terminal) return closeSizingMode();
+    const { action, value } = sizingMode;
+    const localTurn = isLocalHumanTurn();
+    closeSizingMode(false);
+    if (!localTurn) {
+      togglePendingAction(action === "all_in" ? "all_in" : "aggressive");
+      renderMobileSelectedCard();
+      queueSync();
+      return;
+    }
+    clearPendingAction(false);
+    if (action === "all_in") return sendAction("all_in", 0);
+    return sendAction(action, value);
   }
 
   function ensurePresetButtons() {
@@ -1002,53 +1058,6 @@
     row.querySelectorAll("button small").forEach(value => setText(value, stripHudUnit(value.textContent)));
   }
 
-  function clearAllInConfirmation(render = true) {
-    window.clearTimeout(allInTimer);
-    allInTimer = 0;
-    allInArmedUntil = 0;
-    allInArmedSource = "";
-    allInArmedFingerprint = "";
-    if (render) queueSync();
-  }
-
-  function allInFingerprint(source) {
-    const amount = Number(document.getElementById("amount")?.value || 0);
-    return [game?.hand_id, game?.street, game?.acting_player, game?.history?.length || 0, source, source === "aggressive" ? amount : ""].join(":");
-  }
-
-  function confirmAllIn(source, localTurn, amount, legal) {
-    const now = Date.now();
-    const fingerprint = allInFingerprint(source);
-    if (allInArmedSource !== source || allInArmedUntil <= now || allInArmedFingerprint !== fingerprint) {
-      clearAllInConfirmation(false);
-      allInArmedSource = source;
-      allInArmedUntil = now + ALL_IN_CONFIRM_MS;
-      allInArmedFingerprint = fingerprint;
-      allInTimer = window.setTimeout(() => clearAllInConfirmation(), ALL_IN_CONFIRM_MS);
-      queueSync();
-      return;
-    }
-    clearAllInConfirmation(false);
-    if (source === "aggressive") {
-      if (!localTurn) {
-        togglePendingAction("aggressive");
-        renderMobileSelectedCard();
-        queueSync();
-        return;
-      }
-      clearPendingAction(false);
-      return sendAction(legal.includes("raise") ? "raise" : "bet", amount);
-    }
-    if (!localTurn) {
-      togglePendingAction("all_in");
-      renderMobileSelectedCard();
-      queueSync();
-      return;
-    }
-    clearPendingAction(false);
-    return sendAction("all_in", 0);
-  }
-
   function ensureHudSummary() {
     const panel = document.querySelector(".action-panel");
     if (!panel) return;
@@ -1100,9 +1109,6 @@
     const bounds = amountBounds();
     const allInTotal = Number(localViewerPlayer()?.stack || 0) + Number(localViewerPlayer()?.street_invested || 0);
     const aggressiveLabel = Number(game?.current_bet || 0) > Number(localViewerPlayer()?.street_invested || 0) ? "RAISE" : "BET";
-    if (allInArmedSource && (allInArmedUntil <= Date.now() || allInArmedFingerprint !== allInFingerprint(allInArmedSource))) {
-      clearAllInConfirmation(false);
-    }
     const defs = mobileActionDefinitions({ localTurn, legal, toCall, amount, allInTotal, aggressiveLabel });
     const aggressive = defs.find(def => def.key === "aggressive");
     const atMax = Math.abs(amount - Number(bounds.max || 0)) < 1e-9;
@@ -1129,9 +1135,6 @@
       button.dataset.v038ReferenceAction = "1";
       button.className = `action-slot ${def.cls}`;
       button.classList.toggle("queued", pendingAction?.kind === def.key);
-      button.classList.toggle("v038-all-in-armed", allInArmedSource === def.key);
-      if (def.allIn) button.dataset.v038AllInTrigger = "1";
-      else delete button.dataset.v038AllInTrigger;
       let label = button.querySelector(".v038-action-label");
       let value = button.querySelector(".v038-action-amount");
       if (!label || !value) {
@@ -1139,7 +1142,7 @@
         label = button.firstElementChild;
         value = button.lastElementChild;
       }
-      setText(label, allInArmedSource === def.key ? "CONFIRM" : def.label);
+      setText(label, def.label);
       if (value.textContent !== def.amount) {
         setText(value, def.amount);
         value.classList.remove("v038-amount-pulse");
@@ -1149,7 +1152,8 @@
       button.setAttribute("aria-label", `${def.label}${def.amount ? ` ${def.amount}` : ""}`);
       button.onclick = () => {
         if (!game || game.terminal || !alive) return;
-        if (def.allIn) return confirmAllIn(def.key, localTurn, amount, legal);
+        if (def.allIn) return openSizingMode("all_in", bounds.max);
+        if (def.key === "aggressive") return openSizingMode(aggressiveLabel === "RAISE" ? "raise" : "bet", amount);
         if (!localTurn) {
           togglePendingAction(def.key);
           renderMobileSelectedCard();
@@ -1160,7 +1164,6 @@
         if (def.key === "check") return sendAction("check", 0);
         if (def.key === "fold") return sendAction("fold", 0);
         if (def.key === "call") return sendAction("call", 0);
-        return sendAction(legal.includes("raise") ? "raise" : "bet", amount);
       };
     });
   }
@@ -1168,7 +1171,7 @@
   function teardownFinalReference() {
     if (!referenceActive) return;
     referenceActive = false;
-    clearAllInConfirmation(false);
+    closeSizingMode(false);
     clearPresetSelection();
     window.clearTimeout(presetSettleTimer);
     presetSettleTimer = 0;
@@ -1212,6 +1215,9 @@
       return;
     }
     referenceActive = true;
+    const legal = game?.human_legal_actions || [];
+    const aggressiveLegal = !isLocalHumanTurn() || legal.includes("bet") || legal.includes("raise") || legal.includes("all_in");
+    if (sizingMode && (!game || game.terminal || !localPlayerAlive() || !aggressiveLegal)) closeSizingMode(false);
     ensurePresetButtons();
     ensureHudSummary();
     ensureMobileHeaderControls();
@@ -1224,6 +1230,7 @@
     syncTableTurnHud();
     syncCompletedHandReset();
     configureReferenceActions();
+    syncSizingModeText();
   }
 
   let syncQueued = false;
@@ -1261,17 +1268,12 @@
       sizing.addEventListener("input", event => {
         if (event.target?.matches?.("#amountSlider")) scheduleSettledPreset();
         else clearPresetSelection();
-        clearAllInConfirmation(false);
+        syncSizingModeText();
         queueSync();
       });
     }
-    if (!document.body.dataset.v038ClickSync) {
-      document.body.dataset.v038ClickSync = "1";
-      document.addEventListener("click", event => {
-        if (event.target?.closest?.("#amountMinus,#amountPlus")) clearPresetSelection();
-        if (allInArmedSource && !event.target?.closest?.("[data-v038-all-in-trigger]")) clearAllInConfirmation();
-      });
-    }
+    document.getElementById("mobileSizingConfirm")?.addEventListener("click", confirmSizingMode);
+    document.getElementById("mobileSizingCancel")?.addEventListener("click", () => closeSizingMode());
   };
 
   window.addEventListener("resize", queueSync);

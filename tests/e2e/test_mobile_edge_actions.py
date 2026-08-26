@@ -79,3 +79,34 @@ def test_mobile_actions_hide_irrelevant_controls_and_touch_viewport_edges(online
             assert box["height"] >= 48
             assert box["left"] == pytest.approx(0, abs=1) or box["right"] == pytest.approx(360, abs=1)
         browser.close()
+
+
+def test_bet_and_all_in_open_sizing_without_immediate_submission(online_server: str):
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        page = browser.new_page(viewport={"width": 360, "height": 800}, device_scale_factor=1)
+        submissions: list[str] = []
+        page.route("**/api/game/**/action", lambda route: (submissions.append(route.request.post_data or ""), route.fulfill(status=200, json={})))
+        state = _state(0, ["check", "fold", "bet", "all_in"])
+        _open_table(page, online_server, 360, 800, state)
+
+        page.locator('[data-action-key="aggressive"]').click()
+        assert page.locator("#sizingWrap").get_attribute("aria-hidden") == "false"
+        assert page.locator("#mobileSizingConfirm").is_visible()
+        assert submissions == []
+        page.locator("#mobileSizingConfirm").click()
+        page.wait_for_timeout(50)
+        assert len(submissions) == 1
+
+        page.evaluate(
+            "payload => window.Poker8LegacyView.renderSnapshot({table:{id:'t',name:'Test'},state:payload,viewerState:'seated'})",
+            state,
+        )
+        page.locator('[data-action-key="all_in"]').click()
+        assert page.locator("#sizingWrap").get_attribute("aria-hidden") == "false"
+        assert page.locator("#mobileSizingAmount").inner_text().strip()
+        assert len(submissions) == 1
+        page.locator("#mobileSizingConfirm").click()
+        page.wait_for_timeout(50)
+        assert len(submissions) == 2
+        browser.close()
