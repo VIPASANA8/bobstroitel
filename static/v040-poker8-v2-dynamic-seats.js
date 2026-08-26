@@ -104,8 +104,18 @@
     }
     @media (min-width:781px){
       body.v014.poker8-desktop-v2 .seat.v040-empty-seat{display:none!important;}
+      /* A percentage alone cannot keep the top row on the felt. The seat box
+         is a fixed 148px here, so its centre needs at least half of that plus
+         the ~20px the hole cards overhang above it; the tallest box here is 154px
+         (two players), so the floor is 100px. The top pole sits
+         at 9% of the felt, which is only 70px on a 780px felt and 74px on the
+         shorter seated one, so the box already started 4px above the felt and
+         the cards were clipped away entirely (reported live: "карты
+         улетают"). The floor is in pixels because the shortfall is in pixels:
+         it binds on a short felt and does nothing on a tall one, so the
+         hexagon keeps its spread wherever there is room for it. */
       body.v014.poker8-desktop-v2 .seat.v040-dynamic-seat{
-        left:var(--v040-seat-x)!important;top:var(--v040-seat-y)!important;
+        left:var(--v040-seat-x)!important;top:max(var(--v040-seat-y),100px)!important;
         transform:translate(calc(-50% + var(--v040-flip-x, 0px)),calc(-50% + var(--v040-flip-y, 0px)))!important;
         transition:transform 320ms cubic-bezier(.22,.8,.24,1)!important;
         will-change:transform;

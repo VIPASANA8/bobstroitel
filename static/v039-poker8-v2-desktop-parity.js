@@ -157,7 +157,7 @@
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat-name{max-width:82px!important;font-size:10px!important;line-height:1!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat-stack{margin-top:4px!important;font-size:15px!important;line-height:1!important;color:hsl(var(--avatar-hue) 95% 68%)!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .bot-level,body.v014.poker8-v2-sixmax.poker8-desktop-v2 .position-chip{display:none!important;}
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .player-cards{position:absolute!important;z-index:3!important;left:50%!important;top:-80px!important;bottom:auto!important;transform:translateX(-50%)!important;min-height:0!important;gap:3px!important;pointer-events:none!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .player-cards{position:absolute!important;z-index:3!important;left:50%!important;top:-20px!important;bottom:auto!important;transform:translateX(-50%)!important;min-height:0!important;gap:3px!important;pointer-events:none!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .player-cards .card.back{width:40px!important;height:55px!important;border-color:hsl(var(--avatar-hue) 95% 72% / .82)!important;background:repeating-linear-gradient(45deg,hsl(var(--avatar-hue) 62% 38% / .76) 0 3px,hsl(var(--avatar-hue) 62% 16% / .98) 3px 6px)!important;box-shadow:inset 0 0 0 2px rgba(0,0,0,.50),0 0 10px hsl(var(--avatar-hue) 94% 58% / .30)!important;}
       /* Same avatar size and plate as every other seat -- the hero used to be
          smaller than everyone else here, which read as a rendering bug. Only
