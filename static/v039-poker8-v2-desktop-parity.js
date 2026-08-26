@@ -42,9 +42,36 @@
       body.v014.poker8-desktop-v2 #mobileDrawer,
       body.v014.poker8-desktop-v2 #mobileDrawerBackdrop{display:none!important;}
       body.v014.poker8-desktop-v2 .room-ambience{position:fixed!important;inset:0!important;width:100%!important;height:100dvh!important;opacity:.28!important;filter:saturate(.68) brightness(.55)!important;pointer-events:none!important;z-index:0!important;}
-      body.v014.poker8-desktop-v2 .app-shell{position:relative!important;z-index:1!important;width:min(1720px,calc(100% - 40px))!important;margin:0 auto!important;}
+      /* A flex column so the in-flow topbar takes its own height and .layout
+         claims exactly what is left, instead of both guessing at 76px. */
+      body.v014.poker8-desktop-v2 .app-shell{position:relative!important;z-index:1!important;width:min(1720px,calc(100% - 40px))!important;margin:0 auto!important;display:flex!important;flex-direction:column!important;height:100dvh!important;padding-top:10px!important;padding-bottom:0!important;box-sizing:border-box!important;}
+      /* style.css:2590 (.neon-ref-v107 .topbar) leaves this absolute at
+         inset:0 0 auto with z-index:310 -- an overlay from the alpha design,
+         where it floated over a full-bleed table. It therefore reserves no
+         height: .layout started at y:50 while the bar occupied 0-76, so the
+         chat panel's own "Чат стола" heading (y:67-86) was painted over by
+         it. Measured live at 1732px. In flow it reserves its height and the
+         overlap cannot happen. style.css:2335 also caps it at 1440px, which
+         on a 1692px shell read as a detached floating card rather than the
+         page's own header -- so it spans the shell here instead.
+         pointer-events comes back with it: the alpha bar was click-through
+         because the table was underneath, which is no longer true. */
       body.v014.poker8-desktop-v2 .topbar{
-        min-height:74px!important;padding:13px 18px!important;
+        position:relative!important;inset:auto!important;
+        /* The same min(1500px,100%) style.css:2589 gives .layout one line
+           above the rule this is undoing -- so the bar and the content it
+           heads share an edge instead of the bar overhanging it by ~92px
+           on a 1720px shell. */
+        max-width:none!important;width:min(1500px,100%)!important;
+        margin-inline:auto!important;
+        pointer-events:auto!important;
+        /* Trimmed from 74/13 now that the bar costs real vertical space
+           instead of floating: on a 720p desktop the seated felt loses
+           whatever this takes, and 44px of content box still clears the
+           42px buttons inside it. */
+        /* style.css:2590 sets a hard height:76px, so min-height alone was
+           inert -- the bar stayed 76 tall no matter what. */
+        height:auto!important;min-height:66px!important;padding:11px 18px!important;
         border:1px solid rgba(40,255,183,.18)!important;border-radius:0 0 18px 18px!important;
         background:linear-gradient(180deg,rgba(7,16,15,.94),rgba(0,0,0,.82))!important;
         box-shadow:0 12px 28px rgba(0,0,0,.44),inset 0 -1px rgba(71,255,190,.08)!important;
@@ -190,7 +217,13 @@
         grid-template-rows:minmax(0,1fr) auto!important;
         grid-template-areas:"table chat" "actions chat"!important;
         gap:14px!important;
-        height:calc(100dvh - 76px)!important;
+        /* Was height:calc(100dvh - 76px) -- the 76 stood for a topbar that
+           was out of flow and reserved nothing. Now that it is in flow (see
+           the .topbar rule above) subtracting it as well would count it
+           twice and push the page past the viewport. The shell is a flex
+           column, so the remaining space is simply what is left. */
+        flex:1 1 auto!important;
+        height:auto!important;
         min-height:0!important;
         padding-bottom:12px!important;
         box-sizing:border-box!important;
@@ -243,8 +276,12 @@
          a 940px bar they huddled in a 207px column against the left edge.
          Give them a box their own size and centre that instead of trying to
          re-pin every one of them. */
+      /* 520px was a phone-sized column parked under a ~930px felt, leaving
+         200px of empty dark either side -- measured live at 1732px, and the
+         single thing that made the seated table read as unfinished. Track
+         the felt instead so the HUD and the table share one edge. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .action-panel{
-        position:relative!important;width:min(100%,520px)!important;margin-inline:auto!important;
+        position:relative!important;width:min(100%,860px)!important;margin-inline:auto!important;
       }
       /* The stage is a grid row here, not a subtraction from the viewport. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2{
