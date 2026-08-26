@@ -58,3 +58,24 @@ def test_opponents_form_one_equal_chord_arc_at_both_mobile_sizes(online_server: 
             assert centers[1][1] == pytest.approx(centers[3][1], abs=1)
             assert centers[2][1] < centers[1][1] < centers[0][1]
         browser.close()
+
+
+def _action_keys(page: Page) -> list[str]:
+    return page.locator("#actionButtons button:visible").evaluate_all("els => els.map(el => el.dataset.actionKey)")
+
+
+def test_mobile_actions_hide_irrelevant_controls_and_touch_viewport_edges(online_server: str):
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        page = browser.new_page(viewport={"width": 360, "height": 800}, device_scale_factor=1)
+        _open_table(page, online_server, 360, 800, _state(0, ["check", "fold", "bet", "all_in"]))
+        assert _action_keys(page) == ["check", "fold", "aggressive", "all_in"]
+        _open_table(page, online_server, 360, 800, _state(4, ["fold", "call", "raise", "all_in"]))
+        assert _action_keys(page) == ["fold", "call", "aggressive"]
+        boxes = page.locator("#actionButtons button:visible").evaluate_all(
+            "els => els.map(el => { const r=el.getBoundingClientRect(); return {key:el.dataset.actionKey,left:r.left,right:r.right,height:r.height}; })"
+        )
+        for box in boxes:
+            assert box["height"] >= 48
+            assert box["left"] == pytest.approx(0, abs=1) or box["right"] == pytest.approx(360, abs=1)
+        browser.close()

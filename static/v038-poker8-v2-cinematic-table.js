@@ -612,6 +612,14 @@
         padding:0!important;margin:0!important;overflow:visible!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;pointer-events:none!important;
       }
       body.v014.poker8-v2-sixmax .action-panel :is(button,input){pointer-events:auto!important;}
+      body.v014.poker8-v2-sixmax .action-grid{display:contents!important;}
+      body.v014.poker8-v2-sixmax .action-grid .action-slot{
+        position:fixed!important;z-index:90;width:88px!important;max-width:88px!important;min-height:58px!important;height:auto!important;padding:8px 7px!important;
+      }
+      body.v014.poker8-v2-sixmax .action-slot[data-edge="left"]{left:0!important;right:auto!important;border-left:0!important;border-radius:0 16px 16px 0!important;}
+      body.v014.poker8-v2-sixmax .action-slot[data-edge="right"]{right:0!important;left:auto!important;border-right:0!important;border-radius:16px 0 0 16px!important;}
+      body.v014.poker8-v2-sixmax .action-slot[data-slot="top"]{top:auto!important;bottom:calc(152px + env(safe-area-inset-bottom))!important;}
+      body.v014.poker8-v2-sixmax .action-slot[data-slot="bottom"]{top:auto!important;bottom:calc(84px + env(safe-area-inset-bottom))!important;}
     }
   `;
   document.head.appendChild(style);
@@ -1059,38 +1067,65 @@
     setText(summary.querySelector("[data-v038-bet]"), stripHudUnit(amount));
   }
 
+  function mobileActionDefinitions({ localTurn, legal, toCall, amount, allInTotal, aggressiveLabel }) {
+    const available = action => !localTurn || legal.includes(action);
+    if (toCall > 0) {
+      return [
+        { key:"fold", label:"FOLD", amount:"", cls:"fold", edge:"left", slot:"top", enabled:available("fold") },
+        { key:"call", label:"CALL", amount:stripHudUnit(formatBB(toCall)), cls:"call", edge:"right", slot:"top", enabled:available("call") },
+        { key:"aggressive", label:aggressiveLabel, amount:stripHudUnit(formatBB(amount)), cls:"raise", edge:"right", slot:"bottom", enabled:available("raise") },
+      ].filter(def => def.enabled);
+    }
+    return [
+      { key:"check", label:"CHECK", amount:"", cls:"check", edge:"left", slot:"top", enabled:available("check") },
+      { key:"fold", label:"FOLD", amount:"", cls:"fold", edge:"left", slot:"bottom", enabled:available("fold") },
+      { key:"aggressive", label:"BET", amount:stripHudUnit(formatBB(amount)), cls:"raise", edge:"right", slot:"top", enabled:available("bet") },
+      { key:"all_in", label:"ALL IN", amount:stripHudUnit(formatBB(allInTotal)), cls:"all-in", edge:"right", slot:"bottom", enabled:available("all_in"), allIn:true },
+    ].filter(def => def.enabled);
+  }
+
   function configureReferenceActions() {
     const grid = document.getElementById("actionButtons");
-    const current = [...(grid?.querySelectorAll("[data-v038-reference-action]") || [])];
     if (!grid) return;
     const alive = localPlayerAlive();
+    if (!game || game.terminal || !alive) {
+      grid.innerHTML = "";
+      delete grid.dataset.v038ActionSignature;
+      return;
+    }
     const localTurn = isLocalHumanTurn();
     const legal = game?.human_legal_actions || [];
     const toCall = estimatedLocalToCall();
     const amount = Number(document.getElementById("amount")?.value || amountBounds().value || 0);
     const bounds = amountBounds();
     const allInTotal = Number(localViewerPlayer()?.stack || 0) + Number(localViewerPlayer()?.street_invested || 0);
-    const leftKey = localTurn ? (legal.includes("check") ? "check" : "fold") : (toCall > 0 ? "fold" : "check");
-    const atMax = Math.abs(amount - Number(bounds.max || 0)) < 1e-9;
     const aggressiveLabel = Number(game?.current_bet || 0) > Number(localViewerPlayer()?.street_invested || 0) ? "RAISE" : "BET";
     if (allInArmedSource && (allInArmedUntil <= Date.now() || allInArmedFingerprint !== allInFingerprint(allInArmedSource))) {
       clearAllInConfirmation(false);
     }
-    const defs = [
-      { key:"call", label:"CALL", amount:stripHudUnit(formatBB(toCall)), cls:"call" },
-      { key:"all_in", label:allInArmedSource === "all_in" ? "CONFIRM" : "ALL IN", amount:stripHudUnit(formatBB(allInTotal)), cls:"all-in", allIn:true },
-      { key:leftKey, label:leftKey === "check" ? "CHECK" : "FOLD", amount:"", cls:leftKey },
-      { key:"aggressive", label:allInArmedSource === "aggressive" ? "CONFIRM" : atMax ? "ALL IN" : aggressiveLabel, amount:stripHudUnit(formatBB(atMax ? allInTotal : amount)), cls:atMax ? "all-in" : "raise", allIn:atMax },
-    ];
-    if (current.length !== 4) {
+    const defs = mobileActionDefinitions({ localTurn, legal, toCall, amount, allInTotal, aggressiveLabel });
+    const aggressive = defs.find(def => def.key === "aggressive");
+    const atMax = Math.abs(amount - Number(bounds.max || 0)) < 1e-9;
+    if (aggressive && atMax) {
+      aggressive.label = "ALL IN";
+      aggressive.amount = stripHudUnit(formatBB(allInTotal));
+      aggressive.cls = "all-in";
+      aggressive.allIn = true;
+    }
+    const signature = defs.map(def => def.key).join("|");
+    if (grid.dataset.v038ActionSignature !== signature) {
       grid.innerHTML = "";
       defs.forEach(() => grid.appendChild(document.createElement("button")));
+      grid.dataset.v038ActionSignature = signature;
     }
     grid.dataset.v038ReferenceActions = "1";
     [...grid.children].forEach((button, index) => {
       const def = defs[index];
       button.type = "button";
+      button.disabled = false;
       button.dataset.actionKey = def.key;
+      button.dataset.edge = def.edge;
+      button.dataset.slot = def.slot;
       button.dataset.v038ReferenceAction = "1";
       button.className = `action-slot ${def.cls}`;
       button.classList.toggle("queued", pendingAction?.kind === def.key);
@@ -1104,7 +1139,7 @@
         label = button.firstElementChild;
         value = button.lastElementChild;
       }
-      setText(label, def.label);
+      setText(label, allInArmedSource === def.key ? "CONFIRM" : def.label);
       if (value.textContent !== def.amount) {
         setText(value, def.amount);
         value.classList.remove("v038-amount-pulse");
@@ -1112,16 +1147,6 @@
         value.classList.add("v038-amount-pulse");
       }
       button.setAttribute("aria-label", `${def.label}${def.amount ? ` ${def.amount}` : ""}`);
-      let enabled = Boolean(game && !game.terminal && alive);
-      if (localTurn) {
-        if (def.key === "check") enabled = legal.includes("check");
-        else if (def.key === "fold") enabled = legal.includes("fold");
-        else if (def.key === "call") enabled = legal.includes("call");
-        else if (def.key === "all_in") enabled = legal.includes("all_in");
-        else if (def.allIn) enabled = legal.includes("bet") || legal.includes("raise");
-        else enabled = legal.includes("bet") || legal.includes("raise");
-      } else if (def.key === "call") enabled = enabled && toCall > 0;
-      button.disabled = !enabled;
       button.onclick = () => {
         if (!game || game.terminal || !alive) return;
         if (def.allIn) return confirmAllIn(def.key, localTurn, amount, legal);
