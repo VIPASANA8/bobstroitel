@@ -139,3 +139,33 @@ def test_vertical_bet_gesture_selects_amount_but_never_submits(online_server: st
         assert page.locator("#mobileSizingConfirm").is_visible()
         assert submissions == []
         browser.close()
+
+
+def test_timer_and_semantic_states_are_attached_to_player_huds(online_server: str):
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        page = browser.new_page(viewport={"width": 360, "height": 800}, device_scale_factor=1)
+        state = _state(0, ["check", "fold", "bet", "all_in"], acting="p3")
+        state["players"]["p1"]["folded"] = True
+        state["players"]["p4"]["all_in"] = True
+        _open_table(page, online_server, 360, 800, state)
+
+        active_avatar = page.locator('.seat[data-seat="3"] .avatar-wrap')
+        assert active_avatar.locator(":scope > .v038-turn-timer").is_visible()
+        assert page.locator(".table-frame > .v038-turn-timer").count() == 0
+        assert page.locator(".v038-turn-context").count() == 0
+
+        folded = page.locator('.seat[data-seat="1"] .seat-card')
+        assert 0.35 <= float(folded.evaluate("el => getComputedStyle(el).opacity")) <= 0.5
+        folded_back_opacity = folded.locator(".avatar-wrap").evaluate("el => getComputedStyle(el, '::before').opacity")
+        assert float(folded_back_opacity) == 0
+
+        neutral_accents = page.locator('.seat[data-seat="2"], .seat[data-seat="5"]').evaluate_all(
+            "els => els.map(el => getComputedStyle(el).getPropertyValue('--seat-accent').trim())"
+        )
+        assert len(set(neutral_accents)) == 1
+
+        page.evaluate("document.getElementById('connectionStatus').textContent = 'reconnecting'")
+        page.wait_for_function("document.getElementById('mobileConnectionDot').dataset.state === 'reconnecting'")
+        assert page.locator("#mobileConnectionDot").get_attribute("aria-label") == "Переподключение"
+        browser.close()

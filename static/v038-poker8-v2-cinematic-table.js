@@ -646,6 +646,26 @@
         border:1px solid rgba(75,255,181,.72);box-shadow:0 0 18px rgba(41,238,165,.28);
       }
       body.v014.poker8-v2-sixmax #mobileBetRail[aria-hidden="true"]{display:none!important;}
+      body.v014.poker8-v2-sixmax .seat{--seat-accent:155!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"]{--seat-accent:195!important;}
+      body.v014.poker8-v2-sixmax .seat:has(.v032-active-turn){--seat-accent:165!important;}
+      body.v014.poker8-v2-sixmax .seat:has(.all-in){--seat-accent:34!important;}
+      body.v014.poker8-v2-sixmax .felt .seat .seat-card:is(.folded,.v032-folded){opacity:.45!important;filter:saturate(.28) brightness(.72)!important;}
+      body.v014.poker8-v2-sixmax .felt .seat .seat-card:is(.folded,.v032-folded) .avatar-wrap::before,
+      body.v014.poker8-v2-sixmax .felt .seat .seat-card:is(.folded,.v032-folded) .avatar-wrap::after{opacity:0!important;}
+      body.v014.poker8-v2-sixmax .seat-card.v038-disconnected{opacity:.58!important;filter:saturate(.15) brightness(.72)!important;}
+      body.v014.poker8-v2-sixmax .avatar-wrap>.v038-turn-timer{
+        position:absolute;z-index:14;left:50%;top:50%;bottom:auto;width:calc(100% + 10px);height:calc(100% + 10px);transform:translate(-50%,-50%);display:grid;place-items:center;border-radius:50%;
+        background:conic-gradient(#57ffd0 var(--timer-progress,100%),rgba(87,255,208,.10) 0);filter:drop-shadow(0 0 8px rgba(87,255,208,.72));pointer-events:none;
+      }
+      body.v014.poker8-v2-sixmax .avatar-wrap>.v038-turn-timer::before{content:"";position:absolute;inset:3px;border-radius:50%;background:rgba(2,10,7,.18);border:1px solid rgba(87,255,208,.68);}
+      body.v014.poker8-v2-sixmax .avatar-wrap>.v038-turn-timer b{
+        position:absolute;left:calc(100% - 4px);top:50%;min-width:29px;padding:4px 5px;transform:translateY(-50%);border-radius:8px;background:#061710;color:#fff;font-size:13px;line-height:1;text-align:center;text-shadow:0 0 7px #55ffe0;box-shadow:0 0 10px rgba(85,255,224,.35);
+      }
+      body.v014.poker8-v2-sixmax .avatar-wrap>.v038-turn-timer small{display:none;}
+      body.v014.poker8-v2-sixmax #mobileConnectionDot[data-state="connecting"]{background:#8aa99b;box-shadow:0 0 7px rgba(138,169,155,.58);}
+      body.v014.poker8-v2-sixmax #mobileConnectionDot[data-state="reconnecting"]{background:#ffbd55;box-shadow:0 0 9px rgba(255,189,85,.88);}
+      body.v014.poker8-v2-sixmax #mobileConnectionDot[data-state="error"]{background:#ff554f;box-shadow:0 0 9px rgba(255,85,79,.88);}
     }
   `;
   document.head.appendChild(style);
@@ -701,6 +721,25 @@
       help.textContent = "?";
       header.appendChild(help);
     }
+    syncConnectionDot();
+  }
+
+  function syncConnectionDot() {
+    const dot = document.getElementById("mobileConnectionDot");
+    if (!dot) return;
+    const raw = document.getElementById("connectionStatus")?.textContent?.trim().toLowerCase() || "";
+    const state = raw === "connected" ? "connected"
+      : raw.includes("reconnect") || raw.includes("перепод") ? "reconnecting"
+      : raw.includes("error") || raw.includes("ошиб") || raw.includes("offline") ? "error"
+      : "connecting";
+    const labels = {
+      connected:"Подключено",
+      reconnecting:"Переподключение",
+      error:"Ошибка соединения",
+      connecting:"Подключение",
+    };
+    dot.dataset.state = state;
+    dot.setAttribute("aria-label", labels[state]);
   }
 
   let readyCountdownEndsAt = 0;
@@ -768,6 +807,7 @@
       if (!card) return;
       card.classList.remove(...ACTION_CLASSES);
       const player = Object.values(game?.players || {}).find(item => Number(item?.seat) === Number(seat.dataset.seat));
+      card.classList.toggle("v038-disconnected", Boolean(player?.disconnected || player?.connected === false || player?.status === "disconnected"));
       const action = latest.get(player?.id);
       const family = action === "fold" ? "fold"
         : ["check", "call"].includes(action) ? "passive"
@@ -778,40 +818,30 @@
   }
 
   function syncTableTurnHud() {
-    const host = document.querySelector(".table-frame");
-    if (!host) return;
-    let timer = host.querySelector(".v038-turn-timer");
-    let context = host.querySelector(".v038-turn-context");
-    if (!timer) {
-      timer = document.createElement("div");
-      timer.className = "v038-turn-timer";
-      timer.innerHTML = '<b>30</b><small>СЕК</small>';
-      host.appendChild(timer);
-    }
-    if (!context) {
-      context = document.createElement("div");
-      context.className = "v038-turn-context";
-      context.innerHTML = "<strong></strong><span></span>";
-      host.appendChild(context);
-    }
+    let timer = document.querySelector(".v038-turn-timer");
+    document.querySelectorAll(".v038-turn-context").forEach(node => node.remove());
     const active = Boolean(game && !game.terminal && game.acting_player);
-    timer.classList.toggle("visible", active);
-    context.classList.toggle("visible", active);
-    if (!active) {
+    const actor = active ? game.players?.[game.acting_player] : null;
+    const host = actor ? document.querySelector(`.seat[data-seat="${Number(actor.seat)}"] .avatar-wrap`) : null;
+    if (!active || !host) {
+      timer?.remove();
       window.clearInterval(turnVisualTicker);
       turnVisualTicker = 0;
       turnVisualToken = "";
       return;
     }
+    if (!timer) {
+      timer = document.createElement("div");
+      timer.className = "v038-turn-timer";
+      timer.innerHTML = '<b>30</b><small>СЕК</small>';
+    }
+    if (timer.parentElement !== host) host.appendChild(timer);
+    timer.classList.add("visible");
     const token = `${game.hand_id}:${game.street}:${game.acting_player}:${game.history?.length || 0}`;
     if (turnVisualToken !== token) {
       turnVisualToken = token;
       turnVisualStartedAt = Date.now();
     }
-    const actor = game.players?.[game.acting_player];
-    setText(context.querySelector("strong"), `ХОД · ${actor?.name || "ИГРОК"}`);
-    const invested = Number(actor?.street_invested || 0);
-    setText(context.querySelector("span"), invested > 0 ? `ПОСТАВИЛ · ${compactStackLabel(invested)}` : "");
     const left = Math.max(0, TURN_VISUAL_MS - (Date.now() - turnVisualStartedAt));
     const seconds = Math.ceil(left / 1000);
     setText(timer.querySelector("b"), String(seconds));
@@ -1356,6 +1386,8 @@
       window.addEventListener("pointerup", finishVerticalBetGesture);
       window.addEventListener("pointercancel", finishVerticalBetGesture);
     }
+    const connection = document.getElementById("connectionStatus");
+    if (connection) new MutationObserver(syncConnectionDot).observe(connection, { childList:true, characterData:true, subtree:true });
     const sizing = document.getElementById("sizingWrap");
     if (sizing && !sizing.dataset.v038InputSync) {
       sizing.dataset.v038InputSync = "1";
