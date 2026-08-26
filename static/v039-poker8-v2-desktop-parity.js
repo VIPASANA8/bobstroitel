@@ -147,33 +147,33 @@
       body.v014.poker8-desktop-v2 .seat[data-visual-seat$="4"]{left:var(--seat-4-x)!important;top:var(--seat-4-y)!important;}
       body.v014.poker8-desktop-v2 .seat[data-visual-seat$="5"]{left:var(--seat-5-x)!important;top:var(--seat-5-y)!important;}
       body.v014.poker8-desktop-v2 .seat[data-visual-seat$="6"]{left:var(--seat-6-x)!important;top:var(--seat-6-y)!important;}
-      body.v014.poker8-desktop-v2 .seat{width:128px!important;height:140px!important;min-height:0!important;z-index:20!important;}
-      body.v014.poker8-desktop-v2 .seat[data-visual-seat="0"]{width:144px!important;height:150px!important;z-index:28!important;}
-      body.v014.poker8-desktop-v2 .seat-card{width:100%!important;height:100%!important;min-height:0!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important;}
-      body.v014.poker8-desktop-v2 .avatar-wrap{position:absolute!important;left:50%!important;top:2px!important;transform:translateX(-50%)!important;width:88px!important;height:88px!important;z-index:4!important;}
-      body.v014.poker8-desktop-v2 .player-avatar{width:88px!important;height:88px!important;border:2px solid hsl(var(--avatar-hue) 95% 68%)!important;background:radial-gradient(circle at 50% 30%,hsl(var(--avatar-hue) 62% 44% / .46),transparent 31%),radial-gradient(circle at 50% 78%,#07100f 0 42%,#000000 70%)!important;box-shadow:0 0 0 3px rgba(0,0,0,.92),0 0 20px hsl(var(--avatar-hue) 92% 56% / .42),inset 0 -12px 20px rgba(0,0,0,.52)!important;}
-      body.v014.poker8-desktop-v2 .avatar-wrap::before,body.v014.poker8-desktop-v2 .avatar-wrap::after{display:none!important;}
-      body.v014.poker8-desktop-v2 .seat-identity{position:absolute!important;z-index:6!important;left:50%!important;top:82px!important;transform:translateX(-50%)!important;width:116px!important;min-height:43px!important;padding:7px 8px 6px!important;border:1px solid hsl(var(--avatar-hue) 88% 58% / .72)!important;border-radius:10px!important;background:linear-gradient(180deg,rgba(0,0,0,.98),rgba(0,0,0,.995))!important;box-shadow:0 0 14px hsl(var(--avatar-hue) 88% 55% / .22),0 8px 16px rgba(0,0,0,.64)!important;text-align:center!important;}
-      body.v014.poker8-desktop-v2 .seat-name{max-width:82px!important;font-size:10px!important;line-height:1!important;}
-      body.v014.poker8-desktop-v2 .seat-stack{margin-top:4px!important;font-size:15px!important;line-height:1!important;color:hsl(var(--avatar-hue) 95% 68%)!important;}
-      body.v014.poker8-desktop-v2 .bot-level,body.v014.poker8-desktop-v2 .position-chip{display:none!important;}
-      body.v014.poker8-desktop-v2 .player-cards{position:absolute!important;z-index:3!important;left:50%!important;top:-80px!important;bottom:auto!important;transform:translateX(-50%)!important;min-height:0!important;gap:3px!important;pointer-events:none!important;}
-      body.v014.poker8-desktop-v2 .player-cards .card.back{width:34px!important;height:47px!important;border-color:hsl(var(--avatar-hue) 95% 72% / .82)!important;background:repeating-linear-gradient(45deg,hsl(var(--avatar-hue) 62% 38% / .76) 0 3px,hsl(var(--avatar-hue) 62% 16% / .98) 3px 6px)!important;box-shadow:inset 0 0 0 2px rgba(0,0,0,.50),0 0 10px hsl(var(--avatar-hue) 94% 58% / .30)!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat{width:128px!important;height:140px!important;min-height:0!important;z-index:20!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat[data-visual-seat="0"]{width:144px!important;height:150px!important;z-index:28!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat-card{width:100%!important;height:100%!important;min-height:0!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .avatar-wrap{position:absolute!important;left:50%!important;top:2px!important;transform:translateX(-50%)!important;width:88px!important;height:88px!important;z-index:4!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .player-avatar{width:88px!important;height:88px!important;border:2px solid hsl(var(--avatar-hue) 95% 68%)!important;background:radial-gradient(circle at 50% 30%,hsl(var(--avatar-hue) 62% 44% / .46),transparent 31%),radial-gradient(circle at 50% 78%,#07100f 0 42%,#000000 70%)!important;box-shadow:0 0 0 3px rgba(0,0,0,.92),0 0 20px hsl(var(--avatar-hue) 92% 56% / .42),inset 0 -12px 20px rgba(0,0,0,.52)!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .avatar-wrap::before,body.v014.poker8-v2-sixmax.poker8-desktop-v2 .avatar-wrap::after{display:none!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat-identity{position:absolute!important;z-index:6!important;left:50%!important;top:82px!important;transform:translateX(-50%)!important;width:116px!important;min-height:43px!important;padding:7px 8px 6px!important;border:1px solid hsl(var(--avatar-hue) 88% 58% / .72)!important;border-radius:10px!important;background:linear-gradient(180deg,rgba(0,0,0,.98),rgba(0,0,0,.995))!important;box-shadow:0 0 14px hsl(var(--avatar-hue) 88% 55% / .22),0 8px 16px rgba(0,0,0,.64)!important;text-align:center!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat-name{max-width:82px!important;font-size:10px!important;line-height:1!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat-stack{margin-top:4px!important;font-size:15px!important;line-height:1!important;color:hsl(var(--avatar-hue) 95% 68%)!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .bot-level,body.v014.poker8-v2-sixmax.poker8-desktop-v2 .position-chip{display:none!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .player-cards{position:absolute!important;z-index:3!important;left:50%!important;top:-80px!important;bottom:auto!important;transform:translateX(-50%)!important;min-height:0!important;gap:3px!important;pointer-events:none!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .player-cards .card.back{width:40px!important;height:55px!important;border-color:hsl(var(--avatar-hue) 95% 72% / .82)!important;background:repeating-linear-gradient(45deg,hsl(var(--avatar-hue) 62% 38% / .76) 0 3px,hsl(var(--avatar-hue) 62% 16% / .98) 3px 6px)!important;box-shadow:inset 0 0 0 2px rgba(0,0,0,.50),0 0 10px hsl(var(--avatar-hue) 94% 58% / .30)!important;}
       /* Same avatar size and plate as every other seat -- the hero used to be
          smaller than everyone else here, which read as a rendering bug. Only
          the "this is you" border colour stays hero-specific. */
-      body.v014.poker8-desktop-v2 .seat[data-visual-seat="0"] .player-avatar{border-color:#35bfff!important;}
-      body.v014.poker8-desktop-v2 .seat[data-visual-seat="0"] .player-cards{top:-30px!important;z-index:9!important;gap:4px!important;}
-      body.v014.poker8-desktop-v2 .seat[data-visual-seat="0"] .player-cards .card{width:40px!important;height:56px!important;border-color:#56c8ff!important;box-shadow:0 0 12px rgba(47,184,255,.46),0 5px 9px rgba(0,0,0,.54)!important;}
-      body.v014.poker8-desktop-v2 .dealer-button{right:-6px!important;bottom:28px!important;z-index:12!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat[data-visual-seat="0"] .player-avatar{border-color:#35bfff!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat[data-visual-seat="0"] .player-cards{top:-30px!important;z-index:9!important;gap:4px!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat[data-visual-seat="0"] .player-cards .card{width:47px!important;height:65px!important;border-color:#56c8ff!important;box-shadow:0 0 12px rgba(47,184,255,.46),0 5px 9px rgba(0,0,0,.54)!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .dealer-button{right:-6px!important;bottom:28px!important;z-index:12!important;}
 
-      body.v014.poker8-desktop-v2 .table-center{transform:translate(-50%,-50%) scale(.94)!important;z-index:12!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .table-center{transform:translate(-50%,-50%) scale(.94)!important;z-index:12!important;}
       /* Same on desktop: the player stays lit, the cards go. */
-      body.v014.poker8-desktop-v2 .seat-card.folded{opacity:1!important;filter:none!important;}
-      body.v014.poker8-desktop-v2 .seat-card.folded .player-cards{display:none!important;}
-      body.v014.poker8-desktop-v2 .seat-card.folded .seat-identity{background:linear-gradient(180deg,rgba(9,10,10,.98),rgba(0,0,0,.995))!important;}
-      body.v014.poker8-desktop-v2 .seat-identity{backdrop-filter:blur(5px)!important;}
-      body.v014.poker8-desktop-v2 .player-status{
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat-card.folded{opacity:1!important;filter:none!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat-card.folded .player-cards{display:none!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat-card.folded .seat-identity{background:linear-gradient(180deg,rgba(9,10,10,.98),rgba(0,0,0,.995))!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat-identity{backdrop-filter:blur(5px)!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .player-status{
         position:absolute!important;z-index:10!important;left:auto!important;right:5px!important;top:7px!important;
         width:auto!important;height:21px!important;min-height:21px!important;max-height:21px!important;box-sizing:border-box!important;padding:4px 6px!important;
         overflow:hidden!important;display:flex!important;align-items:center!important;transform:none!important;writing-mode:horizontal-tb!important;white-space:nowrap!important;
@@ -182,14 +182,14 @@
         font-size:10px!important;line-height:1!important;letter-spacing:.06em!important;
         box-shadow:0 4px 10px rgba(0,0,0,.42)!important;
       }
-      body.v014.poker8-desktop-v2 .board-cards .card{width:58px!important;height:80px!important;border-color:rgba(98,255,170,.82)!important;background:linear-gradient(150deg,#07100f,#000000)!important;box-shadow:0 0 12px rgba(35,255,159,.32),0 6px 11px rgba(0,0,0,.58)!important;}
-      body.v014.poker8-desktop-v2 .pot-total{border-color:rgba(60,225,150,.26)!important;background:rgba(4,31,20,.78)!important;box-shadow:0 5px 13px rgba(0,0,0,.42)!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .board-cards .card{width:66px!important;height:92px!important;border-color:rgba(98,255,170,.82)!important;background:linear-gradient(150deg,#07100f,#000000)!important;box-shadow:0 0 12px rgba(35,255,159,.32),0 6px 11px rgba(0,0,0,.58)!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .pot-total{border-color:rgba(60,225,150,.26)!important;background:rgba(4,31,20,.78)!important;box-shadow:0 5px 13px rgba(0,0,0,.42)!important;}
       /* v019-center-polish sets display:flex!important on the same selector
          family, so the hide needs !important here to actually win. */
-      body.v014.poker8-desktop-v2.p8-no-pot .pot-total{display:none!important;}
-      body.v014.poker8-desktop-v2 .pot-total strong{color:#eafff6!important;font-size:27px!important;}
-      body.v014.poker8-desktop-v2 .street-badge{border-color:rgba(63,244,173,.30)!important;background:rgba(10,26,18,.82)!important;color:#b8ffda!important;}
-      body.v014.poker8-desktop-v2 .online-state-panel{border-color:rgba(63,244,173,.34)!important;background:rgba(4,31,20,.92)!important;box-shadow:0 0 20px rgba(44,247,169,.14)!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2.p8-no-pot .pot-total{display:none!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .pot-total strong{color:#eafff6!important;font-size:27px!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .street-badge{border-color:rgba(63,244,173,.30)!important;background:rgba(10,26,18,.82)!important;color:#b8ffda!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .online-state-panel{border-color:rgba(63,244,173,.34)!important;background:rgba(4,31,20,.92)!important;box-shadow:0 0 20px rgba(44,247,169,.14)!important;}
       body.v014.poker8-desktop-v2 .online-connection-status{border-color:rgba(68,231,210,.48)!important;background:rgba(2,19,18,.92)!important;color:#8effd1!important;}
       body.v014.poker8-desktop-v2 .btn.primary,body.v014.poker8-desktop-v2 .action-grid button.primary{border-color:#62efb3!important;background:linear-gradient(135deg,#8effd1,#47e6a8)!important;color:#041f14!important;box-shadow:0 0 18px rgba(64,237,167,.24)!important;}
 
