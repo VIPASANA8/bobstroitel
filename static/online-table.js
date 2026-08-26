@@ -33,6 +33,21 @@
     .poker8-online #chatInput{min-width:0;flex:1;padding:11px;border:1px solid #294d3e;border-radius:10px;background:#07100f;color:#f4f5ee}
     .poker8-online #chatForm button{padding:0 15px;border:0;border-radius:10px;background:#91e8ba;color:#041f14;font-weight:900}
     .poker8-online .local-only-control,.poker8-online .solver-panel,.poker8-online .stats-panel,.poker8-online .saved-tables-panel,.poker8-online .format-panel{display:none!important}
+    /* Local-trainer controls that are wrong on ANY online table, at ANY
+       width. They were only ever hidden by viewport -- .seat-edit solely in
+       mobile.css:77, whose <link> is gated to max-width:780px, and
+       .table-count solely inside style.css's own max-width:780px blocks --
+       so on desktop a "•••" seat-editor sat on every bot and the header
+       still read "4 / 7 игроков" (tables are six-max; the 7 is a literal
+       left over from the seven-seat era). Mode is the right key, not width:
+       these must stay above the @media(max-width:780px) block below, and
+       they must stay scoped to .poker8-online so local mode keeps them. */
+    .poker8-online .seat-edit,.poker8-online .table-count{display:none!important}
+    /* Same reasoning for the identity block: an online table is not
+       "ЛОКАЛЬНЫЙ ТРЕНАЖЁР", and the build tag beside it is meaningless to a
+       player. The markup stays for local mode; Phase 2 fills this space
+       with the table's own name and blinds. */
+    .poker8-online .topbar .brand-wrap .eyebrow,.poker8-online .topbar h1{display:none!important}
     .poker8-online .mobile-drawer-divider{height:1px;margin:8px 0;border:0;background:rgba(126,202,165,.20)}
     .poker8-online .mobile-drawer .network-table-action{display:block;width:100%;margin:6px 0;padding:12px;border:1px solid rgba(95,237,170,.34);border-radius:10px;background:rgba(4,31,20,.84);color:#c9ffe3;text-align:left;font-weight:850}
     /* [hidden] is only display:none in the user-agent sheet, so the rule above
