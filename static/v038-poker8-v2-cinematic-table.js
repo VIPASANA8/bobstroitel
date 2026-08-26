@@ -631,6 +631,20 @@
       body.v014.poker8-v2-sixmax #mobileSizingConfirm{
         width:100%!important;min-height:50px!important;border:1px solid rgba(75,255,181,.72);border-radius:13px;background:linear-gradient(180deg,rgba(15,72,48,.96),rgba(4,32,21,.98));color:#eafff4;font-size:12px;font-weight:950;letter-spacing:.04em;box-shadow:0 0 17px rgba(62,244,170,.18);
       }
+      body.v014.poker8-v2-sixmax .action-slot[data-action-key="aggressive"]{touch-action:none!important;}
+      body.v014.poker8-v2-sixmax #mobileBetRail{
+        display:block;position:fixed;z-index:99;top:calc(var(--p8-header-h) + 10px);right:0;bottom:calc(72px + env(safe-area-inset-bottom));width:76px;
+        border:1px solid rgba(75,255,181,.55);border-right:0;border-radius:18px 0 0 18px;background:linear-gradient(180deg,rgba(10,55,38,.94),rgba(2,13,9,.96));
+        box-shadow:0 0 24px rgba(41,238,165,.22);pointer-events:none;
+      }
+      body.v014.poker8-v2-sixmax #mobileBetRail::before{
+        content:"";position:absolute;top:22px;bottom:22px;right:18px;width:3px;border-radius:3px;background:linear-gradient(180deg,#ff9f43 0 8%,#45f0ae 28% 100%);opacity:.8;
+      }
+      body.v014.poker8-v2-sixmax #mobileBetRailAmount{
+        position:fixed;z-index:100;right:12px;top:clamp(calc(var(--p8-header-h) + 12px),calc(var(--v038-rail-y, 50vh) - 25px),calc(100vh - 128px));
+        min-width:104px;min-height:50px;padding:0 12px;display:grid;place-items:center;border-radius:14px 0 0 14px;background:#061b12;color:#fff;font-size:20px;font-weight:950;white-space:nowrap;
+        border:1px solid rgba(75,255,181,.72);box-shadow:0 0 18px rgba(41,238,165,.28);
+      }
       body.v014.poker8-v2-sixmax #mobileBetRail[aria-hidden="true"]{display:none!important;}
     }
   `;
@@ -912,6 +926,7 @@
   let referenceActive = false;
   let presetSnapshot = null;
   let sizingMode = null;
+  let betGesture = null;
   let presetSettleTimer = 0;
   const PRESET_SETTLE_MS = 1000;
 
@@ -985,6 +1000,73 @@
       wrap.hidden = false;
       wrap.setAttribute("aria-hidden", "false");
     }
+    syncSizingModeText();
+    queueSync();
+  }
+
+  function verticalBetSteps() {
+    const bounds = amountBounds();
+    return [bounds.min, 2, 4, presetTarget(.5), presetTarget(.67), presetTarget(1), bounds.max]
+      .map(value => Math.min(bounds.max, Math.max(bounds.min, Number(value || bounds.min))))
+      .filter((value, index, values) => index === 0 || Math.abs(value - values[index - 1]) > 1e-9)
+      .sort((left, right) => left - right)
+      .filter((value, index, values) => index === 0 || Math.abs(value - values[index - 1]) > 1e-9);
+  }
+
+  function hideBetRail() {
+    document.getElementById("mobileBetRail")?.setAttribute("aria-hidden", "true");
+  }
+
+  function beginVerticalBetGesture(event) {
+    const button = event.target?.closest?.('[data-action-key="aggressive"]');
+    if (!button || !isMobileV2() || !game || game.terminal || !localPlayerAlive()) return;
+    const amount = Number(document.getElementById("amount")?.value || amountBounds().value || 0);
+    const steps = verticalBetSteps();
+    const startIndex = steps.reduce((best, value, index) => (
+      Math.abs(value - amount) < Math.abs(steps[best] - amount) ? index : best
+    ), 0);
+    betGesture = {
+      pointerId:event.pointerId,
+      button,
+      startY:event.clientY,
+      startIndex,
+      steps,
+      active:false,
+      action:Number(game.current_bet || 0) > Number(localViewerPlayer()?.street_invested || 0) ? "raise" : "bet",
+    };
+    button.setPointerCapture?.(event.pointerId);
+  }
+
+  function updateVerticalBetGesture(event) {
+    if (!betGesture || event.pointerId !== betGesture.pointerId) return;
+    const distance = betGesture.startY - event.clientY;
+    if (!betGesture.active && Math.abs(distance) < 10) return;
+    if (!betGesture.active) {
+      betGesture.active = true;
+      openSizingMode(betGesture.action, betGesture.steps[betGesture.startIndex]);
+      document.getElementById("mobileBetRail")?.setAttribute("aria-hidden", "false");
+    }
+    event.preventDefault();
+    const index = Math.min(
+      betGesture.steps.length - 1,
+      Math.max(0, betGesture.startIndex + Math.round(distance / 46)),
+    );
+    const value = betGesture.steps[index];
+    syncAmountControls(value);
+    syncSizingModeText();
+    setText(document.getElementById("mobileBetRailAmount"), `${stripHudUnit(formatBB(value))} BB`);
+    document.documentElement.style.setProperty("--v038-rail-y", `${event.clientY}px`);
+  }
+
+  function finishVerticalBetGesture(event) {
+    if (!betGesture || event.pointerId !== betGesture.pointerId) return;
+    const { active, button, pointerId } = betGesture;
+    betGesture = null;
+    button.releasePointerCapture?.(pointerId);
+    hideBetRail();
+    if (!active) return;
+    button.dataset.v038SuppressClick = "1";
+    window.setTimeout(() => button.removeAttribute("data-v038-suppress-click"), 0);
     syncSizingModeText();
     queueSync();
   }
@@ -1151,6 +1233,10 @@
       }
       button.setAttribute("aria-label", `${def.label}${def.amount ? ` ${def.amount}` : ""}`);
       button.onclick = () => {
+        if (button.dataset.v038SuppressClick) {
+          button.removeAttribute("data-v038-suppress-click");
+          return;
+        }
         if (!game || game.terminal || !alive) return;
         if (def.allIn) return openSizingMode("all_in", bounds.max);
         if (def.key === "aggressive") return openSizingMode(aggressiveLabel === "RAISE" ? "raise" : "bet", amount);
@@ -1172,6 +1258,8 @@
     if (!referenceActive) return;
     referenceActive = false;
     closeSizingMode(false);
+    betGesture = null;
+    hideBetRail();
     clearPresetSelection();
     window.clearTimeout(presetSettleTimer);
     presetSettleTimer = 0;
@@ -1261,7 +1349,13 @@
   const start = () => {
     syncFinalReference();
     const buttons = document.getElementById("actionButtons");
-    if (buttons) new MutationObserver(queueSync).observe(buttons, { childList:true });
+    if (buttons) {
+      new MutationObserver(queueSync).observe(buttons, { childList:true });
+      buttons.addEventListener("pointerdown", beginVerticalBetGesture);
+      window.addEventListener("pointermove", updateVerticalBetGesture, { passive:false });
+      window.addEventListener("pointerup", finishVerticalBetGesture);
+      window.addEventListener("pointercancel", finishVerticalBetGesture);
+    }
     const sizing = document.getElementById("sizingWrap");
     if (sizing && !sizing.dataset.v038InputSync) {
       sizing.dataset.v038InputSync = "1";

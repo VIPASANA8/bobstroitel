@@ -110,3 +110,32 @@ def test_bet_and_all_in_open_sizing_without_immediate_submission(online_server: 
         page.wait_for_timeout(50)
         assert len(submissions) == 2
         browser.close()
+
+
+def test_vertical_bet_gesture_selects_amount_but_never_submits(online_server: str):
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        page = browser.new_page(viewport={"width": 360, "height": 800}, device_scale_factor=1)
+        submissions: list[str] = []
+        page.route("**/api/game/**/action", lambda route: (submissions.append(route.request.post_data or ""), route.fulfill(status=200, json={})))
+        _open_table(page, online_server, 360, 800, _state(0, ["check", "fold", "bet", "all_in"]))
+
+        button = page.locator('[data-action-key="aggressive"]')
+        box = button.bounding_box()
+        assert box is not None
+        initial = float(page.locator("#amount").input_value())
+        start_x = box["x"] + box["width"] / 2
+        start_y = box["y"] + box["height"] / 2
+        page.mouse.move(start_x, start_y)
+        page.mouse.down()
+        page.mouse.move(354, 170, steps=8)
+
+        assert page.locator("#mobileBetRail").get_attribute("aria-hidden") == "false"
+        assert float(page.locator("#amount").input_value()) > initial
+        assert submissions == []
+
+        page.mouse.up()
+        assert page.locator("#mobileBetRail").get_attribute("aria-hidden") == "true"
+        assert page.locator("#mobileSizingConfirm").is_visible()
+        assert submissions == []
+        browser.close()
