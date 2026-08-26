@@ -83,7 +83,7 @@
 
   if (!document.querySelector('script[data-v038-poker8-v2-cinematic-table]')) {
     const v038 = document.createElement("script");
-    v038.src = "/static/v038-poker8-v2-cinematic-table.js?v=online-controls-2";
+    v038.src = "/static/v038-poker8-v2-cinematic-table.js?v=edge-actions-1";
     v038.setAttribute("data-v038-poker8-v2-cinematic-table", "");
     document.body.appendChild(v038);
   }

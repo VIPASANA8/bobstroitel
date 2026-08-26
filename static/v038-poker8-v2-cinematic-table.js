@@ -535,6 +535,83 @@
         body.v014.poker8-v2-sixmax .avatar-wrap{transform:translateX(-50%) scale(.92)!important;transform-origin:center bottom;}
         body.v014.poker8-v2-sixmax .board-cards .card{width:39px!important;height:56px!important;}
       }
+
+      /* Portrait-first edge-action composition. Shared pixel offsets keep the
+         five opponent centers on one circle instead of a percentage ellipse. */
+      body.v014.poker8-v2-sixmax{
+        --p8-header-h:52px;
+        --p8-arc-radius:calc(46vw);
+        --p8-arc-diagonal:calc(var(--p8-arc-radius) * .70710678);
+        --p8-arc-top:38px;
+        --p8-arc-center-y:calc(var(--p8-arc-top) + var(--p8-arc-radius));
+        --p8-seat-angles:"180 135 90 45 0";
+        --table-stage-h:calc(100dvh - var(--p8-header-h))!important;
+      }
+      body.v014.poker8-v2-sixmax .mobile-game-header{
+        position:fixed!important;z-index:120;inset:0 0 auto!important;height:var(--p8-header-h)!important;
+        display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:8px!important;
+        padding:2px 8px!important;background:linear-gradient(180deg,rgba(2,12,8,.98),rgba(2,8,6,.92))!important;
+        border-bottom:1px solid rgba(70,255,184,.18)!important;box-shadow:0 8px 22px rgba(0,0,0,.34)!important;
+      }
+      body.v014.poker8-v2-sixmax :is(.mobile-menu-button,.mobile-chat-button,#mobileHelpButton){
+        width:48px!important;height:48px!important;min-width:48px!important;min-height:48px!important;border-radius:14px!important;
+      }
+      body.v014.poker8-v2-sixmax .mobile-chat-button{margin-left:auto!important;}
+      body.v014.poker8-v2-sixmax #mobileHelpButton{
+        display:grid;place-items:center;padding:0;border:1px solid rgba(62,226,190,.62);background:rgba(3,18,13,.88);color:#e2fff4;font-size:20px;font-weight:900;
+        box-shadow:0 0 13px rgba(45,233,176,.14),inset 0 0 11px rgba(64,255,196,.05);
+      }
+      body.v014.poker8-v2-sixmax #mobileConnectionDot{
+        display:block;width:8px;height:8px;flex:0 0 8px;border-radius:50%;background:#55f3a8;box-shadow:0 0 9px rgba(85,243,168,.92);
+      }
+      body.v014.poker8-v2-sixmax #connectionStatus{display:none!important;}
+      body.v014.poker8-v2-sixmax .app-shell{
+        height:100dvh!important;min-height:100dvh!important;padding:var(--p8-header-h) 0 0!important;overflow:hidden!important;background:#030604!important;
+      }
+      body.v014.poker8-v2-sixmax .table-frame{
+        height:calc(100dvh - var(--p8-header-h))!important;min-height:0!important;padding:0 5px!important;overflow:visible!important;
+        background-size:100vw 100%!important;background-position:center!important;
+      }
+      body.v014.poker8-v2-sixmax .felt{
+        height:100%!important;transform:none!important;transform-style:flat!important;
+      }
+      body.v014.poker8-v2-sixmax .seat{width:90px!important;height:104px!important;min-height:0!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"]{left:50%!important;top:calc(100% - 86px)!important;bottom:auto!important;width:116px!important;height:132px!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="1"]{left:calc(50% - var(--p8-arc-radius))!important;top:var(--p8-arc-center-y)!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="2"]{left:calc(50% - var(--p8-arc-diagonal))!important;top:calc(var(--p8-arc-center-y) - var(--p8-arc-diagonal))!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="3"]{left:50%!important;top:var(--p8-arc-top)!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="4"]{left:calc(50% + var(--p8-arc-diagonal))!important;top:calc(var(--p8-arc-center-y) - var(--p8-arc-diagonal))!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="5"]{left:calc(50% + var(--p8-arc-radius))!important;top:var(--p8-arc-center-y)!important;}
+      body.v014.poker8-v2-sixmax .avatar-wrap{
+        top:0!important;width:44px!important;height:44px!important;transform:translateX(-50%)!important;transform-origin:center!important;
+      }
+      body.v014.poker8-v2-sixmax .player-avatar{width:44px!important;height:44px!important;font-size:12px!important;}
+      body.v014.poker8-v2-sixmax .seat-identity{
+        top:40px!important;width:90px!important;min-height:44px!important;padding:5px 6px 4px!important;border-radius:9px!important;
+      }
+      body.v014.poker8-v2-sixmax .seat-name{max-width:78px!important;font-size:12px!important;line-height:1.05!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;}
+      body.v014.poker8-v2-sixmax .seat-stack{font-size:16px!important;line-height:1!important;white-space:nowrap!important;}
+      body.v014.poker8-v2-sixmax .player-cards{top:-31px!important;}
+      body.v014.poker8-v2-sixmax .player-cards .card{width:32px!important;height:44px!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .avatar-wrap{top:9px!important;width:48px!important;height:48px!important;transform:translateX(-50%)!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .player-avatar{width:48px!important;height:48px!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-identity{top:54px!important;width:108px!important;min-height:47px!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-name{max-width:96px!important;font-size:13px!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-stack{font-size:18px!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .player-cards{top:-52px!important;gap:4px!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .player-cards .card{width:50px!important;height:70px!important;}
+      body.v014.poker8-v2-sixmax .board-cards .card{width:46px!important;height:64px!important;}
+      body.v014.poker8-v2-sixmax .pot-total{top:41%!important;}
+      body.v014.poker8-v2-sixmax .pot-chips{top:45%!important;}
+      body.v014.poker8-v2-sixmax .board-cards{top:49%!important;}
+      body.v014.poker8-v2-sixmax .sidebar,
+      body.v014.poker8-v2-sixmax .action-panel,
+      body.v014.poker8-v2-sixmax.local-player-active .sidebar .action-panel,
+      body.v014.poker8-v2-sixmax.human-turn .sidebar .action-panel{
+        position:fixed!important;z-index:80;inset:var(--p8-header-h) 0 0!important;width:auto!important;height:auto!important;min-height:0!important;
+        padding:0!important;margin:0!important;overflow:visible!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;pointer-events:none!important;
+      }
+      body.v014.poker8-v2-sixmax .action-panel :is(button,input){pointer-events:auto!important;}
     }
   `;
   document.head.appendChild(style);
@@ -569,6 +646,27 @@
       setText(label, String(source).replace(/\s*ББ\s*$/i, ""));
       label.setAttribute("aria-label", source);
     });
+  }
+
+  function ensureMobileHeaderControls() {
+    const header = document.getElementById("mobileGameHeader");
+    if (!header) return;
+    let dot = document.getElementById("mobileConnectionDot");
+    if (!dot) {
+      dot = document.createElement("span");
+      dot.id = "mobileConnectionDot";
+      dot.setAttribute("role", "status");
+      dot.setAttribute("aria-label", "Подключение");
+      document.getElementById("mobileMenuButton")?.after(dot);
+    }
+    if (!document.getElementById("mobileHelpButton")) {
+      const help = document.createElement("button");
+      help.id = "mobileHelpButton";
+      help.type = "button";
+      help.setAttribute("aria-label", "Помощь");
+      help.textContent = "?";
+      header.appendChild(help);
+    }
   }
 
   let readyCountdownEndsAt = 0;
@@ -1091,6 +1189,7 @@
     referenceActive = true;
     ensurePresetButtons();
     ensureHudSummary();
+    ensureMobileHeaderControls();
     syncSeatStackLabels();
     syncTableNumberLabels();
     syncAvatarReadyControl();
