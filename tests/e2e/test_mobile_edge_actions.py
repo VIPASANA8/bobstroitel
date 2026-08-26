@@ -169,3 +169,28 @@ def test_timer_and_semantic_states_are_attached_to_player_huds(online_server: st
         page.wait_for_function("document.getElementById('mobileConnectionDot').dataset.state === 'reconnecting'")
         assert page.locator("#mobileConnectionDot").get_attribute("aria-label") == "Переподключение"
         browser.close()
+
+
+def test_mobile_sizes_hold_and_desktop_layout_returns_at_781(online_server: str):
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        page = browser.new_page(device_scale_factor=1)
+        for width, height in ((360, 800), (402, 874)):
+            _open_table(page, online_server, width, height)
+            opponent_avatar = page.locator('.seat[data-visual-seat="1"] .player-avatar').bounding_box()
+            board_card = page.locator("#board .card").first.bounding_box()
+            hero_card = page.locator('.seat[data-visual-seat="0"] .player-cards .card').first.bounding_box()
+            assert opponent_avatar and opponent_avatar["width"] >= 44
+            assert board_card and board_card["width"] >= 44
+            assert hero_card and hero_card["width"] >= board_card["width"]
+            assert page.locator(".action-panel").evaluate("el => getComputedStyle(el).backgroundColor") == "rgba(0, 0, 0, 0)"
+
+        page.set_viewport_size({"width": 781, "height": 900})
+        page.wait_for_timeout(100)
+        assert not page.locator("body").evaluate("el => el.classList.contains('poker8-v2-sixmax')")
+        assert page.locator("#actionButtons").get_attribute("data-v038-reference-actions") is None
+        assert page.locator("#actionButtons [data-edge]").count() == 0
+
+        page.set_viewport_size({"width": 360, "height": 800})
+        page.wait_for_function("document.body.classList.contains('poker8-v2-sixmax')")
+        browser.close()

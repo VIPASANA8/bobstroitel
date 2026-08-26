@@ -519,13 +519,6 @@
         background:linear-gradient(180deg,transparent 0 calc(100% - var(--p8-bottom-reserve)),#010403 calc(100% - var(--p8-bottom-reserve)) 100%)!important;
       }
 
-      @media (max-width:370px){
-        body.v014.poker8-v2-sixmax .seat{width:90px!important;}
-        body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"]{width:120px!important;}
-        body.v014.poker8-v2-sixmax .avatar-wrap{transform:translateX(-50%) scale(.92)!important;transform-origin:center bottom;}
-        body.v014.poker8-v2-sixmax .board-cards .card{width:39px!important;height:56px!important;}
-      }
-
       /* Portrait-first edge-action composition. Shared pixel offsets keep the
          five opponent centers on one circle instead of a percentage ellipse. */
       body.v014.poker8-v2-sixmax{
@@ -1297,7 +1290,9 @@
     turnVisualTicker = 0;
     turnVisualToken = "";
     cancelRoomReset();
-    document.body.classList.remove("v038-room-awaiting");
+    document.body.classList.remove("poker8-v2-sixmax", "v038-sizing-open", "v038-room-awaiting");
+    document.getElementById("sizingWrap")?.setAttribute("aria-hidden", "true");
+    document.getElementById("mobileBetRail")?.setAttribute("aria-hidden", "true");
     document.querySelector(".v038-turn-timer")?.remove();
     document.querySelector(".v038-turn-context")?.remove();
     document.querySelector(".v038-room-prompt")?.remove();
