@@ -50,6 +50,34 @@
         box-shadow:0 12px 28px rgba(0,0,0,.44),inset 0 -1px rgba(71,255,190,.08)!important;
       }
       body.v014.poker8-desktop-v2 .brand-mark{border-color:#37dca2!important;background:#022d1d!important;color:#9fffd9!important;box-shadow:0 0 16px rgba(55,220,162,.24)!important;}
+      /* The table's own name and stakes, standing in for the local-trainer
+         identity that used to sit here (see online-table.js's syncTableIdentity
+         and the mode-scoped hides beside it). */
+      body.v014.poker8-desktop-v2 .p8-table-identity b{
+        display:block;color:#eafff6;font-size:15px;line-height:1.25;letter-spacing:-.01em;
+      }
+      body.v014.poker8-desktop-v2 .p8-table-identity small{
+        display:block;margin-top:2px;color:#8ca59c;font-size:12px;line-height:1.25;
+      }
+      /* .top-actions is an empty flex row on an online table once the
+         local-trainer buttons are hidden -- it is where placeHeaderActions
+         parks the seat pair and the chat/hint group. The phone header's own
+         order/margin rules are width-gated away, so the layout is stated
+         here instead of inherited. */
+      body.v014.poker8-desktop-v2 .top-actions{
+        display:flex!important;align-items:center!important;gap:8px!important;
+      }
+      body.v014.poker8-desktop-v2 .mobile-header-utility{display:flex!important;gap:8px!important;align-items:center!important;}
+      /* Room to breathe that a 374px phone could not spare: the labels stop
+         being clipped to an ellipsis and the hit target grows to match the
+         42px chat/hint squares beside them. */
+      body.v014.poker8-desktop-v2 .mobile-header-seat-actions button{
+        min-height:42px!important;padding:9px 14px!important;
+      }
+      body.v014.poker8-desktop-v2 .mobile-header-seat-actions #mobileHeaderTakeSeat,
+      body.v014.poker8-desktop-v2 .mobile-header-seat-actions #mobileHeaderObserve{
+        width:auto!important;min-width:104px!important;
+      }
       body.v014.poker8-desktop-v2 .eyebrow, body.v014.poker8-desktop-v2 .panel-kicker{color:#eab873!important;letter-spacing:.14em!important;}
       body.v014.poker8-desktop-v2 .topbar h1{color:#eafff6!important;}
       body.v014.poker8-desktop-v2 .layout{grid-template-columns:minmax(0,1fr) 296px!important;gap:18px!important;align-items:start!important;}

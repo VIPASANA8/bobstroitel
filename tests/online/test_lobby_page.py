@@ -169,16 +169,30 @@ def test_the_header_seat_buttons_cannot_overlap_the_chat_and_hint_buttons():
     Staying in flow is what actually prevents it: the header is a flex row
     with justify-content:space-between (v037), so an in-flow group is laid
     out beside its siblings rather than on top of them, at any width.
+
+    The rule was later split in two so desktop could reuse these same nodes
+    in its own topbar (see test_desktop_header_actions): the phone-header
+    layout (order, margin) stayed width-gated, the flex behaviour went
+    global. Both halves are checked here -- the guarantee is unchanged, it
+    just no longer lives in a single declaration block.
     """
     source = Path("static/online-table.js").read_text(encoding="utf-8")
-    rule = source[source.index(".poker8-online .mobile-header-seat-actions{"):]
-    rule = rule[:rule.index("}")]
-    assert "position:absolute" not in rule
-    assert "translate(-50%,-50%)" not in rule
-    assert "display:flex" in rule
+    blocks = [
+        source[m:source.index("}", m)]
+        for m in [
+            hit for hit in range(len(source))
+            if source.startswith(".poker8-online .mobile-header-seat-actions{", hit)
+        ]
+    ]
+    assert len(blocks) == 2, "expected the phone-layout and the global block"
+    joined = "".join(blocks)
+    # Never out of flow again, in either half.
+    assert "position:absolute" not in joined
+    assert "translate(-50%,-50%)" not in joined
+    assert "display:flex" in joined
     # Ordered after the hamburger and before the utility group, which carries
     # order:2 -- otherwise flex would lay the three out in DOM append order.
-    assert "order:1" in rule
+    assert "order:1" in joined
 
     # Nowrap labels in a flex row overflow rather than wrap once the slack
     # (~16px at 374px) runs out, so they have to be allowed to shrink.

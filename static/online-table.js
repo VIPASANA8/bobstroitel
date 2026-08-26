@@ -160,24 +160,6 @@
       /* The header buttons below replace this card on mobile -- keeping both
          would mean two competing seat prompts on a screen with room for one. */
       .poker8-online #readyPanel{display:none!important}
-      /* Was absolutely positioned at left:50% + translate(-50%,-50%) to centre
-         the pair on the header regardless of the buttons on either side. Out
-         of flow, nothing reserved its width: with both Russian labels showing,
-         the group runs ~198px wide and centres to x:88-286 on a 374px screen,
-         while the right-hand utility group (two 42px buttons + 8px gap, 13px
-         padding) starts at x:269 -- so the chat button painted on top of
-         "Наблюдать" and the hint button ran off the edge. In flow, the
-         header's own space-between still puts it in the middle and makes the
-         overlap structurally impossible at any width. */
-      .poker8-online .mobile-header-seat-actions{
-        display:flex;order:1;gap:6px;min-width:0;
-        /* The pair used to butt straight up against the hamburger on one
-           side and the chat/hint icons on the other -- fine once nothing
-           overlapped, but still touching both edges of its own slot. This
-           margin is the slack that keeps it visibly clear of both. */
-        margin:0 4px;
-      }
-      .poker8-online .mobile-header-seat-actions[hidden]{display:none!important}
       /* Header is position:fixed already, so this centres on the header
          itself regardless of the hamburger/utility groups' own widths --
          safe here specifically because the wider two-button pair (the one
@@ -186,6 +168,39 @@
       .poker8-online .mobile-header-seat-actions.ready-up-only{
         position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);margin:0;
       }
+      /* Phone-header layout only. The pair used to butt straight up against
+         the hamburger on one side and the chat/hint icons on the other --
+         fine once nothing overlapped, but still touching both edges of its
+         own slot; this margin is the slack. order puts the group between
+         them. Both are about *this* header, so they stay width-gated --
+         unlike everything under the closing brace below. */
+      .poker8-online .mobile-header-seat-actions{order:1;margin:0 4px}
+      /* Was .mobile-chat-button itself, back when it sat directly in the
+         header next to #mobileHeaderSeatActions -- v037 and this file append
+         their header items independently, so whichever ran last used to
+         decide the visual order. Chat now sits inside its own utility group
+         with the rankings hint (see v037's ensureChatButton); the order
+         belongs on that group so it is still always last/rightmost. */
+      .poker8-online .mobile-header-utility{order:2}
+    }
+    /* ------------------------------------------------------------------
+       How the seat/utility buttons LOOK, as opposed to where the phone
+       header puts them. All of this used to live inside the block above,
+       so desktop -- where the very same nodes get relocated into
+       .top-actions (see v039) -- inherited none of it and would have
+       rendered them unstyled. Identical rules, simply no longer
+       width-gated: mobile is unaffected, desktop gains them.
+       ------------------------------------------------------------------ */
+      .poker8-online .mobile-header-seat-actions{
+        display:flex;gap:6px;min-width:0;
+      }
+      .poker8-online .mobile-header-seat-actions[hidden]{display:none!important}
+      /* Two competing seat prompts is exactly what the phone rule above
+         avoids; desktop now has the same pair, so it drops the card too --
+         but only once placeHeaderActions has actually parked the buttons in
+         the topbar, so a failure there leaves #readyPanel as the fallback
+         rather than stranding desktop with no way to sit down. */
+      .poker8-online.p8-desktop-header-actions #readyPanel{display:none!important}
       .poker8-online .mobile-header-seat-actions button{
         min-height:38px;padding:7px 8px;border:1px solid rgba(255,212,71,.42);border-radius:12px;
         background:rgba(4,31,20,.86);color:#fff6e0;font:800 10px/1 Inter,ui-sans-serif,system-ui;
@@ -271,13 +286,6 @@
       @media (prefers-reduced-motion:reduce){
         .poker8-online .mobile-header-seat-actions button.mode-active::before{animation:none}
       }
-      /* Was .mobile-chat-button itself, back when it sat directly in the
-         header next to #mobileHeaderSeatActions -- v037 and this file append
-         their header items independently, so whichever ran last used to
-         decide the visual order. Chat now sits inside its own utility group
-         with the rankings hint (see v037's ensureChatButton); the order
-         belongs on that group so it is still always last/rightmost. */
-      .poker8-online .mobile-header-utility{order:2}
       /* v037 built the chat/hint pair in the table's old cyan; recoloured to
          the same violet as #mobileHeaderObserve above so the whole header
          utility row -- seat actions, chat, hint -- reads as one accent
@@ -290,6 +298,7 @@
         color:#eaddff!important;
       }
       .poker8-online .mobile-chat-button .chat-bubble{fill:rgba(201,168,255,.20)!important;}
+    @media(max-width:780px){
       /* Observer mode's header borrowed the seated player's opaque black/
          photo background (v032, v038) wholesale. A viewer with no seat has
          nothing that contrast was protecting, so it can loosen into the same
@@ -335,6 +344,33 @@
   }
   placeReadyPanel();
   mobileQuery?.addEventListener?.("change", placeReadyPanel);
+
+  // Same trick as placeReadyPanel above, for the seat/utility buttons.
+  // ensureHeaderSeatButtons already builds them and syncHeaderSeatButtons
+  // already keeps them in step on every render, at every width -- they were
+  // simply parked inside #mobileGameHeader, which v039 hides on desktop, so
+  // desktop had no take-seat/observe pair, no combos hint, and therefore no
+  // way to reach the buy-in slider (its only caller is the take-seat click).
+  // Moving the existing nodes keeps every handler, every state sync and the
+  // travelling-light glow exactly as they are -- no second copy to drift.
+  function placeHeaderActions() {
+    const header = document.getElementById("mobileGameHeader");
+    const topActions = document.querySelector(".topbar .top-actions");
+    const groups = [$("mobileHeaderSeatActions"), $("mobileHeaderUtility")].filter(Boolean);
+    if (!groups.length || !header) return;
+    const phone = Boolean(mobileQuery?.matches);
+    const host = phone ? header : topActions;
+    if (!host) return;
+    for (const group of groups) {
+      if (group.parentElement !== host) host.append(group);
+    }
+    // Only claimed once the buttons are actually in the desktop header, so a
+    // failure above can never leave desktop with no way to sit down at all:
+    // #readyPanel stays as the fallback until this says otherwise.
+    document.body.classList.toggle("p8-desktop-header-actions", !phone);
+  }
+  placeHeaderActions();
+  mobileQuery?.addEventListener?.("change", placeHeaderActions);
 
   const units = value => Math.round(Number(value || 0));
   const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, char => ({
@@ -387,6 +423,33 @@
     if (!target) return "";
     const seconds = Math.max(0, Math.ceil((Date.parse(target) - Date.now()) / 1000));
     return `Следующая раздача через ${seconds} сек.`;
+  }
+
+  // Fills the space Phase 1 emptied: the topbar (desktop-only -- mobile.css
+  // hides .topbar outright) used to read "ЛОКАЛЬНЫЙ ТРЕНАЖЁР / Poker Trainer
+  // v0.13" and "N / 7 игроков" on a six-max online table. max_seats is the
+  // table's own number, which is what made the hardcoded 7 wrong.
+  function syncTableIdentity(state) {
+    const host = document.querySelector(".topbar .brand-wrap > div:last-child");
+    if (!host || !table) return;
+    let box = document.getElementById("p8TableIdentity");
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "p8TableIdentity";
+      box.className = "p8-table-identity";
+      box.innerHTML = "<b data-name></b><small data-meta></small>";
+      host.appendChild(box);
+    }
+    // Same units-to-money convention the lobby prints blinds with.
+    const money = value => (Number(value || 0) / 100).toFixed(2);
+    const seats = Number(table.max_seats) || 6;
+    // current_seats is the live roster and the only one right between hands;
+    // occupancy is the last hand's count and stands in when it is absent.
+    const taken = Object.keys(state?.current_seats || {}).length
+      || Number(state?.occupancy) || 0;
+    box.querySelector("[data-name]").textContent = table.name || "Стол";
+    box.querySelector("[data-meta]").textContent =
+      `${money(table.small_blind_units)} / ${money(table.big_blind_units)} · ${taken} из ${seats} мест`;
   }
 
   function ensureHeaderSeatButtons() {
@@ -706,6 +769,11 @@
     const observerMode = ["spectator", "waiting"].includes(viewerState);
     document.body.classList.toggle("p8-observer-mode", observerMode);
     ensureHeaderSeatButtons();
+    // The nodes do not exist at module init, and v037 appends the chat/hint
+    // group later still, so the initial call above cannot have placed them.
+    // Idempotent -- it only touches a group whose parent is already wrong.
+    placeHeaderActions();
+    syncTableIdentity(state);
     syncHeaderSeatButtons(state);
     // Stays available even after the header prompt is dismissed -- it's the
     // way back once someone decides they want to play after all.
