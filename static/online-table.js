@@ -164,7 +164,8 @@
       if (viewerState === "seated") await window.Poker8Transport.leave().catch(() => {});
       location.href = "/";
     });
-    $("mobileChatButton")?.addEventListener("click", () => {
+    document.addEventListener("click", event => {
+      if (!event.target?.closest?.("#mobileChatButton")) return;
       const chat = $("chatPanel");
       const button = $("mobileChatButton");
       if (!chat) return;
