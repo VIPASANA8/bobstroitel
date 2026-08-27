@@ -12,7 +12,9 @@ def test_mobile_arc_reserves_half_a_hud_at_each_viewport_edge():
 
 
 def test_header_utility_group_owns_the_right_edge():
-    assert ".poker8-online .mobile-header-utility{order:2;margin-left:auto!important}" in ONLINE
+    assert ".poker8-online .mobile-header-utility{order:2}" in ONLINE
+    assert ".poker8-online .mobile-header-utility{margin-left:auto!important}" in ONLINE
+    assert ".mobile-header-utility{margin-left:auto!important;}" in TABLE
     assert ".mobile-chat-button{margin-left:auto!important}" not in TABLE
 
 
@@ -29,9 +31,9 @@ def test_queued_seat_status_is_static_and_quiet():
 
 
 def test_mobile_center_stack_is_chips_then_pot_then_board_then_summary():
-    assert ".pot-chips{top:30%!important;" in TABLE
+    assert ".pot-chips{top:29%!important;" in TABLE
     assert ".pot-total{top:38%!important;}" in TABLE
-    assert ".board-cards{top:45%!important;}" in TABLE
+    assert ".board-cards{top:47%!important;}" in TABLE
     assert "bottom:calc(183px + env(safe-area-inset-bottom))!important" in TABLE
 
 

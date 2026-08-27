@@ -136,14 +136,24 @@ def test_mobile_header_and_center_stack_use_their_reserved_lanes(online_server: 
             utility = page.locator("#mobileHeaderUtility").evaluate(
                 "el => { const r=el.getBoundingClientRect(); return {left:r.left,right:r.right,top:r.top,bottom:r.bottom}; }"
             )
-            assert utility["right"] == pytest.approx(width - 8, abs=2)
+            utility_debug = page.locator("#mobileHeaderUtility").evaluate(
+                "el => ({marginLeft:getComputedStyle(el).marginLeft,position:getComputedStyle(el).position,parent:el.parentElement?.id,body:document.body.className})"
+            )
+            assert utility["right"] == pytest.approx(width - 8, abs=2), utility_debug
 
             layers = page.locator(
                 "#potChips, .pot-total, #board, .v038-hud-summary"
             ).evaluate_all(
-                "els => els.map(el => { const r=el.getBoundingClientRect(); return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,cx:r.left+r.width/2,cy:r.top+r.height/2}; })"
+                """els => Object.fromEntries(els.map(el => {
+                    const r=el.getBoundingClientRect();
+                    const key=el.id || (el.classList.contains('pot-total') ? 'potTotal' : 'summary');
+                    return [key,{left:r.left,right:r.right,top:r.top,bottom:r.bottom,cx:r.left+r.width/2,cy:r.top+r.height/2}];
+                }))"""
             )
-            chips, pot, board_rect, summary = layers
+            chips = layers["potChips"]
+            pot = layers["potTotal"]
+            board_rect = layers["board"]
+            summary = layers["summary"]
             assert chips["cy"] < pot["cy"] < board_rect["cy"] < summary["cy"]
             assert not _rects_intersect(chips, pot)
             assert not _rects_intersect(pot, board_rect)
