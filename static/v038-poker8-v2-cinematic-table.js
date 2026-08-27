@@ -673,6 +673,8 @@
         --p8-header-h:52px;
         --p8-arc-radius:calc(46vw);
         --p8-arc-diagonal:calc(var(--p8-arc-radius) * .70710678);
+        --p8-arc-half:calc(var(--p8-arc-radius) * .5);
+        --p8-arc-wide:calc(var(--p8-arc-radius) * .8660254);
         --p8-arc-top:38px;
         --p8-arc-center-y:calc(var(--p8-arc-top) + var(--p8-arc-radius));
         --p8-seat-angles:"180 135 90 45 0";
@@ -684,14 +686,10 @@
         padding:2px 8px!important;background:linear-gradient(180deg,rgba(0,8,5,.98),rgba(0,8,5,.92))!important;
         border-bottom:1px solid rgba(75,255,181,.18)!important;box-shadow:0 8px 22px rgba(0,0,0,.34)!important;
       }
-      body.v014.poker8-v2-sixmax :is(.mobile-menu-button,.mobile-chat-button,#mobileHelpButton){
+      body.v014.poker8-v2-sixmax :is(.mobile-menu-button,.mobile-chat-button){
         width:48px!important;height:48px!important;min-width:48px!important;min-height:48px!important;border-radius:14px!important;
       }
       body.v014.poker8-v2-sixmax .mobile-chat-button{margin-left:auto!important;}
-      body.v014.poker8-v2-sixmax #mobileHelpButton{
-        display:grid;place-items:center;padding:0;border:1px solid rgba(62,226,190,.62);background:rgba(0,15,9,.88);color:#e2fff4;font-size:20px;font-weight:900;
-        box-shadow:0 0 13px rgba(45,233,176,.14),inset 0 0 11px rgba(44,255,198,.05);
-      }
       body.v014.poker8-v2-sixmax #mobileConnectionDot{
         display:block;width:8px;height:8px;flex:0 0 8px;border-radius:50%;background:#55f3a8;box-shadow:0 0 9px rgba(85,243,168,.92);
       }
@@ -716,6 +714,16 @@
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="3"]{--v040-seat-x:50%!important;--v040-seat-y:var(--p8-arc-top)!important;left:50%!important;top:var(--p8-arc-top)!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="4"]{--v040-seat-x:calc(50% + var(--p8-arc-diagonal))!important;--v040-seat-y:calc(var(--p8-arc-center-y) - var(--p8-arc-diagonal))!important;left:calc(50% + var(--p8-arc-diagonal))!important;top:calc(var(--p8-arc-center-y) - var(--p8-arc-diagonal))!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="5"]{--v040-seat-x:calc(50% + var(--p8-arc-radius))!important;--v040-seat-y:var(--p8-arc-center-y)!important;left:calc(50% + var(--p8-arc-radius))!important;top:var(--p8-arc-center-y)!important;}
+      body.v014.poker8-v2-sixmax.p8-player-count-2 .seat[data-visual-seat="1"]{--v040-seat-x:50%!important;--v040-seat-y:var(--p8-arc-top)!important;left:50%!important;top:var(--p8-arc-top)!important;}
+      body.v014.poker8-v2-sixmax.p8-player-count-3 .seat[data-visual-seat="1"]{--v040-seat-x:calc(50% - var(--p8-arc-diagonal))!important;--v040-seat-y:calc(var(--p8-arc-center-y) - var(--p8-arc-diagonal))!important;left:calc(50% - var(--p8-arc-diagonal))!important;top:calc(var(--p8-arc-center-y) - var(--p8-arc-diagonal))!important;}
+      body.v014.poker8-v2-sixmax.p8-player-count-3 .seat[data-visual-seat="2"]{--v040-seat-x:calc(50% + var(--p8-arc-diagonal))!important;--v040-seat-y:calc(var(--p8-arc-center-y) - var(--p8-arc-diagonal))!important;left:calc(50% + var(--p8-arc-diagonal))!important;top:calc(var(--p8-arc-center-y) - var(--p8-arc-diagonal))!important;}
+      body.v014.poker8-v2-sixmax.p8-player-count-4 .seat[data-visual-seat="1"]{--v040-seat-x:calc(50% - var(--p8-arc-wide))!important;--v040-seat-y:calc(var(--p8-arc-center-y) - var(--p8-arc-half))!important;left:calc(50% - var(--p8-arc-wide))!important;top:calc(var(--p8-arc-center-y) - var(--p8-arc-half))!important;}
+      body.v014.poker8-v2-sixmax.p8-player-count-4 .seat[data-visual-seat="2"]{--v040-seat-x:50%!important;--v040-seat-y:var(--p8-arc-top)!important;left:50%!important;top:var(--p8-arc-top)!important;}
+      body.v014.poker8-v2-sixmax.p8-player-count-4 .seat[data-visual-seat="3"]{--v040-seat-x:calc(50% + var(--p8-arc-wide))!important;--v040-seat-y:calc(var(--p8-arc-center-y) - var(--p8-arc-half))!important;left:calc(50% + var(--p8-arc-wide))!important;top:calc(var(--p8-arc-center-y) - var(--p8-arc-half))!important;}
+      body.v014.poker8-v2-sixmax.p8-player-count-5 .seat[data-visual-seat="1"]{--v040-seat-x:calc(50% - var(--p8-arc-radius))!important;--v040-seat-y:var(--p8-arc-center-y)!important;left:calc(50% - var(--p8-arc-radius))!important;top:var(--p8-arc-center-y)!important;}
+      body.v014.poker8-v2-sixmax.p8-player-count-5 .seat[data-visual-seat="2"]{--v040-seat-x:calc(50% - var(--p8-arc-half))!important;--v040-seat-y:calc(var(--p8-arc-center-y) - var(--p8-arc-wide))!important;left:calc(50% - var(--p8-arc-half))!important;top:calc(var(--p8-arc-center-y) - var(--p8-arc-wide))!important;}
+      body.v014.poker8-v2-sixmax.p8-player-count-5 .seat[data-visual-seat="3"]{--v040-seat-x:calc(50% + var(--p8-arc-half))!important;--v040-seat-y:calc(var(--p8-arc-center-y) - var(--p8-arc-wide))!important;left:calc(50% + var(--p8-arc-half))!important;top:calc(var(--p8-arc-center-y) - var(--p8-arc-wide))!important;}
+      body.v014.poker8-v2-sixmax.p8-player-count-5 .seat[data-visual-seat="4"]{--v040-seat-x:calc(50% + var(--p8-arc-radius))!important;--v040-seat-y:var(--p8-arc-center-y)!important;left:calc(50% + var(--p8-arc-radius))!important;top:var(--p8-arc-center-y)!important;}
       body.v014.poker8-v2-sixmax .avatar-wrap{
         top:0!important;width:44px!important;height:44px!important;transform:translateX(-50%)!important;transform-origin:center!important;
       }
@@ -746,6 +754,13 @@
         padding:0!important;margin:0!important;overflow:visible!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;backdrop-filter:none!important;filter:none!important;contain:none!important;will-change:auto!important;pointer-events:none!important;
       }
       body.v014.poker8-v2-sixmax .action-panel :is(button,input){pointer-events:auto!important;}
+      body.v014.poker8-v2-sixmax .v038-hud-summary{
+        position:fixed!important;z-index:82;left:96px!important;right:96px!important;top:auto!important;bottom:calc(158px + env(safe-area-inset-bottom))!important;
+        height:38px!important;min-height:38px!important;padding:3px 4px!important;border:1px solid rgba(75,255,181,.32)!important;border-radius:10px!important;
+        background:rgba(0,12,8,.88)!important;box-shadow:0 0 14px rgba(35,218,157,.12)!important;pointer-events:none!important;
+        font-size:8px!important;line-height:1!important;letter-spacing:.025em!important;
+      }
+      body.v014.poker8-v2-sixmax .v038-hud-summary b{margin-top:3px!important;font-size:14px!important;}
       body.v014.poker8-v2-sixmax .action-grid{display:contents!important;}
       body.v014.poker8-v2-sixmax .action-grid .action-slot{
         position:fixed!important;z-index:90;width:88px!important;max-width:88px!important;min-height:58px!important;height:auto!important;padding:8px 7px!important;
@@ -798,15 +813,18 @@
       body.v014.poker8-v2-sixmax .felt .seat .seat-card:is(.folded,.v032-folded) .avatar-wrap::before,
       body.v014.poker8-v2-sixmax .felt .seat .seat-card:is(.folded,.v032-folded) .avatar-wrap::after{opacity:0!important;}
       body.v014.poker8-v2-sixmax .seat-card.v038-disconnected{opacity:.58!important;filter:saturate(.15) brightness(.72)!important;}
-      body.v014.poker8-v2-sixmax .avatar-wrap>.v038-turn-timer{
-        position:absolute;z-index:14;left:50%;top:50%;bottom:auto;width:calc(100% + 10px);height:calc(100% + 10px);transform:translate(-50%,-50%);display:grid;place-items:center;border-radius:50%;
-        background:conic-gradient(#57ffd0 var(--timer-progress,100%),rgba(87,255,208,.10) 0);filter:drop-shadow(0 0 8px rgba(87,255,208,.72));pointer-events:none;
+      body.v014.poker8-v2-sixmax .avatar-wrap>:is(.v038-turn-timer,.v038-ready-countdown){
+        position:absolute;z-index:14;left:50%;top:50%;bottom:auto;width:calc(100% + 10px);height:calc(100% + 10px);transform:translate(-50%,-50%);place-items:center;border:0!important;border-radius:50%;
+        background:none!important;box-shadow:none!important;filter:drop-shadow(0 0 8px rgba(87,255,208,.72));pointer-events:none;
       }
-      body.v014.poker8-v2-sixmax .avatar-wrap>.v038-turn-timer::before{content:"";position:absolute;inset:3px;border-radius:50%;background:rgba(0,8,5,.18);border:1px solid rgba(87,255,208,.68);}
-      body.v014.poker8-v2-sixmax .avatar-wrap>.v038-turn-timer b{
+      body.v014.poker8-v2-sixmax .avatar-wrap>:is(.v038-turn-timer,.v038-ready-countdown)::before{
+        content:"";position:absolute;inset:0;border:0;border-radius:50%;background:conic-gradient(#57ffd0 var(--timer-progress,100%),rgba(87,255,208,.10) 0);
+        -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 0);mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 0);
+      }
+      body.v014.poker8-v2-sixmax .avatar-wrap>:is(.v038-turn-timer,.v038-ready-countdown) b{
         position:absolute;left:calc(100% - 4px);top:50%;min-width:29px;padding:4px 5px;transform:translateY(-50%);border-radius:8px;background:#061611;color:#fff;font-size:13px;line-height:1;text-align:center;text-shadow:0 0 7px #55ffe0;box-shadow:0 0 10px rgba(85,255,224,.35);
       }
-      body.v014.poker8-v2-sixmax .avatar-wrap>.v038-turn-timer small{display:none;}
+      body.v014.poker8-v2-sixmax .avatar-wrap>:is(.v038-turn-timer,.v038-ready-countdown) small{display:none;}
       body.v014.poker8-v2-sixmax #mobileConnectionDot[data-state="connecting"]{background:#8aa99b;box-shadow:0 0 7px rgba(138,169,155,.58);}
       body.v014.poker8-v2-sixmax #mobileConnectionDot[data-state="reconnecting"]{background:#ffbd55;box-shadow:0 0 9px rgba(255,189,85,.88);}
       body.v014.poker8-v2-sixmax #mobileConnectionDot[data-state="error"]{background:#ff554f;box-shadow:0 0 9px rgba(255,85,79,.88);}
@@ -858,14 +876,6 @@
       dot.setAttribute("aria-label", "Подключение");
       document.getElementById("mobileMenuButton")?.after(dot);
     }
-    if (!document.getElementById("mobileHelpButton")) {
-      const help = document.createElement("button");
-      help.id = "mobileHelpButton";
-      help.type = "button";
-      help.setAttribute("aria-label", "Помощь");
-      help.textContent = "?";
-      header.appendChild(help);
-    }
     syncConnectionDot();
   }
 
@@ -888,6 +898,7 @@
   }
 
   let readyCountdownEndsAt = 0;
+  let readyCountdownDuration = 1;
   let readyCountdownTicker = 0;
   let viewerReadySnapshot = false;
 
@@ -1122,32 +1133,42 @@
   function ensureReadyCountdown() {
     const felt = document.querySelector(".felt");
     if (!felt) return null;
-    let countdown = felt.querySelector(".v038-ready-countdown");
+    const hero = document.querySelector('.seat[data-visual-seat="0"] .avatar-wrap');
+    const host = hero || felt;
+    let countdown = document.querySelector(".v038-ready-countdown");
     if (!countdown) {
       countdown = document.createElement("div");
       countdown.className = "v038-ready-countdown";
       countdown.setAttribute("aria-live", "polite");
-      felt.appendChild(countdown);
+      countdown.innerHTML = "<b>1</b>";
     }
+    if (countdown.parentElement !== host) host.appendChild(countdown);
     return countdown;
   }
 
   function setReadyCountdown(endsAt) {
     readyCountdownEndsAt = Number(endsAt || 0);
+    readyCountdownDuration = Math.max(1, readyCountdownEndsAt - Date.now());
     window.clearInterval(readyCountdownTicker);
     readyCountdownTicker = 0;
     syncAvatarReadyControl();
     const countdown = ensureReadyCountdown();
     countdown?.classList.toggle("visible", Boolean(readyCountdownEndsAt));
-    setText(countdown, String(Math.max(1, Math.ceil((readyCountdownEndsAt - Date.now()) / 1000))));
+    const initialLeft = Math.max(0, readyCountdownEndsAt - Date.now());
+    setText(countdown?.querySelector("b"), String(Math.max(1, Math.ceil(initialLeft / 1000))));
+    countdown?.style.setProperty("--timer-progress", `${Math.min(100, initialLeft / readyCountdownDuration * 100)}%`);
     if (!readyCountdownEndsAt) return;
     readyCountdownTicker = window.setInterval(() => {
       syncAvatarReadyControl();
-      setText(countdown, String(Math.max(1, Math.ceil((readyCountdownEndsAt - Date.now()) / 1000))));
+      const liveCountdown = ensureReadyCountdown();
+      const left = Math.max(0, readyCountdownEndsAt - Date.now());
+      liveCountdown?.classList.add("visible");
+      setText(liveCountdown?.querySelector("b"), String(Math.max(1, Math.ceil(left / 1000))));
+      liveCountdown?.style.setProperty("--timer-progress", `${Math.min(100, left / readyCountdownDuration * 100)}%`);
       if (Date.now() >= readyCountdownEndsAt) {
         window.clearInterval(readyCountdownTicker);
         readyCountdownTicker = 0;
-        countdown?.classList.remove("visible");
+        liveCountdown?.classList.remove("visible");
       }
     }, 200);
   }
