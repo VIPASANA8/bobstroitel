@@ -57,7 +57,13 @@
     // further from the pot, not closer, so it isn't bound by that fix --
     // y:9 is the same clearance from y:14 the bottom pole (y:85) already
     // gets from its own wings (y:61).
-    6: [[50, 9], [83, 14], [83, 61], [50, 85], [17, 61], [17, 14]],
+    // The lower pair moved again, 61 -> 64. Measured on a 321x760 phone
+    // felt: the board occupies y 47-58%, and a seat centred at 61% spans
+    // 56-66%, so both lower-side seats sat on top of the community cards
+    // ("не перекрывать улицу"). 64% starts the box at 63%, clear of the
+    // board's 58% bottom, and still leaves the 20-point gap to the bottom
+    // pole that keeps this a hexagon rather than two rows.
+    6: [[50, 9], [83, 14], [83, 64], [50, 85], [17, 64], [17, 14]],
   };
 
   const style = document.createElement("style");
@@ -96,7 +102,11 @@
       body.v014.poker8-v2-sixmax.p8-player-count-2 .seat.v040-dynamic-seat{width:79px!important;height:83px!important;}
       body.v014.poker8-v2-sixmax.p8-player-count-3 .seat.v040-dynamic-seat{width:71px!important;height:79px!important;}
       body.v014.poker8-v2-sixmax.p8-player-count-4 .seat.v040-dynamic-seat,
-      body.v014.poker8-v2-sixmax.p8-player-count-5 .seat.v040-dynamic-seat{width:67px!important;height:77px!important;}
+      body.v014.poker8-v2-sixmax.p8-player-count-5 .seat.v040-dynamic-seat,
+      /* count-6 was never listed, so a full table fell through to the base
+         .seat box -- 90x104, larger than the five-player one right above it
+         and the reason six seats crowd the felt on a phone. */
+      body.v014.poker8-v2-sixmax.p8-player-count-6 .seat.v040-dynamic-seat{width:67px!important;height:77px!important;}
       /* The hero seat used to be pinned at a fixed 87x87 regardless of player
          count -- now it takes the same per-count size as every other seat. */
       body.v014.poker8-v2-sixmax.p8-player-count-2 .seat.v040-dynamic-seat[data-visual-seat="1"] .avatar-wrap{top:7px!important;}

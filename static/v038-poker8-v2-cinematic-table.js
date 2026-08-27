@@ -465,6 +465,19 @@
         border:1px solid #ecece2!important;background:radial-gradient(circle at 32% 28%,#ffffff,#d9d9ce 60%,#83867c)!important;
         color:#181a17!important;box-shadow:0 2px 6px rgba(0,0,0,.62)!important;
       }
+      /* The button sat at the seat's bottom-left (bottom:26px from
+         style.css), which on a 104px box is level with the name plate -- it
+         overlapped the plate's left edge instead of belonging to anyone.
+         Beside the avatar is where it reads as "this player has the button",
+         mirroring the turn timer on the right. The avatar is 44px tall
+         starting at the seat's top, so 11px centres a 22px badge on it.
+         Phone only: desktop's avatar is twice this size and v039 places its
+         own. */
+      @media (max-width:780px){
+        body.v014.poker8-v2-sixmax .dealer-button{
+          left:-14px!important;right:auto!important;top:11px!important;bottom:auto!important;
+        }
+      }
 
       body.v014.poker8-v2-sixmax .seat .seat-card.v032-in-hand:not(.v032-active-turn){
         border:0!important;background:transparent!important;box-shadow:none!important;outline:0!important;
@@ -560,12 +573,36 @@
       body.v014.poker8-v2-sixmax .action-panel > .mobile-auto-action{display:none!important;}
       body.v014.poker8-v2-sixmax .v038-hud-summary{
         position:absolute!important;left:8px;right:8px;top:4px!important;height:28px;
-        display:grid;grid-template-columns:repeat(3,1fr);align-items:center;text-align:center;
+        display:grid;grid-template-columns:repeat(2,1fr);align-items:center;text-align:center;
         border-bottom:1px solid rgba(95,132,121,.18);font-size:10px;letter-spacing:.10em;color:#8ca59c;
       }
       body.v014.poker8-v2-sixmax .v038-hud-summary b{
         display:block;margin-top:1px;font-size:15px;line-height:1;letter-spacing:0;
         color:#eafff6;font-variant-numeric:tabular-nums;
+      }
+      /* On the felt it is one line, not the panel's stacked pair: the gap
+         between the pot's bottom and the board's top measures 24px on a
+         321x760 phone felt, and the stacked version is 28px. */
+      body.v014.poker8-v2-sixmax .v038-hud-summary.on-felt{
+        /* Every one of these is load-bearing and was found by measuring, not
+           by reading: something in the stack pins this element fixed with a
+           bottom offset once it leaves the action panel (243px tall), and a
+           min-height of ~39px held it at 38px even against height:20px
+           !important -- min-height beats height. Zeroed, the strip is its
+           content: 15px, which is what lets it sit in the 24px gap between
+           the pot's bottom and the board's top on a 321x760 phone felt. */
+        position:absolute!important;bottom:auto!important;
+        left:50%!important;right:auto!important;top:44%!important;
+        height:auto!important;min-height:0!important;padding:0!important;border:0!important;
+        transform:translateX(-50%);z-index:6;
+        display:flex!important;gap:16px;align-items:baseline;white-space:nowrap;
+      }
+      body.v014.poker8-v2-sixmax .v038-hud-summary.on-felt span{
+        display:block!important;min-height:0!important;line-height:1!important;
+      }
+      /* One line here, not the panel's stacked label-over-value pair. */
+      body.v014.poker8-v2-sixmax .v038-hud-summary.on-felt b{
+        display:inline!important;margin:0 0 0 5px!important;line-height:1!important;
       }
       body.v014.poker8-v2-sixmax .sizing-wrap{display:contents!important;}
       body.v014.poker8-v2-sixmax .sizing-wrap > label{display:none!important;}
@@ -1184,21 +1221,31 @@
   }
 
   function ensureHudSummary() {
-    const panel = document.querySelector(".action-panel");
-    if (!panel) return;
-    let summary = panel.querySelector(".v038-hud-summary");
+    // On a phone this belongs on the felt, in the gap between the pot and
+    // the board -- down in the action panel it is outside where the eye is
+    // during a hand. Desktop keeps it in the panel, which has room for the
+    // stacked label/value pair. Re-checked on every sync, so a resize moves
+    // it without any listener of its own.
+    const onFelt = window.matchMedia?.("(max-width:780px)")?.matches ?? false;
+    const host = document.querySelector(onFelt ? ".table-center" : ".action-panel");
+    if (!host) return;
+    let summary = document.querySelector(".v038-hud-summary");
     if (!summary) {
       summary = document.createElement("div");
       summary.className = "v038-hud-summary";
-      summary.innerHTML = '<span>УРАВНЯТЬ<b data-v038-call>0.00</b></span><span>БАНК<b data-v038-pot>0.00</b></span><span>СТАВКА<b data-v038-bet>0.00</b></span>';
-      panel.prepend(summary);
+      // No БАНК column: the pot is printed on the felt immediately above
+      // this strip, so carrying it here said the same number twice.
+      summary.innerHTML = '<span>УРАВНЯТЬ<b data-v038-call>0.00</b></span><span>СТАВКА<b data-v038-bet>0.00</b></span>';
     }
+    if (summary.parentElement !== host) {
+      if (onFelt) host.appendChild(summary);
+      else host.prepend(summary);
+    }
+    summary.classList.toggle("on-felt", onFelt);
     const call = typeof estimatedLocalToCall === "function" ? formatBB(estimatedLocalToCall()) : "0.00 ББ";
-    const pot = document.getElementById("pot")?.textContent?.trim() || "0.00 ББ";
     const raw = Number(document.getElementById("amount")?.value);
     const amount = typeof formatBB === "function" && Number.isFinite(raw) ? formatBB(raw) : "0.00";
     setText(summary.querySelector("[data-v038-call]"), stripHudUnit(call));
-    setText(summary.querySelector("[data-v038-pot]"), stripHudUnit(pot));
     setText(summary.querySelector("[data-v038-bet]"), stripHudUnit(amount));
   }
 

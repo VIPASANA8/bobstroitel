@@ -221,7 +221,13 @@ def test_v038_cinematic_table_is_mobile_presentation_only():
     assert 'bottom:4px!important' in source
     assert 'position:fixed!important' not in source
     assert '.action-slot.all-in{display:none' not in source
-    assert '.v038-hud-summary{' in source and 'top:4px!important' in source
+    # The summary is two columns now -- БАНК was dropped because the pot is
+    # printed on the felt right above it -- and on a phone it moves onto the
+    # felt as a one-line strip, so the panel's own top:4px only describes the
+    # desktop placement.
+    assert '.v038-hud-summary{' in source and 'grid-template-columns:repeat(2,1fr)' in source
+    assert '.v038-hud-summary.on-felt{' in source
+    assert 'data-v038-pot' not in source
     assert 'configureReferenceActions' in source
     assert 'window.addEventListener("resize", queueSync)' in source
     assert '{ key:"call"' in source
