@@ -146,8 +146,12 @@
             <button id="mobileSolverFromAction" type="button">Анализ</button>
           </div>
 
-          <div id="sizingWrap" class="sizing-wrap" hidden>
+          <div id="sizingWrap" class="sizing-wrap" aria-hidden="true" hidden>
             <label for="amount">Размер</label>
+            <div class="mobile-sizing-head">
+              <output id="mobileSizingAmount" for="amount amountSlider" aria-live="polite">0.00 BB</output>
+              <button id="mobileSizingCancel" type="button" aria-label="Отменить выбор ставки">×</button>
+            </div>
             <div class="amount-row">
               <button id="amountMinus" class="amount-step" type="button">−</button>
               <input id="amount" type="number" min="0" step="0.5" value="2.5" />
@@ -165,6 +169,8 @@
               <input id="amountSlider" type="range" min="1" max="100" step="0.5" value="2.5" aria-label="Размер ставки" />
               <span id="sliderMaxLabel">МАКС</span>
             </div>
+            <button id="mobileSizingConfirm" type="button">ПОДТВЕРДИТЬ СТАВКУ</button>
+            <div id="mobileBetRail" aria-hidden="true"><output id="mobileBetRailAmount">0.00 BB</output></div>
           </div>
 
           <div id="mobileAutoActionBar" class="mobile-auto-action" aria-live="polite">
@@ -353,9 +359,9 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="/static/auth-client.js?v=telegram-session-3"></script>
   <script src="/static/online-transport.js?v=room-password-1"></script>
-  <script src="/static/component-ui.js?v=phone-hud-1"></script>
+  <script src="/static/component-ui.js?v=mobile-layout-prod-4"></script>
   <script src="/static/app.js?v=raise-units-1"></script>
-  <script src="/static/chat-format.js?v=chat-1"></script><script src="/static/online-table.js?v=desktop-phase2-1"></script>
+  <script src="/static/chat-format.js?v=chat-1"></script><script src="/static/online-table.js?v=mobile-layout-prod-4"></script>
   <script src="/static/v039-poker8-v2-desktop-parity.js?v=cards-on-felt-1"></script>
 </body>
 </html>

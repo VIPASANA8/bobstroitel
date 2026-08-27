@@ -1,9 +1,7 @@
 (() => {
   "use strict";
 
-  // The class is the switch now: it is added at every width, so the media
-  // half of this test only kept desktop out of everything below.
-  const isMobileV2 = () => document.body.classList.contains("poker8-v2-sixmax");
+  const isMobileV2 = () => window.matchMedia?.("(max-width: 780px)")?.matches ?? false;
 
   const style = document.createElement("style");
   style.id = "v038-poker8-v2-cinematic-table-style";
@@ -691,20 +689,11 @@
       body.v014.poker8-v2-sixmax .v038-action-label{display:block;font-weight:900;letter-spacing:.035em;line-height:1.05;}
       body.v014.poker8-v2-sixmax .v038-action-amount{display:block;margin-top:2px;font-size:12px;font-weight:900;line-height:1;}
       body.v014.poker8-v2-sixmax .v038-action-amount.v038-amount-pulse{animation:v038AmountPulse 180ms ease-out;}
-      body.v014.poker8-v2-sixmax .action-slot.v038-armed::after{
-        content:"";position:absolute;left:5px;right:5px;bottom:3px;height:2px;border-radius:9px;background:#ffc44d;
-        transform-origin:left center;animation:v038ConfirmDrain var(--v038-arm-ms,3000ms) linear forwards;box-shadow:0 0 7px rgba(255,196,77,.85);
-      }
-      body.v014.poker8-v2-sixmax .action-slot.v038-armed::before{
-        content:attr(data-arm-label);position:absolute;right:6px;bottom:5px;color:#ffc44d;font-size:10px;font-weight:900;letter-spacing:.06em;
-      }
       @keyframes v038AmountPulse{50%{filter:brightness(1.5)}100%{filter:none}}
-      @keyframes v038ConfirmDrain{to{transform:scaleX(0)}}
       @media (prefers-reduced-motion:reduce){
         body.v014.poker8-v2-sixmax .quick-sizes button,
         body.v014.poker8-v2-sixmax .action-grid .action-slot{transition:none!important;}
         body.v014.poker8-v2-sixmax .v038-action-amount.v038-amount-pulse{animation:none!important;}
-        body.v014.poker8-v2-sixmax .action-slot.v038-armed::after{animation:none!important;transform:scaleX(1);}
         body.v014.poker8-v2-sixmax.v038-room-awaiting .player-avatar{animation:none!important;}
         body.v014.poker8-v2-sixmax .felt{transition-duration:80ms!important;}
       }
@@ -714,13 +703,170 @@
         background:linear-gradient(180deg,transparent 0 calc(100% - var(--p8-bottom-reserve)),#000000 calc(100% - var(--p8-bottom-reserve)) 100%)!important;
       }
 
-      @media (max-width:370px){
-        /* The two .seat width overrides that used to live here never actually
-           applied: v040's per-player-count rule has higher specificity and
-           always won regardless of viewport width. Removed as dead weight. */
-        body.v014.poker8-v2-sixmax .avatar-wrap{transform:translateX(-50%) scale(.92)!important;transform-origin:center bottom;}
-        body.v014.poker8-v2-sixmax .board-cards .card{width:39px!important;height:56px!important;}
-        body.v014.poker8-v2-sixmax .pot-chips{width:150px!important;}
+      @media (max-width:780px){
+      /* Portrait-first edge-action composition. Shared pixel offsets keep the
+         five opponent centers on one circle instead of a percentage ellipse. */
+      body.v014.poker8-v2-sixmax{
+        --p8-header-h:52px;
+        --p8-seat-safe-inset:50px;
+        --p8-arc-radius:min(46vw,calc(50vw - var(--p8-seat-safe-inset)));
+        --p8-arc-diagonal:calc(var(--p8-arc-radius) * .70710678);
+        --p8-arc-half:calc(var(--p8-arc-radius) * .5);
+        --p8-arc-wide:calc(var(--p8-arc-radius) * .8660254);
+        --p8-arc-top:38px;
+        --p8-arc-center-y:calc(var(--p8-arc-top) + var(--p8-arc-radius));
+        --p8-seat-angles:"180 135 90 45 0";
+        --table-stage-h:calc(100dvh - var(--p8-header-h))!important;
+      }
+      body.v014.poker8-v2-sixmax .mobile-game-header{
+        position:fixed!important;z-index:120;inset:0 0 auto!important;height:var(--p8-header-h)!important;
+        display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:8px!important;
+        padding:2px 8px!important;background:linear-gradient(180deg,rgba(0,8,5,.98),rgba(0,8,5,.92))!important;
+        border-bottom:1px solid rgba(75,255,181,.18)!important;box-shadow:0 8px 22px rgba(0,0,0,.34)!important;
+      }
+      body.v014.poker8-v2-sixmax :is(.mobile-menu-button,.mobile-chat-button){
+        width:48px!important;height:48px!important;min-width:48px!important;min-height:48px!important;border-radius:14px!important;
+      }
+      body.v014.poker8-v2-sixmax .mobile-header-utility{margin-left:auto!important;}
+      body.v014.poker8-v2-sixmax #mobileConnectionDot{
+        display:block;width:8px;height:8px;flex:0 0 8px;border-radius:50%;background:#55f3a8;box-shadow:0 0 9px rgba(85,243,168,.92);
+      }
+      body.v014.poker8-v2-sixmax #connectionStatus{display:none!important;}
+      body.v014.poker8-v2-sixmax .app-shell{
+        height:100dvh!important;min-height:100dvh!important;padding:var(--p8-header-h) 0 0!important;overflow:hidden!important;background:#000805!important;
+      }
+      body.v014.poker8-v2-sixmax .table-frame{
+        height:calc(100dvh - var(--p8-header-h))!important;min-height:0!important;padding:0 5px!important;overflow:visible!important;
+        background-size:100vw 100%!important;background-position:center!important;
+      }
+      body.v014.poker8-v2-sixmax .felt{
+        height:100%!important;transform:none!important;transform-style:flat!important;
+      }
+      body.v014.poker8-v2-sixmax .seat{width:90px!important;height:104px!important;min-height:0!important;}
+      body.v014.poker8-v2-sixmax .seat.v040-dynamic-seat{
+        --v040-flip-x:0px!important;--v040-flip-y:0px!important;transition:none!important;
+      }
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"]{--v040-seat-x:50%!important;--v040-seat-y:calc(100% - 86px)!important;left:50%!important;top:calc(100% - 86px)!important;bottom:auto!important;width:116px!important;height:132px!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="1"]{--v040-seat-x:calc(50% - var(--p8-arc-radius))!important;--v040-seat-y:var(--p8-arc-center-y)!important;left:calc(50% - var(--p8-arc-radius))!important;top:var(--p8-arc-center-y)!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="2"]{--v040-seat-x:calc(50% - var(--p8-arc-diagonal))!important;--v040-seat-y:calc(var(--p8-arc-center-y) - var(--p8-arc-diagonal))!important;left:calc(50% - var(--p8-arc-diagonal))!important;top:calc(var(--p8-arc-center-y) - var(--p8-arc-diagonal))!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="3"]{--v040-seat-x:50%!important;--v040-seat-y:var(--p8-arc-top)!important;left:50%!important;top:var(--p8-arc-top)!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="4"]{--v040-seat-x:calc(50% + var(--p8-arc-diagonal))!important;--v040-seat-y:calc(var(--p8-arc-center-y) - var(--p8-arc-diagonal))!important;left:calc(50% + var(--p8-arc-diagonal))!important;top:calc(var(--p8-arc-center-y) - var(--p8-arc-diagonal))!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="5"]{--v040-seat-x:calc(50% + var(--p8-arc-radius))!important;--v040-seat-y:var(--p8-arc-center-y)!important;left:calc(50% + var(--p8-arc-radius))!important;top:var(--p8-arc-center-y)!important;}
+      body.v014.poker8-v2-sixmax.p8-player-count-2 .seat[data-visual-seat="1"]{--v040-seat-x:50%!important;--v040-seat-y:var(--p8-arc-top)!important;left:50%!important;top:var(--p8-arc-top)!important;}
+      body.v014.poker8-v2-sixmax.p8-player-count-3 .seat[data-visual-seat="1"]{--v040-seat-x:calc(50% - var(--p8-arc-diagonal))!important;--v040-seat-y:calc(var(--p8-arc-center-y) - var(--p8-arc-diagonal))!important;left:calc(50% - var(--p8-arc-diagonal))!important;top:calc(var(--p8-arc-center-y) - var(--p8-arc-diagonal))!important;}
+      body.v014.poker8-v2-sixmax.p8-player-count-3 .seat[data-visual-seat="2"]{--v040-seat-x:calc(50% + var(--p8-arc-diagonal))!important;--v040-seat-y:calc(var(--p8-arc-center-y) - var(--p8-arc-diagonal))!important;left:calc(50% + var(--p8-arc-diagonal))!important;top:calc(var(--p8-arc-center-y) - var(--p8-arc-diagonal))!important;}
+      body.v014.poker8-v2-sixmax.p8-player-count-4 .seat[data-visual-seat="1"]{--v040-seat-x:calc(50% - var(--p8-arc-wide))!important;--v040-seat-y:calc(var(--p8-arc-center-y) - var(--p8-arc-half))!important;left:calc(50% - var(--p8-arc-wide))!important;top:calc(var(--p8-arc-center-y) - var(--p8-arc-half))!important;}
+      body.v014.poker8-v2-sixmax.p8-player-count-4 .seat[data-visual-seat="2"]{--v040-seat-x:50%!important;--v040-seat-y:var(--p8-arc-top)!important;left:50%!important;top:var(--p8-arc-top)!important;}
+      body.v014.poker8-v2-sixmax.p8-player-count-4 .seat[data-visual-seat="3"]{--v040-seat-x:calc(50% + var(--p8-arc-wide))!important;--v040-seat-y:calc(var(--p8-arc-center-y) - var(--p8-arc-half))!important;left:calc(50% + var(--p8-arc-wide))!important;top:calc(var(--p8-arc-center-y) - var(--p8-arc-half))!important;}
+      body.v014.poker8-v2-sixmax.p8-player-count-5 .seat[data-visual-seat="1"]{--v040-seat-x:calc(50% - var(--p8-arc-radius))!important;--v040-seat-y:var(--p8-arc-center-y)!important;left:calc(50% - var(--p8-arc-radius))!important;top:var(--p8-arc-center-y)!important;}
+      body.v014.poker8-v2-sixmax.p8-player-count-5 .seat[data-visual-seat="2"]{--v040-seat-x:calc(50% - var(--p8-arc-half))!important;--v040-seat-y:calc(var(--p8-arc-center-y) - var(--p8-arc-wide))!important;left:calc(50% - var(--p8-arc-half))!important;top:calc(var(--p8-arc-center-y) - var(--p8-arc-wide))!important;}
+      body.v014.poker8-v2-sixmax.p8-player-count-5 .seat[data-visual-seat="3"]{--v040-seat-x:calc(50% + var(--p8-arc-half))!important;--v040-seat-y:calc(var(--p8-arc-center-y) - var(--p8-arc-wide))!important;left:calc(50% + var(--p8-arc-half))!important;top:calc(var(--p8-arc-center-y) - var(--p8-arc-wide))!important;}
+      body.v014.poker8-v2-sixmax.p8-player-count-5 .seat[data-visual-seat="4"]{--v040-seat-x:calc(50% + var(--p8-arc-radius))!important;--v040-seat-y:var(--p8-arc-center-y)!important;left:calc(50% + var(--p8-arc-radius))!important;top:var(--p8-arc-center-y)!important;}
+      body.v014.poker8-v2-sixmax .avatar-wrap{
+        top:0!important;width:44px!important;height:44px!important;transform:translateX(-50%)!important;transform-origin:center!important;
+      }
+      body.v014.poker8-v2-sixmax .player-avatar{width:44px!important;height:44px!important;font-size:12px!important;}
+      body.v014.poker8-v2-sixmax .seat-identity{
+        top:40px!important;width:90px!important;min-height:44px!important;padding:5px 6px 4px!important;border-radius:9px!important;
+      }
+      body.v014.poker8-v2-sixmax .seat-name{max-width:100%!important;font-size:12px!important;line-height:1.05!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;}
+      body.v014.poker8-v2-sixmax .seat-stack{font-size:16px!important;line-height:1!important;white-space:nowrap!important;}
+      body.v014.poker8-v2-sixmax .player-cards{top:-31px!important;}
+      body.v014.poker8-v2-sixmax .player-cards .card{width:32px!important;height:44px!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .avatar-wrap{top:9px!important;width:48px!important;height:48px!important;transform:translateX(-50%)!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .player-avatar{width:48px!important;height:48px!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-identity{top:54px!important;width:108px!important;min-height:47px!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-name{max-width:100%!important;font-size:13px!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-stack{font-size:18px!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .player-cards{top:-52px!important;gap:4px!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .player-cards .card{width:50px!important;height:70px!important;}
+      body.v014.poker8-v2-sixmax .board-cards .card{width:46px!important;height:64px!important;}
+      body.v014.poker8-v2-sixmax .pot-chips{top:29%!important;}
+      body.v014.poker8-v2-sixmax .pot-total{top:38%!important;}
+      body.v014.poker8-v2-sixmax .board-cards{top:47%!important;}
+      body.v014.poker8-v2-sixmax .sidebar,
+      body.v014.poker8-v2-sixmax .action-panel,
+      body.v014.poker8-v2-sixmax.local-player-active .sidebar .action-panel,
+      body.v014.poker8-v2-sixmax.human-turn .sidebar .action-panel{
+        position:fixed!important;z-index:80;inset:var(--p8-header-h) 0 0!important;width:auto!important;height:auto!important;min-height:0!important;
+        padding:0!important;margin:0!important;overflow:visible!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;backdrop-filter:none!important;filter:none!important;contain:none!important;will-change:auto!important;pointer-events:none!important;
+      }
+      body.v014.poker8-v2-sixmax .action-panel :is(button,input){pointer-events:auto!important;}
+      body.v014.poker8-v2-sixmax .v038-hud-summary{
+        position:fixed!important;z-index:82;left:96px!important;right:96px!important;top:auto!important;bottom:calc(183px + env(safe-area-inset-bottom))!important;
+        height:38px!important;min-height:38px!important;padding:3px 4px!important;border:1px solid rgba(75,255,181,.32)!important;border-radius:10px!important;
+        background:rgba(0,8,5,.88)!important;box-shadow:0 0 14px rgba(41,238,165,.12)!important;pointer-events:none!important;
+        font-size:10px!important;line-height:1!important;letter-spacing:0!important;
+      }
+      body.v014.poker8-v2-sixmax .v038-hud-summary b{margin-top:3px!important;font-size:15px!important;}
+      body.v014.poker8-v2-sixmax .action-grid{display:contents!important;}
+      body.v014.poker8-v2-sixmax .action-grid .action-slot{
+        position:fixed!important;z-index:90;width:88px!important;max-width:88px!important;min-height:58px!important;height:auto!important;padding:8px 7px!important;
+      }
+      body.v014.poker8-v2-sixmax .action-slot[data-edge="left"]{left:0!important;right:auto!important;border-left:0!important;border-radius:0 16px 16px 0!important;}
+      body.v014.poker8-v2-sixmax .action-slot[data-edge="right"]{right:0!important;left:auto!important;border-right:0!important;border-radius:16px 0 0 16px!important;}
+      body.v014.poker8-v2-sixmax .action-slot[data-slot="top"]{top:auto!important;bottom:calc(152px + env(safe-area-inset-bottom))!important;}
+      body.v014.poker8-v2-sixmax .action-slot[data-slot="bottom"]{top:auto!important;bottom:calc(84px + env(safe-area-inset-bottom))!important;}
+      body.v014.poker8-v2-sixmax .sizing-wrap{
+        display:none!important;position:fixed!important;z-index:96;left:50%!important;right:auto!important;top:auto!important;bottom:calc(150px + env(safe-area-inset-bottom))!important;
+        width:min(344px,calc(100vw - 16px))!important;height:auto!important;transform:translateX(-50%)!important;padding:10px!important;
+        border:1px solid rgba(71,255,190,.42)!important;border-radius:18px!important;background:rgba(0,8,5,.96)!important;box-shadow:0 0 28px rgba(44,247,169,.22)!important;
+      }
+      body.v014.poker8-v2-sixmax.v038-sizing-open .sizing-wrap{display:block!important;}
+      body.v014.poker8-v2-sixmax.v038-sizing-open .action-grid .action-slot{visibility:hidden!important;}
+      body.v014.poker8-v2-sixmax .mobile-sizing-head{display:flex;align-items:center;justify-content:center;min-height:44px;margin-bottom:7px;position:relative;}
+      body.v014.poker8-v2-sixmax #mobileSizingAmount{color:#fff;font-size:24px;font-weight:950;line-height:1;text-shadow:0 0 12px rgba(63,238,188,.46);}
+      body.v014.poker8-v2-sixmax #mobileSizingCancel{
+        position:absolute;right:0;top:0;width:44px;height:44px;border:1px solid rgba(139,184,164,.35);border-radius:12px;background:#0a1512;color:#cbddd5;font-size:24px;
+      }
+      body.v014.poker8-v2-sixmax .quick-sizes{
+        position:static!important;height:auto!important;display:grid!important;grid-template-columns:repeat(5,minmax(48px,1fr))!important;gap:5px!important;margin:0!important;
+      }
+      body.v014.poker8-v2-sixmax .quick-sizes button{min-height:48px!important;height:48px!important;padding:4px 2px!important;font-size:10px!important;}
+      body.v014.poker8-v2-sixmax .bet-slider-row{position:static!important;height:32px!important;margin:7px 0 5px!important;display:block!important;}
+      body.v014.poker8-v2-sixmax #amountSlider{height:32px!important;}
+      body.v014.poker8-v2-sixmax #mobileSizingConfirm{
+        width:100%!important;min-height:50px!important;border:1px solid rgba(75,255,181,.72);border-radius:13px;background:linear-gradient(180deg,rgba(15,72,48,.96),rgba(4,31,20,.98));color:#eafff6;font-size:12px;font-weight:950;letter-spacing:.04em;box-shadow:0 0 17px rgba(63,244,173,.18);
+      }
+      body.v014.poker8-v2-sixmax .action-slot[data-action-key="aggressive"]{touch-action:none!important;}
+      body.v014.poker8-v2-sixmax #mobileBetRail{
+        display:block;position:fixed;z-index:99;top:calc(var(--p8-header-h) + 10px);right:0;bottom:calc(72px + env(safe-area-inset-bottom));width:76px;
+        border:1px solid rgba(75,255,181,.55);border-right:0;border-radius:18px 0 0 18px;background:linear-gradient(180deg,rgba(7,53,37,.94),rgba(0,8,5,.96));
+        box-shadow:0 0 24px rgba(41,238,165,.22);pointer-events:none;
+      }
+      body.v014.poker8-v2-sixmax #mobileBetRail::before{
+        content:"";position:absolute;top:22px;bottom:22px;right:18px;width:3px;border-radius:3px;background:linear-gradient(180deg,#ff9f43 0 8%,#3defb0 28% 100%);opacity:.8;
+      }
+      body.v014.poker8-v2-sixmax #mobileBetRailAmount{
+        position:fixed;z-index:100;right:12px;top:clamp(calc(var(--p8-header-h) + 12px),calc(var(--v038-rail-y, 50vh) - 25px),calc(100vh - 128px));
+        min-width:104px;min-height:50px;padding:0 12px;display:grid;place-items:center;border-radius:14px 0 0 14px;background:#031b13;color:#fff;font-size:20px;font-weight:950;white-space:nowrap;
+        border:1px solid rgba(75,255,181,.72);box-shadow:0 0 18px rgba(41,238,165,.28);
+      }
+      body.v014.poker8-v2-sixmax #mobileBetRail[aria-hidden="true"]{display:none!important;}
+      body.v014.poker8-v2-sixmax .seat{--seat-accent:155!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"]{--seat-accent:195!important;}
+      body.v014.poker8-v2-sixmax .seat:has(.v032-active-turn){--seat-accent:165!important;}
+      body.v014.poker8-v2-sixmax .seat:has(.all-in){--seat-accent:34!important;}
+      body.v014.poker8-v2-sixmax .felt .seat .seat-card:is(.folded,.v032-folded){opacity:.45!important;filter:saturate(.28) brightness(.72)!important;}
+      body.v014.poker8-v2-sixmax .felt .seat .seat-card:is(.folded,.v032-folded) .avatar-wrap::before,
+      body.v014.poker8-v2-sixmax .felt .seat .seat-card:is(.folded,.v032-folded) .avatar-wrap::after{opacity:0!important;}
+      body.v014.poker8-v2-sixmax .seat-card.v038-disconnected{opacity:.58!important;filter:saturate(.15) brightness(.72)!important;}
+      body.v014.poker8-v2-sixmax .avatar-wrap>:is(.v038-turn-timer,.v038-ready-countdown){
+        position:absolute;z-index:14;left:50%;top:50%;bottom:auto;width:calc(100% + 10px);height:calc(100% + 10px);transform:translate(-50%,-50%);place-items:center;border:0!important;border-radius:50%;
+        background:none!important;box-shadow:none!important;filter:drop-shadow(0 0 8px rgba(87,255,208,.72));pointer-events:none;
+      }
+      body.v014.poker8-v2-sixmax .avatar-wrap>:is(.v038-turn-timer,.v038-ready-countdown)::before{
+        content:"";position:absolute;inset:0;border:0;border-radius:50%;background:conic-gradient(#57ffd0 var(--timer-progress,100%),rgba(87,255,208,.10) 0);
+        -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 0);mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 0);
+      }
+      body.v014.poker8-v2-sixmax .avatar-wrap>:is(.v038-turn-timer,.v038-ready-countdown) b{
+        position:absolute;left:calc(100% - 4px);top:50%;min-width:29px;padding:4px 5px;transform:translateY(-50%);border-radius:8px;background:#061611;color:#fff;font-size:13px;line-height:1;text-align:center;text-shadow:0 0 7px #55ffe0;box-shadow:0 0 10px rgba(85,255,224,.35);
+      }
+      body.v014.poker8-v2-sixmax .avatar-wrap>:is(.v038-turn-timer,.v038-ready-countdown) small{display:none;}
+      body.v014.poker8-v2-sixmax .dealer-button{left:-9px!important;right:auto!important;bottom:2px!important;width:22px!important;height:22px!important;}
+      body.v014.poker8-v2-sixmax #mobileConnectionDot[data-state="connecting"]{background:#8aa99b;box-shadow:0 0 7px rgba(138,169,155,.58);}
+      body.v014.poker8-v2-sixmax #mobileConnectionDot[data-state="reconnecting"]{background:#ffbd55;box-shadow:0 0 9px rgba(255,189,85,.88);}
+      body.v014.poker8-v2-sixmax #mobileConnectionDot[data-state="error"]{background:#ff554f;box-shadow:0 0 9px rgba(255,85,79,.88);}
       }
     }
   `;
@@ -758,7 +904,40 @@
     });
   }
 
+  function ensureMobileHeaderControls() {
+    const header = document.getElementById("mobileGameHeader");
+    if (!header) return;
+    let dot = document.getElementById("mobileConnectionDot");
+    if (!dot) {
+      dot = document.createElement("span");
+      dot.id = "mobileConnectionDot";
+      dot.setAttribute("role", "status");
+      dot.setAttribute("aria-label", "Подключение");
+      document.getElementById("mobileMenuButton")?.after(dot);
+    }
+    syncConnectionDot();
+  }
+
+  function syncConnectionDot() {
+    const dot = document.getElementById("mobileConnectionDot");
+    if (!dot) return;
+    const raw = document.getElementById("connectionStatus")?.textContent?.trim().toLowerCase() || "";
+    const state = raw === "connected" ? "connected"
+      : raw.includes("reconnect") || raw.includes("перепод") ? "reconnecting"
+      : raw.includes("error") || raw.includes("ошиб") || raw.includes("offline") ? "error"
+      : "connecting";
+    const labels = {
+      connected:"Подключено",
+      reconnecting:"Переподключение",
+      error:"Ошибка соединения",
+      connecting:"Подключение",
+    };
+    dot.dataset.state = state;
+    dot.setAttribute("aria-label", labels[state]);
+  }
+
   let readyCountdownEndsAt = 0;
+  let readyCountdownDuration = 1;
   let readyCountdownTicker = 0;
   let viewerReadySnapshot = false;
 
@@ -846,6 +1025,7 @@
       if (!card) return;
       card.classList.remove(...ACTION_CLASSES);
       const player = Object.values(game?.players || {}).find(item => Number(item?.seat) === Number(seat.dataset.seat));
+      card.classList.toggle("v038-disconnected", Boolean(player?.disconnected || player?.connected === false || player?.status === "disconnected"));
       const action = latest.get(player?.id);
       const family = action === "fold" ? "fold"
         : ["check", "call"].includes(action) ? "passive"
@@ -856,44 +1036,30 @@
   }
 
   function syncTableTurnHud() {
-    const host = document.querySelector(".table-frame");
-    if (!host) return;
-    let timer = host.querySelector(".v038-turn-timer");
-    let context = host.querySelector(".v038-turn-context");
-    if (!timer) {
-      timer = document.createElement("div");
-      timer.className = "v038-turn-timer";
-      timer.innerHTML = '<b>30</b><small>СЕК</small>';
-      host.appendChild(timer);
-    }
-    if (!context) {
-      context = document.createElement("div");
-      context.className = "v038-turn-context";
-      context.innerHTML = "<span></span>";
-      host.appendChild(context);
-    }
+    let timer = document.querySelector(".v038-turn-timer");
+    document.querySelectorAll(".v038-turn-context").forEach(node => node.remove());
     const active = Boolean(game && !game.terminal && game.acting_player);
-    timer.classList.toggle("visible", active);
-    if (!active) {
-      context.classList.remove("visible");
+    const actor = active ? game.players?.[game.acting_player] : null;
+    const host = actor ? document.querySelector(`.seat[data-seat="${Number(actor.seat)}"] .avatar-wrap`) : null;
+    if (!active || !host) {
+      timer?.remove();
       window.clearInterval(turnVisualTicker);
       turnVisualTicker = 0;
       turnVisualToken = "";
       return;
     }
+    if (!timer) {
+      timer = document.createElement("div");
+      timer.className = "v038-turn-timer";
+      timer.innerHTML = '<b>30</b><small>СЕК</small>';
+    }
+    if (timer.parentElement !== host) host.appendChild(timer);
+    timer.classList.add("visible");
     const token = `${game.hand_id}:${game.street}:${game.acting_player}:${game.history?.length || 0}`;
     if (turnVisualToken !== token) {
       turnVisualToken = token;
       turnVisualStartedAt = Date.now();
     }
-    // Whose turn it is already reads off the seat's own glow -- repeating the
-    // acting player's name and a turn label here was the same information
-    // twice. The bet amount is the only thing this box adds that the glow
-    // doesn't show, so there's nothing to show (no empty pill either) without one.
-    const actor = game.players?.[game.acting_player];
-    const invested = Number(actor?.street_invested || 0);
-    context.classList.toggle("visible", invested > 0);
-    setText(context.querySelector("span"), invested > 0 ? `ПОСТАВИЛ · ${compactStackLabel(invested)}` : "");
     // The server owns the clock and folds on its own deadline, so a locally
     // restarted countdown would promise time the player does not have.
     const deadline = game.action_deadline ? Date.parse(game.action_deadline) : NaN;
@@ -1006,45 +1172,52 @@
   function ensureReadyCountdown() {
     const felt = document.querySelector(".felt");
     if (!felt) return null;
-    let countdown = felt.querySelector(".v038-ready-countdown");
+    const hero = document.querySelector('.seat[data-visual-seat="0"] .avatar-wrap');
+    const host = hero || felt;
+    let countdown = document.querySelector(".v038-ready-countdown");
     if (!countdown) {
       countdown = document.createElement("div");
       countdown.className = "v038-ready-countdown";
       countdown.setAttribute("aria-live", "polite");
-      felt.appendChild(countdown);
+      countdown.innerHTML = "<b>1</b>";
     }
+    if (countdown.parentElement !== host) host.appendChild(countdown);
     return countdown;
   }
 
   function setReadyCountdown(endsAt) {
     readyCountdownEndsAt = Number(endsAt || 0);
+    readyCountdownDuration = Math.max(1, readyCountdownEndsAt - Date.now());
     window.clearInterval(readyCountdownTicker);
     readyCountdownTicker = 0;
     syncAvatarReadyControl();
     const countdown = ensureReadyCountdown();
     countdown?.classList.toggle("visible", Boolean(readyCountdownEndsAt));
-    setText(countdown, String(Math.max(1, Math.ceil((readyCountdownEndsAt - Date.now()) / 1000))));
+    const initialLeft = Math.max(0, readyCountdownEndsAt - Date.now());
+    setText(countdown?.querySelector("b"), String(Math.max(1, Math.ceil(initialLeft / 1000))));
+    countdown?.style.setProperty("--timer-progress", `${Math.min(100, initialLeft / readyCountdownDuration * 100)}%`);
     if (!readyCountdownEndsAt) return;
     readyCountdownTicker = window.setInterval(() => {
       syncAvatarReadyControl();
-      setText(countdown, String(Math.max(1, Math.ceil((readyCountdownEndsAt - Date.now()) / 1000))));
+      const liveCountdown = ensureReadyCountdown();
+      const left = Math.max(0, readyCountdownEndsAt - Date.now());
+      liveCountdown?.classList.add("visible");
+      setText(liveCountdown?.querySelector("b"), String(Math.max(1, Math.ceil(left / 1000))));
+      liveCountdown?.style.setProperty("--timer-progress", `${Math.min(100, left / readyCountdownDuration * 100)}%`);
       if (Date.now() >= readyCountdownEndsAt) {
         window.clearInterval(readyCountdownTicker);
         readyCountdownTicker = 0;
-        countdown?.classList.remove("visible");
+        liveCountdown?.classList.remove("visible");
       }
     }, 200);
   }
 
   let referenceActive = false;
   let presetSnapshot = null;
-  let armedUntil = 0;
+  let sizingMode = null;
+  let betGesture = null;
   let lastActionRowActor = "";
-  let armedSource = "";
-  let armedFingerprint = "";
-  let armedTimer = 0;
   let presetSettleTimer = 0;
-  const COMMIT_CONFIRM_MS = 3000;
   const PRESET_SETTLE_MS = 1000;
 
   const stripHudUnit = value => String(value ?? "").replace(/\s*ББ\s*$/i, "").trim();
@@ -1087,6 +1260,121 @@
     input.value = kind === "min" ? input.min : input.max;
     input.dispatchEvent(new Event("input", { bubbles:true }));
     selectPreset(button);
+  }
+
+  function closeSizingMode(render = true) {
+    sizingMode = null;
+    document.body.classList.remove("v038-sizing-open");
+    document.getElementById("sizingWrap")?.setAttribute("aria-hidden", "true");
+    if (render) queueSync();
+  }
+
+  function syncSizingModeText() {
+    const amount = Number(document.getElementById("amount")?.value || 0);
+    if (sizingMode) sizingMode.value = amount;
+    setText(document.getElementById("mobileSizingAmount"), `${stripHudUnit(formatBB(amount))} BB`);
+    setText(
+      document.getElementById("mobileSizingConfirm"),
+      sizingMode?.action === "raise" ? "ПОДТВЕРДИТЬ РЕЙЗ" : sizingMode?.action === "all_in" ? "ПОДТВЕРДИТЬ ALL-IN" : "ПОДТВЕРДИТЬ СТАВКУ",
+    );
+  }
+
+  function openSizingMode(action, amount = null) {
+    const bounds = amountBounds();
+    const value = Math.min(bounds.max, Math.max(bounds.min, amount ?? bounds.value));
+    sizingMode = { action, value };
+    syncAmountControls(value);
+    document.body.classList.add("v038-sizing-open");
+    const wrap = document.getElementById("sizingWrap");
+    if (wrap) {
+      wrap.hidden = false;
+      wrap.setAttribute("aria-hidden", "false");
+    }
+    syncSizingModeText();
+    queueSync();
+  }
+
+  function verticalBetSteps() {
+    const bounds = amountBounds();
+    return [bounds.min, 2, 4, presetTarget(.5), presetTarget(.67), presetTarget(1), bounds.max]
+      .map(value => Math.min(bounds.max, Math.max(bounds.min, Number(value || bounds.min))))
+      .filter((value, index, values) => index === 0 || Math.abs(value - values[index - 1]) > 1e-9)
+      .sort((left, right) => left - right)
+      .filter((value, index, values) => index === 0 || Math.abs(value - values[index - 1]) > 1e-9);
+  }
+
+  function hideBetRail() {
+    document.getElementById("mobileBetRail")?.setAttribute("aria-hidden", "true");
+  }
+
+  function beginVerticalBetGesture(event) {
+    const button = event.target?.closest?.('[data-action-key="aggressive"]');
+    if (!button || !isMobileV2() || !game || game.terminal || !localPlayerAlive()) return;
+    const amount = Number(document.getElementById("amount")?.value || amountBounds().value || 0);
+    const steps = verticalBetSteps();
+    const startIndex = steps.reduce((best, value, index) => (
+      Math.abs(value - amount) < Math.abs(steps[best] - amount) ? index : best
+    ), 0);
+    betGesture = {
+      pointerId:event.pointerId,
+      button,
+      startY:event.clientY,
+      startIndex,
+      steps,
+      active:false,
+      action:Number(game.current_bet || 0) > Number(localViewerPlayer()?.street_invested || 0) ? "raise" : "bet",
+    };
+    button.setPointerCapture?.(event.pointerId);
+  }
+
+  function updateVerticalBetGesture(event) {
+    if (!betGesture || event.pointerId !== betGesture.pointerId) return;
+    const distance = betGesture.startY - event.clientY;
+    if (!betGesture.active && Math.abs(distance) < 10) return;
+    if (!betGesture.active) {
+      betGesture.active = true;
+      openSizingMode(betGesture.action, betGesture.steps[betGesture.startIndex]);
+      document.getElementById("mobileBetRail")?.setAttribute("aria-hidden", "false");
+    }
+    event.preventDefault();
+    const index = Math.min(
+      betGesture.steps.length - 1,
+      Math.max(0, betGesture.startIndex + Math.round(distance / 46)),
+    );
+    const value = betGesture.steps[index];
+    syncAmountControls(value);
+    syncSizingModeText();
+    setText(document.getElementById("mobileBetRailAmount"), `${stripHudUnit(formatBB(value))} BB`);
+    document.documentElement.style.setProperty("--v038-rail-y", `${event.clientY}px`);
+  }
+
+  function finishVerticalBetGesture(event) {
+    if (!betGesture || event.pointerId !== betGesture.pointerId) return;
+    const { active, button, pointerId } = betGesture;
+    betGesture = null;
+    button.releasePointerCapture?.(pointerId);
+    hideBetRail();
+    if (!active) return;
+    button.dataset.v038SuppressClick = "1";
+    window.setTimeout(() => button.removeAttribute("data-v038-suppress-click"), 0);
+    syncSizingModeText();
+    queueSync();
+  }
+
+  function confirmSizingMode() {
+    if (!sizingMode || !game || game.terminal) return closeSizingMode();
+    const { action, value } = sizingMode;
+    const localTurn = isLocalHumanTurn();
+    closeSizingMode(false);
+    if (!localTurn) {
+      togglePendingAction(action === "all_in" ? "all_in" : "aggressive");
+      renderMobileSelectedCard();
+      queueSync();
+      return;
+    }
+    clearPendingAction(false);
+    if (action === "all_in") return sendAction("all_in", 0);
+    return sendAction(action, value);
   }
 
   function ensurePresetButtons() {
@@ -1142,84 +1430,6 @@
     row.querySelectorAll("button small").forEach(value => setText(value, stripHudUnit(value.textContent)));
   }
 
-  function clearArmedAction(render = true) {
-    window.clearTimeout(armedTimer);
-    armedTimer = 0;
-    armedUntil = 0;
-    armedSource = "";
-    armedFingerprint = "";
-    if (render) queueSync();
-  }
-
-  function viewerIsLeaving() {
-    return window.Poker8OnlineTable?.viewerState === "leaving"
-      || document.body.classList.contains("p8-leaving");
-  }
-
-  function armedFingerprintOf(source) {
-    const amount = Number(document.getElementById("amount")?.value || 0);
-    return [game?.hand_id, game?.street, game?.acting_player, game?.history?.length || 0, source, source === "aggressive" ? amount : ""].join(":");
-  }
-
-  function fireArmedCommit(source, amount) {
-    const fingerprint = armedFingerprint;
-    clearArmedAction(false);
-    if (!game || game.terminal || !isLocalHumanTurn()) return;
-    // The spot has to be the one that was armed: a new street, a new actor or
-    // a changed amount all mean this is no longer the bet they asked for.
-    if (fingerprint !== armedFingerprintOf(source)) return queueSync();
-    const legal = game.human_legal_actions || [];
-    clearPendingAction(false);
-    if (source === "aggressive") {
-      sendAction(legal.includes("raise") ? "raise" : "bet", amount);
-    } else if (source === "fold") {
-      sendAction("fold", 0);
-    } else {
-      sendAction("all_in", 0);
-    }
-    queueSync();
-  }
-
-  function confirmCommit(source, localTurn, amount, legal) {
-    // Off turn there is no clock to run against: it stays a pre-action.
-    if (!localTurn) {
-      clearArmedAction(false);
-      togglePendingAction(source);
-      renderMobileSelectedCard();
-      queueSync();
-      return;
-    }
-    // Already on the way out: the seat is going and the server folds the hand
-    // itself, so a beat to reconsider is a beat wasted. Send it and be done.
-    if (viewerIsLeaving()) {
-      clearArmedAction(false);
-      clearPendingAction(false);
-      return sendAction(source === "fold" ? "fold" : "all_in", 0);
-    }
-    // The two irreversible presses -- the whole stack, and the hand itself --
-    // get a beat to take back. The first press arms it and a bar drains across
-    // the button; it fires on its own, and pressing again inside the window is
-    // how you cancel, not how you confirm.
-    const fingerprint = armedFingerprintOf(source);
-    if (armedSource === source && armedFingerprint === fingerprint) {
-      clearArmedAction();
-      return;
-    }
-    clearArmedAction(false);
-    // Never let the bar be the reason a turn times out: if the server's own
-    // deadline lands first, commit there instead, half a second early so the
-    // command has time to reach it.
-    const deadline = game?.action_deadline ? Date.parse(game.action_deadline) : NaN;
-    const armFor = Number.isFinite(deadline)
-      ? Math.max(400, Math.min(COMMIT_CONFIRM_MS, deadline - Date.now() - 500))
-      : COMMIT_CONFIRM_MS;
-    armedSource = source;
-    armedFingerprint = fingerprint;
-    armedUntil = Date.now() + armFor;
-    armedTimer = window.setTimeout(() => fireArmedCommit(source, amount), armFor);
-    queueSync();
-  }
-
   function ensureHudSummary() {
     // On a phone this belongs on the felt, in the gap between the pot and
     // the board -- down in the action panel it is outside where the eye is
@@ -1249,11 +1459,32 @@
     setText(summary.querySelector("[data-v038-bet]"), stripHudUnit(amount));
   }
 
+  function mobileActionDefinitions({ localTurn, legal, toCall, amount, allInTotal, aggressiveLabel }) {
+    const available = action => !localTurn || legal.includes(action);
+    if (toCall > 0) {
+      return [
+        { key:"fold", label:"FOLD", amount:"", cls:"fold", edge:"left", slot:"top", enabled:available("fold") },
+        { key:"call", label:"CALL", amount:stripHudUnit(formatBB(toCall)), cls:"call", edge:"right", slot:"top", enabled:available("call") },
+        { key:"aggressive", label:aggressiveLabel, amount:stripHudUnit(formatBB(amount)), cls:"raise", edge:"right", slot:"bottom", enabled:available("raise") },
+      ].filter(def => def.enabled);
+    }
+    return [
+      { key:"check", label:"CHECK", amount:"", cls:"check", edge:"left", slot:"top", enabled:available("check") },
+      { key:"fold", label:"FOLD", amount:"", cls:"fold", edge:"left", slot:"bottom", enabled:available("fold") },
+      { key:"aggressive", label:"BET", amount:stripHudUnit(formatBB(amount)), cls:"raise", edge:"right", slot:"top", enabled:available("bet") },
+      { key:"all_in", label:"ALL-IN", amount:stripHudUnit(formatBB(allInTotal)), cls:"all-in", edge:"right", slot:"bottom", enabled:available("all_in"), allIn:true },
+    ].filter(def => def.enabled);
+  }
+
   function configureReferenceActions() {
     const grid = document.getElementById("actionButtons");
-    const current = [...(grid?.querySelectorAll("[data-v038-reference-action]") || [])];
     if (!grid) return;
     const alive = localPlayerAlive();
+    if (!game || game.terminal || !alive) {
+      grid.innerHTML = "";
+      delete grid.dataset.v038ActionSignature;
+      return;
+    }
     const localTurn = isLocalHumanTurn();
     // Never leave a row of action-looking but inert buttons during result,
     // countdown, observer and folded states. An active opponent turn is still
@@ -1270,53 +1501,36 @@
     const amount = Number(document.getElementById("amount")?.value || amountBounds().value || 0);
     const bounds = amountBounds();
     const allInTotal = Number(localViewerPlayer()?.stack || 0) + Number(localViewerPlayer()?.street_invested || 0);
-    const leftKey = localTurn ? (legal.includes("check") ? "check" : "fold") : (toCall > 0 ? "fold" : "check");
-    const atMax = Math.abs(amount - Number(bounds.max || 0)) < 1e-9;
     const aggressiveLabel = Number(game?.current_bet || 0) > Number(localViewerPlayer()?.street_invested || 0) ? "RAISE" : "BET";
-    if (armedSource && (armedUntil <= Date.now() || armedFingerprint !== armedFingerprintOf(armedSource))) {
-      clearArmedAction(false);
-    }
     const actorNow = `${game?.hand_id || ""}:${game?.acting_player || ""}`;
     const actorChanged = actorNow !== lastActionRowActor;
     lastActionRowActor = actorNow;
-    const defs = [
-      { key:"call", label:"CALL", amount:stripHudUnit(formatBB(toCall)), cls:"call" },
-      { key:"all_in", label:"ALL-IN", amount:stripHudUnit(formatBB(allInTotal)), cls:"all-in", allIn:true },
-      { key:leftKey, label:leftKey === "check" ? "CHECK" : "FOLD", amount:"", cls:leftKey },
-      { key:"aggressive", label:atMax ? "ALL-IN" : aggressiveLabel, amount:stripHudUnit(formatBB(atMax ? allInTotal : amount)), cls:atMax ? "all-in" : "raise", allIn:atMax },
-    ];
-    if (current.length !== 4) {
+    const defs = mobileActionDefinitions({ localTurn, legal, toCall, amount, allInTotal, aggressiveLabel });
+    const aggressive = defs.find(def => def.key === "aggressive");
+    const atMax = Math.abs(amount - Number(bounds.max || 0)) < 1e-9;
+    if (aggressive && atMax) {
+      aggressive.label = "ALL-IN";
+      aggressive.amount = stripHudUnit(formatBB(allInTotal));
+      aggressive.cls = "all-in";
+      aggressive.allIn = true;
+    }
+    const signature = defs.map(def => def.key).join("|");
+    if (grid.dataset.v038ActionSignature !== signature || grid.children.length !== defs.length) {
       grid.innerHTML = "";
       defs.forEach(() => grid.appendChild(document.createElement("button")));
+      grid.dataset.v038ActionSignature = signature;
     }
     grid.dataset.v038ReferenceActions = "1";
     [...grid.children].forEach((button, index) => {
       try {
         const def = defs[index];
-        const slot = ["call", "all_in", "left", "aggressive"][index];
         button.type = "button";
         button.dataset.actionKey = def.key;
-        button.dataset.v038Slot = slot;
+        button.dataset.edge = def.edge;
+        button.dataset.slot = def.slot;
         button.dataset.v038ReferenceAction = "1";
         button.className = `action-slot ${def.cls}`;
         button.classList.toggle("queued", pendingAction?.kind === def.key);
-        const armed = armedSource === def.key && (Boolean(def.allIn) || def.key === "fold");
-        button.classList.toggle("v038-armed", armed);
-        if (armed) {
-          // Set once, on the render that arms it. Rewriting the duration on
-          // every later render restarts the animation, so the bar would snap
-          // back to full width each time a snapshot arrived.
-          if (!button.dataset.armLabel) {
-            const left = Math.max(0, armedUntil - Date.now());
-            button.style.setProperty("--v038-arm-ms", `${left}ms`);
-            button.dataset.armLabel = `${Math.max(1, Math.round(left / 1000))} СЕК`;
-          }
-        } else if (button.dataset.armLabel) {
-          button.style.removeProperty("--v038-arm-ms");
-          delete button.dataset.armLabel;
-        }
-        if (def.allIn) button.dataset.v038AllInTrigger = "1";
-        else delete button.dataset.v038AllInTrigger;
         let label = button.querySelector(".v038-action-label");
         let value = button.querySelector(".v038-action-amount");
         if (!label || !value) {
@@ -1334,51 +1548,38 @@
           }
         }
         button.setAttribute("aria-label", `${def.label}${def.amount ? ` ${def.amount}` : ""}`);
-        let enabled = Boolean(game && !game.terminal && alive && !window.Poker8Transport?.isActionPending?.());
-        if (localTurn) {
-          if (def.key === "check") enabled = enabled && legal.includes("check");
-          else if (def.key === "fold") enabled = enabled && legal.includes("fold");
-          else if (def.key === "call") enabled = enabled && legal.includes("call");
-          else if (def.key === "all_in") enabled = enabled && legal.includes("all_in");
-          else if (def.allIn) enabled = enabled && (legal.includes("bet") || legal.includes("raise"));
-          else enabled = enabled && (legal.includes("bet") || legal.includes("raise"));
-        } else {
-          // While another player acts, every enabled control is an explicit
-          // pre-action. It is revalidated against the snapshot at execution.
-          if (def.key === "call") enabled = enabled && toCall > 0;
+        button.disabled = Boolean(window.Poker8Transport?.isActionPending?.());
+        if (!localTurn) {
           button.setAttribute("aria-description", "Предвыбор: действие будет перепроверено на вашем ходе");
+        } else {
+          button.removeAttribute("aria-description");
         }
-        button.disabled = !enabled;
         button.onclick = () => {
+          if (button.dataset.v038SuppressClick) {
+            button.removeAttribute("data-v038-suppress-click");
+            return;
+          }
           if (!game || game.terminal || !localPlayerAlive() || window.Poker8Transport?.isActionPending?.()) return;
           const liveTurn = isLocalHumanTurn();
           const liveLegal = game.human_legal_actions || [];
-          const liveToCall = estimatedLocalToCall();
           const liveAmount = Number(document.getElementById("amount")?.value || amountBounds().value || 0);
-          const liveKey = slot === "left"
-            ? (liveTurn ? (liveLegal.includes("check") ? "check" : "fold") : (liveToCall > 0 ? "fold" : "check"))
-            : slot === "aggressive" ? "aggressive" : slot;
-          // Не исполнять команду от button, если между её отрисовкой и касанием пришёл новый snapshot.
-          if (button.dataset.actionKey !== liveKey) {
-            queueSync();
-            return;
+          if (def.key === "aggressive") {
+            if (liveTurn && !liveLegal.some(action => ["bet", "raise", "all_in"].includes(action))) return queueSync();
+            return openSizingMode(aggressiveLabel === "RAISE" ? "raise" : "bet", liveAmount);
           }
-          const liveAllIn = slot === "all_in" || (slot === "aggressive" && Math.abs(liveAmount - Number(amountBounds().max || 0)) < 1e-9);
-          if (liveAllIn) return confirmCommit(slot === "aggressive" ? "aggressive" : "all_in", liveTurn, liveAmount, liveLegal);
-          // Folding is as final as shoving, so it arms the same way. Checking
-          // is not -- the left slot is one or the other depending on the spot.
-          if (liveKey === "fold") return confirmCommit("fold", liveTurn, 0, liveLegal);
+          if (def.allIn) {
+            if (liveTurn && !liveLegal.includes("all_in")) return queueSync();
+            return openSizingMode("all_in", amountBounds().max);
+          }
+          if (liveTurn && !liveLegal.includes(def.key)) return queueSync();
           if (!liveTurn) {
-            togglePendingAction(liveKey);
+            togglePendingAction(def.key);
             renderMobileSelectedCard();
             queueSync();
             return;
           }
           clearPendingAction(false);
-          if (liveKey === "check") return sendAction("check", 0);
-          if (liveKey === "fold") return sendAction("fold", 0);
-          if (liveKey === "call") return sendAction("call", 0);
-          return sendAction(liveLegal.includes("raise") ? "raise" : "bet", liveAmount);
+          return sendAction(def.key, 0);
         };
       } catch (error) {
         console.error("[v038] configureReferenceActions button failed", error);
@@ -1389,7 +1590,9 @@
   function teardownFinalReference() {
     if (!referenceActive) return;
     referenceActive = false;
-    clearArmedAction(false);
+    closeSizingMode(false);
+    betGesture = null;
+    hideBetRail();
     clearPresetSelection();
     window.clearTimeout(presetSettleTimer);
     presetSettleTimer = 0;
@@ -1397,7 +1600,9 @@
     turnVisualTicker = 0;
     turnVisualToken = "";
     cancelRoomReset();
-    document.body.classList.remove("v038-room-awaiting");
+    document.body.classList.remove("v038-sizing-open", "v038-room-awaiting");
+    document.getElementById("sizingWrap")?.setAttribute("aria-hidden", "true");
+    document.getElementById("mobileBetRail")?.setAttribute("aria-hidden", "true");
     document.querySelector(".v038-turn-timer")?.remove();
     document.querySelector(".v038-turn-context")?.remove();
     document.querySelector(".v038-room-prompt")?.remove();
@@ -1445,8 +1650,12 @@
       return;
     }
     referenceActive = true;
+    const legal = game?.human_legal_actions || [];
+    const aggressiveLegal = !isLocalHumanTurn() || legal.includes("bet") || legal.includes("raise") || legal.includes("all_in");
+    if (sizingMode && (!game || game.terminal || !localPlayerAlive() || !aggressiveLegal)) closeSizingMode(false);
     runSyncStep(ensurePresetButtons);
     runSyncStep(ensureHudSummary);
+    runSyncStep(ensureMobileHeaderControls);
     runSyncStep(syncSeatStackLabels);
     runSyncStep(syncTableNumberLabels);
     runSyncStep(syncAvatarReadyControl);
@@ -1456,6 +1665,7 @@
     runSyncStep(syncTableTurnHud);
     runSyncStep(syncCompletedHandReset);
     runSyncStep(configureReferenceActions);
+    runSyncStep(syncSizingModeText);
   }
 
   let syncQueued = false;
@@ -1499,28 +1709,31 @@
   const start = () => {
     syncFinalReference();
     const buttons = document.getElementById("actionButtons");
-    if (buttons) new MutationObserver(queueSync).observe(buttons, { childList:true });
+    if (buttons) {
+      new MutationObserver(queueSync).observe(buttons, { childList:true });
+      buttons.addEventListener("pointerdown", beginVerticalBetGesture);
+      window.addEventListener("pointermove", updateVerticalBetGesture, { passive:false });
+      window.addEventListener("pointerup", finishVerticalBetGesture);
+      window.addEventListener("pointercancel", finishVerticalBetGesture);
+    }
+    const connection = document.getElementById("connectionStatus");
+    if (connection) new MutationObserver(syncConnectionDot).observe(connection, { childList:true, characterData:true, subtree:true });
     const sizing = document.getElementById("sizingWrap");
     if (sizing && !sizing.dataset.v038InputSync) {
       sizing.dataset.v038InputSync = "1";
       sizing.addEventListener("input", event => {
         if (event.target?.matches?.("#amountSlider")) scheduleSettledPreset();
         else clearPresetSelection();
-        clearArmedAction(false);
+        syncSizingModeText();
         queueSync();
       });
     }
+    document.getElementById("mobileSizingConfirm")?.addEventListener("click", confirmSizingMode);
+    document.getElementById("mobileSizingCancel")?.addEventListener("click", () => closeSizingMode());
     if (!document.body.dataset.v038ClickSync) {
       document.body.dataset.v038ClickSync = "1";
       document.addEventListener("click", event => {
         if (event.target?.closest?.("#amountMinus,#amountPlus")) clearPresetSelection();
-        // Clicking away is how you cancel -- but the button that arms is not
-        // "away". This exempted [data-v038-all-in-trigger], an attribute
-        // nothing in the repo ever sets, so the document listener fired right
-        // after the button's own handler and disarmed what had just been
-        // armed. Fold and all-in both went nowhere: armed on mousedown's
-        // click, cleared by the same click on its way up.
-        if (armedSource && !event.target?.closest?.("[data-action-key],[data-v038-all-in-trigger]")) clearArmedAction();
       });
     }
   };

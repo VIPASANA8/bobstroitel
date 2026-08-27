@@ -9,15 +9,13 @@ from pathlib import Path
 APP = Path("static/app.js").read_text(encoding="utf-8")
 TABLE = Path("static/v038-poker8-v2-cinematic-table.js").read_text(encoding="utf-8")
 
-#: Five steps. Measured on the live table, the felt carried sixteen sizes --
-#: 6 through 29 -- which is not a hierarchy, it is the absence of a decision.
-#: The sixth step is for page headings outside the felt -- the lobby and
-#: profile share these stylesheets.
+#: Mobile gameplay adds dedicated readable steps for player names, stacks,
+#: sizing output and HERO without shrinking them into the desktop scale.
 #: Both spellings. `font:800 11px/1 Inter` is a size too, and reading only
 #: `font-size:` is how thirteen of them survived four passes.
 SIZE = re.compile(r"font(?:-size)?:\s*(?:(?:normal|italic|oblique|small-caps|bold|bolder|lighter|\d{3})\s+)*([0-9.]+)px")
 
-SCALE = {10, 12, 15, 20, 27, 36}
+SCALE = {10, 12, 13, 15, 16, 18, 20, 24, 27, 36}
 
 
 def test_the_table_sets_type_only_on_the_scale():

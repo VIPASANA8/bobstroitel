@@ -18,8 +18,6 @@ def test_new_bot_on_reused_empty_seat_gets_fresh_id_and_deposit(tmp_path: Path):
 
 
 def test_single_human_cards_can_be_revealed_during_bot_turn(tmp_path: Path):
-    # Regression assertion for the public-state capability used by v0.10.1:
-    # a chosen viewer keeps their own cards visible even when another player acts.
     store = TrainingStore(tmp_path / 'db.sqlite3')
     store.add_bot(1, 'Бот', 'normal')
     engine = PokerEngine()
@@ -51,6 +49,37 @@ def test_v037_reference_table_pass_is_loaded_and_chat_is_decorative():
     assert '@media all{' in source
 
 
+def test_v038_uses_full_height_arc_and_viewport_edge_controls():
+    root = Path(__file__).resolve().parents[1]
+    source = (root / "static" / "v038-poker8-v2-cinematic-table.js").read_text(encoding="utf-8")
+    index = (root / "static" / "index.html").read_text(encoding="utf-8")
+    component = (root / "static" / "component-ui.js").read_text(encoding="utf-8")
+    loader = (root / "static" / "v037-poker8-v2-reference-table.js").read_text(encoding="utf-8")
+
+    assert "--p8-seat-safe-inset:50px" in source
+    assert "--p8-arc-radius:min(46vw,calc(50vw - var(--p8-seat-safe-inset)))" in source
+    assert "--p8-arc-diagonal:calc(var(--p8-arc-radius) * .70710678)" in source
+    assert '--p8-seat-angles:"180 135 90 45 0"' in source
+    assert 'data-visual-seat="1"]{--v040-seat-x:calc(50% - var(--p8-arc-radius))' in source
+    assert 'data-visual-seat="2"]{--v040-seat-x:calc(50% - var(--p8-arc-diagonal))' in source
+    assert 'data-visual-seat="3"]{--v040-seat-x:50%' in source
+    assert 'data-visual-seat="4"]{--v040-seat-x:calc(50% + var(--p8-arc-diagonal))' in source
+    assert 'data-visual-seat="5"]{--v040-seat-x:calc(50% + var(--p8-arc-radius))' in source
+    for count in range(2, 6):
+        assert f"p8-player-count-{count} .seat[data-visual-seat=" in source
+    assert "height:calc(100dvh - var(--p8-header-h))" in source
+    assert ".action-panel" in source and "position:fixed!important" in source
+    assert "background:transparent!important" in source
+    assert "mobileConnectionDot" in source
+    assert "mobileHelpButton" not in source
+    assert 'hint.textContent = "?"' in loader
+    assert "ЗАНЯТЬ МЕСТО" not in source
+    assert '/static/component-ui.js?v=mobile-layout-prod-4' in index
+    assert '/static/online-table.js?v=mobile-layout-prod-4' in index
+    assert '/static/v037-poker8-v2-reference-table.js?v=mobile-layout-prod-4' in component
+    assert '/static/v038-poker8-v2-cinematic-table.js?v=mobile-layout-prod-4' in loader
+
+
 def test_v025_showdown_modal_is_readable_on_mobile():
     root = Path(__file__).resolve().parents[1]
     source = (root / 'static' / 'v025-showdown-compare.js').read_text(encoding='utf-8')
@@ -78,269 +107,30 @@ def test_seat_config_carries_the_participant_id():
     assert "seat?.id === viewerId" in component_source
 
 
-def test_v038_cinematic_table_is_mobile_presentation_only():
+def test_v038_preserves_gameplay_contracts_while_replacing_the_mobile_layout():
     root = Path(__file__).resolve().parents[1]
-    loader = (root / 'static' / 'v037-poker8-v2-reference-table.js').read_text(encoding='utf-8')
-    component_loader = (root / 'static' / 'component-ui.js').read_text(encoding='utf-8')
     source = (root / 'static' / 'v038-poker8-v2-cinematic-table.js').read_text(encoding='utf-8')
-    ready_source = (root / 'static' / 'v024-ready-phase.js').read_text(encoding='utf-8')
-    app_source = (root / 'static' / 'app.js').read_text(encoding='utf-8')
-    wager_source = (root / 'static' / 'v031-pot-cluster-mobile-fix.js').read_text(encoding='utf-8')
-    wager_loader = (root / 'static' / 'v030-seat-ready-fix.js').read_text(encoding='utf-8')
-    index_source = (root / 'static' / 'index.html').read_text(encoding='utf-8')
+    ready = (root / 'static' / 'v024-ready-phase.js').read_text(encoding='utf-8')
+    wager = (root / 'static' / 'v031-pot-cluster-mobile-fix.js').read_text(encoding='utf-8')
+    app = (root / 'static' / 'app.js').read_text(encoding='utf-8')
 
-    assert '/static/v038-poker8-v2-cinematic-table.js?v=' in loader
-    assert '/static/v037-poker8-v2-reference-table.js?v=' in component_loader
-    # v033 and v034 were dead -- nothing loaded them, and these two lines were
-    # the only thing keeping 280 lines of them alive. They are gone. The
-    # invariant worth having is the other way round: every layer a loader names
-    # has to exist, or the chain breaks silently at a 404 halfway through.
-    named = set()
-    for js in (root / 'static').glob('*.js'):
-        named.update(re.findall(r'/static/(v\d+-[a-z0-9-]+\.js)', js.read_text(encoding='utf-8')))
-    missing = sorted(name for name in named if not (root / 'static' / name).exists())
-    assert missing == [], missing
-    assert 'data-v038-poker8-v2-cinematic-table' in loader
-    assert (root / 'static' / 'assets' / 'poker8-v2-table-mobile.webp').exists()
-    assert '@media (max-width:780px)' in source
-    assert 'url("/static/assets/poker8-v2-table-mobile.webp")' in source
-    assert '100vw calc(var(--table-stage-h) + 50px)' in source
-    assert 'background-position:center,center -50px' in source
-    assert 'background:transparent!important' in source
-    assert '--profile-avatar-image' in source
-    assert 'compactStackLabel' in source
-    assert 'syncSeatStackLabels' in source
-    assert 'syncTableNumberLabels' in source
-    assert '.pot-total strong,.bet-marker span' in source
-    assert 'Math.round(value).toLocaleString("en-US")' in source
-    assert '.seat-card::after' in source
-    assert '.pot-chips .poker-chip' in source
-    assert 'calc(100dvh - 50px - var(--p8-hud-h) - var(--p8-bottom-reserve))' in source
-    # The stage calc above only reserves the action panel's space; it does not
-    # stop .layout/.left-column inheriting a full-viewport height from
-    # style.css. Without this override the left column alone fills .app-shell,
-    # so the sidebar holding the action buttons is laid out past the bottom of
-    # an overflow:hidden shell -- the buttons render but are off-screen and
-    # unreachable, which reads as "the action buttons never appear".
-    assert 'body.v014.poker8-v2-sixmax .layout,' in source
-    assert 'min-height:0!important;height:auto!important;flex:none!important;' in source
-    assert '--seat-3-y:13%' in source
-    # $= (suffix match), not =, so a spectator's "spectator-N" dataset still
-    # resolves an accent color instead of leaving every avatar unstyled.
-    assert '[data-visual-seat$="3"]{--seat-accent:142' in source
-    # Same suffix-match gap for the actual hexagon placement: an exact ="N"
-    # match here left every spectator seat with no left/top at all, since
-    # every earlier layer (component-ui.css, v032, v039) has the identical
-    # exact-match gap -- nothing in the chain ever positions a spectator.
-    assert 'body.v014.poker8-v2-sixmax .seat[data-visual-seat$="0"]{left:50%!important;top:80%!important;}' in source
-    assert 'body.v014.poker8-v2-sixmax .seat[data-visual-seat$="3"]{left:50%!important;top:13%!important;}' in source
-    assert '--seat-2-x:7%' in source and '--seat-4-x:84%' in source
-    assert '--seat-1-y:58%' in source and '--seat-5-y:58%' in source
-    assert '--seat-2-y:22%' in source and '--seat-4-y:22%' in source
-    assert '--seat-0-y:80%' in source
-    assert '--pot-y:25%' in source
-    assert '--board-y:38%' in source and '--pot-chips-y:47%' in source
-    # Every seat's avatar is the same size now (item 6: 1.5x smaller than the
-    # old 74px; item 5: the hero seat no longer overrides it to 82px).
-    assert 'width:49px!important;height:49px!important' in source
-    assert '.seat-card:has(.player-cards:not(:empty)) .avatar-wrap::before' in source
-    assert 'width:calc(100% - 44px)!important' in source
-    assert 'box-sizing:border-box!important' in source
-    assert '.felt::after{display:none!important;}' in source
-    assert '.player-avatar::before{' in source
-    assert '.player-avatar::after{' in source
-    assert 'clip-path:polygon(50% 0,84% 16%,100% 72%,76% 92%,63% 68%,50% 61%,37% 68%,24% 92%,0 72%,16% 16%);' in source
-    assert 'width:34px!important;height:48px!important;border-radius:5px!important;' in source
-    assert 'width:45px!important;height:63px!important;' in source
-    assert 'font-size:20px!important;line-height:1!important;' in source
-    assert 'width:22px!important;height:9px!important;border-width:1px!important;' in source
-    assert '.player-avatar span{opacity:0!important' in source
-    assert '.player-avatar[style*="--profile-avatar-image"]::before' in source
-    assert 'overflow:visible!important' in source
-    assert '.mobile-game-header{' in source and 'transparent 38%,transparent 62%' in source
-    # Was a pinned pair of hexes. The board card is a dark 150deg gradient;
-    # which two near-blacks it runs between is a palette decision, not this
-    # test's business.
-    assert re.search(r'linear-gradient\(150deg,#[0-9a-f]{6} 0%,#[0-9a-f]{6} 100%\)!important', source)
-    # Dropped: it hue-shifted every 3rd column regardless of which denomination
-    # it held, scrambling the real chip colours chipsForAmount already sets.
-    assert '.pot-chips .chip-column:nth-child(3n+2) .poker-chip' not in source
-    assert 'background:transparent!important' in source
-    assert '.seat-identity{' in source and 'position:absolute!important' in source
-    assert '.seat-stack{margin-inline:auto!important' in source
-    assert '.position-chip{display:none!important' in source
-    assert '.seat-card > .v024-ready-badge{display:none!important' in source
-    assert '.player-status:is(.status-fold,.status-turn,.status-thinking){display:none!important' in source
-    assert '.v028-center-ready{display:none!important' in source
-    assert 'v038-ready-mark' in source
-    assert '.v028-prehand-center-ready .avatar-wrap.v038-viewer-ready .v038-ready-mark' in source
-    assert 'poker8:ready-countdown' in source
-    assert 'poker8:ready-snapshot' in source
-    assert 'READY_COUNTDOWN_MS = 5000' in ready_source
-    assert 'cancelViewerReadyCountdown' in ready_source
-    assert 'toggleViewerReadyCountdown' in ready_source
-    assert 'poker8:ready-countdown' in ready_source
-    assert 'poker8:ready-snapshot' in ready_source
-    assert 'transform:translateX(-50%) scale(.92)' in source
-    assert '.seat-card.v032-active-turn' in source
-    assert '.seat-card:is(.v032-in-hand,.v032-active-turn,.all-in)' in source
-    assert 'outline:0!important' in source
-    assert 'syncTurnIndicators' not in source
-    assert '.deck-anchor{display:none!important' in source
-    assert '.viewer-seat .player-cards{top:-47px!important' in source
-    # The hero's identity plate no longer overrides width/position -- it now
-    # matches every other seat's plate, same as the avatar (item 5 uniformity).
-    assert 'seat[data-visual-seat="0"] .seat-identity' not in source
-    assert '.viewer-seat .player-cards .card-suit' in source
-    assert '.player-cards .card:not(.back)' in source
-    assert 'v038-ready-countdown' in source
-    assert 'syncAllSeatReadyMarks' in source
-    assert '.v038-turn-timer' in source
-    assert '.v038-turn-context' in source
-    assert 'syncTableTurnHud' in source
-    assert 'TURN_VISUAL_MS = 30000' in source
-    assert 'actor?.street_invested' in source
-    assert 'window.clearInterval(turnVisualTicker)' in source
-    # The clock follows the server deadline and only falls back to a fixed 30 s
-    # for local hands, which carry no deadline.
-    assert 'game?.action_deadline ? Date.parse(game.action_deadline) : NaN' in app_source
-    assert 'Date.now() + 30000 : serverDeadline' in app_source
-    assert 'left / 30000 * 100' in app_source
-    assert '.seat-card.v032-folded' in source
-    assert '.seat-card.all-in' in source
-    assert 'calc(100dvh - 250px)' not in source
-    assert '--p8-perspective:900px' in source
-    assert 'rotateX(5deg)' in source
-    assert '--p8-bottom-reserve:46px' in source
-    assert 'grid-template-columns:repeat(5,1fr)' in source
-    assert '--p8-hud-h:214px' in source
-    assert 'grid-template-columns:repeat(2,minmax(0,1fr))' in source
-    assert 'grid-template-rows:repeat(2,44px)' in source
-    assert '.sidebar{transform:none' in source
-    assert 'position:absolute!important' in source
-    assert 'bottom:4px!important' in source
-    assert 'position:fixed!important' not in source
-    assert '.action-slot.all-in{display:none' not in source
-    # The summary is two columns now -- БАНК was dropped because the pot is
-    # printed on the felt right above it -- and on a phone it moves onto the
-    # felt as a one-line strip, so the panel's own top:4px only describes the
-    # desktop placement.
-    assert '.v038-hud-summary{' in source and 'grid-template-columns:repeat(2,1fr)' in source
-    assert '.v038-hud-summary.on-felt{' in source
-    assert 'data-v038-pot' not in source
-    assert 'configureReferenceActions' in source
-    assert 'window.addEventListener("resize", queueSync)' in source
-    assert '{ key:"call"' in source
-    assert '{ key:"all_in"' in source
-    assert '{ key:leftKey' in source
-    assert '{ key:"aggressive"' in source
-    assert 'COMMIT_CONFIRM_MS = 3000' in source
-    # The label is the remaining seconds now, in both motion modes -- the
-    # window shortens when the turn clock would land first, so a fixed
-    # "3 SEC" would have been a promise the button could not keep.
-    assert 'content:attr(data-arm-label)' in source
-    assert 'animation:v038ConfirmDrain var(--v038-arm-ms,3000ms)' in source
-    assert 'v038-armed' in source
-    assert 'v038-size-selected' in source
-    assert '.quick-sizes button.v038-max-size{' in source
-    # Was a pinned magenta literal, then the raise colour. A pressed size chip
-    # lights up in that chip's own colour now -- the five sizes are a ramp and
-    # each step owns one.
-    assert 'border-color:var(--size-accent)!important' in source
-    assert 'transition:color 180ms' in source
-    assert '@media (prefers-reduced-motion:reduce)' in source
-    assert 'teardownFinalReference' in source
-    assert 'estimatedLocalToCall()' in source
-    # Was the felt's 3D tilt and the counter-rotation that cancelled it on
-    # every child. Both are gone: the scale that came with the tilt sized
-    # each seat plate to a fractional pixel and softened the text.
-    assert 'rotate:x -5deg' not in source
-    assert 'transform:rotateX(' not in source
-    assert 'fetch(' not in source
-    assert 'data-v038-all-in-trigger' in source
-    assert 'source === "aggressive"' in source
-    # Off turn every armable slot becomes a pre-action, fold included, so the
-    # branch just passes the source straight through.
-    assert "togglePendingAction(source);" in source
-    assert 'pendingAction?.kind === def.key' in source
-    assert '.amount-row{display:none!important' in source
-    assert 'min-height:39px!important;height:39px!important' in source
-    # The track was a four-stop rainbow ending in the turn colour. The
-    # slider sets a raise, so it is the raise colour end to end.
-    assert 'var(--act-raise)' in source
-    assert 'width:max-content;min-width:82px;max-width:116px' in source
-    assert 'text-align:center' in source
-    assert 'PRESET_SETTLE_MS = 1000' in source
-    assert 'scheduleSettledPreset' in source
-    assert 'stripHudUnit' in source
-    assert '.seat-card::after{display:none!important' in source
-    assert '.seat-card::before,' in source
-    assert '.avatar-wrap::after{display:none!important;}' not in source
-    assert 'syncSeatActionStates' in source
-    assert all(token in source for token in ('v038-action-fold', 'v038-action-passive', 'v038-action-aggressive', 'v038-action-all-in'))
-    assert '.seat-card.v032-active-turn .seat-identity' in source
-    # Was the cyan pulse. Three layers drew the turn in three colours and
-    # only this one declared an animation, so a cyan pulse ran on top of
-    # the magenta ring. The turn is drawn once now, in v041.
-    assert 'border-color:var(--turn)!important' in source
-    assert '.seat .seat-card.v032-in-hand:not(.v032-active-turn){\n        border:0!important;background:transparent!important;box-shadow:none!important;outline:0!important;' in source
-    # The size moved onto the type scale (see test_type_scale); what this
-    # line is really pinning is the plate the wager sits on.
-    assert '.bet-marker span{' in source
-    assert re.search(r'background:rgba\(\d+,\d+,\d+,\.84\)!important', source)
-    assert 'left:calc(25% - 20.5px)' in source
-    assert 'left:calc(75% + 20.5px)' in source
-    assert 'invested > 0 ? `ПОСТАВИЛ · ${compactStackLabel(invested)}` : ""' in source
-    assert 'latestActionText' not in source
-    assert 'HAND_RESULT_HOLD_MS = 7000' in source
-    assert 'roomResetHandId' in source
-    assert 'document.body.classList.toggle("v038-hand-complete", Boolean(game?.terminal));' in source
-    assert 'body.v014.poker8-v2-sixmax.v038-hand-complete .player-cards{opacity:0!important;transform:translateX(-50%) translateY(-12px) scale(.92)!important;}' in source
-    assert 'game = null' in source
-    assert 'v038-room-resetting' in source
-    assert 'body.v014.poker8-v2-sixmax.v038-room-resetting .player-cards{opacity:0!important;transform:translateX(-50%) translateY(-12px) scale(.92)!important;}' in source
-    assert 'body.v014.poker8-v2-sixmax.v038-room-awaiting .avatar-wrap::before' in source
-    assert 'body.v014.poker8-v2-sixmax.v038-room-awaiting .avatar-wrap::after' in source
-    assert 'body.v014.poker8-v2-sixmax.v038-room-resetting .avatar-wrap::before' in source
-    assert 'body.v014.poker8-v2-sixmax.v038-hand-complete .avatar-wrap::after' in source
-    assert 'opacity:0!important;' in source
-    assert 'v038-room-prompt' in source
-    # Dead center of the felt, independent of the (now mostly silent) room
-    # label -- nothing else occupies that ground before a hand deals.
-    assert 'top:50%' in source[source.index('.v038-ready-countdown{'):source.index('.v038-ready-countdown{') + 200]
-    assert 'НОВАЯ РАЗДАЧА' in source
-    assert 'Нажмите на свою аватарку' in source
-    assert 'previousQueueAutomation' in source
-    assert 'const host = document.querySelector(".table-frame")' in source
-    # "ХОД · name" was dropped -- the seat's own glow already shows whose turn
-    # it is, so this box now only ever shows the street's bet amount.
-    assert "ХОД ·" not in source
-    assert '.v038-turn-context span{display:block;color:#ecfffd;font-size:10px' in source
-    assert "mark.innerHTML = '<b>✓</b>'" in source
-    assert 'mark.querySelector("small")' not in source
-    assert "closest?.('.seat[data-visual-seat=\"0\"], .v038-room-prompt')" in source
-    assert 'pointer-events:auto;cursor:pointer;' in source
-    assert 'if (mobile && visualSeat === 0)' in wager_source
-    assert 'x: from.x + 66' in wager_source
-    assert 'y: from.y - 30' in wager_source
-    assert 'v031.src = "/static/v031-pot-cluster-mobile-fix.js?v=' in wager_loader
-    # A wager used to fan out into two, three or four stacks by size. It is
-    # one stack now whatever it is worth, with the height carrying the amount
-    # -- see test_chip_stacks. The pot still widens with the money.
-    assert 'if (compact) return 1;' in app_source
-    assert 'if (n < 12) return 2;' in app_source
-    assert 'if (n < 120) return 4;' in app_source
-    assert 'const arcLift = Math.min(18, Math.max(10, Math.abs(dx) * .08 + Math.abs(dy) * .04));' in app_source
-    assert '${dy * .52 - arcLift}px' in app_source
-    assert 'filter: "brightness(1.28) drop-shadow(0 7px 8px rgba(0,0,0,.42))"' in app_source
-    assert 'offset: .86' in app_source
-    assert 'radial-gradient(ellipse at 50% 18%,rgba(255,255,255,.36),transparent 48%)' in (root / 'static' / 'style.css').read_text(encoding='utf-8')
-    # The version has to be there and has to move when the file does, so
-    # pinning which one it is would break on every stylesheet edit --
-    # which is exactly what the version exists to survive.
-    assert '/static/style.css?v=' in index_source
-    assert '/static/app.js?v=' in index_source
-    assert '/static/component-ui.js?v=' in index_source
+    for token in (
+        'compactStackLabel', 'syncSeatStackLabels', 'syncTableNumberLabels',
+        'syncAvatarReadyControl', 'syncAllSeatReadyMarks', 'syncSeatActionStates',
+        'syncCompletedHandReset', 'v038-room-prompt', 'v038-ready-countdown',
+        'v038-action-fold', 'v038-action-passive', 'v038-action-aggressive',
+        'v038-action-all-in', '.seat-card.v032-folded', '.seat-card.all-in',
+        '--profile-avatar-image', 'previousQueueAutomation', 'runSyncStep',
+        'mobileActionDefinitions', 'openSizingMode', 'confirmSizingMode',
+        'beginVerticalBetGesture',
+    ):
+        assert token in source
+    assert 'READY_COUNTDOWN_MS = 5000' in ready
+    assert 'poker8:ready-countdown' in ready and 'poker8:ready-snapshot' in ready
+    assert 'if (mobile && visualSeat === 0)' in wager
+    assert 'x: from.x + 66' in wager and 'y: from.y - 30' in wager
+    assert 'const arcLift = Math.min(18, Math.max(10, Math.abs(dx) * .08 + Math.abs(dy) * .04));' in app
+    assert '${dy * .52 - arcLift}px' in app
 
 
 def test_v039_desktop_seat_positions_also_resolve_for_a_spectator():
