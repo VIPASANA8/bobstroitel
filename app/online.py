@@ -18,6 +18,7 @@ from online.config import Settings
 from online.coordinator import OnlineCoordinator
 from online.database import create_database
 from online.ledger import PlayLedger
+from online.integrity import EscrowIntegrityMonitor
 from online.runtime import TableRuntimeManager
 from online.seating import SeatingService
 from online.chat import ChatService
@@ -27,7 +28,28 @@ from online.schema import metadata, tenant_bots, tenants
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
-EXPECTED_MIGRATION_REVISION = "20260814_0004"
+EXPECTED_MIGRATION_REVISION = "20260823_0007"
+
+# Revalidate every time. Without it these responses carry an ETag and a
+# Last-Modified but no Cache-Control at all, which puts a browser into
+# heuristic caching: it invents a freshness lifetime of roughly a tenth of the
+# file's age and serves the page from cache without asking. A deploy then took
+# effect whenever each viewer's invented window happened to run out -- which is
+# why a freshly shipped button was missing for people who already had the page.
+# "no-cache" still caches; it only forbids using the copy unchecked, and the
+# ETag turns the check into a 304 with no body.
+NO_STALE = {"Cache-Control": "no-cache"}
+
+
+class RevalidatedStatics(StaticFiles):
+    """The page shell is versioned by hand (style.css?v=...), but not every
+    asset is -- mobile.css and component-ui.css carry no version at all, so
+    heuristic caching is the only thing deciding when an edit to them lands."""
+
+    def file_response(self, *args, **kwargs):
+        response = super().file_response(*args, **kwargs)
+        response.headers.setdefault("Cache-Control", "no-cache")
+        return response
 
 
 async def _ensure_foundation(session_factory, settings: Settings) -> None:
@@ -82,6 +104,7 @@ def create_app(
         await catalogue.seed_defaults()
         app.state.ledger = ledger
         app.state.catalogue = catalogue
+        app.state.integrity_monitor = EscrowIntegrityMonitor(session_factory)
         app.state.chat = ChatService(session_factory)
         app.state.history = HistoryService(session_factory)
         app.state.runtime = TableRuntimeManager(session_factory, ledger)
@@ -90,12 +113,18 @@ def create_app(
         await app.state.seating.hold_all_users(datetime.now(timezone.utc))
         if fixture is not None:
             await fixture(app)
-        app.state.coordinator = OnlineCoordinator(app.state.runtime, app.state.seating, catalogue)
+        app.state.connection_hub = realtime.ConnectionHub(seating=app.state.seating)
+        app.state.coordinator = OnlineCoordinator(
+            app.state.runtime,
+            app.state.seating,
+            catalogue,
+            integrity_monitor=app.state.integrity_monitor,
+            on_change=lambda table_id: app.state.connection_hub.broadcast(table_id, app.state.runtime),
+        )
         app.state.coordinator_task = None
         if settings.coordinator_enabled:
             app.state.coordinator_task = asyncio.create_task(app.state.coordinator.run())
         app.state.restore_completed = True
-        app.state.connection_hub = realtime.ConnectionHub()
         app.state.tenant_hosts = {
             host.lower(): slug
             for slug, config in settings.tenant_configs.items()
@@ -125,7 +154,7 @@ def create_app(
             await engine.dispose()
 
     app = FastAPI(title="Poker8 Online", version="1.0.0", lifespan=lifespan)
-    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+    app.mount("/static", RevalidatedStatics(directory=STATIC_DIR), name="static")
     app.include_router(auth.router)
     app.include_router(lobby.router)
     app.include_router(profiles.router)
@@ -137,10 +166,14 @@ def create_app(
 
     @app.get("/")
     async def index():
-        return FileResponse(STATIC_DIR / "lobby.html")
+        return FileResponse(STATIC_DIR / "lobby.html", headers=NO_STALE)
+
+    @app.get("/monitor")
+    async def monitor_page():
+        return FileResponse(STATIC_DIR / "monitor.html", headers={"Cache-Control": "no-store"})
 
     @app.get("/table")
     async def table_page():
-        return FileResponse(STATIC_DIR / "index.html")
+        return FileResponse(STATIC_DIR / "index.html", headers=NO_STALE)
 
     return app

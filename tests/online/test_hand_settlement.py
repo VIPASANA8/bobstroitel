@@ -111,6 +111,10 @@ async def test_positive_net_counts_as_win_but_tie_does_not(db_session_factory):
             {"id": "u1", "telegram_user_id": 1, "display_name": "A", "acquisition_tenant_id": "tenant"},
             {"id": "u2", "telegram_user_id": 2, "display_name": "B", "acquisition_tenant_id": "tenant"},
         ])
+        # The hand below references this table. SQLite used to let that slide.
+        await session.execute(insert(poker_tables).values(
+            id="t1", scope="network", name="One", small_blind_units=50,
+            big_blind_units=100, min_buy_in_bb=40, max_buy_in_bb=100, max_seats=6))
         await session.commit()
     history = HistoryService(db_session_factory)
     await history.record(HandRecord(

@@ -89,7 +89,7 @@
       },
       {
         key: "all_in",
-        label: `ОЛЛ-ИН\n${formatBB(allInTotal)}`,
+        label: `ALL-IN\n${formatBB(allInTotal)}`,
         cls: "all-in",
       },
     ];
@@ -149,28 +149,10 @@
     return null;
   }
 
-  renderWagerMarkers = function renderWagerMarkersV016() {
-    const layer = $("wagerLayer");
-    if (!layer) return;
-    layer.innerHTML = "";
-    if (!game || game.terminal) return;
-
-    const latest = latestWagerPlayerId();
-    for (const player of Object.values(game.players || {})) {
-      const wager = Number(player.street_invested || 0);
-      if (!(wager > 0)) continue;
-      const point = wagerPointForPlayer(game, player.id);
-      if (!point) continue;
-
-      const marker = document.createElement("div");
-      marker.className = `bet-marker${player.id === latest ? " v016-latest-wager" : ""}`;
-      marker.dataset.playerId = player.id;
-      marker.style.left = `${point.x}px`;
-      marker.style.top = `${point.y}px`;
-      marker.innerHTML = `${chipStackHtml(wager, true)}<span>${formatBB(wager)}</span>`;
-      layer.appendChild(marker);
-    }
-  };
+  //: This layer used to reassign renderWagerMarkers to draw a chip stack in
+  //: front of each player. The stake is written inside the avatar now, so
+  //: there is nothing here to override -- app.js owns the one
+  //: implementation, and it draws nothing.
 
   const style = document.createElement("style");
   style.id = "v016-mobile-polish";
@@ -181,7 +163,7 @@
         gap:6px !important;
       }
       body.v014 .action-grid .v016-primary-action{
-        font-size:11px !important;
+        font-size:12px !important;
         letter-spacing:.015em !important;
       }
 
@@ -230,15 +212,15 @@
         padding:4px 7px !important;
         border:1px solid rgba(123,194,255,.46) !important;
         border-radius:8px !important;
-        background:rgba(1,7,18,.94) !important;
-        box-shadow:0 3px 10px rgba(0,0,0,.62), inset 0 0 10px rgba(73,145,255,.08) !important;
+        background:rgba(9,14,21,.94) !important;
+        box-shadow:0 3px 10px rgba(0,0,0,.62), inset 0 0 10px rgba(61,143,255,.08) !important;
         color:#ffffff !important;
-        font-size:10.5px !important;
+        font-size:10px !important;
         font-weight:950 !important;
         line-height:1 !important;
         letter-spacing:-.02em !important;
         text-align:center !important;
-        text-shadow:0 1px 3px #000 !important;
+        text-shadow:0 1px 3px #000000 !important;
         white-space:nowrap !important;
       }
       body.v014 .wager-layer .bet-marker.v016-latest-wager .chip-cluster{
@@ -250,9 +232,9 @@
         filter:drop-shadow(0 0 3px rgba(77,210,255,.35)) drop-shadow(0 3px 5px rgba(0,0,0,.72)) !important;
       }
       body.v014 .wager-layer .bet-marker.v016-latest-wager span{
-        border-color:rgba(75,218,255,.54) !important;
-        background:rgba(1,9,20,.95) !important;
-        box-shadow:0 3px 10px rgba(0,0,0,.62), 0 0 5px rgba(51,202,255,.12) !important;
+        border-color:rgba(85,219,255,.54) !important;
+        background:rgba(9,14,21,.95) !important;
+        box-shadow:0 3px 10px rgba(0,0,0,.62), 0 0 5px rgba(47,203,255,.12) !important;
       }
 
       body.v014 .mobile-selected-card.invalid{
@@ -266,10 +248,10 @@
       body.v014 .mobile-selected-card.invalid #mobileSelectedAmount{
         max-width:82px !important;
         margin-top:5px !important;
-        font-size:8px !important;
+        font-size:10px !important;
         line-height:1.15 !important;
         font-weight:650 !important;
-        color:#9ba8bc !important;
+        color:#98a7b8 !important;
         text-align:center !important;
         white-space:normal !important;
       }

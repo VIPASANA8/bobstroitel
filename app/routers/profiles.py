@@ -86,6 +86,13 @@ async def play_top_up(
     request: Request,
     user: AuthenticatedUser = Depends(get_current_user),
 ):
+    # Whoever calls this gets what they ask for, and the caller picks the
+    # request id, so the idempotency guard does not cap anything: three calls
+    # took a brand-new guest from 100 000 to 300 100 000 on the live site.
+    # It stays available in development, where the balance is a fixture; on a
+    # deployment a top-up has to arrive through a payment, not through here.
+    if not request.app.state.settings.self_top_up_enabled:
+        raise HTTPException(status_code=404, detail="not found")
     try:
         result = await request.app.state.ledger.grant(
             user.user_id,

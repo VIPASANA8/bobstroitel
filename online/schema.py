@@ -139,10 +139,20 @@ poker_tables = Table(
     Column("max_seats", Integer, nullable=False, server_default=text("6")),
     Column("status", String(32), nullable=False, server_default=text("'open'")),
     Column("button_seat", Integer),
+    # Set only for a room a player opened; the built-in tables leave it null.
+    # Deliberately no ForeignKey: SQLite cannot add one through ALTER, and that
+    # alone cost the migration both its downgrade and its repeatability.
+    Column("created_by", String(64)),
+    Column("visibility", String(16), nullable=False, server_default=text("'public'")),
+    # Salted with the room's own id (see online/catalogue.py) and checked on
+    # SeatingService.ready() -- replaces the old link-only rooms, which had
+    # no check at all on the join path once you had the URL.
+    Column("password_hash", String(64)),
     Column("created_at", timestamp, **created_at),
     Column("updated_at", timestamp, **created_at),
     CheckConstraint("scope IN ('network', 'tenant')"),
     CheckConstraint("max_seats = 6"),
+    CheckConstraint("visibility IN ('public', 'link')", name="ck_poker_tables_visibility"),
 )
 
 table_seats = Table(
@@ -187,7 +197,7 @@ chat_messages = Table(
     Column("id", String(64), primary_key=True),
     Column("table_id", String(64), ForeignKey("poker_tables.id"), nullable=False),
     Column("user_id", String(64), ForeignKey("users.id"), nullable=False),
-    Column("text", String(300), nullable=False),
+    Column("text", String(1000), nullable=False),
     Column("created_at", timestamp, **created_at),
 )
 Index("ix_chat_messages_table_time", chat_messages.c.table_id, chat_messages.c.created_at)

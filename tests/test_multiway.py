@@ -91,3 +91,54 @@ def test_multiway_bot_returns_legal_action():
     assert state.players[pid].is_bot
     decision = bot.decide(state, pid)
     assert decision.action in engine.legal_actions(state, pid)
+
+
+def test_showdown_pays_out_every_chip_of_every_side_pot():
+    """The guard in _showdown must hold on an ordinary layered showdown: three
+    unequal stacks make three pots, and each one has to reach a player."""
+    engine = PokerEngine()
+    custom = seats(4)
+    for row, stack in zip(custom, (10.0, 40.0, 100.0, 100.0)):
+        row["stack"] = stack
+    state = engine.new_hand(custom, button_seat=0)
+
+    while not state.terminal:
+        pid = state.acting_player
+        legal = engine.legal_actions(state, pid)
+        if ActionType.ALL_IN in legal:
+            engine.apply_action(state, pid, ActionType.ALL_IN)
+        elif ActionType.CALL in legal:
+            engine.apply_action(state, pid, ActionType.CALL)
+        else:
+            engine.apply_action(state, pid, legal[0])
+
+    assert abs(sum(p.stack for p in state.players.values()) - 250.0) < 1e-6
+    assert state.pot == 0.0
+    # Layered, not a single pot: the short stacks cap what they can win.
+    assert len(state.result_details) >= 2
+
+
+def test_showdown_refuses_to_zero_a_pot_it_did_not_pay_out():
+    """A side pot with no eligible winner is skipped while the pot is cleared
+    unconditionally, so those chips would vanish. Force that shape and confirm
+    the guard fires instead of silently losing the money."""
+    import pytest
+
+    engine = PokerEngine()
+    state = engine.new_hand(seats(3), button_seat=0)
+    while not state.terminal:
+        pid = state.acting_player
+        legal = engine.legal_actions(state, pid)
+        engine.apply_action(state, pid, ActionType.ALL_IN if ActionType.ALL_IN in legal else legal[0])
+
+    # Rebuild the finished hand as an unpayable one: chips are in the pot, but
+    # every contributor has folded, so build_side_pots yields no eligible list.
+    state.terminal = False
+    state.street = Street.RIVER
+    state.pot = 30.0
+    for player in state.players.values():
+        player.folded = True
+        player.total_invested = 10.0
+
+    with pytest.raises(AssertionError, match="no eligible winner"):
+        engine._showdown(state)

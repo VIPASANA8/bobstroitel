@@ -65,7 +65,7 @@
       body.v014 .bet-marker span{
         margin-top:0 !important;
         padding:2px 5px !important;
-        font-size:6.8px !important;
+        font-size:10px !important;
         line-height:1 !important;
         border-radius:6px !important;
       }

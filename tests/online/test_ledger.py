@@ -74,3 +74,29 @@ async def test_return_stack_reuses_the_original_transaction(ledger, user_id, tab
     second = await ledger.return_stack(user_id, table_id, "return:u1:t1")
     assert first.transaction_id == second.transaction_id
     assert await ledger.available_units(user_id) == 1_000
+
+
+@pytest.mark.anyio
+async def test_reconcile_returns_only_the_excess_and_posts_once(ledger, table_id):
+    """A bot's escrow kept chips its seat no longer claimed, because a reused
+    key suppressed the release. Reconciling gives back exactly the difference --
+    the seat is the side the game plays from -- and repeating it must not take
+    the same chips twice."""
+    bot = "bot-reconcile"
+    funded = await ledger.fund_system_seat(bot, table_id, 10_000, "fund:bot-reconcile")
+    assert funded.available_units == 10_000
+
+    first = await ledger.reconcile_system_escrow(bot, 1_061, "reconcile:bot-reconcile:1")
+    assert first.available_units == 8_939
+
+    # Same key again is the same operation, not a second withdrawal.
+    repeat = await ledger.reconcile_system_escrow(bot, 1_061, "reconcile:bot-reconcile:1")
+    assert repeat.available_units == 8_939
+
+
+@pytest.mark.anyio
+async def test_reconcile_cannot_overdraw_the_escrow(ledger, table_id):
+    bot = "bot-overdraw"
+    await ledger.fund_system_seat(bot, table_id, 500, "fund:bot-overdraw")
+    with pytest.raises(InsufficientPlayBalance):
+        await ledger.reconcile_system_escrow(bot, 900, "reconcile:bot-overdraw:1")

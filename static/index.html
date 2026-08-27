@@ -4,9 +4,30 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Poker Trainer v0.14 · Mobile Fill</title>
-  <link rel="stylesheet" href="/static/style.css?v=chip-motion-1" />
-  <link rel="stylesheet" href="/static/mobile.css" media="(max-width: 780px)" />
-  <link rel="stylesheet" href="/static/component-ui.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Manrope:wght@400;600;700;800&display=swap" />
+  <link rel="stylesheet" href="/static/style.css?v=prompt-1" />
+  <link rel="stylesheet" href="/static/mobile.css?v=prompt-1" media="(max-width: 780px)" />
+  <link rel="stylesheet" href="/static/component-ui.css?v=prompt-1" />
+  <style>
+    /* Hides the table until the mobile v2 layer chain (v041, last in) marks
+       the page ready, so the old v0.11 table never gets a frame to paint.
+       A ~3s failsafe below guarantees this can never leave a blank table. */
+    @media (max-width: 780px) {
+      body:not(.p8-boot-ready) .table-frame { visibility: hidden; }
+      body:not(.p8-boot-ready) .app-shell::after {
+        content: "Загрузка стола…";
+        position: fixed; inset: 0; z-index: 5;
+        display: flex; align-items: center; justify-content: center;
+        color: #8ca59c; font: 700 13px/1 'Manrope', ui-sans-serif, system-ui;
+        background: #050b08;
+      }
+    }
+  </style>
+  <script>
+    window.setTimeout(() => document.body.classList.add("p8-boot-ready"), 3000);
+  </script>
 </head>
 <body class="neon-ref-v107 v011 v012 v013 v014 component-ui">
   <header id="mobileGameHeader" class="mobile-game-header">
@@ -20,6 +41,11 @@
     <button id="mobileDrawerNewHand" type="button">Новая раздача</button>
     <button id="mobileDrawerInfinite" type="button">∞ Бесконечный режим</button>
     <button id="mobileDrawerPause" type="button">Пауза / продолжить</button>
+    <div class="mobile-drawer-divider" aria-hidden="true"></div>
+    <button id="mobileDrawerTakeSeat" class="network-table-action" type="button" hidden>Занять место</button>
+    <button id="mobileDrawerCloseRoom" class="network-table-action danger" type="button" hidden>Закрыть комнату</button>
+    <button id="mobileDrawerLobby" class="network-table-action" type="button">Вернуться в лобби</button>
+    <button id="mobileDrawerLeave" class="network-table-action danger" type="button">Покинуть стол</button>
     <p>Профили и расширенные настройки доступны на desktop. Свободные места на столе можно нажимать прямо здесь.</p>
   </aside>
   <div class="room-ambience" aria-hidden="true"><i class="neon-bar bar-a"></i><i class="neon-bar bar-b"></i><i class="city-glow"></i><i class="room-plant plant-a"></i><i class="room-plant plant-b"></i></div>
@@ -99,7 +125,7 @@
           </div>
         </section>
       </section>
-      <aside id="chatPanel" class="online-chat-panel" hidden aria-label="Чат стола"><h2>Чат стола</h2><div id="chatMessages"></div><form id="chatForm"><input id="chatInput" maxlength="300" autocomplete="off" aria-label="Сообщение" /><button type="submit">Отправить</button></form></aside>
+      <aside id="chatPanel" class="online-chat-panel" hidden aria-label="Чат стола"><h2>Чат стола</h2><div id="chatMessages"></div><div id="chatFormat" class="p8-chat-toolbar" role="toolbar" aria-label="Форматирование"><button type="button" data-chat-format="bold" title="Жирный"><strong>B</strong></button><button type="button" data-chat-format="italic" title="Курсив"><em>I</em></button><button type="button" data-chat-format="strike" title="Зачёркнутый"><s>S</s></button><button type="button" data-chat-format="code" title="Моноширинный">&lt;/&gt;</button><button type="button" data-chat-format="spoiler" title="Спойлер">||</button><button type="button" data-chat-format="link" title="Ссылка">🔗</button></div><form id="chatForm"><input id="chatInput" maxlength="1000" autocomplete="off" aria-label="Сообщение" /><button type="submit">Отправить</button></form></aside>
       <div id="newHandCountdown" class="online-countdown" hidden aria-live="assertive"></div>
 
       <aside class="sidebar">
@@ -327,9 +353,15 @@
   </div>
 
   <script>window.Poker8OnlineTable = new URLSearchParams(window.location.search).has("table");</script>
-  <script src="/static/online-transport.js"></script>
-<script src="/static/component-ui.js?v=edge-actions-1"></script>
-  <script src="/static/app.js?v=online-legacy-1"></script>
-  <script src="/static/online-table.js?v=online-legacy-5"></script>
+  <!-- Must load before auth-client.js: it reads window.Telegram.WebApp, which only
+       this script defines. Without it every visitor -- including real Telegram
+       users -- falls through to the guest/dev session path. -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="/static/auth-client.js?v=telegram-session-3"></script>
+  <script src="/static/online-transport.js?v=room-password-1"></script>
+  <script src="/static/component-ui.js?v=mobile-edge-prod-1"></script>
+  <script src="/static/app.js?v=raise-units-1"></script>
+  <script src="/static/chat-format.js?v=chat-1"></script><script src="/static/online-table.js?v=mobile-edge-prod-1"></script>
+  <script src="/static/v039-poker8-v2-desktop-parity.js?v=cards-on-felt-1"></script>
 </body>
 </html>

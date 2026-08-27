@@ -53,7 +53,7 @@
       body.v014 .v028-center-status.ready{
         background:transparent !important;
         border:0 !important;
-        color:#7dffc5 !important;
+        color:#78ffc8 !important;
         box-shadow:none !important;
         text-shadow:0 0 10px rgba(81,239,174,.18) !important;
       }
@@ -63,8 +63,8 @@
       }
 
       body.v014 .v028-center-status.ready i{
-        background:#58efad !important;
-        box-shadow:0 0 11px rgba(88,239,173,.72) !important;
+        background:#5fedaa !important;
+        box-shadow:0 0 11px rgba(95,237,170,.72) !important;
       }
 
       /* Main control: dark glass with a bright edge, more Poker8-like. */
@@ -73,15 +73,15 @@
         width:172px !important;
         height:46px !important;
         overflow:hidden !important;
-        border:1px solid rgba(68,210,255,.50) !important;
+        border:1px solid rgba(47,207,255,.50) !important;
         border-radius:14px !important;
-        background:linear-gradient(180deg,rgba(7,22,43,.96),rgba(3,11,27,.99)) !important;
-        color:#f2fbff !important;
+        background:linear-gradient(180deg,rgba(12,20,39,.96),rgba(8,13,26,.99)) !important;
+        color:#eef4f8 !important;
         font-size:12px !important;
         font-weight:950 !important;
         letter-spacing:.075em !important;
         text-shadow:0 1px 3px rgba(0,0,0,.8) !important;
-        box-shadow:0 9px 24px rgba(0,0,0,.30),inset 0 1px 0 rgba(255,255,255,.055),inset 0 0 20px rgba(49,154,255,.045) !important;
+        box-shadow:0 9px 24px rgba(0,0,0,.30),inset 0 1px 0 rgba(255,255,255,.055),inset 0 0 20px rgba(42,154,255,.045) !important;
       }
 
       body.v014 .v028-center-ready-button::before{
@@ -109,26 +109,26 @@
       }
 
       body.v014 .v028-center-ready-button.start{
-        border-color:rgba(83,239,181,.55) !important;
-        background:linear-gradient(180deg,rgba(7,39,35,.97),rgba(3,20,22,.99)) !important;
-        color:#e7fff5 !important;
-        box-shadow:0 9px 24px rgba(0,0,0,.30),inset 0 1px 0 rgba(255,255,255,.055),inset 0 0 20px rgba(52,223,167,.045) !important;
+        border-color:rgba(72,239,180,.55) !important;
+        background:linear-gradient(180deg,rgba(7,39,35,.97),rgba(2,19,18,.99)) !important;
+        color:#eafff6 !important;
+        box-shadow:0 9px 24px rgba(0,0,0,.30),inset 0 1px 0 rgba(255,255,255,.055),inset 0 0 20px rgba(55,220,162,.045) !important;
       }
 
       body.v014 .v028-center-ready-button.start::before{
-        background:linear-gradient(90deg,#4aefad,#39d8ff);
-        box-shadow:0 0 10px rgba(67,231,185,.45);
+        background:linear-gradient(90deg,#3defb0,#34d6ff);
+        box-shadow:0 0 10px rgba(61,235,190,.45);
       }
 
       body.v014 .v028-center-ready-button.start::after{
         content:"▶";
         color:#7ff0bf;
-        font-size:11px;
+        font-size:12px;
       }
 
       body.v014 .v028-center-ready-button:not(:disabled):hover{
-        border-color:rgba(93,222,255,.78) !important;
-        box-shadow:0 0 17px rgba(67,194,255,.12),0 9px 24px rgba(0,0,0,.30),inset 0 1px 0 rgba(255,255,255,.065) !important;
+        border-color:rgba(85,219,255,.78) !important;
+        box-shadow:0 0 17px rgba(53,191,255,.12),0 9px 24px rgba(0,0,0,.30),inset 0 1px 0 rgba(255,255,255,.065) !important;
       }
 
       body.v014 .v028-center-ready-button:not(:disabled):active{

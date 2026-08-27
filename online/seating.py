@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -8,17 +9,40 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from online.ledger import PlayLedger
+from online.bot_names import BOT_NAMES
 from online.schema import play_accounts, poker_tables, seat_queue, system_players, table_runtimes, table_seats
+from online.catalogue import IDLE_BOT_COUNTS, ROOM_SEATS, hash_room_password
 
 
 # A ready request has to survive the hand that is running when it is made,
 # otherwise it expires before the boundary that would seat the player.
 READY_TTL = timedelta(minutes=3)
 HOLD_WINDOW = timedelta(seconds=30)
+MIN_SYSTEM_BOTS = 3
+MAX_SYSTEM_BOTS = 4
+# How long a bot stays at one table before it gets up and a fresh one sits down.
+# A band, not a fixed ten minutes: a single interval would rotate the whole
+# table at once, which reads as scripted rather than as people coming and going.
+BOT_ROTATE_BAND = (timedelta(minutes=7), timedelta(minutes=13))
+# A player's room fills the way a real one does: somebody wanders in a little
+# after you sit down, then the rest over the next few minutes. Seating all four
+# on the boundary the owner sat down on made the room feel pre-populated -- you
+# opened your own table and four strangers were already in it.
+BOT_FIRST_ARRIVAL = (timedelta(seconds=30), timedelta(seconds=60))
+BOT_ARRIVAL_WINDOW = timedelta(minutes=5)
 
 
 class SeatingError(ValueError):
     pass
+
+
+class InsufficientFunds(SeatingError):
+    """Carries both numbers so the client can say how far short the player is."""
+
+    def __init__(self, message: str, required_units: int, available_units: int) -> None:
+        super().__init__(message)
+        self.required_units = required_units
+        self.available_units = available_units
 
 
 class AlreadySeated(SeatingError):
@@ -28,6 +52,12 @@ class AlreadySeated(SeatingError):
         super().__init__(message)
         self.table_id = table_id
         self.seat_state = seat_state
+
+
+class WrongPassword(SeatingError):
+    """Missing or incorrect -- the client cannot tell which from this alone,
+    on purpose: distinguishing them would let a bot detect "empty means
+    prompt, wrong means guess again" and iterate."""
 
 
 @dataclass(frozen=True)
@@ -53,18 +83,43 @@ class SeatingService:
     ) -> None:
         self.session_factory = session_factory
         self.ledger = ledger
+        # When each seated bot is due to leave. In memory on purpose: a restart
+        # just re-rolls the timers, and rotation has nothing to recover.
+        self._bot_rotate_at: dict[str, datetime] = {}
+        # When each bot may walk into a player's room. In memory: a restart
+        # simply staggers them again, which is no worse than the first time.
+        self._bot_arrivals: dict[str, list[datetime]] = {}
 
-    async def ready(self, user_id: str, table_id: str, seat_no: int, buy_in_units: int) -> SeatingRequest:
+    async def ready(
+        self, user_id: str, table_id: str, seat_no: int, buy_in_units: int, password: str | None = None
+    ) -> SeatingRequest:
         async with self.session_factory() as session:
             async with session.begin():
                 now = datetime.now(timezone.utc)
                 table = await self._table(session, table_id)
+                if table["password_hash"] and hash_room_password(table_id, password or "") != table["password_hash"]:
+                    raise WrongPassword("this room needs a password")
                 if not 0 <= seat_no <= 5:
                     raise SeatingError("seat_no must be between 0 and 5")
                 minimum = table["big_blind_units"] * table["min_buy_in_bb"]
                 maximum = table["big_blind_units"] * table["max_buy_in_bb"]
                 if not minimum <= buy_in_units <= maximum:
-                    raise SeatingError("buy-in must be between 40 and 100 BB")
+                    raise SeatingError(
+                        f"buy-in must be between {table['min_buy_in_bb']} and {table['max_buy_in_bb']} BB"
+                    )
+                # Checked here, not only at the boundary. The boundary cancels an
+                # unaffordable request silently and moves on, so the player saw
+                # their request accepted and then vanish a few seconds later with
+                # no reason given. Refusing up front makes it immediate and says
+                # why; the boundary keeps its own check for a balance that drops
+                # between the request and the seating.
+                available = await self.ledger.available_units(user_id, session=session)
+                if available < buy_in_units:
+                    raise InsufficientFunds(
+                        "not enough chips for this buy-in",
+                        required_units=buy_in_units,
+                        available_units=available,
+                    )
                 occupied = (
                     await session.execute(
                         select(table_seats.c.table_id, table_seats.c.state).where(
@@ -184,8 +239,8 @@ class SeatingService:
                     )
                     .values(state="leaving")
                 )
+                await self._rotate_stale_bots(session, table_id, now)
                 await self._process_leaving(session, table_id)
-                await self._fill_system_seats(session, table)
                 requests = (
                     await session.execute(
                         select(seat_queue)
@@ -207,13 +262,15 @@ class SeatingService:
                         continue
                     if seat["occupant_kind"] == "system":
                         await self.ledger.release_system_seat(
-                            seat["system_player_id"], table_id, f"release:{request['id']}", session=session
+                            seat["system_player_id"], table_id,
+                            f"release:{request['id']}:{request['position_seq']}",
+                            session=session,
                         )
                         removed.append(seat["system_player_id"])
                         await self._clear_seat(session, seat["id"])
                     await self.ledger.reserve_buy_in(
                         request["user_id"], table_id, request["requested_buy_in_units"],
-                        f"buyin:{request['id']}", session=session,
+                        f"buyin:{request['id']}:{request['position_seq']}", session=session,
                     )
                     escrow_id = await self._escrow_id(session, table_id)
                     if seat["id"] is None:
@@ -244,7 +301,30 @@ class SeatingService:
                         update(seat_queue).where(seat_queue.c.id == request["id"]).values(state="seated")
                     )
                     seated.append(request["user_id"])
+                removed.extend(await self._fill_system_seats(session, table, now))
+                await self._cap_system_stacks(session, table)
                 return BoundaryResult(seated, removed)
+
+    async def seated_composition(self, table_id: str) -> tuple[set[int], set[int]]:
+        """Human seat numbers and bot seat numbers, in one query.
+
+        The coordinator asked for the count, the humans and the bots separately
+        on every tick of every table -- three round-trips reading the same rows,
+        four times a second per table, for a question one query answers.
+        """
+        async with self.session_factory() as session:
+            rows = (
+                await session.execute(
+                    select(table_seats.c.seat_no, table_seats.c.occupant_kind).where(
+                        table_seats.c.table_id == table_id,
+                        table_seats.c.state == "seated",
+                        table_seats.c.occupant_kind.in_(("user", "system")),
+                    )
+                )
+            ).all()
+        humans = {seat_no for seat_no, kind in rows if kind == "user"}
+        bots = {seat_no for seat_no, kind in rows if kind == "system"}
+        return humans, bots
 
     async def active_seat_count(self, table_id: str) -> int:
         async with self.session_factory() as session:
@@ -255,6 +335,41 @@ class SeatingService:
                     table_seats.c.occupant_kind.in_(("user", "system")),
                 )
             )).scalars().all())
+
+    async def seated_human_seat_numbers(self, table_id: str) -> set[int]:
+        """Bots are implicitly ready -- only human seats gate a new hand."""
+        async with self.session_factory() as session:
+            rows = await session.execute(
+                select(table_seats.c.seat_no).where(
+                    table_seats.c.table_id == table_id,
+                    table_seats.c.state == "seated",
+                    table_seats.c.occupant_kind == "user",
+                )
+            )
+            return {row[0] for row in rows}
+
+    async def seated_bot_seat_numbers(self, table_id: str) -> set[int]:
+        """Bots gate a hand too now -- they mark themselves ready on their own
+        uneven beat so the table doesn't snap to six checkmarks at once."""
+        async with self.session_factory() as session:
+            rows = await session.execute(
+                select(table_seats.c.seat_no).where(
+                    table_seats.c.table_id == table_id,
+                    table_seats.c.state == "seated",
+                    table_seats.c.occupant_kind == "system",
+                )
+            )
+            return {row[0] for row in rows}
+
+    async def user_seat_number(self, user_id: str, table_id: str) -> int | None:
+        async with self.session_factory() as session:
+            return await session.scalar(
+                select(table_seats.c.seat_no).where(
+                    table_seats.c.table_id == table_id,
+                    table_seats.c.user_id == user_id,
+                    table_seats.c.state == "seated",
+                )
+            )
 
     async def mark_disconnected(self, user_id: str, table_id: str, now: datetime) -> None:
         async with self.session_factory() as session:
@@ -293,10 +408,14 @@ class SeatingService:
                     .values(state="seated", disconnected_at=None, hold_until=None)
                 )
 
-    async def request_observe(self, user_id: str, table_id: str) -> None:
-        await self.request_leave(user_id, table_id)
+    async def request_leave(self, user_id: str, table_id: str, *, immediate: bool = False) -> None:
+        """Mark the seat as leaving. Released at the next hand boundary, unless
+        the caller knows this player is not in the hand that is running -- then
+        there is nothing to wait for and the seat goes back now.
 
-    async def request_leave(self, user_id: str, table_id: str) -> None:
+        Waiting either way meant somebody who sat down, changed their mind and
+        stood straight back up was held for a hand they were not dealt into.
+        """
         async with self.session_factory() as session:
             async with session.begin():
                 await session.execute(
@@ -304,8 +423,47 @@ class SeatingService:
                     .where(table_seats.c.table_id == table_id, table_seats.c.user_id == user_id)
                     .values(state="leaving")
                 )
+                if immediate:
+                    await self._process_leaving(session, table_id, only_user_id=user_id)
 
-    async def add_on(self, user_id: str, table_id: str, amount_units: int) -> None:
+    async def evict_afk_seats(self, table_id: str, seat_nos: set[int]) -> list[str]:
+        """The stronger consequence behind ready-up's soft sit-out: called
+        only for seats the coordinator has seen miss several hands running
+        (runtime.AFK_EVICT_STREAK), never for a single miss. Same pipeline as
+        clicking "leave" -- stack and escrow returned, seat freed -- and
+        immediate is correct here the way it is in request_leave: the hand
+        about to be dealt already excludes these seats, so there is nothing
+        of theirs left to wait for.
+
+        Returns the released seats' user ids, so the caller can tell them why
+        if it wants to.
+        """
+        if not seat_nos:
+            return []
+        async with self.session_factory() as session:
+            async with session.begin():
+                user_ids = (
+                    await session.execute(
+                        select(table_seats.c.user_id).where(
+                            table_seats.c.table_id == table_id,
+                            table_seats.c.seat_no.in_(seat_nos),
+                            table_seats.c.occupant_kind == "user",
+                            table_seats.c.state == "seated",
+                        )
+                    )
+                ).scalars().all()
+                user_ids = [user_id for user_id in user_ids if user_id]
+                if not user_ids:
+                    return []
+                await session.execute(
+                    update(table_seats)
+                    .where(table_seats.c.table_id == table_id, table_seats.c.user_id.in_(user_ids))
+                    .values(state="leaving")
+                )
+                await self._process_leaving(session, table_id)
+        return user_ids
+
+    async def add_on(self, user_id: str, table_id: str, amount_units: int, request_id: str) -> None:
         async with self.session_factory() as session:
             async with session.begin():
                 table = await self._table(session, table_id, lock=True)
@@ -322,37 +480,260 @@ class SeatingService:
                 maximum = table["big_blind_units"] * table["max_buy_in_bb"]
                 if seat["stack_units"] + amount_units > maximum:
                     raise SeatingError("stack cannot exceed 100 BB")
-                await self.ledger.add_on(user_id, table_id, amount_units, f"addon:{user_id}:{table_id}:{seat['id']}", session=session)
+                # Keyed on the caller's own request id, which the client already
+                # sends fresh per add-on. The previous key was static for a
+                # (user, table, seat row) -- and seat rows are reused -- so every
+                # add-on after the first was taken for a repeat of it and moved no
+                # money, while the stack below is added to unconditionally. That
+                # mints chips: the seat grows and nothing leaves the wallet.
+                key = f"addon:{user_id}:{table_id}:{request_id}"
+                # And a genuine retry of one request must change nothing at all.
+                # The ledger call alone would quietly no-op while the stack below
+                # still grew, which is the same minting by a different route.
+                if await self.ledger.transaction_exists(key, session=session):
+                    return
+                await self.ledger.add_on(user_id, table_id, amount_units, key, session=session)
                 await session.execute(
                     update(table_seats).where(table_seats.c.id == seat["id"]).values(stack_units=seat["stack_units"] + amount_units)
                 )
 
-    async def _process_leaving(self, session: AsyncSession, table_id: str) -> None:
-        rows = (
-            await session.execute(
-                select(table_seats).where(table_seats.c.table_id == table_id, table_seats.c.state == "leaving")
-            )
-        ).mappings().all()
+    async def evict_table(self, table_id: str) -> None:
+        """Empty a table completely, returning every stack and escrow.
+
+        Used when a room is retired. A closed table stops being advanced, so
+        anyone still seated would keep their chips locked in its escrow forever
+        -- the leave pipeline is what puts them back where they belong.
+        """
+        async with self.session_factory() as session:
+            async with session.begin():
+                await session.execute(
+                    update(table_seats)
+                    .where(table_seats.c.table_id == table_id, table_seats.c.state != "empty")
+                    .values(state="leaving")
+                )
+                await self._process_leaving(session, table_id)
+
+    async def _process_leaving(
+        self, session: AsyncSession, table_id: str, *, only_user_id: str | None = None
+    ) -> None:
+        query = select(table_seats).where(
+            table_seats.c.table_id == table_id, table_seats.c.state == "leaving"
+        )
+        if only_user_id is not None:
+            # One seat, mid-hand: everyone else marked leaving may still be in
+            # the hand that is running, and their stack is not theirs yet.
+            query = query.where(table_seats.c.user_id == only_user_id)
+        rows = (await session.execute(query)).mappings().all()
         for row in rows:
             if row["occupant_kind"] == "user" and row["user_id"]:
                 await self.ledger.return_stack(
-                    row["user_id"], table_id, f"return:{row['id']}:{row['user_id']}",
+                    # Unique per departure. Seat rows are reused -- _clear_seat
+                    # blanks a row rather than deleting it -- so the same player
+                    # leaving the same seat a second time repeated this key, the
+                    # ledger took it for the first return already posted, and
+                    # their stack stayed in the table escrow instead of going
+                    # back to their wallet. This is player money, not the
+                    # faucet's: 59 buy-ins against 16 returns.
+                    row["user_id"], table_id,
+                    f"return:{row['id']}:{row['user_id']}:{uuid.uuid4().hex}",
                     amount_units=row["stack_units"], session=session
                 )
             elif row["occupant_kind"] == "system" and row["system_player_id"]:
                 await self.ledger.release_system_seat(
                     row["system_player_id"], table_id,
-                    f"release:{row['id']}:{row['system_player_id']}", session=session,
+                    # Unique per release, like the funding grant above it. Seat rows
+                    # are reused -- _clear_seat blanks a row rather than deleting it --
+                    # so a key built from the row id repeated on every later release of
+                    # the same seat, and the ledger treated it as the first one already
+                    # posted: the escrow was simply never drained again.
+                    f"release:{row['id']}:{row['system_player_id']}:{uuid.uuid4().hex}", session=session,
                 )
             await self._clear_seat(session, row["id"])
 
-    async def _fill_system_seats(self, session: AsyncSession, table) -> None:
+    async def _rotate_stale_bots(self, session: AsyncSession, table_id: str, now: datetime) -> None:
+        """Retire a bot that has sat long enough, so the table keeps turning over.
+
+        Without this a bot only ever leaves by going broke or being rebalanced
+        away, so the same names sit at the same table indefinitely. Each gets its
+        own moment inside the band, assigned when it is first seen, which is what
+        keeps them from all standing up together.
+
+        Marking the seat as leaving is enough: the leave pipeline below returns
+        the escrow, clears the seat, and the refill puts somebody new in it.
+        """
+        rows = (
+            await session.execute(
+                select(table_seats).where(
+                    table_seats.c.table_id == table_id,
+                    table_seats.c.occupant_kind == "system",
+                    table_seats.c.state == "seated",
+                )
+            )
+        ).mappings().all()
+        low, high = BOT_ROTATE_BAND
+        span = (high - low).total_seconds()
+        for row in rows:
+            key = f"{row['id']}:{row['system_player_id']}"
+            due = self._bot_rotate_at.get(key)
+            if due is None:
+                self._bot_rotate_at[key] = now + low + timedelta(seconds=random.uniform(0, span))
+                continue
+            if due > now:
+                continue
+            self._bot_rotate_at.pop(key, None)
+            await session.execute(
+                update(table_seats).where(table_seats.c.id == row["id"]).values(state="leaving")
+            )
+
+    async def _cap_system_stacks(self, session: AsyncSession, table) -> None:
+        """Hold bots to the table's own ceiling, the one people already obey.
+
+        max_buy_in_bb bounds what a person may bring, but nothing bounded a bot:
+        it keeps everything it wins and is funded afresh on every seating. On
+        production that produced a bot sitting on 1250x the table maximum, at a
+        table where a player may bring 100 BB. Winnings above the ceiling go back
+        to the faucet they came from, and the seat is trimmed with them, so the
+        bot keeps playing at the same size everyone else can match.
+        """
+        ceiling = int(table["big_blind_units"]) * int(table["max_buy_in_bb"])
+        rows = (
+            await session.execute(
+                select(table_seats).where(
+                    table_seats.c.table_id == table["id"],
+                    table_seats.c.occupant_kind == "system",
+                    table_seats.c.state.in_(("seated", "held", "leaving")),
+                    table_seats.c.stack_units > ceiling,
+                )
+            )
+        ).mappings().all()
+        for row in rows:
+            excess = int(row["stack_units"]) - ceiling
+            # Unique per trim. Keying on the stack being cut looked safe -- the
+            # same size is the same operation -- but a bot that wins back to
+            # exactly the number it was trimmed at before repeats the key, the
+            # ledger takes it for the trim already posted, and nothing is
+            # returned. The seat is cut regardless, so the difference stays in
+            # that bot's escrow for good. Stacks land on round numbers, so the
+            # repeat is not a rare coincidence. What actually stops this running
+            # twice is the ceiling in the query above and the update below,
+            # both inside this transaction -- not the key.
+            await self.ledger.reconcile_system_escrow(
+                row["system_player_id"], excess,
+                f"cap:{row['id']}:{uuid.uuid4().hex}",
+                session=session,
+            )
+            await session.execute(
+                update(table_seats).where(table_seats.c.id == row["id"]).values(stack_units=ceiling)
+            )
+
+    def _bots_arrived_by(self, table_id: str, now: datetime, target: int, user_count: int) -> int:
+        """How many bots may have walked into this room by now.
+
+        The schedule is drawn once, when somebody is first sitting there, and
+        thrown away when the room empties -- so the next person to open it gets
+        the same unhurried fill rather than an instant table.
+        """
+        if user_count == 0 or target == 0:
+            self._bot_arrivals.pop(table_id, None)
+            return 0
+        schedule = self._bot_arrivals.get(table_id)
+        if schedule is None or len(schedule) < target:
+            low, high = BOT_FIRST_ARRIVAL
+            span = (high - low).total_seconds()
+            first = now + low + timedelta(seconds=random.uniform(0, span))
+            rest_span = max(0.0, (now + BOT_ARRIVAL_WINDOW - first).total_seconds())
+            # A slot each, jittered inside it, rather than four independent
+            # draws across the window: independent draws bunch, and three
+            # people arriving together is the thing this exists to avoid.
+            # Divided by the count, not by the gaps: that leaves the last slot
+            # a full one of headroom, so even the latest jitter lands inside
+            # the window instead of spilling past it.
+            slot = rest_span / target
+            schedule = sorted(
+                [first] + [
+                    first + timedelta(seconds=slot * index + random.uniform(-slot * 0.3, slot * 0.3))
+                    for index in range(1, target)
+                ]
+            )
+            self._bot_arrivals[table_id] = schedule
+        return sum(1 for when in schedule if when <= now)
+
+    async def _fill_system_seats(self, session: AsyncSession, table, now: datetime) -> list[str]:
+        """Keep a table at three or four bots when capacity permits.
+
+        Users are seated first at a hand boundary. Only then are idle system
+        seats removed or added, so a person is never displaced merely to keep
+        a bot count. With four or more users the physical six-seat cap wins.
+        """
         rows = (
             await session.execute(
                 select(table_seats).where(table_seats.c.table_id == table["id"])
             )
         ).mappings().all()
-        occupied_seats = {row["seat_no"] for row in rows if row["state"] != "empty"}
+        active_rows = [row for row in rows if row["state"] != "empty"]
+        user_count = sum(1 for row in active_rows if row["occupant_kind"] == "user")
+        # Room policy: 1–2 humans play with four bots; 3 humans play with
+        # three bots. New people wait once all six seats are occupied, rather
+        # than evicting the third bot and turning the table into a human-only room.
+        # A bot gives up its seat when a person needs one, and not before. The
+        # first version of this clamped Low B to four the moment anyone sat
+        # down, so taking the one free seat at a five-bot table made a bot
+        # leave and opened another -- the table could never actually be full.
+        # What limits the bots is the seats people are not using.
+        target_bot_count = min(
+            IDLE_BOT_COUNTS.get(table["id"], MAX_SYSTEM_BOTS),
+            ROOM_SEATS - user_count,
+        )
+        if user_count > 2:
+            target_bot_count = min(target_bot_count, MIN_SYSTEM_BOTS)
+        # The lobby's own six tables keep their bots whether or not anyone is
+        # there: they are the shop window, and Quick Play exists to drop you
+        # into a game that is already running. What made an always-populated
+        # table dangerous was a bot's stack growing without bound, and the
+        # ceiling in _cap_system_stacks is what actually fixed that.
+        #
+        # A player's room is the opposite: it is empty until its owner sits
+        # down, or opening one meant walking into a hand already in progress
+        # instead of your own table. And a password-gated room is being
+        # filled with invited people -- a bot in one of those seats is taking
+        # it from them.
+        if table["created_by"] and (user_count == 0 or table["password_hash"]):
+            target_bot_count = 0
+
+        seated_bots = sorted(
+            (row for row in active_rows if row["occupant_kind"] == "system" and row["state"] == "seated"),
+            key=lambda row: row["seat_no"],
+        )
+        removed: list[str] = []
+        for row in seated_bots[target_bot_count:]:
+            system_player_id = row["system_player_id"]
+            if system_player_id:
+                await self.ledger.release_system_seat(
+                    system_player_id, table["id"],
+                    f"rebalance:{row['id']}:{uuid.uuid4().hex}", session=session,
+                )
+                removed.append(system_player_id)
+            await self._clear_seat(session, row["id"])
+
+        rows = (
+            await session.execute(
+                select(table_seats).where(table_seats.c.table_id == table["id"])
+            )
+        ).mappings().all()
+        active_rows = [row for row in rows if row["state"] != "empty"]
+        seated_bot_count = sum(
+            1 for row in active_rows if row["occupant_kind"] == "system" and row["state"] == "seated"
+        )
+        needed = max(0, target_bot_count - seated_bot_count)
+        # Capped, never forced: whoever is already seated stays seated. This
+        # only holds back the ones who have not walked in yet.
+        if table["created_by"]:
+            arrived = self._bots_arrived_by(table["id"], now, target_bot_count, user_count)
+            needed = min(needed, max(0, arrived - seated_bot_count))
+        if not needed:
+            return removed
+
+        occupied_seats = {row["seat_no"] for row in active_rows}
         empty_by_seat = {row["seat_no"]: row for row in rows if row["state"] == "empty"}
         active_system_ids = {
             row["system_player_id"]
@@ -368,8 +749,24 @@ class SeatingService:
             await session.execute(select(system_players).where(system_players.c.active == True))
         ).mappings().all()
         available = [row for row in candidates if row["id"] not in active_system_ids]
-        for seat_no, player in zip((seat for seat in range(6) if seat not in occupied_seats), available):
+        # Otherwise the roster is walked in id order and the same four bots
+        # sit down at every table, every time.
+        random.shuffle(available)
+        # A bot borrows a name for as long as it is sitting, and gives it back
+        # when it stands up. Taken is every name in use anywhere on the network
+        # right now, so no two tables can show the same person at once -- which
+        # is the thing that would give the whole roster away.
+        taken = {row["name"] for row in candidates if row["id"] in active_system_ids}
+        spare = [name for name in BOT_NAMES if name not in taken]
+        random.shuffle(spare)
+        for seat_no, player in zip((seat for seat in range(table["max_seats"]) if seat not in occupied_seats), available[:needed]):
             amount = table["big_blind_units"] * 100
+            if spare:
+                name = spare.pop()
+                taken.add(name)
+                await session.execute(
+                    update(system_players).where(system_players.c.id == player["id"]).values(name=name)
+                )
             seat_id = empty_by_seat.get(seat_no, {}).get("id") or uuid.uuid4().hex
             await self.ledger.fund_system_seat(
                 player["id"], table["id"], amount,
@@ -394,6 +791,7 @@ class SeatingService:
                 await session.execute(table_seats.insert().values(
                     id=seat_id, table_id=table["id"], seat_no=seat_no, **values,
                 ))
+        return removed
 
     async def _choose_seat(self, session: AsyncSession, table_id: str, requested_seat: int):
         rows = (
@@ -411,17 +809,23 @@ class SeatingService:
         seat = free(requested_seat)
         if seat is not None:
             return seat
-        if by_seat[requested_seat]["occupant_kind"] == "system":
-            return by_seat[requested_seat]
-        # Requested seat belongs to another user. Bots fill the table, so a
-        # genuinely free seat is rare -- displace a system player instead.
+        # Prefer another genuinely free seat before replacing a bot.
         for seat_no in range(6):
             seat = free(seat_no)
             if seat is not None:
                 return seat
-        return next(
-            (row for _, row in sorted(by_seat.items()) if row["occupant_kind"] == "system"), None
+        system_rows = sorted(
+            (row for row in by_seat.values() if row["occupant_kind"] == "system" and row["state"] == "seated"),
+            key=lambda row: row["seat_no"],
         )
+        # Preserve at least three bots. A fourth human remains queued until a
+        # human leaves, instead of silently reducing the game to two bots.
+        if len(system_rows) <= MIN_SYSTEM_BOTS:
+            return None
+        requested = by_seat.get(requested_seat)
+        if requested and requested["occupant_kind"] == "system" and requested["state"] == "seated":
+            return requested
+        return system_rows[-1]
 
     async def _table(self, session: AsyncSession, table_id: str, lock: bool = False):
         query = select(poker_tables).where(poker_tables.c.id == table_id)
@@ -456,6 +860,9 @@ class SeatingService:
 
     @staticmethod
     async def _clear_seat(session: AsyncSession, seat_id: str) -> None:
+        seat = (
+            await session.execute(select(table_seats).where(table_seats.c.id == seat_id))
+        ).mappings().first()
         await session.execute(
             update(table_seats).where(table_seats.c.id == seat_id).values(
                 occupant_kind="empty",
@@ -468,6 +875,18 @@ class SeatingService:
                 hold_until=None,
             )
         )
+        # Releasing the seat without retiring the queue row leaves the user a
+        # ghost: no seat row, so the API reports them a spectator, while the
+        # queue still claims they sit here. Both halves describe one seat, so
+        # they have to be released together.
+        if seat and seat["occupant_kind"] == "user" and seat["user_id"]:
+            await session.execute(
+                update(seat_queue).where(
+                    seat_queue.c.table_id == seat["table_id"],
+                    seat_queue.c.user_id == seat["user_id"],
+                    seat_queue.c.state == "seated",
+                ).values(state="cancelled")
+            )
 
     @staticmethod
     def _request(row) -> SeatingRequest:

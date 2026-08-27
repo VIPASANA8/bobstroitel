@@ -26,6 +26,7 @@ let pendingInvalidReason = "";
 let actionTimerId = null;
 let actionDeadline = 0;
 let actionTurnToken = null;
+let amountSeededForTurn = null;
 
 
 const $ = (id) => document.getElementById(id);
@@ -65,7 +66,7 @@ const ACTION_LABELS = {
   call: "Колл",
   bet: "Ставка",
   raise: "Рейз",
-  all_in: "Олл-ин",
+  all_in: "ALL-IN",
 };
 
 function localViewerPlayer() {
@@ -118,7 +119,7 @@ function queuedActionText(item = pendingAction) {
   if (item.kind === "fold") return "Маркер: Пас";
   if (item.kind === "check") return "Маркер: Чек";
   if (item.kind === "call") return `Маркер: Колл ${formatBB(item.estimateToCall || 0)}`;
-  if (item.kind === "all_in") return "Маркер: Олл-ин";
+  if (item.kind === "all_in") return "Маркер: ALL-IN";
   if (item.kind === "aggressive") return `Маркер: Ставка ${formatBB(item.amount || 0)}`;
   return "Маркер";
 }
@@ -180,7 +181,7 @@ async function maybeAutoFirePendingAction() {
       await sendAction("all_in", 0);
       return true;
     }
-    pendingInvalidReason = "Маркер «Олл-ин» сейчас недоступен";
+    pendingInvalidReason = "Маркер «ALL-IN» сейчас недоступен";
     pendingAction = null;
     renderQueuedActionStatus();
     return false;
@@ -207,7 +208,10 @@ async function maybeAutoFirePendingAction() {
 
 function startActionTimer() {
   stopActionTimer();
-  actionDeadline = Date.now() + 30000;
+  // Network hands carry the server deadline; a local hand has none and keeps
+  // the fixed 30 s clock.
+  const serverDeadline = game?.action_deadline ? Date.parse(game.action_deadline) : NaN;
+  actionDeadline = Number.isNaN(serverDeadline) ? Date.now() + 30000 : serverDeadline;
   actionTurnToken = turnToken();
   const el = $("actionTimer");
   if (!el) return;
@@ -301,11 +305,10 @@ function chipsForAmount(value, maxChips = 12) {
 
 function visualStackCount(value, compact = false) {
   const n = Math.max(0, Number(value || 0));
-  if (compact) {
-    if (n < 3) return 2;
-    if (n < 25) return 3;
-    return 4;
-  }
+  // A wager is one stack whatever it is worth. It sits inches from the player
+  // it belongs to, next to a label that already says the number, so spreading
+  // it sideways only made it wider -- the height carries the size instead.
+  if (compact) return 1;
   if (n < 3) return 1;
   if (n < 12) return 2;
   if (n < 40) return 3;
@@ -313,34 +316,74 @@ function visualStackCount(value, compact = false) {
   return 5;
 }
 
-function chipStackHtml(value, compact = false) {
+//: A one-chip ripple across the columns, so the tops of the pot are not dead
+//: level. Fixed rather than random: the same pot has to look the same twice.
+const POT_LAYER_RIPPLE = [0, 1, -1, 1, 0];
+
+function chipLayers(value, col, compact) {
+  // How tall a column stands. It used to be 4 + ((col * 2 + round(n)) % 5),
+  // which made a pot of 20 and a pot of 25 look identical while 20 and 21
+  // looked nothing alike -- the height said nothing about the money.
+  //
+  // Growth is logarithmic on purpose: chips are read at a glance, so the step
+  // from 5 to 50 should show and the step from 300 to 400 should not.
+  const base = 2 + Math.log10(1 + Math.max(0, Number(value || 0))) * 2;
+  if (compact) return Math.max(2, Math.min(7, Math.round(base)));
+  return Math.max(2, Math.min(6, Math.round(base) + POT_LAYER_RIPPLE[col % POT_LAYER_RIPPLE.length]));
+}
+
+function chipStackHtml(value) {
   const n = Number(value || 0);
   if (!(n > 0)) return "";
+  const palette = chipsForAmount(n, 8);
+  const fallback = ["chip-1", "chip-25", "chip-5", "chip-100", "chip-05"];
+  const cls = palette[0] || fallback[0];
+  const chips = Array.from({ length: chipLayers(n, 0, true) }, (_, i) =>
+    `<i class="poker-chip ${cls}" style="--i:${i}"></i>`
+  ).join("");
+  return `<div class="chip-cluster compact"><span class="chip-column" style="--col:0;--cols:1">${chips}</span></div>`;
+}
 
-  const stackCount = visualStackCount(n, compact);
-  const palette = chipsForAmount(n, compact ? 8 : 16);
+function potWingHtml(value, columnCount, colorOffset) {
+  if (columnCount <= 0) return "";
+  const n = Number(value || 0);
+  const palette = chipsForAmount(n, 16);
   const fallback = ["chip-1", "chip-25", "chip-5", "chip-100", "chip-05"];
   const columns = [];
-
-  for (let col = 0; col < stackCount; col++) {
+  for (let i = 0; i < columnCount; i++) {
+    const col = colorOffset + i;
     const cls = palette[col % Math.max(1, palette.length)] || fallback[col % fallback.length];
-    const chipCount = compact
-      ? Math.min(5, 3 + ((col + Math.round(n)) % 3))
-      : Math.min(8, 4 + ((col * 2 + Math.round(n)) % 5));
-    const chips = Array.from({ length: chipCount }, (_, i) =>
-      `<i class="poker-chip ${cls}" style="--i:${i}"></i>`
+    const chips = Array.from({ length: chipLayers(n, col, false) }, (_, k) =>
+      `<i class="poker-chip ${cls}" style="--i:${k}"></i>`
     ).join("");
-    columns.push(`<span class="chip-column" style="--col:${col};--cols:${stackCount}">${chips}</span>`);
+    columns.push(`<span class="chip-column" style="--col:${i};--cols:${columnCount}">${chips}</span>`);
   }
-
-  return `<div class="chip-cluster ${compact ? "compact" : "pot-cluster"}">${columns.join("")}</div>`;
+  return `<div class="chip-cluster pot-wing">${columns.join("")}</div>`;
 }
 
 function renderPotChips(value) {
   const target = $("potChips");
   if (!target) return;
-  target.innerHTML = chipStackHtml(value, false);
-  target.classList.toggle("has-chips", Number(value) > 0);
+  // Chips already pushed out this street are still on the felt, not in the
+  // pot number the server sends, so show them together -- otherwise the
+  // cluster shrinks the moment a street ends and grows again on the next.
+  let visualValue = Number(value || 0);
+  if (game && !game.terminal) {
+    const liveWagers = Object.values(game.players || {}).reduce(
+      (sum, player) => sum + Math.max(0, Number(player?.street_invested || 0)),
+      0
+    );
+    visualValue = Math.max(visualValue, Number(game.pot || 0) + liveWagers);
+  }
+  // Split into two piles flanking the amount instead of one cluster piled
+  // underneath it -- right gets the extra column on an odd count.
+  const stackCount = visualValue > 0
+    ? Math.min(7, Math.max(1, visualStackCount(visualValue, false) + (visualValue >= 8 ? 1 : 0)))
+    : 0;
+  const rightCount = Math.floor(stackCount / 2);
+  const leftCount = stackCount - rightCount;
+  target.innerHTML = potWingHtml(visualValue, leftCount, 0) + potWingHtml(visualValue, rightCount, leftCount);
+  target.classList.toggle("has-chips", visualValue > 0);
 }
 
 
@@ -593,7 +636,7 @@ function makeFlyingPacket(amount, label = "") {
   const el = document.createElement("div");
   el.className = "chip-flight";
   el.dataset.amount = String(Number(amount || .5));
-  el.innerHTML = `${chipStackHtml(Math.max(.5, amount || .5), true)}${label ? `<span>${escapeHtml(label)}</span>` : ""}`;
+  el.innerHTML = `${chipStackHtml(Math.max(.5, amount || .5))}${label ? `<span>${escapeHtml(label)}</span>` : ""}`;
   felt.appendChild(el);
   return el;
 }
@@ -653,12 +696,14 @@ async function collectParkedPackets(includeExistingMarkers = false) {
   // Уже лежавшие на столе ставки из предыдущего состояния.
   // Они нужны, когда новое действие закрывает улицу.
   if (includeExistingMarkers) {
-    for (const marker of [...document.querySelectorAll(".bet-marker:not(.fx-collected)")]) {
-      const from = centerInsideFelt(marker);
+    for (const wagerLabel of [...document.querySelectorAll(".seat-wager:not(.fx-collected)")]) {
+      // The stake used to sit on the felt and fly from there. It sits in the
+      // avatar now, so that is where it leaves from -- the money is still seen
+      // travelling, it just starts at the player rather than beside them.
+      const from = centerInsideFelt(wagerLabel);
       if (!from) continue;
-      const text = marker.querySelector("span")?.textContent || "1";
-      const amount = Number.parseFloat(text.replace(",", ".")) || 1;
-      marker.classList.add("fx-collected");
+      const amount = Number.parseFloat(wagerLabel.textContent.replace(",", ".")) || 1;
+      wagerLabel.classList.add("fx-collected");
       moves.push(flyPacket(from, target, amount, { duration:225 }));
     }
   }
@@ -787,6 +832,13 @@ function formatBB(value) {
   return `${Number(value || 0).toFixed(2)} ББ`;
 }
 
+//: Inside a 49px avatar the unit costs 20 of those pixels and says nothing the
+//: stack right below it has not already said. Every number on this felt is in
+//: big blinds.
+function bareBB(value) {
+  return Number(value || 0).toFixed(2);
+}
+
 function signedBB(value) {
   const n = Number(value || 0);
   return `${n >= 0 ? "+" : ""}${n.toFixed(2)} ББ`;
@@ -806,8 +858,134 @@ function cardEl(code) {
   const suit = code[1];
   const symbol = { s: "♠", h: "♥", d: "♦", c: "♣" }[suit] || suit;
   el.className = "card " + ((suit === "h" || suit === "d") ? "red" : "");
+  el.dataset.code = code;
   el.innerHTML = `<span class="card-rank">${rank}</span><span class="card-suit">${symbol}</span>`;
   return el;
+}
+
+//: Same evaluator shape as v025-showdown-compare.js (that layer is optional
+//: and loads after this one, so it can't be reused directly) -- extended to
+//: keep the winning 5-card combo itself, not just its score, since this one
+//: highlights the actual cards on the felt rather than only comparing hands.
+const HAND_RANK_VALUE = { "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7, "8": 8, "9": 9, "T": 10, "J": 11, "Q": 12, "K": 13, "A": 14 };
+
+function handStraightHigh(ranks) {
+  const unique = [...new Set(ranks)].sort((a, b) => b - a);
+  if (unique.includes(14)) unique.push(1);
+  let run = 1;
+  for (let i = 1; i < unique.length; i++) {
+    if (unique[i - 1] - 1 === unique[i]) {
+      run += 1;
+      if (run >= 5) return unique[i - 4];
+    } else {
+      run = 1;
+    }
+  }
+  return null;
+}
+
+function evaluateFiveScore(cards) {
+  const ranks = cards.map(card => HAND_RANK_VALUE[card?.[0]]).filter(Boolean);
+  const suits = cards.map(card => card?.[1]);
+  const counts = new Map();
+  ranks.forEach(rank => counts.set(rank, (counts.get(rank) || 0) + 1));
+  const groups = [...counts.entries()].map(([rank, count]) => [count, rank]).sort((a, b) => b[0] - a[0] || b[1] - a[1]);
+  const flush = new Set(suits).size === 1;
+  const straight = handStraightHigh(ranks);
+  if (flush && straight) return [8, straight];
+  if (groups[0]?.[0] === 4) {
+    const quad = groups[0][1];
+    return [7, quad, Math.max(...ranks.filter(r => r !== quad))];
+  }
+  const trips = [...counts.entries()].filter(([, c]) => c === 3).map(([r]) => r).sort((a, b) => b - a);
+  const pairs = [...counts.entries()].filter(([, c]) => c === 2).map(([r]) => r).sort((a, b) => b - a);
+  if (trips.length && (trips.length >= 2 || pairs.length)) return [6, trips[0], trips.length >= 2 ? trips[1] : pairs[0]];
+  if (flush) return [5, ...[...ranks].sort((a, b) => b - a)];
+  if (straight) return [4, straight];
+  if (trips.length) {
+    const kickers = ranks.filter(r => r !== trips[0]).sort((a, b) => b - a).slice(0, 2);
+    return [3, trips[0], ...kickers];
+  }
+  if (pairs.length >= 2) {
+    const [high, low] = pairs;
+    return [2, high, low, Math.max(...ranks.filter(r => r !== high && r !== low))];
+  }
+  if (pairs.length === 1) {
+    const pair = pairs[0];
+    return [1, pair, ...ranks.filter(r => r !== pair).sort((a, b) => b - a).slice(0, 3)];
+  }
+  return [0, ...[...ranks].sort((a, b) => b - a)];
+}
+
+function compareHandScore(a, b) {
+  const n = Math.max(a.length, b.length);
+  for (let i = 0; i < n; i++) {
+    const av = a[i] || 0, bv = b[i] || 0;
+    if (av !== bv) return av > bv ? 1 : -1;
+  }
+  return 0;
+}
+
+function fiveCardCombinations(cards) {
+  const out = [];
+  for (let a = 0; a < cards.length - 4; a++)
+    for (let b = a + 1; b < cards.length - 3; b++)
+      for (let c = b + 1; c < cards.length - 2; c++)
+        for (let d = c + 1; d < cards.length - 1; d++)
+          for (let e = d + 1; e < cards.length; e++) out.push([cards[a], cards[b], cards[c], cards[d], cards[e]]);
+  return out;
+}
+
+//: Straight/flush/full-house/straight-flush use all 5 cards -- there is no
+//: separate kicker. Pair/two-pair/trips/quads carry 1-3 kickers that only
+//: matter for breaking ties, not for the category itself, so only the
+//: ranks that actually define the category get highlighted.
+function coreComboCards(score, cards) {
+  const category = score[0];
+  if (category === 4 || category === 5 || category === 6 || category === 8) return cards;
+  const coreRanks = new Set(category === 2 ? [score[1], score[2]] : [score[1]]);
+  return cards.filter(code => coreRanks.has(HAND_RANK_VALUE[code[0]]));
+}
+
+//: null when either hole card is still hidden (hot-seat mode shows them only
+//: on that player's own turn -- board-only cards are not "your combination"),
+//: for fewer than 5 real cards (nothing to evaluate yet), or when the best
+//: hand is only a high card -- there is no combination to point at.
+function bestHandCombo(hole, board) {
+  if (!Array.isArray(hole) || hole.length !== 2 || hole.some(code => !code || code === "??")) return null;
+  const cards = [...hole, ...(board || [])].filter(code => code && code !== "??");
+  if (cards.length < 5) return null;
+  let best = null;
+  let bestCards = null;
+  for (const combo of fiveCardCombinations(cards)) {
+    const score = evaluateFiveScore(combo);
+    if (!best || compareHandScore(score, best) > 0) {
+      best = score;
+      bestCards = combo;
+    }
+  }
+  return best && best[0] > 0 ? coreComboCards(best, bestCards) : null;
+}
+
+function highlightLocalHandCombo() {
+  document.querySelectorAll(".card.hand-combo").forEach(el => el.classList.remove("hand-combo"));
+  const player = localViewerPlayer();
+  if (!player) return;
+  const combo = bestHandCombo(player.hole_cards, game?.board);
+  if (!combo) return;
+  const remaining = [...combo];
+  const mark = container => {
+    if (!container) return;
+    [...container.children].forEach(el => {
+      const idx = remaining.indexOf(el.dataset.code);
+      if (idx !== -1) {
+        el.classList.add("hand-combo");
+        remaining.splice(idx, 1);
+      }
+    });
+  };
+  mark(document.querySelector(`.seat[data-seat="${player.seat}"] .player-cards`));
+  mark($("board"));
 }
 
 function renderCards(target, cards) {
@@ -820,8 +998,17 @@ function currentSeatConfig(seatNumber) {
 }
 
 function gamePlayerForSeat(seatNumber) {
-  if (!game) return null;
-  return Object.values(game.players || {}).find(p => Number(p.seat) === Number(seatNumber)) || null;
+  const fromGame = game ? Object.values(game.players || {}).find(p => Number(p.seat) === Number(seatNumber)) || null : null;
+  if (fromGame) return fromGame;
+  // A seat sitting out the hand in progress (bought in after it started) has
+  // nothing in game.players -- current_seats is where the server puts them
+  // instead, and it carries the stack and hole cards this render needs.
+  // The server sends it only for that gap, so between hands it is absent and
+  // seatHtml falls back to the seat config, which carries the id.
+  const row = tableData?.current_seats?.[seatNumber];
+  // Carries the seat's real stack: this is what seatHtml prints, so a zero
+  // here made every seat sitting out read "0.00 ББ" instead of its chips.
+  return row ? { ...row, seat: seatNumber, stack: Number(row.stack || 0), hole_cards: [] } : null;
 }
 
 function avatarInitials(name, isBot = false) {
@@ -835,11 +1022,52 @@ function avatarHue(seat, isBot = false) {
   return (base + Number(seat || 0) * 37) % 360;
 }
 
-function seatHtml(config, player) {
-  const locked = Boolean(ONLINE_TABLE_ID) || Boolean(game && !game.terminal);
+//: What fits on a seat plate. Counting characters could not answer that: at
+//: 10px, fourteen Latin characters are 92px and fourteen Cyrillic ones are
+//: 144, so a cap that let "DarkPaladin" through cut "Глеб Остывший" in half.
+//: Measure instead. Cutting mid-word gave "Яромир Пятниц…"; the first word
+//: whole gives "Яромир", a name somebody can read and remember. Half the
+//: roster joins its words with underscores, so those count as seams too.
+//: Anything still too long is left to the plate's own ellipsis, which is
+//: better at this than arithmetic on string length.
+const SEAT_NAME_PX = 70;
+const SEAT_NAME_FONT = '800 10px Inter, ui-sans-serif, system-ui, sans-serif';
+
+let seatNameRuler = null;
+function seatNameWidth(text) {
+  if (!seatNameRuler) {
+    seatNameRuler = document.createElement("canvas").getContext("2d");
+    if (seatNameRuler) seatNameRuler.font = SEAT_NAME_FONT;
+  }
+  //: No canvas (a stripped test DOM) means no measuring, so nothing is trimmed
+  //: and the plate's ellipsis handles it -- worse, never wrong.
+  return seatNameRuler ? seatNameRuler.measureText(text).width : 0;
+}
+
+function seatDisplayName(raw, measure = seatNameWidth) {
+  const name = String(raw ?? "").trim() || "Игрок";
+  if (measure(name) <= SEAT_NAME_PX) return name;
+  const firstWord = name.split(/[\s_]+/)[0];
+  if (firstWord && firstWord !== name && measure(firstWord) <= SEAT_NAME_PX) return firstWord;
+  return name;
+}
+
+function seatHtml(config, player, offerSeat = true) {
+  // Online, an empty seat is how you sit down: the request is queued and the
+  // server seats you at the next hand boundary, so a hand in progress is no
+  // reason to refuse. Locking these on every network table left six buttons
+  // reading "Сесть" that could not be pressed -- and on a table with nobody at
+  // it, they were the only thing on screen offering a way in. Offline they
+  // still open the bot-seat editor, which a live hand does have to block.
+  const locked = ONLINE_TABLE_ID ? false : Boolean(game && !game.terminal);
   if (!config) return "";
 
   if (!config.active || config.occupant_type === "empty") {
+    // Six identical "Сесть" circles round an empty table is the same offer six
+    // times over. Online only the seat you would actually be given carries it;
+    // the rest of the ring stays a plain empty place. Offline each button is a
+    // control for its own seat's bot editor, so they are not the same offer.
+    if (ONLINE_TABLE_ID && !offerSeat) return "";
     return `
       <button class="seat-empty ${locked ? "seat-lock" : ""}" data-add-seat="${config.seat}" ${locked ? "disabled" : ""}>
         <span class="empty-avatar">＋</span>
@@ -858,26 +1086,37 @@ function seatHtml(config, player) {
   const stack = player ? player.stack : config.balance;
   const wager = Number(player?.street_invested || 0);
   const isDealer = String(position).includes("BTN");
-  const status = folded ? "ПАС" : allIn ? "ОЛЛ-ИН" : activeTurn ? (isHuman ? "ХОД" : "ДУМАЕТ") : "";
+  // A human's turn is shown by the seat's own glow (.active-turn) -- the
+  // "ХОД" badge on top of it was redundant. Bots keep "ДУМАЕТ": it's the
+  // only sign a bot is actually deciding, not just informational chrome.
+  const status = folded ? "ПАС" : activeTurn && !isHuman ? "ДУМАЕТ" : "";
   const typeClass = isHuman ? "seat-human" : "seat-bot";
-  const isViewer = Boolean(game && game.viewer_player_id && game.viewer_player_id === source.id);
-  const avatar = isViewer ? "ВЫ" : avatarInitials(source.name || config.name, !isHuman);
+  // game is null before a hand exists (waiting/countdown) -- tableData's own
+  // copy survives those phases, so a freshly seated player still gets a hero
+  // seat and can click ready instead of staying invisible until dealt in.
+  const viewerPlayerId = game?.viewer_player_id || tableData?.viewer_player_id;
+  const isViewer = Boolean(viewerPlayerId && viewerPlayerId === source.id);
+  const telegramProfile = isViewer ? window.Poker8TelegramProfile : null;
+  const displayName = telegramProfile?.displayName || source.name || config.name || "Игрок";
+  // Avatars are level-based, not photos -- no --profile-avatar-image here.
+  // The CSS hook stays (v038) since nothing sets the inline style anymore.
+  const avatar = isViewer ? "ВЫ" : avatarInitials(displayName, !isHuman);
   const hue = avatarHue(config.seat, !isHuman);
 
   return `
-    <div class="seat-card ${typeClass} ${isViewer ? "viewer-seat" : ""} ${activeTurn ? "active-turn" : ""} ${folded ? "folded" : ""} ${allIn ? "all-in" : ""}" style="--avatar-hue:${hue}">
+    <div class="seat-card ${typeClass} ${isViewer ? "viewer-seat" : ""} ${activeTurn ? "active-turn p8-turn-gradient" : ""} ${folded ? "folded" : ""} ${allIn ? "all-in" : ""}" style="--avatar-hue:${hue}">
       ${!locked ? `<button class="seat-edit" data-edit-seat="${config.seat}" title="Настроить место">•••</button>` : ""}
       ${isDealer ? `<div class="dealer-button" title="Дилер / BTN">D</div>` : ""}
       <div class="avatar-wrap">
-        <div class="player-avatar"><span>${escapeHtml(avatar)}</span></div>
-        ${status ? `<div class="player-status ${folded ? "status-fold" : allIn ? "status-allin" : activeTurn && !isHuman ? "status-thinking" : "status-turn"}">${status}${activeTurn && !isHuman ? `<i class="thinking-dots"><b></b><b></b><b></b></i>` : ""}</div>` : ""}
+        <div class="player-avatar"><span>${escapeHtml(avatar)}</span>${wager > 0 ? `<b class="seat-wager">${bareBB(wager)}</b>` : ""}</div>
+        ${status ? `<div class="player-status ${folded ? "status-fold" : activeTurn && !isHuman ? "status-thinking" : "status-turn"}">${status}${activeTurn && !isHuman ? `<i class="thinking-dots"><b></b><b></b><b></b></i>` : ""}</div>` : ""}
       </div>
       <div class="seat-identity">
         <div class="seat-topline">
-          <div class="seat-name">${escapeHtml(source.name || config.name)}</div>
+          <div class="seat-name">${escapeHtml(seatDisplayName(displayName))}</div>
           <div class="position-chip ${buttonClass}">${escapeHtml(position)}</div>
         </div>
-        <div class="seat-stack">${formatBB(stack)}</div>
+        <div class="seat-stack">${allIn ? "ALL-IN" : formatBB(stack)}</div>
         <div class="bot-level">${isHuman ? "ИГРОК" : DIFFICULTY_LABELS[source.difficulty || config.difficulty] || "БОТ"}</div>
       </div>
       <div class="player-cards" data-cards-seat="${config.seat}"></div>
@@ -891,38 +1130,47 @@ function escapeHtml(value) {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+    .replaceAll("'", "&#003399;");
 }
 
+//: What a player has put in this street is written inside their avatar now,
+//: by seatHtml, so there is nothing to place on the felt between them and the
+//: pot. The layer stays and stays empty: chip flights are still appended to it
+//: while money is travelling. (The pot's own cluster is untouched -- that is
+//: renderPotChips, and it is a different thing entirely.)
 function renderWagerMarkers() {
   const layer = $("wagerLayer");
-  if (!layer) return;
-  layer.innerHTML = "";
-  if (!game || game.terminal) return;
+  if (layer) layer.innerHTML = "";
+}
 
-  for (const player of Object.values(game.players || {})) {
-    const wager = Number(player.street_invested || 0);
-    if (!(wager > 0)) continue;
-    const point = wagerPointForPlayer(game, player.id);
-    if (!point) continue;
+//: Post-render hooks. Four layers used to reassign renderSeats, each wrapping
+//: the one before, so calling it walked a five-deep chain that only worked if
+//: every link remembered to call its predecessor -- and one throw anywhere in
+//: it silently cost every layer after. Layers register here instead. The order
+//: is the order they load, which is what it always was.
+const renderHooks = { seats: [], mobileHeader: [] };
 
-    const marker = document.createElement("div");
-    marker.className = "bet-marker";
-    marker.dataset.playerId = player.id;
-    marker.style.left = `${point.x}px`;
-    marker.style.top = `${point.y}px`;
-    marker.innerHTML = `${chipStackHtml(wager, true)}<span>${formatBB(wager)}</span>`;
-    layer.appendChild(marker);
+function onRendered(phase, fn) {
+  if (typeof fn === "function") renderHooks[phase]?.push(fn);
+}
+
+function runRenderHooks(phase) {
+  for (const fn of renderHooks[phase] || []) {
+    // One layer's decoration failing must not cost every layer after it.
+    try { fn(); } catch (error) { console.error(`render hook (${phase}) failed`, error); }
   }
 }
 
 function renderSeats() {
   if (!tableData) return;
+  const offeredSeat = tableData.seats.find(
+    config => !config.active || config.occupant_type === "empty",
+  )?.seat;
   tableData.seats.forEach(config => {
     const target = document.querySelector(`.seat[data-seat="${config.seat}"]`);
     if (!target) return;
     const player = gamePlayerForSeat(config.seat);
-    target.innerHTML = seatHtml(config, player);
+    target.innerHTML = seatHtml(config, player, config.seat === offeredSeat);
     const cardsTarget = target.querySelector(`[data-cards-seat="${config.seat}"]`);
     if (cardsTarget && player) {
       renderCards(cardsTarget, player.hole_cards || ["??", "??"]);
@@ -930,17 +1178,32 @@ function renderSeats() {
   });
 
   window.syncComponentSeatLayout?.(game, tableData);
-  renderWagerMarkers();
 
-  document.querySelectorAll("[data-add-seat]").forEach(btn => {
-    btn.onclick = () => openSeatModal(Number(btn.dataset.addSeat));
-  });
+  // Online the seat flow is a buy-in against the server, and online-table.js
+  // owns it through a listener delegated on the document -- the mobile layers
+  // rebuild this markup on every snapshot, and a handler bound to the element
+  // dies with the node it was bound to. Offline the button edits its own seat,
+  // and nothing replaces the node underneath it.
+  if (!ONLINE_TABLE_ID) {
+    document.querySelectorAll("[data-add-seat]").forEach(btn => {
+      btn.onclick = () => openSeatModal(Number(btn.dataset.addSeat));
+    });
+  }
   document.querySelectorAll("[data-edit-seat]").forEach(btn => {
     btn.onclick = () => openSeatModal(Number(btn.dataset.editSeat));
   });
 
   const active = tableData.seats.filter(s => s.active).length;
   $("activeCount").textContent = String(active);
+  runRenderHooks("seats");
+  //: After the hooks, never before. A wager marker is placed by measuring the
+  //: seat it belongs to -- and v040 does not move the seats into position until
+  //: it runs here. Measuring first read whatever geometry the rebuilt markup
+  //: happened to have, so the chips in front of players landed a few pixels off
+  //: and somewhere slightly different on the next snapshot: a tremble at render
+  //: rate that no amount of styling could steady, because it was arithmetic on
+  //: a rectangle that had not settled yet.
+  renderWagerMarkers();
 }
 
 function renderProfile(profile) {
@@ -1179,8 +1442,11 @@ function amountBounds() {
   const max = Math.max(1, Number(player.street_invested || 0) + Number(player.stack || 0));
   let min = 1;
   if (isLocalHumanTurn()) {
-    if (Number(game.human_to_call || 0) > 0) min = Math.max(Number(game.human_min_raise_to || 0), Number(game.current_bet || 0) + Number(game.min_raise_size || 1));
-    else min = Math.min(max, 1);
+    // human_min_raise_to is already current_bet + min_raise_size (server's real
+    // floor for a bet or a raise alike) -- the to_call === 0 case used to
+    // ignore it and hardcode 1, so an opening bet below the big blind looked
+    // legal on the slider and then got rejected by the engine.
+    min = Math.max(Number(game.human_min_raise_to || 0), Number(game.current_bet || 0) + Number(game.min_raise_size || 1));
   } else {
     const estimated = Math.max(1, Number(game.current_bet || 0) + Math.max(1, Number(game.min_raise_size || 1)));
     min = Math.min(max, estimated);
@@ -1234,7 +1500,7 @@ function actionButtonLabel(action, localTurn = false) {
   if (action === "aggressive") return `${Number(game?.current_bet || 0) > Number(localPlayer?.street_invested || 0) ? "РЕЙЗ" : "СТАВКА"}\n${formatBB(amount)}`;
   if (action === "all_in") {
     const total = Number(localPlayer?.stack || 0) + Number(localPlayer?.street_invested || 0);
-    return `ОЛЛ-ИН\n${formatBB(total)}`;
+    return `ALL-IN\n${formatBB(total)}`;
   }
   return String(ACTION_LABELS[action] || action).toUpperCase();
 }
@@ -1276,6 +1542,7 @@ function renderMobileHeader() {
     const activeSeats = tableData?.seats?.filter(s => s.active).length || 0;
     primary.disabled = !active && activeSeats < 2;
   }
+  runRenderHooks("mobileHeader");
 }
 
 function selectedActionParts() {
@@ -1283,7 +1550,7 @@ function selectedActionParts() {
   if (pendingAction.kind === "fold") return { label: "ПАС", amount: "" };
   if (pendingAction.kind === "check") return { label: "ЧЕК", amount: "" };
   if (pendingAction.kind === "call") return { label: "КОЛЛ", amount: formatBB(pendingAction.estimateToCall || 0) };
-  if (pendingAction.kind === "all_in") return { label: "ОЛЛ-ИН", amount: "" };
+  if (pendingAction.kind === "all_in") return { label: "ALL-IN", amount: "" };
   if (pendingAction.kind === "aggressive") return { label: Number(game?.current_bet || 0) > Number(localViewerPlayer()?.street_invested || 0) ? "РЕЙЗ" : "СТАВКА", amount: formatBB(pendingAction.amount || 0) };
   return { label: "—", amount: "" };
 }
@@ -1341,6 +1608,7 @@ function refreshQuickSizeLabels() {
 function renderPersistentActionButtons() {
   const buttons = $("actionButtons");
   if (!buttons) return;
+  if (window.matchMedia?.("(max-width: 780px)")?.matches && buttons.dataset.v038ReferenceActions === "1") return;
   buttons.innerHTML = "";
   const alive = localPlayerAlive();
   const localTurn = isLocalHumanTurn();
@@ -1351,16 +1619,17 @@ function renderPersistentActionButtons() {
   const amount = Number($("amount")?.value || amountBounds().value || 0);
   const allInTotal = Number(localViewerPlayer()?.stack || 0) + Number(localViewerPlayer()?.street_invested || 0);
   const defs = [
-    { key:leftKey, label:leftKey === "check" ? "ЧЕК" : "ПАС", cls:leftKey === "fold" ? "fold" : "check" },
-    { key:"call", label:`КОЛЛ${toCall > 0 ? `\n${formatBB(toCall)}` : ""}`, cls:"call" },
-    { key:"aggressive", label:`${aggressiveName}\n${formatBB(amount)}`, cls:"raise" },
-    { key:"all_in", label:`ОЛЛ-ИН\n${formatBB(allInTotal)}`, cls:"all-in" },
+    { slot:"left", key:leftKey, label:leftKey === "check" ? "ЧЕК" : "ПАС", cls:leftKey === "fold" ? "fold" : "check" },
+    { slot:"call", key:"call", label:`КОЛЛ${toCall > 0 ? `\n${formatBB(toCall)}` : ""}`, cls:"call" },
+    { slot:"aggressive", key:"aggressive", label:`${aggressiveName}\n${formatBB(amount)}`, cls:"raise" },
+    { slot:"all_in", key:"all_in", label:`ALL-IN\n${formatBB(allInTotal)}`, cls:"all-in" },
   ];
 
   defs.forEach(def => {
     const b = document.createElement("button");
     b.type = "button";
     b.dataset.actionKey = def.key;
+    b.dataset.actionSlot = def.slot;
     b.className = `action-slot ${def.cls}`;
     b.textContent = def.label;
     b.classList.toggle("queued", pendingAction?.kind === def.key);
@@ -1376,20 +1645,32 @@ function renderPersistentActionButtons() {
     }
     b.disabled = !enabled;
     b.onclick = () => {
-      if (!game || game.terminal || !alive) return;
-      if (!localTurn) {
-        togglePendingAction(def.key);
+      if (!game || game.terminal || !localPlayerAlive() || window.Poker8Transport?.isActionPending?.()) return;
+      const liveTurn = isLocalHumanTurn();
+      const liveLegal = game.human_legal_actions || [];
+      const liveToCall = estimatedLocalToCall();
+      const liveKey = def.slot === "left"
+        ? (liveTurn ? (liveLegal.includes("check") ? "check" : "fold") : (liveToCall > 0 ? "fold" : "check"))
+        : def.slot;
+      // Snapshot мог измениться между отрисовкой и кликом: сначала синхронизировать UI, не выполнять другую команду.
+      if (b.dataset.actionKey !== liveKey) {
+        renderPersistentActionButtons();
+        renderMobileSelectedCard();
+        return;
+      }
+      if (!liveTurn) {
+        togglePendingAction(liveKey);
         renderPersistentActionButtons();
         renderMobileSelectedCard();
         return;
       }
       clearPendingAction(false);
-      if (def.key === "check") return sendAction("check", 0);
-      if (def.key === "fold") return sendAction(legal.includes("fold") ? "fold" : "check", 0);
-      if (def.key === "call") return sendAction("call", 0);
-      if (def.key === "all_in") return sendAction("all_in", 0);
-      const act = legal.includes("raise") ? "raise" : "bet";
-      return sendAction(act, Number($("amount").value || 0));
+      if (liveKey === "check") return sendAction("check", 0);
+      if (liveKey === "fold") return sendAction("fold", 0);
+      if (liveKey === "call") return sendAction("call", 0);
+      if (liveKey === "all_in") return sendAction("all_in", 0);
+      const act = liveLegal.includes("raise") ? "raise" : "bet";
+      return sendAction(act, Number($("amount")?.value || 0));
     };
     buttons.appendChild(b);
   });
@@ -1406,6 +1687,9 @@ function renderGame() {
   renderSeats();
   renderMobileHud();
   document.body.dataset.street = game?.street || "idle";
+  // Nothing has been wagered before a hand exists -- a "0.00 ББ" pot readout
+  // was just clutter on an empty table.
+  document.body.classList.toggle("p8-no-pot", !game);
   document.body.classList.toggle("human-turn", Boolean(game && !game.terminal && game.acting_human_player_id));
   document.body.classList.toggle("local-human-turn", isLocalHumanTurn());
   document.body.classList.toggle("local-player-active", localPlayerAlive());
@@ -1416,7 +1700,16 @@ function renderGame() {
     $("street").textContent = "СТОЛ ГОТОВ";
     $("pot").textContent = "0.00 ББ";
     renderPotChips(0);
-    renderCards($("board"), []);
+    // Online only: `game` goes null between hands -- waiting for ready-up,
+    // the result hold, the countdown -- for everyone still at the table, not
+    // just whoever stood up. Clearing the board here wiped the hand that was
+    // just shown before anyone had a chance to look at it. Leaving the call
+    // out keeps whatever renderCards(board, game.board) last drew on screen;
+    // the next hand's own (empty, preflop) board overwrites it the moment
+    // `game` is real again. The offline trainer keeps clearing immediately --
+    // there the lineup itself can change while idle, and a stale board next
+    // to a different set of seats is the confusing case there instead.
+    if (!ONLINE_TABLE_ID) renderCards($("board"), []);
     $("result").textContent = "Посадите людей или ботов и начните раздачу";
     $("turnTitle").textContent = spectatorOnly() ? "Стол наблюдения готов" : "Стол не запущен";
     $("actionPanelKicker").textContent = spectatorOnly() ? "НАБЛЮДЕНИЕ" : activeBotPlayer() ? "БОТ ДУМАЕТ" : "ВАШ ХОД";
@@ -1442,6 +1735,10 @@ function renderGame() {
   $("pot").textContent = formatBB(game.pot);
   renderPotChips(game.pot);
   renderCards($("board"), game.board);
+  // Same isolation as runRenderHooks: everything from here down (result text,
+  // the action panel, the amount slider) must render even if this one piece
+  // of decoration throws on some hand shape it did not anticipate.
+  try { highlightLocalHandCombo(); } catch (error) { console.error("highlightLocalHandCombo failed", error); }
   $("result").textContent = game.result_text || "";
   $("analysisLink").href = `/api/game/${game.hand_id}/analysis`;
   $("analysisLink").classList.remove("disabled");
@@ -1479,7 +1776,27 @@ function renderGame() {
 
 renderPersistentActionButtons();
 $("sizingWrap").hidden = false;
-if (localPlayerAlive()) syncAmountControls(isLocalHumanTurn() && game.human_min_raise_to ? game.human_min_raise_to : null);
+if (localPlayerAlive()) {
+  // Was: reseed to the server's minimum on every render, unconditionally.
+  // renderGame() runs on every incoming snapshot, several a second once a
+  // decision is on the clock (each bot pre-action, each timer tick still
+  // pushes one) -- so a raise picked from a preset, the slider, or MAX got
+  // silently overwritten back to the minimum a moment later, before the
+  // player could even press the button. What they saw and what #amount
+  // actually held had already diverged; the number sent on click was
+  // whichever of the two survived the race, not the one they chose. Seed
+  // once per decision -- the same hand:street:actor:history identity used
+  // for arming a commit -- and leave the field alone for the rest of it.
+  const humanTurn = isLocalHumanTurn();
+  const token = humanTurn ? turnToken() : null;
+  if (humanTurn && game.human_min_raise_to && token !== amountSeededForTurn) {
+    amountSeededForTurn = token;
+    syncAmountControls(game.human_min_raise_to);
+  } else {
+    if (!humanTurn) amountSeededForTurn = null;
+    syncAmountControls();
+  }
+}
 renderQueuedActionStatus();
 updateActionTimerState();
 renderMobileHud();
@@ -1493,14 +1810,39 @@ renderMobileHud();
 window.Poker8LegacyView = {
   renderSnapshot({ table, state, viewerState }) {
     const players = Object.values(state?.players || {});
-    const viewer = players.find(player =>
-      !player.is_bot && (player.hole_cards || []).some(card => card && card !== "??")
-    ) || null;
+    // Between hands (waiting for ready-up, countdown) state.players still
+    // only lists whoever played the last hand -- a freshly bought-in seat
+    // has nothing there yet. current_seats is sourced from the actual seating
+    // instead, so a fresh seat still gets an avatar to render and click ready
+    // on, rather than staying invisible until the hand that finally deals
+    // them in.
+    const currentSeatFor = seatNo => {
+      const row = state?.current_seats?.[seatNo];
+      // The seat's own stack, not 0 -- this is what every seat renders from
+      // between hands, so hardcoding 0 made the whole table read "0" until
+      // the next deal put everyone back into state.players.
+      return row ? { ...row, seat: seatNo, stack: Number(row.stack || 0), hole_cards: [] } : null;
+    };
+    const playerAtSeat = seatNo => players.find(row => Number(row.seat) === seatNo) || currentSeatFor(seatNo);
+    const viewer = state?.viewer_player_id
+      ? players.find(player => player.id === state.viewer_player_id)
+        || Object.keys(state?.current_seats || {}).map(Number).map(currentSeatFor).find(row => row?.id === state.viewer_player_id)
+        || null
+      : window.Poker8OnlineTable
+        ? null
+        : players.find(player => !player.is_bot && (player.hole_cards || []).some(card => card && card !== "??")) || null;
     const seats = Array.from({ length: 6 }, (_, seat) => {
-      const player = players.find(row => Number(row.seat) === seat);
+      const player = playerAtSeat(seat);
       return {
         seat,
         active: Boolean(player),
+        // The participant id, so a seat can still be recognised as the
+        // viewer's between hands. `game` is null then, and the server omits
+        // current_seats for anyone who played the last hand -- leaving this
+        // out meant nothing tied a seat to a player, so seatHtml marked no
+        // seat as the viewer's, v040 found no hero seat and rotated the
+        // table into spectator layout with an unclickable avatar.
+        id: player?.id || null,
         occupant_type: player?.is_bot ? "bot" : "human",
         profile_id: player?.profile_id || null,
         name: player?.name || `Место ${seat + 1}`,
@@ -1539,11 +1881,124 @@ window.Poker8LegacyView = {
       spectator_only: viewerState !== "seated",
       profile: null,
       profiles: [],
+      // Same reason as ready_seats below: needed to know which seat is "you"
+      // before a hand exists to identify it via game.viewer_player_id.
+      viewer_player_id: viewer?.id || null,
+      // Ready-up is a pre-hand affordance, so it has to survive on tableData
+      // (set every phase) rather than on `game`, which is null exactly then.
+      ready_seats: state?.ready_seats || [],
+      hand_starts_at: state?.hand_starts_at || null,
+      // gamePlayerForSeat falls back to this for a seat sitting out the
+      // current hand -- current_seats itself is only a local in this
+      // function, so it has to be persisted here to still be reachable from
+      // renderSeats(), which runs later off the module-level game/tableData.
+      current_seats: state?.current_seats || null,
+      // sendAction's wire format is BB-units scaled by the table's own big
+      // blind, not a fixed 100 -- see the comment there. Only "micro" rooms
+      // (online/catalogue.py's ROOM_BLIND_LEVELS) happen to use 100.
+      big_blind_units: Number(table?.big_blind_units) || 100,
     };
-    game = onlineGame;
-    renderGame();
+
+    // All-in before the board is complete: the engine deals whatever is left
+    // and reaches showdown in the one step that also sets terminal -- see
+    // PokerEngine._runout_and_showdown. A hand that reached the river the
+    // ordinary way already showed 5 cards in the snapshot BEFORE this one
+    // (the river is its own non-terminal snapshot with a chance to act), so
+    // "still short of 5 cards, and this snapshot both fills it in and ends
+    // the hand" only ever happens for a run-out. Reveal those cards first,
+    // the way an all-in should feel, instead of the felt just snapping
+    // straight to five cards and a verdict.
+    commitOnlineGame(onlineGame);
   },
 };
+
+//: Set while an all-in reveal is in flight, keyed by hand_id so a repeat
+//: snapshot of the same still-revealing hand (the poll timer, a redundant
+//: push) does not restart the animation or double the 3s wait.
+let onlineRunoutHandId = null;
+
+//: The server starts the next hand a fixed 7s after the CURRENT one ends
+//: (see next_hand_at in online/runtime.py) -- it has no idea a reveal is
+//: playing out client-side, so a new hand's snapshot can and does arrive
+//: before the reveal is done. Committing it right away used to skip the
+//: winner entirely (the still-revealing hand's own commit was later refused
+//: by the onlineRunoutHandId guard below, since the flag had moved on) --
+//: the felt would just jump to the new hand with no result ever shown, and
+//: the pot it already paid out looked like it had vanished. Held here
+//: instead, and applied the moment the reveal in front of it finishes.
+let deferredOnlineSnapshot = null;
+
+function commitOnlineGame(onlineGame) {
+  // Checked first, before even asking whether *this* snapshot looks like a
+  // runout: bots can go all-in preflop hand after hand, so a second hand's
+  // own runout snapshot can arrive while the first one's reveal is still in
+  // flight. That used to fall into the isRunout branch below and overwrite
+  // onlineRunoutHandId with the second hand's id -- which permanently
+  // orphaned the first reveal (its own finally block checks
+  // onlineRunoutHandId === its own hand_id, and that guard would then never
+  // match again) and, worse, called revealOnlineRunout a second time
+  // concurrently with `game` still pinned at the first hand's own
+  // pre-terminal board, so the "prior board" the second reveal compared
+  // against belonged to neither hand. Every snapshot for any other hand
+  // now waits its turn instead, however it looks.
+  if (onlineRunoutHandId && onlineRunoutHandId !== onlineGame?.hand_id) {
+    deferredOnlineSnapshot = onlineGame;
+    return;
+  }
+  const priorBoardCount = game?.board?.length ?? 0;
+  const isRunout = Boolean(onlineGame?.terminal) && (onlineGame?.board?.length || 0) === 5 && priorBoardCount < 5;
+  if (isRunout) {
+    // Either this is the snapshot that starts the reveal, or a redundant
+    // one (the poll timer, a resync) for a hand that is already revealing
+    // -- both must leave `game` alone and return without committing, or a
+    // second snapshot arriving mid-reveal would jump straight to the
+    // result and skip the rest of the sequence below.
+    if (onlineRunoutHandId !== onlineGame.hand_id) {
+      onlineRunoutHandId = onlineGame.hand_id;
+      // tableData is already the new snapshot (assigned in renderSnapshot)
+      // -- seats, stacks and ready state can update freely during the
+      // reveal, since nothing repaints them until renderGame() runs at the
+      // end of it. Only `game` itself -- the board, the terminal result,
+      // the modal it drives -- waits.
+      revealOnlineRunout(game, onlineGame);
+    }
+    return;
+  }
+  game = onlineGame;
+  renderGame();
+}
+
+async function revealOnlineRunout(previousGame, finishedGame) {
+  try {
+    // Card-flight animations use the Web Animations API's own `.finished`
+    // promise, which browsers can pause indefinitely for a backgrounded tab
+    // (switching away from Telegram mid-reveal, the screen locking) -- with
+    // no timeout, that promise never settling left onlineRunoutHandId armed
+    // forever, and every snapshot after it silently piled into
+    // deferredOnlineSnapshot instead of ever rendering: the whole table,
+    // action buttons included, froze until the page reloaded. 12s is well
+    // past the real reveal's own worst case (five cards, three street
+    // splashes, the 3s hold) so it never fires in the ordinary path.
+    await Promise.race([
+      revealRemainingBoard(previousGame, finishedGame).then(() => sleep(3000)),
+      sleep(12000),
+    ]);
+  } finally {
+    // A snapshot for a newer hand can only have won onlineRunoutHandId away
+    // from this one by taking the deferred branch above, which leaves this
+    // check the only place that hand's commit can still happen.
+    if (onlineRunoutHandId === finishedGame.hand_id) {
+      onlineRunoutHandId = null;
+      game = finishedGame;
+      renderGame();
+      if (deferredOnlineSnapshot) {
+        const next = deferredOnlineSnapshot;
+        deferredOnlineSnapshot = null;
+        commitOnlineGame(next);
+      }
+    }
+  }
+}
 
 function renderHistory() {
   const target = $("history");
@@ -1722,7 +2177,16 @@ async function newHand(fromAutomation = false) {
 
 async function sendAction(action, amount = 0) {
   if (!game || animationBusy) return;
-  if (window.Poker8OnlineTable && window.Poker8Transport) return Poker8Transport.sendAction(action, Math.round(Number(amount || 0) * 100));
+  if (window.Poker8OnlineTable && window.Poker8Transport) {
+    // The server decodes amount_units as amount_units / table.big_blind_units
+    // (online/runtime.py) -- a hardcoded *100 here only matched "micro"
+    // rooms (big_blind_units=100). On "low" (200) or "mid" (1000) tables it
+    // silently sent a smaller number than typed, so a raise well above the
+    // displayed minimum (e.g. 7 when the minimum read 4) still failed the
+    // engine's own min-raise check on the rescaled-down amount.
+    const bbUnits = Number(tableData?.big_blind_units) || 100;
+    return Poker8Transport.sendAction(action, Math.round(Number(amount || 0) * bbUnits));
+  }
   if (isLocalHumanTurn()) clearPendingAction(false);
   solverPreview = null;
   document.querySelectorAll("#actionButtons button").forEach(b => b.disabled = true);

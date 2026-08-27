@@ -1,16 +1,16 @@
 (() => {
   "use strict";
 
-  const MOBILE = "(max-width: 780px)";
-  const isMobileV2 = () => window.matchMedia?.(MOBILE)?.matches
-    && document.body.classList.contains("poker8-v2-sixmax");
+  const isMobileV2 = () => window.matchMedia?.("(max-width: 780px)")?.matches ?? false;
 
   const style = document.createElement("style");
   style.id = "v038-poker8-v2-cinematic-table-style";
   style.textContent = `
-    @media (max-width:780px){
+    /* Was @media (max-width:780px). The v2 table is the table now, at every
+       width; desktop geometry is tuned in v039. */
+    @media all{
       body.v014.poker8-v2-sixmax{
-        --p8-wood-dark:#120804;
+        --p8-wood-dark:#0c0503;
         --p8-wood-mid:#51270f;
         --p8-felt:#003b24;
         --p8-perspective:900px;
@@ -21,26 +21,40 @@
         --seat-1-x:7%!important;--seat-1-y:58%!important;
         --seat-2-x:7%!important;--seat-2-y:22%!important;
         --seat-3-x:50%!important;--seat-3-y:13%!important;
-        --seat-4-x:93%!important;--seat-4-y:22%!important;
-        --seat-5-x:93%!important;--seat-5-y:58%!important;
+        --seat-4-x:84%!important;--seat-4-y:22%!important;
+        --seat-5-x:84%!important;--seat-5-y:58%!important;
         --pot-y:25%!important;
         --pot-chips-y:47%!important;
         --board-y:38%!important;
         background:
           linear-gradient(90deg,rgba(0,0,0,.55),transparent 20%,transparent 80%,rgba(0,0,0,.55)),
-          repeating-linear-gradient(96deg,#080402 0 7px,#180b05 8px 14px,#0c0503 15px 23px)!important;
+          repeating-linear-gradient(96deg,#000000 0 7px,#180b05 8px 14px,#0c0503 15px 23px)!important;
       }
 
       body.v014.poker8-v2-sixmax .mobile-game-header::after{display:none!important;content:none!important;}
       body.v014.poker8-v2-sixmax .mobile-game-header{
         background-image:
-          linear-gradient(90deg,rgba(0,3,2,.86),transparent 38%,transparent 62%,rgba(0,3,2,.86)),
+          linear-gradient(90deg,rgba(0,0,0,.86),transparent 38%,transparent 62%,rgba(0,0,0,.86)),
           url("/static/assets/poker8-v2-table-mobile.webp")!important;
         background-size:100% 100%,100vw calc(var(--table-stage-h) + 50px)!important;
         background-position:center,center top!important;
         background-repeat:no-repeat!important;
         border-bottom-color:rgba(29,255,192,.10)!important;
         box-shadow:0 10px 24px rgba(0,0,0,.44)!important;
+      }
+
+      /* style.css sizes .layout/.left-column to the full viewport, and
+         component-ui.css only undoes that for :not(.poker8-v2-sixmax). Left as
+         is here, the left column alone fills .app-shell's whole content box, so
+         the .sidebar holding the action panel is laid out *past* the bottom of
+         .app-shell -- which is overflow:hidden, so every action button becomes
+         invisible and unreachable with no way to scroll to it. The table frame
+         is already pinned to --table-stage-h and the panel to --p8-hud-h, and
+         those two exactly fill the content box, so the column only has to stop
+         claiming height it was never meant to own. */
+      body.v014.poker8-v2-sixmax .layout,
+      body.v014.poker8-v2-sixmax .left-column{
+        min-height:0!important;height:auto!important;flex:none!important;
       }
 
       body.v014.poker8-v2-sixmax .table-frame{
@@ -51,12 +65,17 @@
         overflow:visible!important;
       }
 
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"]{left:50%!important;top:80%!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="1"]{left:7%!important;top:58%!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="2"]{left:7%!important;top:22%!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="3"]{left:50%!important;top:13%!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="4"]{left:93%!important;top:22%!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="5"]{left:93%!important;top:58%!important;}
+      /* $= (suffix match), not =, so a spectator's "spectator-N" dataset (v040)
+         still resolves a hexagon slot -- an exact ="N" match leaves every
+         spectator seat with no left/top at all, and every earlier layer
+         (component-ui.css, v032, v039) has the same exact-match gap, so
+         nothing in the chain positions a spectator's seats. */
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat$="0"]{left:50%!important;top:80%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat$="1"]{left:7%!important;top:58%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat$="2"]{left:7%!important;top:22%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat$="3"]{left:50%!important;top:13%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat$="4"]{left:84%!important;top:22%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat$="5"]{left:84%!important;top:58%!important;}
 
       body.v014.poker8-v2-sixmax .table-frame{
         padding:0 5px 1px!important;
@@ -75,9 +94,13 @@
         margin-inline:auto!important;
         border:0!important;
         border-radius:49% / 36%!important;
-        transform:rotateX(5deg) scale(.985,1.025)!important;
+        /* Was rotateX(5deg) scale(.985,1.025) with preserve-3d. Every child
+           that shows counter-rotated by -5deg to sit upright again, so the
+           tilt cancelled out -- but the scale did not, and it sized every
+           seat plate to a fractional pixel: 92.4 instead of 92. Text
+           rasterised at one size and resampled at another is what "blurry
+           nicknames" was. The felt's shape comes from its border-radius. */
         transform-origin:50% 54%!important;
-        transform-style:preserve-3d!important;
         background:transparent!important;
         outline:0!important;
         box-shadow:none!important;
@@ -86,9 +109,6 @@
       body.v014.poker8-v2-sixmax .felt::before,
       body.v014.poker8-v2-sixmax .felt::after{display:none!important;}
 
-      body.v014.poker8-v2-sixmax .felt :is(.seat-card,.board-cards .card,.pot-total>*,.pot-chips>*,.bet-marker>*){
-        rotate:x -5deg;
-      }
 
       body.v014.poker8-v2-sixmax .table-glow{
         display:none!important;
@@ -97,14 +117,16 @@
         background:radial-gradient(ellipse,rgba(21,121,74,.15),transparent 68%)!important;
       }
 
-      body.v014.poker8-v2-sixmax .seat{width:104px!important;height:116px!important;min-height:0!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"]{width:132px!important;height:132px!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"]{--seat-accent:195;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="1"]{--seat-accent:190;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="2"]{--seat-accent:282;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="3"]{--seat-accent:142;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="4"]{--seat-accent:34;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="5"]{--seat-accent:300;}
+      body.v014.poker8-v2-sixmax .seat{width:69px!important;height:77px!important;min-height:0!important;}
+      /* $= (suffix match) so a spectator's "spectator-N" dataset (v040) still
+         resolves an accent color -- an exact ="N" match leaves it undefined,
+         which silently drops every hsla(var(--seat-accent)…) declaration below. */
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat$="0"]{--seat-accent:195;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat$="1"]{--seat-accent:190;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat$="2"]{--seat-accent:282;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat$="3"]{--seat-accent:142;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat$="4"]{--seat-accent:34;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat$="5"]{--seat-accent:300;}
 
       body.v014.poker8-v2-sixmax .seat-card{
         --seat-neon:hsl(var(--seat-accent),92%,62%);
@@ -120,7 +142,7 @@
 
       body.v014.poker8-v2-sixmax .avatar-wrap{
         position:absolute!important;z-index:4;left:50%!important;top:4px!important;transform:translateX(-50%)!important;
-        width:74px!important;height:74px!important;margin:0!important;
+        width:49px!important;height:49px!important;margin:0!important;
         isolation:isolate;
       }
       body.v014.poker8-v2-sixmax .avatar-wrap::before,
@@ -135,13 +157,20 @@
         background:
           radial-gradient(circle at 50% 48%,transparent 0 5px,hsla(var(--seat-accent),85%,72%,.35) 5px 6px,transparent 6px),
           repeating-linear-gradient(45deg,hsla(var(--seat-accent),65%,36%,.74) 0 3px,hsla(var(--seat-accent),65%,15%,.96) 3px 6px),
-          #050707;
+          #000000;
         box-shadow:inset 0 0 0 2px rgba(0,0,0,.54),0 0 13px hsla(var(--seat-accent),95%,56%,.34),0 6px 10px rgba(0,0,0,.58);
       }
       body.v014.poker8-v2-sixmax .avatar-wrap::before{left:-8px;transform:rotate(-12deg);transform-origin:bottom right;}
       body.v014.poker8-v2-sixmax .avatar-wrap::after{right:-8px;transform:rotate(12deg);transform-origin:bottom left;}
       body.v014.poker8-v2-sixmax .seat-card:has(.player-cards:not(:empty)) .avatar-wrap::before,
       body.v014.poker8-v2-sixmax .seat-card:has(.player-cards:not(:empty)) .avatar-wrap::after{opacity:0;}
+      /* These two are decoration for an idle table, not real cards. Once a hand
+         is running a seat either holds actual cards -- which hide them via the
+         rule above -- or is sitting the hand out, and then a pair of card backs
+         behind the avatar says the opposite of the prompt telling that player
+         the hand is going on without them. p8-no-pot marks "no hand at all". */
+      body.v014.poker8-v2-sixmax:not(.p8-no-pot) .avatar-wrap::before,
+      body.v014.poker8-v2-sixmax:not(.p8-no-pot) .avatar-wrap::after{opacity:0;}
       body.v014.poker8-v2-sixmax.v038-room-awaiting .avatar-wrap::before,
       body.v014.poker8-v2-sixmax.v038-room-awaiting .avatar-wrap::after,
       body.v014.poker8-v2-sixmax.v038-room-resetting .avatar-wrap::before,
@@ -151,28 +180,28 @@
 
       body.v014.poker8-v2-sixmax .player-avatar{
         position:relative!important;
-        width:74px!important;height:74px!important;
+        width:49px!important;height:49px!important;
         transition:border-color 220ms ease,box-shadow 220ms ease,filter 220ms ease!important;
         border:2px solid hsla(var(--seat-accent),100%,70%,.88)!important;
-        background-image:var(--profile-avatar-image,radial-gradient(circle at 50% 32%,hsla(var(--seat-accent),62%,46%,.45),transparent 31%),radial-gradient(circle at 50% 78%,#07110e 0 42%,#010303 70%))!important;
+        background-image:var(--profile-avatar-image,radial-gradient(circle at 50% 32%,hsla(var(--seat-accent),62%,46%,.45),transparent 31%),radial-gradient(circle at 50% 78%,#07100f 0 42%,#000000 70%))!important;
         background-position:center!important;
         background-size:cover!important;
-        color:#f5fff9!important;
-        box-shadow:0 0 0 3px rgba(1,5,5,.92),0 0 16px hsla(var(--seat-accent),96%,58%,.46),inset 0 -10px 18px rgba(0,0,0,.50)!important;
-        font-size:13px!important;
+        color:#effbf4!important;
+        box-shadow:0 0 0 3px rgba(0,0,0,.92),0 0 16px hsla(var(--seat-accent),96%,58%,.46),inset 0 -10px 18px rgba(0,0,0,.50)!important;
+        font-size:15px!important;
       }
       body.v014.poker8-v2-sixmax .player-avatar span{opacity:0!important;}
       body.v014.poker8-v2-sixmax .player-avatar::before{
         content:"";position:absolute;z-index:2;left:16%;right:16%;top:14%;height:52%;border-radius:48% 48% 42% 42% / 54% 54% 32% 32%;
         background:
-          radial-gradient(ellipse at 50% 45%,rgba(3,10,8,.22) 0 24%,rgba(0,2,2,.90) 55%,#000 76%),
-          linear-gradient(135deg,hsla(var(--seat-accent),58%,24%,.62),#010303 58%);
+          radial-gradient(ellipse at 50% 45%,rgba(7,16,15,.22) 0 24%,rgba(0,0,0,.90) 55%,#000000 76%),
+          linear-gradient(135deg,hsla(var(--seat-accent),58%,24%,.62),#000000 58%);
         clip-path:polygon(50% 0,84% 16%,100% 72%,76% 92%,63% 68%,50% 61%,37% 68%,24% 92%,0 72%,16% 16%);
         filter:drop-shadow(0 0 5px hsla(var(--seat-accent),92%,60%,.32));
       }
       body.v014.poker8-v2-sixmax .player-avatar::after{
         content:"";position:absolute;z-index:1;left:7%;right:7%;bottom:-3%;height:54%;border-radius:50% 50% 42% 42%;
-        background:radial-gradient(ellipse at 50% 0,hsla(var(--seat-accent),52%,24%,.30),transparent 50%),linear-gradient(160deg,#07100d,#000 72%);
+        background:radial-gradient(ellipse at 50% 0,hsla(var(--seat-accent),52%,24%,.30),transparent 50%),linear-gradient(160deg,#07100f,#000000 72%);
         clip-path:polygon(17% 13%,39% 0,61% 0,83% 13%,100% 100%,0 100%);
       }
       body.v014.poker8-v2-sixmax .player-avatar[style*="--profile-avatar-image"]::before,
@@ -180,31 +209,55 @@
       body.v014.poker8-v2-sixmax .player-avatar[style*="--profile-avatar-image"] span{opacity:1!important;}
 
       body.v014.poker8-v2-sixmax .seat-identity{
-        position:absolute!important;z-index:6;left:50%!important;top:70px!important;transform:translateX(-50%)!important;
-        width:96px!important;min-height:38px!important;padding:6px 7px 5px!important;border-radius:9px!important;
+        position:absolute!important;z-index:6;left:50%!important;top:47px!important;transform:translateX(-50%)!important;
+        width:84px!important;min-height:32px!important;padding:3px 6px 4px!important;border-radius:8px!important;
         transition:border-color 220ms ease,box-shadow 220ms ease,filter 220ms ease!important;
-        border:1px solid hsla(var(--seat-accent),90%,60%,.72)!important;background:linear-gradient(180deg,rgba(9,8,10,.98),rgba(1,3,4,.995))!important;
+        border:1px solid hsla(var(--seat-accent),90%,60%,.72)!important;background:linear-gradient(180deg,rgba(0,0,0,.98),rgba(0,0,0,.995))!important;
         box-shadow:0 0 12px hsla(var(--seat-accent),92%,55%,.24),0 7px 14px rgba(0,0,0,.62)!important;text-align:center!important;
       }
+      /* What this player has put in this street, written where they are
+         rather than on the felt beside them. The avatar is 49px and the
+         number can be five characters, so it takes the middle of the disc on
+         its own ground -- the silhouette behind it is decoration, the number
+         is not. */
+      body.v014.poker8-v2-sixmax .player-avatar{position:relative!important;}
+      body.v014.poker8-v2-sixmax .seat-wager{
+        position:absolute!important;left:50%!important;top:50%!important;
+        transform:translate(-50%,-50%)!important;z-index:4;
+        min-width:34px;padding:2px 5px;border-radius:7px;
+        background:rgba(9,10,10,.86);
+        color:#eafff6;font-size:12px;font-weight:900;line-height:1;letter-spacing:-.01em;
+        font-variant-numeric:tabular-nums;text-align:center;white-space:nowrap;
+        box-shadow:0 1px 4px rgba(0,0,0,.55);
+      }
+      /* The felt between the players and the pot is empty now. */
+      body.v014.poker8-v2-sixmax .wager-layer .bet-marker{display:none!important;}
+
       body.v014.poker8-v2-sixmax .seat-topline{display:block!important;}
-      body.v014.poker8-v2-sixmax .seat-name{max-width:68px!important;font-size:9px!important;line-height:1!important;}
-      body.v014.poker8-v2-sixmax .seat-stack{margin-top:3px!important;font-size:12px!important;line-height:1!important;color:var(--seat-neon)!important;}
+      /* The name takes the whole plate; seatDisplayName measures what it hands
+         over so it lands, and CSS finishes anything still too long. */
+      body.v014.poker8-v2-sixmax .seat-name{max-width:100%!important;font-size:10px!important;line-height:1.1!important;}
+      body.v014.poker8-v2-sixmax .seat-stack{margin-top:1px!important;font-size:15px!important;line-height:1!important;color:var(--seat-neon)!important;}
       body.v014.poker8-v2-sixmax .seat-name,
       body.v014.poker8-v2-sixmax .seat-stack{margin-inline:auto!important;}
       body.v014.poker8-v2-sixmax .bot-level{display:none!important;}
-      body.v014.poker8-v2-sixmax .position-chip{display:none!important;font-size:6px!important;padding:1px 3px!important;}
+      body.v014.poker8-v2-sixmax .position-chip{display:none!important;font-size:10px!important;padding:1px 3px!important;}
       body.v014.poker8-v2-sixmax .seat-meta{margin-top:3px!important;}
       body.v014.poker8-v2-sixmax .seat-card > .v024-ready-badge{display:none!important;}
       body.v014.poker8-v2-sixmax .player-status:is(.status-fold,.status-turn,.status-thinking){display:none!important;}
       body.v014.poker8-v2-sixmax .v028-center-ready{display:none!important;}
       body.v014.poker8-v2-sixmax .deck-anchor{display:none!important;}
 
+      /* Dead center of the felt -- verified against the live table: the pot
+         chips sat at this exact row before the pot moved to flank the amount
+         (see .pot-chips below), so 50% is the felt's real visual middle, not
+         a guess. Nothing else occupies that ground before a hand deals. */
       body.v014.poker8-v2-sixmax .v038-ready-countdown{
-        position:absolute;z-index:74;left:50%;top:calc(55% - 66px);transform:translate(-50%,-50%);
+        position:absolute;z-index:74;left:50%;top:50%;transform:translate(-50%,-50%);
         display:none;place-items:center;width:62px;height:62px;border-radius:50%;
-        border:2px solid #72ffb5;background:rgba(1,20,13,.88);color:#e8fff3;
-        box-shadow:0 0 0 3px rgba(0,5,3,.72),0 0 22px rgba(72,255,169,.58),inset 0 0 18px rgba(70,255,170,.14);
-        font-size:29px;font-weight:950;text-shadow:0 0 10px rgba(98,255,190,.86);pointer-events:none;
+        border:2px solid #72ffb5;background:rgba(6,22,17,.88);color:#eafff6;
+        box-shadow:0 0 0 3px rgba(0,0,0,.72),0 0 22px rgba(72,255,169,.58),inset 0 0 18px rgba(72,255,169,.14);
+        font-size:27px;font-weight:950;text-shadow:0 0 10px rgba(91,255,194,.86);pointer-events:none;
       }
       body.v014.poker8-v2-sixmax .v038-ready-countdown.visible{display:grid;}
 
@@ -215,22 +268,20 @@
       body.v014.poker8-v2-sixmax .v038-turn-timer.visible{display:grid;}
       body.v014.poker8-v2-sixmax .v038-turn-timer{
         left:calc(25% - 20.5px);width:54px;height:54px;transform:translateX(-50%);place-items:center;border-radius:50%;
-        background:conic-gradient(#ff38c7 var(--timer-progress,100%),rgba(255,56,199,.12) 0);
-        filter:drop-shadow(0 0 9px rgba(255,56,199,.66));
+        background:conic-gradient(var(--turn) var(--timer-progress,100%),var(--turn-dim) 0);
+        filter:drop-shadow(0 0 9px color-mix(in srgb,var(--turn) 66%,transparent));
       }
       body.v014.poker8-v2-sixmax .v038-turn-timer::before{
-        content:"";position:absolute;inset:4px;border-radius:50%;background:#07100d;border:1px solid rgba(255,95,215,.72);
+        content:"";position:absolute;inset:4px;border-radius:50%;background:#07100f;border:1px solid color-mix(in srgb,var(--turn) 72%,transparent);
       }
-      body.v014.poker8-v2-sixmax .v038-turn-timer b{position:relative;color:#fff;font-size:18px;line-height:1;text-shadow:0 0 7px #ff38c7;}
-      body.v014.poker8-v2-sixmax .v038-turn-timer small{position:absolute;bottom:-11px;color:#ff87df;font-size:6px;font-weight:900;letter-spacing:.08em;}
+      body.v014.poker8-v2-sixmax .v038-turn-timer b{position:relative;color:#ffffff;font-size:20px;line-height:1;text-shadow:0 0 7px var(--turn);}
+      body.v014.poker8-v2-sixmax .v038-turn-timer small{position:absolute;bottom:-11px;color:color-mix(in srgb,var(--turn) 62%,#ffffff);font-size:10px;font-weight:900;letter-spacing:.08em;}
       body.v014.poker8-v2-sixmax .v038-turn-context.visible{display:block;}
       body.v014.poker8-v2-sixmax .v038-turn-context{
         left:calc(75% + 20.5px);transform:translateX(-50%);width:max-content;min-width:82px;max-width:116px;padding:6px 8px;border:1px solid #2de8df;border-radius:9px;
         background:rgba(2,19,18,.92);color:#dffffc;text-align:center;box-shadow:0 0 14px rgba(45,232,223,.38);
       }
-      body.v014.poker8-v2-sixmax .v038-turn-context strong{display:block;color:#55fff2;font-size:11px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-      body.v014.poker8-v2-sixmax .v038-turn-context span{display:block;margin-top:3px;color:#ecfffd;font-size:10px;font-weight:850;line-height:1;}
-      body.v014.poker8-v2-sixmax .v038-turn-context span:empty{display:none;}
+      body.v014.poker8-v2-sixmax .v038-turn-context span{display:block;color:#ecfffd;font-size:10px;font-weight:850;line-height:1;}
 
       body.v014.poker8-v2-sixmax.v028-prehand-center-ready .seat[data-visual-seat="0"] .avatar-wrap{
         cursor:pointer!important;
@@ -241,54 +292,78 @@
       }
       body.v014.poker8-v2-sixmax .v038-ready-mark{
         position:absolute;z-index:12;inset:4px;display:none;place-items:center;border-radius:50%;
-        border:2px solid #72ffb5;background:rgba(0,30,20,.38);color:#dffff0;
-        box-shadow:0 0 0 2px rgba(0,8,5,.72),0 0 18px rgba(72,255,169,.72),inset 0 0 14px rgba(83,255,181,.18);
-        font-size:30px;font-weight:950;line-height:1;text-shadow:0 0 10px rgba(104,255,190,.95);pointer-events:none;
+        border:2px solid #72ffb5;background:rgba(4,31,20,.38);color:#dfffee;
+        box-shadow:0 0 0 2px rgba(0,8,5,.72),0 0 18px rgba(72,255,169,.72),inset 0 0 14px rgba(75,255,181,.18);
+        font-size:27px;font-weight:950;line-height:1;text-shadow:0 0 10px rgba(104,255,190,.95);pointer-events:none;
       }
       body.v014.poker8-v2-sixmax.v028-prehand-center-ready .avatar-wrap.v038-viewer-ready .v038-ready-mark{display:grid;}
+      /* v028 only marks "no hand at all", so while a hand ran without this seat
+         the checkmark had nowhere to appear and a card over the felt had to say
+         it in words. p8-can-ready marks the real condition -- a ready toggle is
+         available right now -- which also covers sitting a running hand out. */
+      body.v014.poker8-v2-sixmax.p8-can-ready .avatar-wrap.v038-viewer-ready .v038-ready-mark{display:grid;}
       body.v014.poker8-v2-sixmax .v038-ready-mark small{
         position:absolute;right:-7px;bottom:-5px;display:grid;place-items:center;width:25px;height:25px;border-radius:50%;
-        border:1px solid #71ffc1;background:#031b13;color:#fff;font-size:12px;font-weight:950;
+        border:1px solid #71ffc1;background:#031b13;color:#ffffff;font-size:12px;font-weight:950;
         box-shadow:0 0 12px rgba(75,255,181,.70);
       }
 
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-card{
         min-height:0!important;padding:0!important;border:0!important;box-shadow:none!important;
       }
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .avatar-wrap{top:9px!important;width:82px!important;height:82px!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .player-avatar{width:82px!important;height:82px!important;border-color:#35bfff!important;font-size:14px!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-identity{top:84px!important;width:122px!important;min-height:42px!important;z-index:12!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-name{font-size:10px!important;max-width:92px!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-stack{font-size:13px!important;color:#35c6ff!important;}
+      /* Avatar size and position are dropped here on purpose (item 5: every
+         seat's avatar is now the same size, hero included) -- only the
+         cosmetic "this is you" cue (border color) stays hero-specific. */
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .player-avatar{border-color:#35bfff!important;font-size:15px!important;}
+      /* Plate stays the same width and position as every other seat's --
+         a wider hero plate was the last piece of asymmetric hero sizing. */
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-name{font-size:10px!important;max-width:100%!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-stack{font-size:15px!important;color:#35c6ff!important;}
 
       body.v014.poker8-v2-sixmax .seat-card.v038-action-fold .player-avatar{
-        border-color:#ff4d42!important;box-shadow:0 0 0 3px rgba(1,5,5,.92),0 0 20px rgba(255,77,66,.64),inset 0 -10px 18px rgba(0,0,0,.50)!important;
+        border-color:#ff4d42!important;box-shadow:0 0 0 3px rgba(0,0,0,.92),0 0 20px rgba(255,77,66,.64),inset 0 -10px 18px rgba(0,0,0,.50)!important;
       }
       body.v014.poker8-v2-sixmax .seat-card.v038-action-passive .player-avatar{
-        border-color:#55cfff!important;box-shadow:0 0 0 3px rgba(1,5,5,.92),0 0 20px rgba(85,207,255,.62),inset 0 -10px 18px rgba(0,0,0,.50)!important;
+        border-color:#55cfff!important;box-shadow:0 0 0 3px rgba(0,0,0,.92),0 0 20px rgba(85,207,255,.62),inset 0 -10px 18px rgba(0,0,0,.50)!important;
       }
       body.v014.poker8-v2-sixmax .seat-card.v038-action-aggressive .player-avatar{
-        border-color:#55f16e!important;box-shadow:0 0 0 3px rgba(1,5,5,.92),0 0 20px rgba(85,241,110,.62),inset 0 -10px 18px rgba(0,0,0,.50)!important;
+        border-color:#55f16e!important;box-shadow:0 0 0 3px rgba(0,0,0,.92),0 0 20px rgba(85,241,110,.62),inset 0 -10px 18px rgba(0,0,0,.50)!important;
       }
       body.v014.poker8-v2-sixmax .seat-card.v038-action-all-in .player-avatar{
-        border-color:#ffc44d!important;box-shadow:0 0 0 3px rgba(1,5,5,.92),0 0 22px rgba(255,196,77,.70),inset 0 -10px 18px rgba(0,0,0,.50)!important;
+        border-color:#ffc44d!important;box-shadow:0 0 0 3px rgba(0,0,0,.92),0 0 22px rgba(255,196,77,.70),inset 0 -10px 18px rgba(0,0,0,.50)!important;
       }
-      body.v014.poker8-v2-sixmax .seat-card.v032-folded.v038-action-fold{opacity:.48!important;filter:none!important;}
+      body.v014.poker8-v2-sixmax .seat-card.v032-folded.v038-action-fold{opacity:1!important;filter:none!important;}
 
       body.v014.poker8-v2-sixmax .v038-room-prompt{
-        position:absolute;z-index:72;left:50%;top:55%;transform:translate(-50%,-50%);display:none;width:max-content;max-width:78%;
-        padding:10px 14px;border:1px solid rgba(61,235,190,.58);border-radius:12px;background:rgba(1,18,13,.88);text-align:center;
-        box-shadow:0 0 18px rgba(46,239,186,.22);pointer-events:auto;cursor:pointer;
+        /* y:36% sits over the pot/board strip, which is empty whenever this
+           prompt shows (no hand running) -- and it's the one vertical band
+           every seat layout now deliberately avoids, so the prompt can no
+           longer land on top of another seat's avatar.
+
+           Was max-width:78% -- "МЕСТО ЗАНЯТО" hit that cap edge to edge on a
+           321px felt, 250px wide, near enough to the side seats to look like
+           it was reaching for them. Narrower, and every message wraps its
+           subtitle onto two short lines instead of one long one. */
+        position:absolute;z-index:72;left:50%;top:var(--p8-prompt-y, 36%);transform:translate(-50%,-50%);display:none;width:max-content;max-width:64%;
+        padding:10px 14px;border:1px solid rgba(61,235,190,.58);border-radius:12px;background:rgba(2,19,18,.88);text-align:center;
+        box-shadow:0 0 18px rgba(28,238,188,.22);pointer-events:auto;cursor:pointer;
       }
       body.v014.poker8-v2-sixmax .v038-room-prompt.visible{display:block;}
-      body.v014.poker8-v2-sixmax .v038-room-prompt strong{display:block;color:#7dffd0;font-size:13px;line-height:1.05;letter-spacing:.06em;}
-      body.v014.poker8-v2-sixmax .v038-room-prompt span{display:block;margin-top:5px;color:#dfffee;font-size:9px;line-height:1.1;}
-      body.v014.poker8-v2-sixmax.v038-room-awaiting .seat[data-visual-seat="0"] .avatar-wrap:not(.v038-viewer-ready) .player-avatar{
+      /* Past four players the ring closes up and the upper side seats climb
+         into the 36% band, so the prompt has to drop below them to stop
+         covering an avatar. Still above the pot strip, which is empty
+         whenever this prompt is on screen. */
+      body.v014.poker8-v2-sixmax.p8-player-count-5,
+      body.v014.poker8-v2-sixmax.p8-player-count-6{--p8-prompt-y:47%;}
+      body.v014.poker8-v2-sixmax .v038-room-prompt strong{display:block;color:#7dffd0;font-size:15px;line-height:1.05;letter-spacing:.06em;}
+      body.v014.poker8-v2-sixmax .v038-room-prompt span{display:block;margin-top:5px;color:#dfffee;font-size:10px;line-height:1.1;}
+      body.v014.poker8-v2-sixmax.v038-room-awaiting .seat[data-visual-seat="0"] .avatar-wrap:not(.v038-viewer-ready) .player-avatar,
+      body.v014.poker8-v2-sixmax.p8-can-ready .seat[data-visual-seat="0"] .avatar-wrap:not(.v038-viewer-ready) .player-avatar{
         animation:v038ReadyPulse 1.7s ease-in-out infinite;
       }
       body.v014.poker8-v2-sixmax .felt{transition:opacity 260ms ease,filter 260ms ease!important;}
       body.v014.poker8-v2-sixmax.v038-room-resetting .felt{opacity:.18!important;filter:brightness(.42) blur(2px)!important;}
-      @keyframes v038ReadyPulse{50%{border-color:#6edcff;box-shadow:0 0 0 3px rgba(1,5,5,.92),0 0 28px rgba(67,199,255,.82),inset 0 -10px 18px rgba(0,0,0,.50)}}
+      @keyframes v038ReadyPulse{50%{border-color:#6edcff;box-shadow:0 0 0 3px rgba(0,0,0,.92),0 0 28px rgba(53,198,255,.82),inset 0 -10px 18px rgba(0,0,0,.50)}}
 
       body.v014.poker8-v2-sixmax .player-cards{
         position:absolute!important;z-index:2!important;left:50%!important;top:-13px!important;bottom:auto!important;transform:translateX(-50%)!important;margin:0!important;min-height:0!important;gap:2px!important;
@@ -302,7 +377,7 @@
         background:
           radial-gradient(circle at center,transparent 0 6px,hsla(var(--seat-accent),90%,74%,.42) 6px 7px,transparent 7px),
           repeating-linear-gradient(45deg,hsla(var(--seat-accent),62%,38%,.74) 0 3px,hsla(var(--seat-accent),62%,16%,.96) 3px 6px)!important;
-        box-shadow:inset 0 0 0 2px rgba(0,0,0,.48),0 0 9px hsla(var(--seat-accent),94%,58%,.28)!important;
+        box-shadow:inset 0 0 0 2px rgba(0,0,0,.48),0 4px 9px rgba(0,0,0,.46)!important;
       }
       body.v014.poker8-v2-sixmax .player-cards .card.back:first-child{transform:rotate(-8deg) translateX(2px)!important;}
       body.v014.poker8-v2-sixmax .player-cards .card.back:last-child{transform:rotate(8deg) translateX(-2px)!important;}
@@ -310,15 +385,15 @@
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .player-cards{top:-47px!important;z-index:9!important;gap:4px!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .player-cards .card{
         width:43px!important;height:61px!important;border-radius:6px!important;
-        background:linear-gradient(150deg,#07110d,#010303)!important;
-        color:#effff7!important;border:1px solid #56c8ff!important;
-        box-shadow:0 0 12px rgba(47,184,255,.54),0 5px 10px rgba(0,0,0,.50),inset 0 0 10px rgba(58,208,255,.08)!important;
+        background:linear-gradient(150deg,#07100f,#000000)!important;
+        color:#eafff6!important;border:1px solid #56c8ff!important;
+        box-shadow:0 0 12px rgba(47,184,255,.54),0 5px 10px rgba(0,0,0,.50),inset 0 0 10px rgba(47,207,255,.08)!important;
       }
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .player-cards .card.red{color:#ff6759!important;border-color:#ff674d!important;box-shadow:0 0 12px rgba(255,87,70,.46),0 5px 10px rgba(0,0,0,.50)!important;}
-      body.v014.poker8-v2-sixmax .viewer-seat .player-cards .card-rank{left:5px!important;top:3px!important;font-size:13px!important;font-weight:950!important;}
-      body.v014.poker8-v2-sixmax .viewer-seat .player-cards .card-suit{font-size:24px!important;filter:drop-shadow(0 0 4px currentColor)!important;}
+      body.v014.poker8-v2-sixmax .viewer-seat .player-cards .card-rank{left:5px!important;top:3px!important;font-size:15px!important;font-weight:950!important;}
+      body.v014.poker8-v2-sixmax .viewer-seat .player-cards .card-suit{font-size:27px!important;filter:drop-shadow(0 0 4px currentColor)!important;}
       body.v014.poker8-v2-sixmax .player-cards .card:not(.back){
-        background:linear-gradient(150deg,#07110d,#010303)!important;color:#edfff7!important;
+        background:linear-gradient(150deg,#07100f,#000000)!important;color:#eafff6!important;
         border-color:hsla(var(--seat-accent),100%,70%,.88)!important;box-shadow:0 0 10px hsla(var(--seat-accent),96%,58%,.42)!important;
       }
 
@@ -326,40 +401,66 @@
       body.v014.poker8-v2-sixmax .board-cards .card{
         width:45px!important;height:63px!important;
         border:1px solid rgba(98,255,170,.82)!important;border-radius:5px!important;
-        background:linear-gradient(150deg,#07110d 0%,#010303 100%)!important;
-        color:#ecfff4!important;
-        box-shadow:0 0 10px rgba(48,255,158,.36),0 6px 10px rgba(0,0,0,.58),inset 0 0 12px rgba(32,255,147,.07)!important;
+        background:linear-gradient(150deg,#07100f 0%,#000000 100%)!important;
+        color:#eafff6!important;
+        box-shadow:0 6px 10px rgba(0,0,0,.58),inset 0 0 12px rgba(32,255,147,.07)!important;
       }
-      body.v014.poker8-v2-sixmax .board-cards .card.red{color:#df392c!important;border-color:#ff5f43!important;box-shadow:0 0 9px rgba(255,82,54,.26),0 5px 9px rgba(0,0,0,.48)!important;}
+      body.v014.poker8-v2-sixmax .board-cards .card.red{color:#df392c!important;border-color:#ff5f43!important;box-shadow:0 5px 9px rgba(0,0,0,.48)!important;}
+      /* Which of your own cards -- hole or board -- make up your current best
+         hand, live as the board fills in. Reuses the all-in glow colour
+         (.seat-card.all-in .player-avatar below) rather than a new one: both
+         mean "this is the strong part," so one colour does both jobs. */
+      body.v014.poker8-v2-sixmax .board-cards .card.hand-combo,
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .player-cards .card.hand-combo{
+        border-color:#f1c867!important;
+        box-shadow:0 0 0 2px rgba(238,180,65,.42),0 0 16px rgba(238,180,65,.62),inset 0 0 10px rgba(238,180,65,.16)!important;
+      }
 
       body.v014.poker8-v2-sixmax .pot-total{
         min-width:74px!important;padding:4px 9px!important;border-radius:7px!important;
-        border-color:rgba(60,225,150,.22)!important;background:rgba(1,31,18,.66)!important;
-        box-shadow:inset 0 0 12px rgba(57,228,152,.04),0 4px 11px rgba(0,0,0,.34)!important;
+        border-color:rgba(60,225,150,.22)!important;background:rgba(4,31,20,.66)!important;
+        box-shadow:inset 0 0 12px rgba(60,225,150,.04),0 4px 11px rgba(0,0,0,.34)!important;
       }
-      body.v014.poker8-v2-sixmax .pot-total-label{font-size:8px!important;letter-spacing:.08em!important;}
-      body.v014.poker8-v2-sixmax .pot-total strong{font-size:20px!important;line-height:1!important;}
+      body.v014.poker8-v2-sixmax .pot-total-label{font-size:10px!important;letter-spacing:.08em!important;}
+      /* Above the chip wings even though the plaque behind it (.pot-total,
+         below) is not -- position+z-index here lets the number escape its
+         own parent's stacking context, so it stays readable if a wing ever
+         grazes the plaque, without the plaque's own background needing to
+         out-rank the chips too. */
+      body.v014.poker8-v2-sixmax .pot-total strong{
+        font-size:20px!important;line-height:1!important;
+        position:relative!important;z-index:3!important;
+      }
+      /* v019-center-polish sets display:flex!important on the same selector
+         family, so the hide needs !important here to actually win. */
+      body.v014.poker8-v2-sixmax.p8-no-pot .pot-total{display:none!important;}
 
-      body.v014.poker8-v2-sixmax .pot-chips .chip-cluster.pot-cluster{height:52px!important;min-width:124px!important;filter:drop-shadow(0 8px 6px rgba(0,0,0,.54))!important;}
-      body.v014.poker8-v2-sixmax .pot-chips .chip-column.pot-stack{width:22px!important;height:48px!important;}
+      /* Two piles flanking the amount instead of one cluster piled under the
+         board -- renderPotChips now splits the count into a left and a right
+         .chip-cluster.pot-wing, laid out with the same flex row every other
+         cluster on the felt already uses (see .chip-cluster in style.css). */
+      body.v014.poker8-v2-sixmax .pot-chips .chip-cluster.pot-wing{height:52px!important;min-width:0!important;filter:drop-shadow(0 8px 6px rgba(0,0,0,.54))!important;}
+      body.v014.poker8-v2-sixmax .pot-chips .chip-column{width:22px!important;height:48px!important;margin:0 -5px!important;}
       body.v014.poker8-v2-sixmax .pot-chips .poker-chip{
         width:22px!important;height:9px!important;border-width:1px!important;
         transform:translateX(-50%) translateY(calc(var(--i) * -3.6px))!important;
         box-shadow:0 2px 3px rgba(0,0,0,.58),inset 0 2px 0 rgba(255,255,255,.28),inset 0 -3px 0 rgba(0,0,0,.40)!important;
       }
       body.v014.poker8-v2-sixmax .pot-chips .poker-chip::before{left:3px!important;right:3px!important;height:4px!important;}
-      body.v014.poker8-v2-sixmax .pot-chips .chip-column:nth-child(3n+2) .poker-chip{filter:hue-rotate(92deg) saturate(1.45)!important;}
-      body.v014.poker8-v2-sixmax .pot-chips .chip-column:nth-child(3n) .poker-chip{filter:hue-rotate(214deg) saturate(1.35)!important;}
+      /* Each column already renders one denomination's real colour (set by
+         chipsForAmount in app.js) -- shifting every 3rd column's hue by
+         position on top of that mixed denominations together at random,
+         which is what read as the pot's chips being coloured/layered wrong. */
 
       body.v014.poker8-v2-sixmax .bet-marker .chip-cluster.compact{transform:scale(.82)!important;transform-origin:center bottom!important;}
       body.v014.poker8-v2-sixmax .bet-marker span{
-        margin-top:-4px!important;padding:2px 6px!important;border:0!important;background:rgba(1,7,6,.84)!important;
-        color:#ecfff5!important;font-size:11px!important;font-weight:900!important;line-height:1!important;
-        text-shadow:0 0 5px rgba(236,255,245,.42)!important;box-shadow:0 2px 5px rgba(0,0,0,.42)!important;
+        margin-top:-4px!important;padding:2px 6px!important;border:0!important;background:rgba(0,0,0,.84)!important;
+        color:#eafff6!important;font-size:12px!important;font-weight:900!important;line-height:1!important;
+        text-shadow:0 0 5px rgba(234,255,246,.42)!important;box-shadow:0 2px 5px rgba(0,0,0,.42)!important;
       }
 
       body.v014.poker8-v2-sixmax .dealer-button{
-        border:1px solid #ecece2!important;background:radial-gradient(circle at 32% 28%,#fff,#d9d9ce 60%,#83867c)!important;
+        border:1px solid #ecece2!important;background:radial-gradient(circle at 32% 28%,#ffffff,#d9d9ce 60%,#83867c)!important;
         color:#181a17!important;box-shadow:0 2px 6px rgba(0,0,0,.62)!important;
       }
 
@@ -369,34 +470,72 @@
       body.v014.poker8-v2-sixmax .seat .seat-card.v032-active-turn{
         border:0!important;background:transparent!important;box-shadow:none!important;outline:0!important;
       }
+      /* The turn is drawn once, in v041, in the turn colour. This layer used
+         to draw it again in cyan with a pulse of its own, and v032 draws it a
+         third time in orange -- so the acting seat carried three indicators in
+         three colours, and the cyan pulse survived on top of the magenta ring
+         because only this layer declared an animation. */
       body.v014.poker8-v2-sixmax .seat .seat-card.v032-active-turn .player-avatar{
-        border-color:#55fff2!important;
-        box-shadow:0 0 0 3px rgba(1,5,5,.92),0 0 25px rgba(85,255,242,.78),inset 0 -10px 18px rgba(0,0,0,.50)!important;
+        border-color:var(--turn-ring)!important;
+        box-shadow:
+          0 0 0 1px color-mix(in srgb,var(--turn-ring) 92%,transparent),
+          0 0 10px 1px color-mix(in srgb,var(--turn-ring) 62%,transparent),
+          0 0 26px 7px color-mix(in srgb,var(--turn-ring) 34%,transparent),
+          0 0 52px 16px color-mix(in srgb,var(--turn-ring) 14%,transparent),
+          inset 0 -10px 18px rgba(0,0,0,.50)!important;
       }
-      body.v014.poker8-v2-sixmax .seat .seat-card.v032-active-turn .player-avatar,
       body.v014.poker8-v2-sixmax .seat .seat-card.v032-active-turn .seat-identity{
-        animation:v038ActiveTurnPulse 1.35s ease-in-out infinite;
+        border-color:var(--turn)!important;
+        box-shadow:0 0 18px color-mix(in srgb,var(--turn) 66%,transparent),0 7px 14px rgba(0,0,0,.62)!important;
       }
-      body.v014.poker8-v2-sixmax .seat .seat-card.v032-active-turn .seat-identity{
-        border-color:#55fff2!important;
-        box-shadow:0 0 18px rgba(85,255,242,.66)!important;
-      }
-      @keyframes v038ActiveTurnPulse{50%{filter:brightness(1.16);box-shadow:0 0 0 4px rgba(1,5,5,.92),0 0 34px rgba(85,255,242,.94),inset 0 -10px 18px rgba(0,0,0,.50)}}
-      @media (prefers-reduced-motion:reduce){body.v014.poker8-v2-sixmax .seat .seat-card.v032-active-turn :is(.player-avatar,.seat-identity){animation:none!important;}}
+      /* Folding takes your cards, not your seat. Dimming the whole player to
+         28% made them read as gone -- the name and stack you want to keep
+         reading went with the hand. They stay lit like everyone else, and the
+         cards beside the avatar are simply not there any more, which is what
+         the table itself would show you. */
       body.v014.poker8-v2-sixmax .seat .seat-card.v032-folded{
-        opacity:.28!important;filter:saturate(.18) brightness(.68)!important;box-shadow:none!important;
+        opacity:1!important;filter:none!important;box-shadow:none!important;
+      }
+      body.v014.poker8-v2-sixmax .seat .seat-card.v032-folded .player-cards{
+        display:none!important;
       }
       body.v014.poker8-v2-sixmax .seat .seat-card.all-in{
         border:0!important;background:transparent!important;box-shadow:none!important;outline:0!important;
       }
       body.v014.poker8-v2-sixmax .seat .seat-card.all-in .player-avatar{
         border-color:#f1c867!important;
-        box-shadow:0 0 0 3px rgba(1,5,5,.92),0 0 18px rgba(238,180,65,.45),inset 0 -10px 18px rgba(0,0,0,.50)!important;
+        box-shadow:0 0 0 3px rgba(0,0,0,.92),0 0 18px rgba(238,180,65,.45),inset 0 -10px 18px rgba(0,0,0,.50)!important;
       }
 
+      /* No z-index here on purpose -- any explicit value (even a low one)
+         would make .pot-total its own stacking context and trap the number
+         inside it below the chip wings regardless of the number's own
+         z-index. Left at auto, the plaque paints at the base level (below
+         .pot-chips's explicit z-index:2), while .pot-total strong's own
+         z-index (above) escapes upward into the shared ancestor context
+         instead of being capped by its parent. */
       body.v014.poker8-v2-sixmax .pot-total{top:25%!important;}
-      body.v014.poker8-v2-sixmax .board-cards{top:38%!important;}
-      body.v014.poker8-v2-sixmax .pot-chips{top:47%!important;}
+      /* Was 38%, 4px below the pot at the time -- and the wing seats at 5/6
+         active viewers sat inside this same band (see v040's SPECTATOR_LAYOUTS
+         fix), so the two nearly touched too. With those seats moved clear,
+         checked every player count in both hero and spectator mode: no plate
+         touches the pot or a board card at 34%, with 17-25px to spare on
+         every side. */
+      body.v014.poker8-v2-sixmax .board-cards{top:34%!important;}
+      /* The two piles sit on the same row as the amount and flank it, rather
+         than piling up as one cluster under the board -- the row is wide
+         enough that both piles clear the amount plate on every player count
+         checked (min-width:74px on .pot-total, 25-45px to spare each side).
+         Full opacity immediately, no transition: the base .has-chips rule
+         fades opacity in over .18s, and renderPotChips can repaint several
+         times a second while a decision is on the clock -- each repaint
+         restarts that transition, so the piles could sit at their
+         .15-opacity starting point indefinitely instead of ever reaching 1. */
+      body.v014.poker8-v2-sixmax .pot-chips{
+        top:25%!important;width:170px!important;max-width:66%!important;
+        display:flex!important;justify-content:space-between!important;align-items:flex-end!important;
+        opacity:1!important;transition:none!important;z-index:2!important;
+      }
 
       body.v014.poker8-v2-sixmax .sidebar{transform:none!important;height:var(--p8-hud-h)!important;}
       body.v014.poker8-v2-sixmax .action-panel,
@@ -406,8 +545,8 @@
         width:100%!important;height:var(--p8-hud-h)!important;min-height:var(--p8-hud-h)!important;
         padding:7px 8px!important;margin:0!important;overflow:hidden!important;
         border:1px solid rgba(83,123,112,.46)!important;border-radius:0!important;
-        background:linear-gradient(180deg,rgba(7,13,12,.995),rgba(1,4,4,1))!important;
-        box-shadow:0 -8px 24px rgba(0,0,0,.52),inset 0 0 22px rgba(50,255,191,.025)!important;
+        background:linear-gradient(180deg,rgba(7,16,15,.995),rgba(0,0,0,1))!important;
+        box-shadow:0 -8px 24px rgba(0,0,0,.52),inset 0 0 22px rgba(29,255,192,.025)!important;
         transform:none!important;
       }
       body.v014.poker8-v2-sixmax .action-panel::after{display:none!important;content:none!important;}
@@ -420,11 +559,12 @@
       body.v014.poker8-v2-sixmax .v038-hud-summary{
         position:absolute!important;left:8px;right:8px;top:4px!important;height:28px;
         display:grid;grid-template-columns:repeat(3,1fr);align-items:center;text-align:center;
-        border-bottom:1px solid rgba(95,132,121,.18);font-size:6px;letter-spacing:.10em;color:#8ca59c;
+        border-bottom:1px solid rgba(95,132,121,.18);font-size:10px;letter-spacing:.10em;color:#8ca59c;
       }
-      body.v014.poker8-v2-sixmax .v038-hud-summary b{display:block;margin-top:1px;font-size:13px;line-height:1;color:#39bfff;letter-spacing:0;}
-      body.v014.poker8-v2-sixmax .v038-hud-summary span:nth-child(2) b{color:#59e77c;}
-      body.v014.poker8-v2-sixmax .v038-hud-summary span:nth-child(3) b{color:#ff9e45;}
+      body.v014.poker8-v2-sixmax .v038-hud-summary b{
+        display:block;margin-top:1px;font-size:15px;line-height:1;letter-spacing:0;
+        color:#eafff6;font-variant-numeric:tabular-nums;
+      }
       body.v014.poker8-v2-sixmax .sizing-wrap{display:contents!important;}
       body.v014.poker8-v2-sixmax .sizing-wrap > label{display:none!important;}
       body.v014.poker8-v2-sixmax .quick-sizes{
@@ -432,19 +572,21 @@
         display:grid!important;grid-template-columns:repeat(5,1fr)!important;gap:4px!important;
       }
       body.v014.poker8-v2-sixmax .quick-sizes button{
-        min-height:39px!important;height:39px!important;padding:3px 2px!important;border-radius:6px!important;font-size:8px!important;
-        color:#fff!important;text-shadow:0 0 5px rgba(255,255,255,.48)!important;
+        min-height:39px!important;height:39px!important;padding:3px 2px!important;border-radius:6px!important;font-size:10px!important;
+        color:#ffffff!important;text-shadow:none!important;
         transition:color 180ms ease,border-color 180ms ease,box-shadow 180ms ease,background 180ms ease!important;
       }
-      body.v014.poker8-v2-sixmax .quick-sizes button strong{display:block;font-size:9px!important;line-height:1!important;color:#fff!important;}
-      body.v014.poker8-v2-sixmax .quick-sizes button small{display:block;margin-top:3px;font-size:8px!important;line-height:1!important;color:#f4f7ff!important;}
+      body.v014.poker8-v2-sixmax .quick-sizes button strong{display:block;font-size:10px!important;line-height:1!important;color:#ffffff!important;}
+      body.v014.poker8-v2-sixmax .quick-sizes button small{display:block;margin-top:3px;font-size:10px!important;line-height:1!important;color:#f2f6ff!important;}
       body.v014.poker8-v2-sixmax .quick-sizes button.v038-max-size{
-        color:#fff5bd!important;border-color:rgba(255,196,77,.88)!important;background:rgba(45,31,6,.78)!important;
+        --size-accent:var(--act-allin);
+        color:#fff5bd!important;border-color:color-mix(in srgb,var(--act-allin) 88%,transparent)!important;background:rgba(44,29,2,.78)!important;
         box-shadow:0 0 11px rgba(255,184,45,.28),inset 0 0 8px rgba(255,196,77,.10)!important;
       }
       body.v014.poker8-v2-sixmax .quick-sizes button.v038-size-selected{
-        color:#fff!important;border-color:#ff3bd5!important;background:rgba(55,4,47,.94)!important;
-        box-shadow:0 0 0 1px rgba(255,59,213,.45),0 0 13px rgba(255,59,213,.72),inset 0 0 10px rgba(255,59,213,.16)!important;
+        color:#ffffff!important;border-color:var(--size-accent)!important;
+        background:color-mix(in srgb,var(--size-accent) 20%,#090a0a)!important;
+        box-shadow:0 0 0 1px color-mix(in srgb,var(--size-accent) 55%,transparent),0 0 13px color-mix(in srgb,var(--size-accent) 62%,transparent),inset 0 0 10px color-mix(in srgb,var(--size-accent) 16%,transparent)!important;
       }
       body.v014.poker8-v2-sixmax .bet-slider-row{
         position:absolute!important;left:10px;right:10px;top:79px!important;height:25px!important;padding:0!important;
@@ -455,57 +597,62 @@
         width:100%!important;height:25px!important;margin:0!important;appearance:none!important;background:transparent!important;
       }
       body.v014.poker8-v2-sixmax #amountSlider::-webkit-slider-runnable-track{
-        height:6px;border:0;border-radius:999px;background:linear-gradient(90deg,#21b8ff 0%,#7357ff 34%,#ff39cf 68%,#ffc83d 100%);
-        box-shadow:0 0 8px rgba(65,196,255,.55),0 0 10px rgba(255,57,207,.38);
+        height:6px;border:0;border-radius:999px;background:linear-gradient(90deg,var(--act-check) 0%,var(--act-raise) 52%,var(--act-allin) 100%);
       }
       body.v014.poker8-v2-sixmax #amountSlider::-moz-range-track{
-        height:6px;border:0;border-radius:999px;background:linear-gradient(90deg,#21b8ff 0%,#7357ff 34%,#ff39cf 68%,#ffc83d 100%);
-        box-shadow:0 0 8px rgba(65,196,255,.55),0 0 10px rgba(255,57,207,.38);
+        height:6px;border:0;border-radius:999px;background:linear-gradient(90deg,var(--act-check) 0%,var(--act-raise) 52%,var(--act-allin) 100%);
       }
       body.v014.poker8-v2-sixmax #amountSlider::-webkit-slider-thumb{
-        width:17px;height:17px;margin-top:-6px;appearance:none;border:2px solid #fff;border-radius:50%;background:#ff3bd2;
-        box-shadow:0 0 0 2px rgba(255,59,210,.32),0 0 12px #ff3bd2;
+        width:17px;height:17px;margin-top:-6px;appearance:none;border:2px solid #ffffff;border-radius:50%;background:var(--act-raise);
+        box-shadow:0 0 0 2px color-mix(in srgb,var(--act-raise) 32%,transparent);
       }
       body.v014.poker8-v2-sixmax #amountSlider::-moz-range-thumb{
-        width:17px;height:17px;border:2px solid #fff;border-radius:50%;background:#ff3bd2;
-        box-shadow:0 0 0 2px rgba(255,59,210,.32),0 0 12px #ff3bd2;
+        width:17px;height:17px;border:2px solid #ffffff;border-radius:50%;background:var(--act-raise);
+        box-shadow:0 0 0 2px color-mix(in srgb,var(--act-raise) 32%,transparent);
       }
       body.v014.poker8-v2-sixmax .amount-row{display:none!important;}
       body.v014.poker8-v2-sixmax .action-grid{
         order:5;display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-template-rows:repeat(2,44px)!important;gap:5px!important;
         position:absolute!important;z-index:4;left:8px;right:8px;bottom:4px!important;height:93px!important;
-        padding:2px 0!important;background:#010403!important;
+        padding:2px 0!important;background:#000000!important;
       }
       body.v014.poker8-v2-sixmax .action-grid .action-slot{
-        --v038-action:#49caff;
+        --v038-action:var(--act-check);
         position:relative;grid-column:auto!important;grid-row:auto!important;width:auto!important;max-width:none!important;min-width:0!important;min-height:44px!important;height:44px!important;border-radius:8px!important;font-size:10px!important;
-        color:var(--v038-action)!important;border-color:var(--v038-action)!important;background:rgba(1,7,8,.98)!important;
+        color:var(--v038-action)!important;border-color:var(--v038-action)!important;background:rgba(0,0,0,.98)!important;
         box-shadow:0 0 10px color-mix(in srgb,var(--v038-action) 38%,transparent),inset 0 0 9px color-mix(in srgb,var(--v038-action) 10%,transparent)!important;
         transition:color 180ms ease,border-color 180ms ease,box-shadow 180ms ease,background 180ms ease,filter 180ms ease!important;
       }
-      body.v014.poker8-v2-sixmax .action-grid .action-slot.fold{--v038-action:#ff4d42;}
-      body.v014.poker8-v2-sixmax .action-grid .action-slot.check{--v038-action:#55cfff;}
-      body.v014.poker8-v2-sixmax .action-grid .action-slot.call{--v038-action:#39c8ff;}
-      body.v014.poker8-v2-sixmax .action-grid .action-slot.raise{--v038-action:#55f16e;}
-      body.v014.poker8-v2-sixmax .action-grid .action-slot.all-in{--v038-action:#ffc44d;}
+      body.v014.poker8-v2-sixmax .action-grid .action-slot.fold{--v038-action:var(--act-fold);}
+      body.v014.poker8-v2-sixmax .action-grid .action-slot.check{--v038-action:var(--act-check);}
+      body.v014.poker8-v2-sixmax .action-grid .action-slot.call{--v038-action:var(--act-check);}
+      body.v014.poker8-v2-sixmax .action-grid .action-slot.raise{--v038-action:var(--act-raise);}
+      body.v014.poker8-v2-sixmax .action-grid .action-slot.all-in{--v038-action:var(--act-allin);}
       body.v014.poker8-v2-sixmax .action-grid .action-slot.queued{
-        color:var(--v038-action)!important;border-color:#ff3bd5!important;
-        background:linear-gradient(180deg,rgba(55,4,47,.96),rgba(15,2,14,.99))!important;
-        box-shadow:0 0 0 1px rgba(255,59,213,.38),0 0 17px rgba(255,59,213,.62),inset 0 0 9px rgba(255,59,213,.16)!important;
+        color:var(--v038-action)!important;border-color:var(--v038-action)!important;
+        background:linear-gradient(180deg,color-mix(in srgb,var(--v038-action) 22%,#07100f),#000000)!important;
+        box-shadow:0 0 0 1px color-mix(in srgb,var(--v038-action) 60%,transparent),0 0 17px color-mix(in srgb,var(--v038-action) 55%,transparent),inset 0 0 9px color-mix(in srgb,var(--v038-action) 16%,transparent)!important;
       }
       body.v014.poker8-v2-sixmax .action-grid .action-slot.queued::after{
         content:"✓"!important;position:absolute!important;top:-6px!important;right:-4px!important;width:20px!important;height:20px!important;
-        display:grid!important;place-items:center!important;border-radius:50%!important;background:#ff3bd5!important;color:#fff!important;font-size:11px!important;
-        box-shadow:0 0 10px rgba(255,59,213,.72)!important;
+        display:grid!important;place-items:center!important;border-radius:50%!important;background:var(--v038-action)!important;color:#000000!important;font-size:12px!important;
+        box-shadow:0 0 10px color-mix(in srgb,var(--v038-action) 70%,transparent)!important;
       }
       body.v014.poker8-v2-sixmax .action-grid .action-slot:disabled{
         opacity:1!important;color:color-mix(in srgb,var(--v038-action) 35%,transparent)!important;
         border-color:color-mix(in srgb,var(--v038-action) 48%,transparent)!important;box-shadow:none!important;cursor:default!important;
       }
+      body.v014.poker8-v2-sixmax .v038-actions-unavailable{
+        position:absolute;inset:0;display:grid;place-content:center;text-align:center;
+        border:1px solid rgba(89,232,184,.24);border-radius:9px;background:linear-gradient(135deg,rgba(2,19,18,.98),rgba(0,0,0,.99));
+        color:#c9ffe3;box-shadow:inset 0 0 18px rgba(75,255,181,.05);
+      }
+      body.v014.poker8-v2-sixmax .v038-actions-unavailable strong{font-size:12px;letter-spacing:.06em;color:#7dffd0;}
+      body.v014.poker8-v2-sixmax .v038-actions-unavailable span{margin-top:5px;font-size:10px;color:#9db9ad;}
       body.v014.poker8-v2-sixmax .v038-action-label{display:block;font-weight:900;letter-spacing:.035em;line-height:1.05;}
-      body.v014.poker8-v2-sixmax .v038-action-amount{display:block;margin-top:2px;font-size:11px;font-weight:900;line-height:1;}
+      body.v014.poker8-v2-sixmax .v038-action-amount{display:block;margin-top:2px;font-size:12px;font-weight:900;line-height:1;}
       body.v014.poker8-v2-sixmax .v038-action-amount.v038-amount-pulse{animation:v038AmountPulse 180ms ease-out;}
-      @keyframes v038AmountPulse{50%{transform:scale(1.08);filter:brightness(1.45)}100%{transform:scale(1);filter:none}}
+      @keyframes v038AmountPulse{50%{filter:brightness(1.5)}100%{filter:none}}
       @media (prefers-reduced-motion:reduce){
         body.v014.poker8-v2-sixmax .quick-sizes button,
         body.v014.poker8-v2-sixmax .action-grid .action-slot{transition:none!important;}
@@ -516,9 +663,10 @@
       body.v014.poker8-v2-sixmax .app-shell{
         height:100dvh!important;min-height:100dvh!important;overflow:hidden!important;
         padding-bottom:var(--p8-bottom-reserve)!important;
-        background:linear-gradient(180deg,transparent 0 calc(100% - var(--p8-bottom-reserve)),#010403 calc(100% - var(--p8-bottom-reserve)) 100%)!important;
+        background:linear-gradient(180deg,transparent 0 calc(100% - var(--p8-bottom-reserve)),#000000 calc(100% - var(--p8-bottom-reserve)) 100%)!important;
       }
 
+      @media (max-width:780px){
       /* Portrait-first edge-action composition. Shared pixel offsets keep the
          five opponent centers on one circle instead of a percentage ellipse. */
       body.v014.poker8-v2-sixmax{
@@ -533,23 +681,23 @@
       body.v014.poker8-v2-sixmax .mobile-game-header{
         position:fixed!important;z-index:120;inset:0 0 auto!important;height:var(--p8-header-h)!important;
         display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:8px!important;
-        padding:2px 8px!important;background:linear-gradient(180deg,rgba(2,12,8,.98),rgba(2,8,6,.92))!important;
-        border-bottom:1px solid rgba(70,255,184,.18)!important;box-shadow:0 8px 22px rgba(0,0,0,.34)!important;
+        padding:2px 8px!important;background:linear-gradient(180deg,rgba(0,8,5,.98),rgba(0,8,5,.92))!important;
+        border-bottom:1px solid rgba(75,255,181,.18)!important;box-shadow:0 8px 22px rgba(0,0,0,.34)!important;
       }
       body.v014.poker8-v2-sixmax :is(.mobile-menu-button,.mobile-chat-button,#mobileHelpButton){
         width:48px!important;height:48px!important;min-width:48px!important;min-height:48px!important;border-radius:14px!important;
       }
       body.v014.poker8-v2-sixmax .mobile-chat-button{margin-left:auto!important;}
       body.v014.poker8-v2-sixmax #mobileHelpButton{
-        display:grid;place-items:center;padding:0;border:1px solid rgba(62,226,190,.62);background:rgba(3,18,13,.88);color:#e2fff4;font-size:20px;font-weight:900;
-        box-shadow:0 0 13px rgba(45,233,176,.14),inset 0 0 11px rgba(64,255,196,.05);
+        display:grid;place-items:center;padding:0;border:1px solid rgba(62,226,190,.62);background:rgba(0,15,9,.88);color:#e2fff4;font-size:20px;font-weight:900;
+        box-shadow:0 0 13px rgba(45,233,176,.14),inset 0 0 11px rgba(44,255,198,.05);
       }
       body.v014.poker8-v2-sixmax #mobileConnectionDot{
         display:block;width:8px;height:8px;flex:0 0 8px;border-radius:50%;background:#55f3a8;box-shadow:0 0 9px rgba(85,243,168,.92);
       }
       body.v014.poker8-v2-sixmax #connectionStatus{display:none!important;}
       body.v014.poker8-v2-sixmax .app-shell{
-        height:100dvh!important;min-height:100dvh!important;padding:var(--p8-header-h) 0 0!important;overflow:hidden!important;background:#030604!important;
+        height:100dvh!important;min-height:100dvh!important;padding:var(--p8-header-h) 0 0!important;overflow:hidden!important;background:#000805!important;
       }
       body.v014.poker8-v2-sixmax .table-frame{
         height:calc(100dvh - var(--p8-header-h))!important;min-height:0!important;padding:0 5px!important;overflow:visible!important;
@@ -559,12 +707,15 @@
         height:100%!important;transform:none!important;transform-style:flat!important;
       }
       body.v014.poker8-v2-sixmax .seat{width:90px!important;height:104px!important;min-height:0!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"]{left:50%!important;top:calc(100% - 86px)!important;bottom:auto!important;width:116px!important;height:132px!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="1"]{left:calc(50% - var(--p8-arc-radius))!important;top:var(--p8-arc-center-y)!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="2"]{left:calc(50% - var(--p8-arc-diagonal))!important;top:calc(var(--p8-arc-center-y) - var(--p8-arc-diagonal))!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="3"]{left:50%!important;top:var(--p8-arc-top)!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="4"]{left:calc(50% + var(--p8-arc-diagonal))!important;top:calc(var(--p8-arc-center-y) - var(--p8-arc-diagonal))!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="5"]{left:calc(50% + var(--p8-arc-radius))!important;top:var(--p8-arc-center-y)!important;}
+      body.v014.poker8-v2-sixmax .seat.v040-dynamic-seat{
+        --v040-flip-x:0px!important;--v040-flip-y:0px!important;transition:none!important;
+      }
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"]{--v040-seat-x:50%!important;--v040-seat-y:calc(100% - 86px)!important;left:50%!important;top:calc(100% - 86px)!important;bottom:auto!important;width:116px!important;height:132px!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="1"]{--v040-seat-x:calc(50% - var(--p8-arc-radius))!important;--v040-seat-y:var(--p8-arc-center-y)!important;left:calc(50% - var(--p8-arc-radius))!important;top:var(--p8-arc-center-y)!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="2"]{--v040-seat-x:calc(50% - var(--p8-arc-diagonal))!important;--v040-seat-y:calc(var(--p8-arc-center-y) - var(--p8-arc-diagonal))!important;left:calc(50% - var(--p8-arc-diagonal))!important;top:calc(var(--p8-arc-center-y) - var(--p8-arc-diagonal))!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="3"]{--v040-seat-x:50%!important;--v040-seat-y:var(--p8-arc-top)!important;left:50%!important;top:var(--p8-arc-top)!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="4"]{--v040-seat-x:calc(50% + var(--p8-arc-diagonal))!important;--v040-seat-y:calc(var(--p8-arc-center-y) - var(--p8-arc-diagonal))!important;left:calc(50% + var(--p8-arc-diagonal))!important;top:calc(var(--p8-arc-center-y) - var(--p8-arc-diagonal))!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="5"]{--v040-seat-x:calc(50% + var(--p8-arc-radius))!important;--v040-seat-y:var(--p8-arc-center-y)!important;left:calc(50% + var(--p8-arc-radius))!important;top:var(--p8-arc-center-y)!important;}
       body.v014.poker8-v2-sixmax .avatar-wrap{
         top:0!important;width:44px!important;height:44px!important;transform:translateX(-50%)!important;transform-origin:center!important;
       }
@@ -572,14 +723,14 @@
       body.v014.poker8-v2-sixmax .seat-identity{
         top:40px!important;width:90px!important;min-height:44px!important;padding:5px 6px 4px!important;border-radius:9px!important;
       }
-      body.v014.poker8-v2-sixmax .seat-name{max-width:78px!important;font-size:12px!important;line-height:1.05!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;}
+      body.v014.poker8-v2-sixmax .seat-name{max-width:100%!important;font-size:12px!important;line-height:1.05!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;}
       body.v014.poker8-v2-sixmax .seat-stack{font-size:16px!important;line-height:1!important;white-space:nowrap!important;}
       body.v014.poker8-v2-sixmax .player-cards{top:-31px!important;}
       body.v014.poker8-v2-sixmax .player-cards .card{width:32px!important;height:44px!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .avatar-wrap{top:9px!important;width:48px!important;height:48px!important;transform:translateX(-50%)!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .player-avatar{width:48px!important;height:48px!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-identity{top:54px!important;width:108px!important;min-height:47px!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-name{max-width:96px!important;font-size:13px!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-name{max-width:100%!important;font-size:13px!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-stack{font-size:18px!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .player-cards{top:-52px!important;gap:4px!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .player-cards .card{width:50px!important;height:70px!important;}
@@ -592,7 +743,7 @@
       body.v014.poker8-v2-sixmax.local-player-active .sidebar .action-panel,
       body.v014.poker8-v2-sixmax.human-turn .sidebar .action-panel{
         position:fixed!important;z-index:80;inset:var(--p8-header-h) 0 0!important;width:auto!important;height:auto!important;min-height:0!important;
-        padding:0!important;margin:0!important;overflow:visible!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;pointer-events:none!important;
+        padding:0!important;margin:0!important;overflow:visible!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;backdrop-filter:none!important;filter:none!important;contain:none!important;will-change:auto!important;pointer-events:none!important;
       }
       body.v014.poker8-v2-sixmax .action-panel :is(button,input){pointer-events:auto!important;}
       body.v014.poker8-v2-sixmax .action-grid{display:contents!important;}
@@ -606,14 +757,14 @@
       body.v014.poker8-v2-sixmax .sizing-wrap{
         display:none!important;position:fixed!important;z-index:96;left:50%!important;right:auto!important;top:auto!important;bottom:calc(150px + env(safe-area-inset-bottom))!important;
         width:min(344px,calc(100vw - 16px))!important;height:auto!important;transform:translateX(-50%)!important;padding:10px!important;
-        border:1px solid rgba(77,255,188,.42)!important;border-radius:18px!important;background:rgba(2,10,7,.96)!important;box-shadow:0 0 28px rgba(33,242,164,.22)!important;
+        border:1px solid rgba(71,255,190,.42)!important;border-radius:18px!important;background:rgba(0,8,5,.96)!important;box-shadow:0 0 28px rgba(44,247,169,.22)!important;
       }
       body.v014.poker8-v2-sixmax.v038-sizing-open .sizing-wrap{display:block!important;}
       body.v014.poker8-v2-sixmax.v038-sizing-open .action-grid .action-slot{visibility:hidden!important;}
       body.v014.poker8-v2-sixmax .mobile-sizing-head{display:flex;align-items:center;justify-content:center;min-height:44px;margin-bottom:7px;position:relative;}
-      body.v014.poker8-v2-sixmax #mobileSizingAmount{color:#fff;font-size:24px;font-weight:950;line-height:1;text-shadow:0 0 12px rgba(67,236,185,.46);}
+      body.v014.poker8-v2-sixmax #mobileSizingAmount{color:#fff;font-size:24px;font-weight:950;line-height:1;text-shadow:0 0 12px rgba(63,238,188,.46);}
       body.v014.poker8-v2-sixmax #mobileSizingCancel{
-        position:absolute;right:0;top:0;width:44px;height:44px;border:1px solid rgba(139,184,164,.35);border-radius:12px;background:#07130f;color:#cbddd5;font-size:24px;
+        position:absolute;right:0;top:0;width:44px;height:44px;border:1px solid rgba(139,184,164,.35);border-radius:12px;background:#0a1512;color:#cbddd5;font-size:24px;
       }
       body.v014.poker8-v2-sixmax .quick-sizes{
         position:static!important;height:auto!important;display:grid!important;grid-template-columns:repeat(5,minmax(48px,1fr))!important;gap:5px!important;margin:0!important;
@@ -622,20 +773,20 @@
       body.v014.poker8-v2-sixmax .bet-slider-row{position:static!important;height:32px!important;margin:7px 0 5px!important;display:block!important;}
       body.v014.poker8-v2-sixmax #amountSlider{height:32px!important;}
       body.v014.poker8-v2-sixmax #mobileSizingConfirm{
-        width:100%!important;min-height:50px!important;border:1px solid rgba(75,255,181,.72);border-radius:13px;background:linear-gradient(180deg,rgba(15,72,48,.96),rgba(4,32,21,.98));color:#eafff4;font-size:12px;font-weight:950;letter-spacing:.04em;box-shadow:0 0 17px rgba(62,244,170,.18);
+        width:100%!important;min-height:50px!important;border:1px solid rgba(75,255,181,.72);border-radius:13px;background:linear-gradient(180deg,rgba(15,72,48,.96),rgba(4,31,20,.98));color:#eafff6;font-size:12px;font-weight:950;letter-spacing:.04em;box-shadow:0 0 17px rgba(63,244,173,.18);
       }
       body.v014.poker8-v2-sixmax .action-slot[data-action-key="aggressive"]{touch-action:none!important;}
       body.v014.poker8-v2-sixmax #mobileBetRail{
         display:block;position:fixed;z-index:99;top:calc(var(--p8-header-h) + 10px);right:0;bottom:calc(72px + env(safe-area-inset-bottom));width:76px;
-        border:1px solid rgba(75,255,181,.55);border-right:0;border-radius:18px 0 0 18px;background:linear-gradient(180deg,rgba(10,55,38,.94),rgba(2,13,9,.96));
+        border:1px solid rgba(75,255,181,.55);border-right:0;border-radius:18px 0 0 18px;background:linear-gradient(180deg,rgba(7,53,37,.94),rgba(0,8,5,.96));
         box-shadow:0 0 24px rgba(41,238,165,.22);pointer-events:none;
       }
       body.v014.poker8-v2-sixmax #mobileBetRail::before{
-        content:"";position:absolute;top:22px;bottom:22px;right:18px;width:3px;border-radius:3px;background:linear-gradient(180deg,#ff9f43 0 8%,#45f0ae 28% 100%);opacity:.8;
+        content:"";position:absolute;top:22px;bottom:22px;right:18px;width:3px;border-radius:3px;background:linear-gradient(180deg,#ff9f43 0 8%,#3defb0 28% 100%);opacity:.8;
       }
       body.v014.poker8-v2-sixmax #mobileBetRailAmount{
         position:fixed;z-index:100;right:12px;top:clamp(calc(var(--p8-header-h) + 12px),calc(var(--v038-rail-y, 50vh) - 25px),calc(100vh - 128px));
-        min-width:104px;min-height:50px;padding:0 12px;display:grid;place-items:center;border-radius:14px 0 0 14px;background:#061b12;color:#fff;font-size:20px;font-weight:950;white-space:nowrap;
+        min-width:104px;min-height:50px;padding:0 12px;display:grid;place-items:center;border-radius:14px 0 0 14px;background:#031b13;color:#fff;font-size:20px;font-weight:950;white-space:nowrap;
         border:1px solid rgba(75,255,181,.72);box-shadow:0 0 18px rgba(41,238,165,.28);
       }
       body.v014.poker8-v2-sixmax #mobileBetRail[aria-hidden="true"]{display:none!important;}
@@ -651,14 +802,15 @@
         position:absolute;z-index:14;left:50%;top:50%;bottom:auto;width:calc(100% + 10px);height:calc(100% + 10px);transform:translate(-50%,-50%);display:grid;place-items:center;border-radius:50%;
         background:conic-gradient(#57ffd0 var(--timer-progress,100%),rgba(87,255,208,.10) 0);filter:drop-shadow(0 0 8px rgba(87,255,208,.72));pointer-events:none;
       }
-      body.v014.poker8-v2-sixmax .avatar-wrap>.v038-turn-timer::before{content:"";position:absolute;inset:3px;border-radius:50%;background:rgba(2,10,7,.18);border:1px solid rgba(87,255,208,.68);}
+      body.v014.poker8-v2-sixmax .avatar-wrap>.v038-turn-timer::before{content:"";position:absolute;inset:3px;border-radius:50%;background:rgba(0,8,5,.18);border:1px solid rgba(87,255,208,.68);}
       body.v014.poker8-v2-sixmax .avatar-wrap>.v038-turn-timer b{
-        position:absolute;left:calc(100% - 4px);top:50%;min-width:29px;padding:4px 5px;transform:translateY(-50%);border-radius:8px;background:#061710;color:#fff;font-size:13px;line-height:1;text-align:center;text-shadow:0 0 7px #55ffe0;box-shadow:0 0 10px rgba(85,255,224,.35);
+        position:absolute;left:calc(100% - 4px);top:50%;min-width:29px;padding:4px 5px;transform:translateY(-50%);border-radius:8px;background:#061611;color:#fff;font-size:13px;line-height:1;text-align:center;text-shadow:0 0 7px #55ffe0;box-shadow:0 0 10px rgba(85,255,224,.35);
       }
       body.v014.poker8-v2-sixmax .avatar-wrap>.v038-turn-timer small{display:none;}
       body.v014.poker8-v2-sixmax #mobileConnectionDot[data-state="connecting"]{background:#8aa99b;box-shadow:0 0 7px rgba(138,169,155,.58);}
       body.v014.poker8-v2-sixmax #mobileConnectionDot[data-state="reconnecting"]{background:#ffbd55;box-shadow:0 0 9px rgba(255,189,85,.88);}
       body.v014.poker8-v2-sixmax #mobileConnectionDot[data-state="error"]{background:#ff554f;box-shadow:0 0 9px rgba(255,85,79,.88);}
+      }
     }
   `;
   document.head.appendChild(style);
@@ -740,7 +892,8 @@
   let viewerReadySnapshot = false;
 
   function syncAvatarReadyControl() {
-    const wrap = document.querySelector('.seat[data-visual-seat="0"] .avatar-wrap');
+    const seat = document.querySelector('.seat[data-visual-seat="0"]');
+    const wrap = seat?.querySelector(".avatar-wrap");
     if (!wrap) return;
     let mark = wrap.querySelector(".v038-ready-mark");
     if (!mark) {
@@ -749,8 +902,19 @@
       mark.innerHTML = '<b>✓</b>';
       wrap.appendChild(mark);
     }
-    const ready = viewerReadySnapshot;
-    const preHand = !game;
+    // Online: the server is the source of truth for who's clicked ready.
+    // Local: v024's own sessionStorage-backed toggle (dead on network tables).
+    const ready = window.Poker8OnlineTable
+      ? (tableData?.ready_seats || []).includes(Number(seat.dataset.seat))
+      : viewerReadySnapshot;
+    // A seat that bought in mid-hand sits that hand out entirely (game exists,
+    // but this viewer isn't one of game.players) -- readyUp() in online-table.js
+    // already accepts a ready toggle then, so the avatar needs to look and
+    // behave clickable then too, not just once game goes back to null.
+    const preHand = !game || !game.players?.[game.viewer_player_id];
+    // Drives both the checkmark and the "tap me" pulse, so the avatar carries
+    // the whole state on its own and no card has to sit over the table.
+    document.body.classList.toggle("p8-can-ready", preHand && !tableData?.spectator_only);
     wrap.classList.toggle("v038-viewer-ready", ready && preHand);
     wrap.toggleAttribute("role", preHand);
     if (preHand) {
@@ -765,6 +929,8 @@
   }
 
   function syncAllSeatReadyMarks() {
+    const isOnline = Boolean(window.Poker8OnlineTable);
+    const onlineReadySeats = isOnline ? (tableData?.ready_seats || []) : null;
     document.querySelectorAll(".seat-card").forEach(card => {
       if (card.closest('.seat[data-visual-seat="0"]')) return;
       const wrap = card.querySelector(".avatar-wrap");
@@ -772,6 +938,15 @@
       if (game) {
         wrap.classList.remove("v038-viewer-ready");
         wrap.querySelector(".v038-seat-ready-check")?.remove();
+        return;
+      }
+      // Online: reflect each seat's real click. Local: every non-hero seat
+      // is a bot, always ready -- unchanged from before this was online-aware.
+      const seatNo = Number(card.closest(".seat")?.dataset.seat);
+      const ready = isOnline ? onlineReadySeats.includes(seatNo) : true;
+      if (!ready) {
+        wrap.querySelector(".v038-seat-ready-check")?.remove();
+        wrap.classList.remove("v038-viewer-ready");
         return;
       }
       let mark = wrap.querySelector(".v038-seat-ready-check");
@@ -835,10 +1010,15 @@
       turnVisualToken = token;
       turnVisualStartedAt = Date.now();
     }
-    const left = Math.max(0, TURN_VISUAL_MS - (Date.now() - turnVisualStartedAt));
+    // The server owns the clock and folds on its own deadline, so a locally
+    // restarted countdown would promise time the player does not have.
+    const deadline = game.action_deadline ? Date.parse(game.action_deadline) : NaN;
+    const left = Number.isNaN(deadline)
+      ? Math.max(0, TURN_VISUAL_MS - (Date.now() - turnVisualStartedAt))
+      : Math.max(0, deadline - Date.now());
     const seconds = Math.ceil(left / 1000);
     setText(timer.querySelector("b"), String(seconds));
-    timer.style.setProperty("--timer-progress", `${left / TURN_VISUAL_MS * 100}%`);
+    timer.style.setProperty("--timer-progress", `${Math.min(100, left / TURN_VISUAL_MS * 100)}%`);
     if (!turnVisualTicker) turnVisualTicker = window.setInterval(syncTableTurnHud, 250);
   }
 
@@ -863,14 +1043,34 @@
     return prompt;
   }
 
+  // Returns whether the prompt has anything to say at all.
   function syncOnlineRoomPrompt(prompt) {
+    const heroSeat = document.querySelector('.seat[data-visual-seat="0"]');
     const seated = !tableData?.spectator_only;
-    prompt.innerHTML = seated
-      ? "<strong>НОВАЯ РАЗДАЧА СКОРО</strong><span>Стол запускается автоматически</span>"
-      : "<strong>ВЫ НАБЛЮДАЕТЕ</strong><span>Откройте лобби, чтобы занять место</span>";
-    prompt.setAttribute("role", "status");
-    prompt.removeAttribute("tabindex");
-    prompt.setAttribute("aria-live", "polite");
+    // A spectator is already told exactly this by the "Занять место /
+    // Наблюдатель" pair in the header, which also says which of the two they
+    // are in right now. A card repeating it over the felt only hid the table
+    // they came to watch.
+    if (!seated) return false;
+    // The server can report "seated" a moment before the seat actually shows
+    // up here -- seats are still drawn from the current hand's player list,
+    // and a fresh seat only joins that list at the next hand boundary. Until
+    // then there is nothing to click, so don't tell the viewer to click it.
+    if (!heroSeat) {
+      prompt.innerHTML = "<strong>МЕСТО ЗАНЯТО</strong><span>Раздача начнётся с вашим участием совсем скоро</span>";
+      prompt.setAttribute("role", "status");
+      prompt.removeAttribute("tabindex");
+      prompt.setAttribute("aria-live", "polite");
+      return true;
+    }
+    // Neither ready state is said here any more, for the same reason: a card
+    // over the felt covering the board and the pot, saying something the
+    // avatar's own pulse and checkmark already say. Not-ready moved to the
+    // header (#mobileHeaderReadyUp in online-table.js); "waiting on the
+    // others" now says nothing at all -- the checkmark already shows this
+    // viewer clicked ready, and there is no action left for them to take, so
+    // there is nothing this card would be prompting them to do.
+    return false;
   }
 
   function cancelRoomReset() {
@@ -886,8 +1086,14 @@
     document.body.classList.toggle("v038-room-awaiting", room);
     const prompt = ensureRoomPrompt();
     if (window.Poker8OnlineTable) {
-      syncOnlineRoomPrompt(prompt);
-      prompt?.classList.toggle("visible", room);
+      // Sitting out a hand that started before this seat joined looks exactly
+      // like "room" here too (no cards, no action of theirs) -- the prompt
+      // must stay up so they still see "click your avatar" while it runs.
+      // Only when there is no hand to look at. While one runs, this card sat
+      // over the board and the pot to say something the avatar's own checkmark
+      // and pulse now say -- covering the table the player came to watch.
+      const hasSomethingToSay = syncOnlineRoomPrompt(prompt);
+      prompt?.classList.toggle("visible", hasSomethingToSay && room);
       cancelRoomReset();
       return;
     }
@@ -950,6 +1156,7 @@
   let presetSnapshot = null;
   let sizingMode = null;
   let betGesture = null;
+  let lastActionRowActor = "";
   let presetSettleTimer = 0;
   const PRESET_SETTLE_MS = 1000;
 
@@ -1175,7 +1382,8 @@
     }
     const call = typeof estimatedLocalToCall === "function" ? formatBB(estimatedLocalToCall()) : "0.00 ББ";
     const pot = document.getElementById("pot")?.textContent?.trim() || "0.00 ББ";
-    const amount = document.getElementById("amount")?.value || "0.00";
+    const raw = Number(document.getElementById("amount")?.value);
+    const amount = typeof formatBB === "function" && Number.isFinite(raw) ? formatBB(raw) : "0.00";
     setText(summary.querySelector("[data-v038-call]"), stripHudUnit(call));
     setText(summary.querySelector("[data-v038-pot]"), stripHudUnit(pot));
     setText(summary.querySelector("[data-v038-bet]"), stripHudUnit(amount));
@@ -1194,7 +1402,7 @@
       { key:"check", label:"CHECK", amount:"", cls:"check", edge:"left", slot:"top", enabled:available("check") },
       { key:"fold", label:"FOLD", amount:"", cls:"fold", edge:"left", slot:"bottom", enabled:available("fold") },
       { key:"aggressive", label:"BET", amount:stripHudUnit(formatBB(amount)), cls:"raise", edge:"right", slot:"top", enabled:available("bet") },
-      { key:"all_in", label:"ALL IN", amount:stripHudUnit(formatBB(allInTotal)), cls:"all-in", edge:"right", slot:"bottom", enabled:available("all_in"), allIn:true },
+      { key:"all_in", label:"ALL-IN", amount:stripHudUnit(formatBB(allInTotal)), cls:"all-in", edge:"right", slot:"bottom", enabled:available("all_in"), allIn:true },
     ].filter(def => def.enabled);
   }
 
@@ -1208,72 +1416,104 @@
       return;
     }
     const localTurn = isLocalHumanTurn();
+    // Never leave a row of action-looking but inert buttons during result,
+    // countdown, observer and folded states. An active opponent turn is still
+    // interactive: taps there create a safely revalidated pre-action.
+    if (!game || game.terminal || !alive) {
+      const title = game?.terminal ? "НОВАЯ РАЗДАЧА СКОРО" : "ДЕЙСТВИЯ НЕДОСТУПНЫ";
+      const detail = game?.terminal ? "Стол запускается автоматически" : "Сядьте за стол или дождитесь следующей раздачи";
+      grid.dataset.v038ReferenceActions = "1";
+      grid.innerHTML = `<div class="v038-actions-unavailable" role="status"><strong>${title}</strong><span>${detail}</span></div>`;
+      return;
+    }
     const legal = game?.human_legal_actions || [];
     const toCall = estimatedLocalToCall();
     const amount = Number(document.getElementById("amount")?.value || amountBounds().value || 0);
     const bounds = amountBounds();
     const allInTotal = Number(localViewerPlayer()?.stack || 0) + Number(localViewerPlayer()?.street_invested || 0);
     const aggressiveLabel = Number(game?.current_bet || 0) > Number(localViewerPlayer()?.street_invested || 0) ? "RAISE" : "BET";
+    const actorNow = `${game?.hand_id || ""}:${game?.acting_player || ""}`;
+    const actorChanged = actorNow !== lastActionRowActor;
+    lastActionRowActor = actorNow;
     const defs = mobileActionDefinitions({ localTurn, legal, toCall, amount, allInTotal, aggressiveLabel });
     const aggressive = defs.find(def => def.key === "aggressive");
     const atMax = Math.abs(amount - Number(bounds.max || 0)) < 1e-9;
     if (aggressive && atMax) {
-      aggressive.label = "ALL IN";
+      aggressive.label = "ALL-IN";
       aggressive.amount = stripHudUnit(formatBB(allInTotal));
       aggressive.cls = "all-in";
       aggressive.allIn = true;
     }
     const signature = defs.map(def => def.key).join("|");
-    if (grid.dataset.v038ActionSignature !== signature) {
+    if (grid.dataset.v038ActionSignature !== signature || grid.children.length !== defs.length) {
       grid.innerHTML = "";
       defs.forEach(() => grid.appendChild(document.createElement("button")));
       grid.dataset.v038ActionSignature = signature;
     }
     grid.dataset.v038ReferenceActions = "1";
     [...grid.children].forEach((button, index) => {
-      const def = defs[index];
-      button.type = "button";
-      button.disabled = false;
-      button.dataset.actionKey = def.key;
-      button.dataset.edge = def.edge;
-      button.dataset.slot = def.slot;
-      button.dataset.v038ReferenceAction = "1";
-      button.className = `action-slot ${def.cls}`;
-      button.classList.toggle("queued", pendingAction?.kind === def.key);
-      let label = button.querySelector(".v038-action-label");
-      let value = button.querySelector(".v038-action-amount");
-      if (!label || !value) {
-        button.innerHTML = '<span class="v038-action-label"></span><span class="v038-action-amount"></span>';
-        label = button.firstElementChild;
-        value = button.lastElementChild;
-      }
-      setText(label, def.label);
-      if (value.textContent !== def.amount) {
-        setText(value, def.amount);
-        value.classList.remove("v038-amount-pulse");
-        void value.offsetWidth;
-        value.classList.add("v038-amount-pulse");
-      }
-      button.setAttribute("aria-label", `${def.label}${def.amount ? ` ${def.amount}` : ""}`);
-      button.onclick = () => {
-        if (button.dataset.v038SuppressClick) {
-          button.removeAttribute("data-v038-suppress-click");
-          return;
+      try {
+        const def = defs[index];
+        button.type = "button";
+        button.dataset.actionKey = def.key;
+        button.dataset.edge = def.edge;
+        button.dataset.slot = def.slot;
+        button.dataset.v038ReferenceAction = "1";
+        button.className = `action-slot ${def.cls}`;
+        button.classList.toggle("queued", pendingAction?.kind === def.key);
+        let label = button.querySelector(".v038-action-label");
+        let value = button.querySelector(".v038-action-amount");
+        if (!label || !value) {
+          button.innerHTML = '<span class="v038-action-label"></span><span class="v038-action-amount"></span>';
+          label = button.firstElementChild;
+          value = button.lastElementChild;
         }
-        if (!game || game.terminal || !alive) return;
-        if (def.allIn) return openSizingMode("all_in", bounds.max);
-        if (def.key === "aggressive") return openSizingMode(aggressiveLabel === "RAISE" ? "raise" : "bet", amount);
+        setText(label, def.label);
+        if (value.textContent !== def.amount) {
+          setText(value, def.amount);
+          if (!actorChanged) {
+            value.classList.remove("v038-amount-pulse");
+            void value.offsetWidth;
+            value.classList.add("v038-amount-pulse");
+          }
+        }
+        button.setAttribute("aria-label", `${def.label}${def.amount ? ` ${def.amount}` : ""}`);
+        button.disabled = Boolean(window.Poker8Transport?.isActionPending?.());
         if (!localTurn) {
-          togglePendingAction(def.key);
-          renderMobileSelectedCard();
-          queueSync();
-          return;
+          button.setAttribute("aria-description", "Предвыбор: действие будет перепроверено на вашем ходе");
+        } else {
+          button.removeAttribute("aria-description");
         }
-        clearPendingAction(false);
-        if (def.key === "check") return sendAction("check", 0);
-        if (def.key === "fold") return sendAction("fold", 0);
-        if (def.key === "call") return sendAction("call", 0);
-      };
+        button.onclick = () => {
+          if (button.dataset.v038SuppressClick) {
+            button.removeAttribute("data-v038-suppress-click");
+            return;
+          }
+          if (!game || game.terminal || !localPlayerAlive() || window.Poker8Transport?.isActionPending?.()) return;
+          const liveTurn = isLocalHumanTurn();
+          const liveLegal = game.human_legal_actions || [];
+          const liveAmount = Number(document.getElementById("amount")?.value || amountBounds().value || 0);
+          if (def.key === "aggressive") {
+            if (liveTurn && !liveLegal.some(action => ["bet", "raise", "all_in"].includes(action))) return queueSync();
+            return openSizingMode(aggressiveLabel === "RAISE" ? "raise" : "bet", liveAmount);
+          }
+          if (def.allIn) {
+            if (liveTurn && !liveLegal.includes("all_in")) return queueSync();
+            return openSizingMode("all_in", amountBounds().max);
+          }
+          if (liveTurn && !liveLegal.includes(def.key)) return queueSync();
+          if (!liveTurn) {
+            togglePendingAction(def.key);
+            renderMobileSelectedCard();
+            queueSync();
+            return;
+          }
+          clearPendingAction(false);
+          return sendAction(def.key, 0);
+        };
+      } catch (error) {
+        console.error("[v038] configureReferenceActions button failed", error);
+      }
     });
   }
 
@@ -1290,7 +1530,7 @@
     turnVisualTicker = 0;
     turnVisualToken = "";
     cancelRoomReset();
-    document.body.classList.remove("poker8-v2-sixmax", "v038-sizing-open", "v038-room-awaiting");
+    document.body.classList.remove("v038-sizing-open", "v038-room-awaiting");
     document.getElementById("sizingWrap")?.setAttribute("aria-hidden", "true");
     document.getElementById("mobileBetRail")?.setAttribute("aria-hidden", "true");
     document.querySelector(".v038-turn-timer")?.remove();
@@ -1322,6 +1562,18 @@
     if (typeof renderPersistentActionButtons === "function") renderPersistentActionButtons();
   }
 
+  // The action buttons are the one control a player cannot play without --
+  // an exception thrown by any earlier cosmetic step (stack labels, ready
+  // marks, the turn HUD...) must never be able to stop configureReferenceActions
+  // from running. Each step is isolated so one bad step can't take the rest down.
+  function runSyncStep(fn) {
+    try {
+      fn();
+    } catch (error) {
+      console.error(`[v038] ${fn.name} failed`, error);
+    }
+  }
+
   function syncFinalReference() {
     if (!isMobileV2()) {
       teardownFinalReference();
@@ -1331,19 +1583,19 @@
     const legal = game?.human_legal_actions || [];
     const aggressiveLegal = !isLocalHumanTurn() || legal.includes("bet") || legal.includes("raise") || legal.includes("all_in");
     if (sizingMode && (!game || game.terminal || !localPlayerAlive() || !aggressiveLegal)) closeSizingMode(false);
-    ensurePresetButtons();
-    ensureHudSummary();
-    ensureMobileHeaderControls();
-    syncSeatStackLabels();
-    syncTableNumberLabels();
-    syncAvatarReadyControl();
-    syncAllSeatReadyMarks();
-    syncSeatActionStates();
-    ensureReadyCountdown();
-    syncTableTurnHud();
-    syncCompletedHandReset();
-    configureReferenceActions();
-    syncSizingModeText();
+    runSyncStep(ensurePresetButtons);
+    runSyncStep(ensureHudSummary);
+    runSyncStep(ensureMobileHeaderControls);
+    runSyncStep(syncSeatStackLabels);
+    runSyncStep(syncTableNumberLabels);
+    runSyncStep(syncAvatarReadyControl);
+    runSyncStep(syncAllSeatReadyMarks);
+    runSyncStep(syncSeatActionStates);
+    runSyncStep(ensureReadyCountdown);
+    runSyncStep(syncTableTurnHud);
+    runSyncStep(syncCompletedHandReset);
+    runSyncStep(configureReferenceActions);
+    runSyncStep(syncSizingModeText);
   }
 
   let syncQueued = false;
@@ -1355,6 +1607,19 @@
       syncFinalReference();
     });
   };
+
+  // A rejected action -- or a resync that lands back on unchanged state --
+  // never moves online-table.js's own snapshot-dedup hash (revision,
+  // acting_player, stacks, ...), so renderSnapshot() short-circuits and
+  // configureReferenceActions() never runs again. isActionPending() itself
+  // goes back to false (the transport is healthy, the overlay disappears),
+  // but the buttons stay disabled from the render that fired while it was
+  // still true -- inert for the rest of that turn, reported live as the
+  // action row simply freezing. Force one more pass whenever pending flips
+  // back off, independent of whether the snapshot actually changed.
+  window.addEventListener("poker8:action-pending", event => {
+    if (!event.detail?.pending) queueSync();
+  });
 
   const previousSync = window.syncComponentUi;
   window.syncComponentUi = function syncV038FinalReference(gameState, tableState) {
@@ -1395,6 +1660,12 @@
     }
     document.getElementById("mobileSizingConfirm")?.addEventListener("click", confirmSizingMode);
     document.getElementById("mobileSizingCancel")?.addEventListener("click", () => closeSizingMode());
+    if (!document.body.dataset.v038ClickSync) {
+      document.body.dataset.v038ClickSync = "1";
+      document.addEventListener("click", event => {
+        if (event.target?.closest?.("#amountMinus,#amountPlus")) clearPresetSelection();
+      });
+    }
   };
 
   window.addEventListener("resize", queueSync);

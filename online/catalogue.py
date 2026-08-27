@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import hashlib
+import re
+import uuid
 from dataclasses import asdict, dataclass, replace
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from online.bot_names import BOT_NAMES
 from online.schema import poker_tables, system_players, table_seats
 
 
@@ -16,6 +20,57 @@ DEFAULT_TABLES = (
     ("mid-a", "Mid A", 500, 1000),
     ("mid-b", "Mid B", 500, 1000),
 )
+
+
+#: How many bots a lobby table shows while nobody is sitting at it. Everything
+#: not named here uses the usual four.
+#:
+#: Low B keeps five, so there is always one open seat visible -- a table you
+#: can join on sight. Mid B keeps six, a full game to watch; a person joining
+#: that one queues and takes a bot's seat at the next hand boundary, which
+#: _choose_seat already does whenever more than the minimum three are sitting.
+#: Both drop back to the normal count as soon as people arrive.
+IDLE_BOT_COUNTS = {
+    "low-b": 5,
+    "mid-b": 6,
+}
+
+
+# What a player may pick when opening a room. Free-form blinds would let anyone
+# create a table nobody can afford to sit at, so the choice is the same three
+# levels the built-in tables already use.
+ROOM_BLIND_LEVELS = {
+    "micro": (50, 100),
+    "low": (100, 200),
+    "mid": (500, 1000),
+}
+ROOM_NAME_MAX = 40
+# Seat count is not a room setting: every seat layout is drawn for six.
+ROOM_SEATS = 6
+ROOM_PASSWORD_MIN = 4
+ROOM_PASSWORD_MAX = 32
+
+
+def hash_room_password(table_id: str, password: str) -> str:
+    """Salted with the room's own id -- unique per room, so the same password
+    reused across two rooms does not hash the same way, without needing a
+    separate salt column. Low-stakes on purpose: this gates a virtual-chips
+    practice room, not a real account, so sha256 (already this codebase's
+    pattern for secrets -- see online/auth.py) is enough."""
+    return hashlib.sha256(f"{table_id}:{password}".encode()).hexdigest()
+
+
+
+class RoomError(ValueError):
+    pass
+
+
+class RoomLimitReached(RoomError):
+    """Carries the room already open, so the caller can offer to go there."""
+
+    def __init__(self, message: str, table_id: str) -> None:
+        super().__init__(message)
+        self.table_id = table_id
 
 
 @dataclass(frozen=True)
@@ -32,7 +87,12 @@ class TableSummary:
     human_count: int
     system_count: int
     human_join_available: bool
+    visibility: str = "public"
+    created_by: str | None = None
     join_mode: str = "buy_in"
+    # Never the hash itself -- just enough for the lobby to show a lock icon
+    # and the table page to know it needs to ask.
+    has_password: bool = False
 
     def public_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -78,19 +138,51 @@ class Catalogue:
                         continue
                     await session.execute(system_players.insert().values(
                         id=player_id,
-                        name=f"Room Player {number:02d}",
+                        name=BOT_NAMES[(number - 1) % len(BOT_NAMES)],
                         difficulty=difficulties[(number - 1) % len(difficulties)],
                         active=True,
                     ))
+                # Rows seeded before the names existed still read "Room Player
+                # 19", which gives the game away at a glance -- no amount of
+                # work on how a bot plays survives its name tag. Renaming in
+                # place keeps the id, so every persona and every hand of
+                # history stays attached to the same player.
+                for player_id, name in (
+                    await session.execute(
+                        select(system_players.c.id, system_players.c.name)
+                        .where(system_players.c.name.like("Room Player%"))
+                    )
+                ).all():
+                    index = int(player_id.rsplit("-", 1)[-1]) - 1 if player_id.rsplit("-", 1)[-1].isdigit() else 0
+                    await session.execute(
+                        system_players.update()
+                        .where(system_players.c.id == player_id)
+                        .values(name=BOT_NAMES[index % len(BOT_NAMES)])
+                    )
 
-    async def list_tables(self, page: int = 1, per_page: int = 6) -> list[TableSummary]:
+    async def list_tables(
+        self, page: int = 1, per_page: int = 6, viewer_id: str | None = None
+    ) -> list[TableSummary]:
+        """Open tables. With a viewer, only what that viewer may see.
+
+        Without one the caller is the coordinator, which has to advance every
+        open table regardless of who may look at it. A link-only room stays
+        reachable by its URL either way -- visibility governs the listing, not
+        the door.
+        """
         page = max(1, page)
         per_page = max(1, min(per_page, 100))
+        conditions = [poker_tables.c.scope == "network", poker_tables.c.status == "open"]
+        if viewer_id is not None:
+            conditions.append(
+                (poker_tables.c.visibility == "public")
+                | (poker_tables.c.created_by == viewer_id)
+            )
         async with self.session_factory() as session:
             rows = (
                 await session.execute(
                     select(poker_tables)
-                    .where(poker_tables.c.scope == "network")
+                    .where(*conditions)
                     .order_by(poker_tables.c.big_blind_units, poker_tables.c.id)
                     .offset((page - 1) * per_page)
                     .limit(per_page)
@@ -99,7 +191,12 @@ class Catalogue:
             return [await self._summary(session, row) for row in rows]
 
     async def quick_play(self, user_id: str, available_units: int) -> TableSummary:
-        rows = await self.list_tables(page=1, per_page=100)
+        # Public and password-free only: quick play is for finding a game, not
+        # for wandering into a room somebody opened for their own friends.
+        rows = [
+            row for row in await self.list_tables(page=1, per_page=100)
+            if row.visibility == "public" and not row.has_password
+        ]
         affordable = [row for row in rows if row.min_buy_in_units <= available_units]
         if not affordable:
             raise LookupError("no affordable table")
@@ -113,6 +210,115 @@ class Catalogue:
             ),
         )
         return replace(chosen, join_mode="buy_in" if chosen.human_join_available else "queue")
+
+    async def create_room(
+        self, user_id: str, name: str, level: str, password: str | None = None
+    ) -> TableSummary:
+        """Open a room for a player. One at a time, so the lobby cannot be flooded.
+
+        Always listed publicly now -- a password gates the seat instead of a
+        secret URL gating the listing (see hash_room_password's docstring for
+        why the old link-only rooms did not actually protect anything).
+        """
+        if level not in ROOM_BLIND_LEVELS:
+            raise RoomError("unknown blind level")
+        name = re.sub(r"\s+", " ", str(name or "")).strip()
+        if not name:
+            raise RoomError("room needs a name")
+        if len(name) > ROOM_NAME_MAX:
+            raise RoomError(f"name is longer than {ROOM_NAME_MAX} characters")
+        password = (password or "").strip() or None
+        if password is not None and not (ROOM_PASSWORD_MIN <= len(password) <= ROOM_PASSWORD_MAX):
+            raise RoomError(f"password must be {ROOM_PASSWORD_MIN}-{ROOM_PASSWORD_MAX} characters")
+
+        small_blind, big_blind = ROOM_BLIND_LEVELS[level]
+        async with self.session_factory() as session:
+            async with session.begin():
+                existing = (
+                    await session.execute(
+                        select(poker_tables.c.id).where(
+                            poker_tables.c.created_by == user_id,
+                            poker_tables.c.status == "open",
+                        )
+                    )
+                ).scalar_one_or_none()
+                if existing:
+                    raise RoomLimitReached("player already has an open room", table_id=existing)
+                table_id = f"room-{uuid.uuid4().hex[:10]}"
+                await session.execute(poker_tables.insert().values(
+                    id=table_id,
+                    scope="network",
+                    name=name,
+                    small_blind_units=small_blind,
+                    big_blind_units=big_blind,
+                    min_buy_in_bb=40,
+                    max_buy_in_bb=100,
+                    max_seats=ROOM_SEATS,
+                    created_by=user_id,
+                    visibility="public",
+                    password_hash=hash_room_password(table_id, password) if password else None,
+                ))
+            row = (
+                await session.execute(select(poker_tables).where(poker_tables.c.id == table_id))
+            ).mappings().one()
+            return await self._summary(session, row)
+
+    async def own_room(self, user_id: str) -> TableSummary | None:
+        async with self.session_factory() as session:
+            row = (
+                await session.execute(
+                    select(poker_tables).where(
+                        poker_tables.c.created_by == user_id,
+                        poker_tables.c.status == "open",
+                    )
+                )
+            ).mappings().first()
+            return await self._summary(session, row) if row else None
+
+    async def close_room(self, table_id: str, user_id: str | None = None) -> None:
+        """Retire a room. Callers must empty its seats first.
+
+        Closed only hides it: the row stays, because finished hands reference it
+        and deleting the table would take their history with it.
+        """
+        async with self.session_factory() as session:
+            async with session.begin():
+                row = (
+                    await session.execute(select(poker_tables).where(poker_tables.c.id == table_id))
+                ).mappings().first()
+                if row is None or row["created_by"] is None:
+                    raise RoomError("not a player room")
+                if user_id is not None and row["created_by"] != user_id:
+                    raise RoomError("not your room")
+                await session.execute(
+                    update(poker_tables).where(poker_tables.c.id == table_id).values(status="closed")
+                )
+
+    async def idle_room_ids(self) -> list[str]:
+        """Open player rooms with nobody human in them right now."""
+        async with self.session_factory() as session:
+            rows = (
+                await session.execute(
+                    select(poker_tables.c.id).where(
+                        poker_tables.c.status == "open",
+                        poker_tables.c.created_by.is_not(None),
+                    )
+                )
+            ).scalars().all()
+            if not rows:
+                return []
+            busy = set(
+                (
+                    await session.execute(
+                        select(table_seats.c.table_id).where(
+                            table_seats.c.table_id.in_(rows),
+                            table_seats.c.occupant_kind == "user",
+                            table_seats.c.state.in_(("seated", "held", "leaving")),
+                        )
+                    )
+                ).scalars()
+            )
+        return [table_id for table_id in rows if table_id not in busy]
 
     async def _summary(self, session: AsyncSession, row) -> TableSummary:
         seats = (
@@ -137,5 +343,8 @@ class Catalogue:
             occupied_count=occupied_count,
             human_count=human_count,
             system_count=system_count,
+            visibility=row["visibility"],
+            created_by=row["created_by"],
             human_join_available=occupied_count < row["max_seats"] or system_count > 0,
+            has_password=bool(row["password_hash"]),
         )

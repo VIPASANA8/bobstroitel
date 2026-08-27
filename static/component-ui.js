@@ -6,6 +6,16 @@
       return Number(game.players[game.viewer_player_id].seat);
     }
 
+    // Between hands `game` is null, and the last resort below anchors the whole
+    // layout on whichever human sits first -- someone else's seat. The seat
+    // list carries the viewer's own id through those phases, so match on it
+    // before falling back to guessing.
+    const viewerId = game?.viewer_player_id || tableData?.viewer_player_id;
+    if (viewerId && Array.isArray(tableData?.seats)) {
+      const own = tableData.seats.find(seat => seat?.active && seat?.id === viewerId);
+      if (own) return Number(own.seat);
+    }
+
     const activeProfile = game?.active_profile_id || tableData?.active_profile_id;
     if (activeProfile && Array.isArray(tableData?.seats)) {
       const row = tableData.seats.find(
@@ -20,6 +30,11 @@
 
   window.syncComponentSeatLayout = function syncComponentSeatLayout(game, tableData) {
     const anchor = viewerSeat(game, tableData);
+    // Idle decoration only. While a hand runs, the players in it carry real
+    // positions and a real dealer button; a seat sitting the hand out still has
+    // a generic chip, and dressing that one up gave it a second, wrong dealer
+    // button next to the true one.
+    const liveHand = Boolean(game && !game.terminal);
     const idlePositionByVisualSeat = {
       0: "BTN",
       1: "HJ",
@@ -37,7 +52,7 @@
 
       const positionChip = seatEl.querySelector(".position-chip");
       const genericPosition = positionChip && /^(БОТ|ИГРОК)$/i.test(positionChip.textContent.trim());
-      if (genericPosition) {
+      if (genericPosition && !liveHand) {
         positionChip.textContent = idlePositionByVisualSeat[visual] || positionChip.textContent;
         positionChip.classList.toggle("btn-pos", visual === 0);
 
@@ -59,7 +74,11 @@
     window.syncComponentSeatLayout?.(game, tableData);
   };
 
-  window.addEventListener("load", () => {
+  // DOMContentLoaded, not window.load: the mobile v2 look does not exist
+  // until this whole chain finishes appending scripts, and window.load waits
+  // on the external telegram-web-app.js round trip -- every extra second
+  // there is a second spent showing the old v0.11 table underneath.
+  document.addEventListener("DOMContentLoaded", () => {
     if (!document.querySelector('script[data-v015-fixes]')) {
       const v015 = document.createElement("script");
       v015.src = "/static/v015-fixes.js";
@@ -90,7 +109,7 @@
 
     if (!document.querySelector('script[data-v020-fixes]')) {
       const v020 = document.createElement("script");
-      v020.src = "/static/v020-fixes.js";
+      v020.src = "/static/v020-fixes.js?v=chip-layers-2";
       v020.dataset.v020Fixes = "1";
       document.body.appendChild(v020);
     }
@@ -111,35 +130,35 @@
 
     if (!document.querySelector('script[data-v024-ready-phase]')) {
       const v024 = document.createElement("script");
-      v024.src = "/static/v024-ready-phase.js?v=online-controls-2";
+      v024.src = "/static/v024-ready-phase.js?v=render-hooks-1";
       v024.dataset.v024ReadyPhase = "1";
       document.body.appendChild(v024);
     }
 
     if (!document.querySelector('script[data-v025-showdown-compare]')) {
       const v025 = document.createElement("script");
-      v025.src = "/static/v025-showdown-compare.js";
+      v025.src = "/static/v025-showdown-compare.js?v=persist-1";
       v025.dataset.v025ShowdownCompare = "1";
       document.body.appendChild(v025);
     }
 
     if (!document.querySelector('script[data-v026-seat-status-layout]')) {
       const v026 = document.createElement("script");
-      v026.src = "/static/v026-seat-status-layout.js";
+      v026.src = "/static/v026-seat-status-layout.js?v=render-hooks-1";
       v026.dataset.v026SeatStatusLayout = "1";
       document.body.appendChild(v026);
     }
 
     if (!document.querySelector('script[data-v027-compact-seats-controls]')) {
       const v027 = document.createElement("script");
-      v027.src = "/static/v027-compact-seats-controls.js";
+      v027.src = "/static/v027-compact-seats-controls.js?v=render-hooks-1";
       v027.dataset.v027CompactSeatsControls = "1";
       document.body.appendChild(v027);
     }
 
     if (!document.querySelector('script[data-v028-center-ready]')) {
       const v028 = document.createElement("script");
-      v028.src = "/static/v028-center-ready.js";
+      v028.src = "/static/v028-center-ready.js?v=render-hooks-1";
       v028.dataset.v028CenterReady = "1";
       document.body.appendChild(v028);
     }
@@ -153,19 +172,19 @@
 
     if (!document.querySelector('script[data-v030-seat-ready-fix]')) {
       const v030 = document.createElement("script");
-      v030.src = "/static/v030-seat-ready-fix.js";
+      v030.src = "/static/v030-seat-ready-fix.js?v=pot-wings-1";
       v030.dataset.v030SeatReadyFix = "1";
       document.body.appendChild(v030);
     }
 
     if (!document.querySelector('script[data-v032-poker8-v2-sixmax]')) {
       const v032 = document.createElement("script");
-      v032.src = "/static/v032-poker8-v2-mobile-sixmax.js";
+      v032.src = "/static/v032-poker8-v2-mobile-sixmax.js?v=no-gear-1";
       v032.dataset.v032Poker8V2Sixmax = "1";
       v032.addEventListener("load", () => {
         if (!document.querySelector('script[data-v037-poker8-v2-reference-table]')) {
           const finalMobile = document.createElement("script");
-          finalMobile.src = "/static/v037-poker8-v2-reference-table.js?v=edge-actions-1";
+          finalMobile.src = "/static/v037-poker8-v2-reference-table.js?v=mobile-edge-prod-1";
           finalMobile.dataset.v037Poker8V2ReferenceTable = "1";
           document.body.appendChild(finalMobile);
         }
@@ -173,7 +192,7 @@
       document.body.appendChild(v032);
     } else if (!document.querySelector('script[data-v037-poker8-v2-reference-table]')) {
       const finalMobile = document.createElement("script");
-      finalMobile.src = "/static/v037-poker8-v2-reference-table.js?v=edge-actions-1";
+      finalMobile.src = "/static/v037-poker8-v2-reference-table.js?v=mobile-edge-prod-1";
       finalMobile.dataset.v037Poker8V2ReferenceTable = "1";
       document.body.appendChild(finalMobile);
     }

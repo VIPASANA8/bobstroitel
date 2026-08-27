@@ -16,6 +16,7 @@ class Settings:
     telegram_auth_max_age_seconds: int
     coordinator_enabled: bool
     open_access: bool
+    self_top_up_enabled: bool
     dev_profiles: dict[int, str]
     tenant_configs: dict[str, dict[str, object]] = field(default_factory=dict)
 
@@ -27,6 +28,15 @@ class Settings:
             "1" if environment in {"production", "test"} else "0",
         ).strip().lower()
         raw_open_access = source.get("POKER8_OPEN_ACCESS", "0").strip().lower()
+        # Off outside development. The endpoint hands the caller whatever they
+        # ask for, up to 100M units, with a request id they choose themselves --
+        # so any guest, and a guest session is free, could repeat it forever. On
+        # a deployment anyone can reach that makes every stack meaningless, and
+        # it is the exact door a real top-up has to come through instead.
+        raw_self_top_up = source.get(
+            "POKER8_SELF_TOP_UP",
+            "1" if environment == "development" else "0",
+        ).strip().lower()
         database_url = source.get("POKER8_DATABASE_URL", "").strip()
         bot_token = source.get("POKER8_DEFAULT_BOT_TOKEN", "").strip() or None
         if environment == "production" and not database_url:
@@ -69,6 +79,7 @@ class Settings:
             telegram_auth_max_age_seconds=15 * 60,
             coordinator_enabled=raw_coordinator in {"1", "true", "yes", "on"},
             open_access=environment != "production" and raw_open_access in {"1", "true", "yes", "on"},
+            self_top_up_enabled=raw_self_top_up in {"1", "true", "yes", "on"},
             dev_profiles=profiles,
             tenant_configs=tenant_configs,
         )

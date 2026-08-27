@@ -16,8 +16,11 @@ router = APIRouter(tags=["realtime"])
 
 
 class ConnectionHub:
-    def __init__(self) -> None:
+    def __init__(self, seating=None) -> None:
         self.connections: dict[str, dict[WebSocket, AuthenticatedUser]] = defaultdict(dict)
+        # Needed to release a seat whose socket turns out to be dead; see
+        # _drop_dead. Optional so tests can build a bare hub.
+        self.seating = seating
 
     def add(self, table_id: str, socket: WebSocket, user: AuthenticatedUser) -> None:
         self.connections[table_id][socket] = user
@@ -31,6 +34,53 @@ class ConnectionHub:
 
     def user_connections(self, table_id: str, user_id: str) -> int:
         return sum(1 for user in self.connections.get(table_id, {}).values() if user.user_id == user_id)
+
+    async def _drop_dead(self, table_id: str, socket: WebSocket) -> None:
+        """Forget a socket whose peer has gone, and start its seat's hold.
+
+        A failed send is the only signal a vanished client gives: nothing pings
+        it back, and receive_json on a half-open connection can block for as
+        long as the OS keeps it. Swallowing that failure left the socket in the
+        hub forever, so mark_disconnected never ran -- the seat stayed `seated`,
+        the table kept timing the player out hand after hand, and the lobby
+        still offered them an "active session" hours after they closed the app.
+
+        Marking them disconnected only starts the 30s hold, so a client that
+        merely hit a transient send error reconnects straight back into its
+        seat, exactly like any other reconnect.
+        """
+        viewer = self.connections.get(table_id, {}).get(socket)
+        if viewer is None:
+            return
+        self.connections.get(table_id, {}).pop(socket, None)
+        if not self.connections.get(table_id):
+            self.connections.pop(table_id, None)
+        if self.seating is None or self.user_connections(table_id, viewer.user_id):
+            return
+        try:
+            await self.seating.mark_disconnected(viewer.user_id, table_id, datetime.now(timezone.utc))
+        except Exception:
+            pass
+
+    async def broadcast(self, table_id: str, runtime, reason: str = "state_changed") -> None:
+        """Push the table state to every viewer, each with their own hole cards."""
+        for socket, viewer in list(self.connections.get(table_id, {}).items()):
+            try:
+                snapshot = await runtime.public_snapshot(table_id, viewer.user_id)
+            except Exception:
+                # A table-side failure says nothing about this socket.
+                continue
+            try:
+                await socket.send_json(_snapshot_message(snapshot, reason))
+            except Exception:
+                await self._drop_dead(table_id, socket)
+
+    async def broadcast_json(self, table_id: str, message: dict) -> None:
+        for socket in list(self.connections.get(table_id, {})):
+            try:
+                await socket.send_json(message)
+            except Exception:
+                await self._drop_dead(table_id, socket)
 
 
 async def _authenticate(websocket: WebSocket) -> AuthenticatedUser | None:
@@ -115,12 +165,7 @@ async def table_socket(websocket: WebSocket, table_id: str) -> None:
                     action=str(message["action"]),
                     amount_units=int(message.get("amount_units", 0)),
                 )
-                for socket, viewer in list(hub.connections.get(table_id, {}).items()):
-                    try:
-                        snapshot = await websocket.app.state.runtime.public_snapshot(table_id, viewer.user_id)
-                        await socket.send_json(_snapshot_message(snapshot, "state_changed"))
-                    except Exception:
-                        continue
+                await hub.broadcast(table_id, websocket.app.state.runtime)
             except StaleRevision as error:
                 snapshot = await websocket.app.state.runtime.public_snapshot(table_id, user.user_id)
                 await websocket.send_json(_snapshot_message(snapshot, "stale_revision"))

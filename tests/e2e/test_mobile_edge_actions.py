@@ -129,7 +129,6 @@ def test_vertical_bet_gesture_selects_amount_but_never_submits(online_server: st
         page.mouse.move(start_x, start_y)
         page.mouse.down()
         page.mouse.move(354, 170, steps=8)
-
         assert page.locator("#mobileBetRail").get_attribute("aria-hidden") == "false"
         assert float(page.locator("#amount").input_value()) > initial
         assert submissions == []
@@ -187,7 +186,7 @@ def test_mobile_sizes_hold_and_desktop_layout_returns_at_781(online_server: str)
 
         page.set_viewport_size({"width": 781, "height": 900})
         page.wait_for_timeout(100)
-        assert not page.locator("body").evaluate("el => el.classList.contains('poker8-v2-sixmax')")
+        assert page.locator("body").evaluate("el => el.classList.contains('poker8-desktop-v2')")
         assert page.locator("#actionButtons").get_attribute("data-v038-reference-actions") is None
         assert page.locator("#actionButtons [data-edge]").count() == 0
 

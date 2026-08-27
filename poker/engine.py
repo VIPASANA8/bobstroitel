@@ -165,7 +165,7 @@ class PokerEngine:
         to_call = self.to_call(state, player_id)
         if to_call > self.EPS:
             legal = [ActionType.FOLD, ActionType.CALL]
-            if p.stack > to_call + self.EPS:
+            if p.stack > to_call + self.EPS and player_id not in state.raise_capped:
                 legal += [ActionType.RAISE, ActionType.ALL_IN]
             return legal
 
@@ -253,10 +253,7 @@ class PokerEngine:
                 raise InvalidAction(f"Минимальная ставка: {min_bet:.2f} ББ")
             paid = target - player.street_invested
             self._put_chips(state, player, paid)
-            state.current_bet = player.street_invested
-            state.min_raise_size = max(self.BIG_BLIND, state.current_bet)
-            state.last_aggressor = player_id
-            self._reset_pending_after_aggression(state, player_id)
+            self._apply_aggression(state, player_id, 0.0, player.street_invested)
 
         elif action == ActionType.RAISE:
             if amount <= state.current_bet + self.EPS:
@@ -271,12 +268,7 @@ class PokerEngine:
             previous_bet = state.current_bet
             paid = target - player.street_invested
             self._put_chips(state, player, paid)
-            raise_size = target - previous_bet
-            state.current_bet = target
-            if raise_size + self.EPS >= state.min_raise_size:
-                state.min_raise_size = raise_size
-            state.last_aggressor = player_id
-            self._reset_pending_after_aggression(state, player_id)
+            self._apply_aggression(state, player_id, previous_bet, target)
 
         elif action == ActionType.ALL_IN:
             previous_bet = state.current_bet
@@ -284,12 +276,7 @@ class PokerEngine:
             paid = player.stack
             self._put_chips(state, player, paid)
             if target > previous_bet + self.EPS:
-                raise_size = target - previous_bet
-                state.current_bet = target
-                if raise_size + self.EPS >= state.min_raise_size:
-                    state.min_raise_size = raise_size
-                state.last_aggressor = player_id
-                self._reset_pending_after_aggression(state, player_id)
+                self._apply_aggression(state, player_id, previous_bet, target)
             else:
                 state.pending_actions.discard(player_id)
 
@@ -315,11 +302,25 @@ class PokerEngine:
             state.acting_player = next_actor
         return state
 
-    def _reset_pending_after_aggression(self, state: GameState, aggressor_id: str):
-        state.pending_actions = {
-            pid for pid in state.actionable_ids()
-            if pid != aggressor_id
-        }
+    def _apply_aggression(self, state: GameState, player_id: str, previous_bet: float, target: float):
+        """Advance the betting after a bet, raise or all-in.
+
+        A raise smaller than the minimum — only reachable by an all-in — does not
+        reopen the betting: everyone still owes the difference, but players who
+        had already matched the previous bet may only call or fold.
+        """
+        raise_size = target - previous_bet
+        state.current_bet = target
+        state.last_aggressor = player_id
+        if raise_size + self.EPS >= state.min_raise_size:
+            state.min_raise_size = raise_size
+            state.raise_capped.clear()
+        else:
+            state.raise_capped |= {
+                pid for pid in state.actionable_ids()
+                if pid != player_id and pid not in state.pending_actions
+            }
+        state.pending_actions = {pid for pid in state.actionable_ids() if pid != player_id}
 
     def _sanitize_pending(self, state: GameState):
         state.pending_actions = {
@@ -369,6 +370,7 @@ class PokerEngine:
         state.current_bet = 0.0
         state.min_raise_size = self.BIG_BLIND
         state.last_aggressor = None
+        state.raise_capped.clear()
         state.pending_actions = set(state.actionable_ids())
 
         if not state.pending_actions:
@@ -452,6 +454,7 @@ class PokerEngine:
         side_pots = self.build_side_pots(state)
         details = []
         all_winners: list[str] = []
+        distributed = 0.0
 
         for index, pot in enumerate(side_pots):
             eligible = pot["eligible"]
@@ -466,6 +469,7 @@ class PokerEngine:
             share = pot["amount"] / len(winners)
             for pid in winners:
                 state.players[pid].stack += share
+                distributed += share
                 if pid not in all_winners:
                     all_winners.append(pid)
 
@@ -498,6 +502,19 @@ class PokerEngine:
             state.result_text = " | ".join(payouts) + (" — " + " · ".join(descriptions) if descriptions else "")
 
         state.result_details = details
+        # Every chip in the pot has to leave it. A side pot whose contributors
+        # all folded has no eligible player and is skipped by the loop above,
+        # but the pot is zeroed unconditionally on the next line -- those chips
+        # would simply cease to exist. Today that is unreachable, because the
+        # uncalled-bet refund trims the top layer before it can end up with no
+        # live claimant; this guard is here so that the day it becomes
+        # reachable the hand aborts loudly instead of quietly minting a loss.
+        # Raising here is safe: the runtime rolls the hand back, pauses the
+        # table, and the coordinator refunds and resumes it.
+        assert abs(distributed - state.pot) <= 1e-6, (
+            f"showdown paid out {distributed:.6f} of a {state.pot:.6f} pot "
+            f"in hand {state.hand_id}: a side pot had no eligible winner"
+        )
         state.pot = 0.0
         state.acting_player = None
         state.pending_actions.clear()

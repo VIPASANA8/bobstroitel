@@ -255,18 +255,9 @@
 
   window.addEventListener("poker8:toggle-ready", toggleViewerReadyCountdown);
 
-  const originalRenderSeats = renderSeats;
-  renderSeats = function renderSeatsWithReadyState() {
-    originalRenderSeats();
-    renderSeatReadiness();
-    publishReadySnapshot();
-  };
-
-  const originalRenderMobileHeader = renderMobileHeader;
-  renderMobileHeader = function renderMobileHeaderWithReadyState() {
-    originalRenderMobileHeader();
-    renderReadyControls();
-  };
+  onRendered("seats", renderSeatReadiness);
+  onRendered("seats", publishReadySnapshot);
+  onRendered("mobileHeader", renderReadyControls);
 
   const style = document.createElement("style");
   style.id = "v024-ready-phase-style";
@@ -286,7 +277,7 @@
       padding:0 6px;
       box-sizing:border-box;
       border-radius:999px;
-      font-size:7px;
+      font-size:10px;
       font-weight:950;
       line-height:1;
       letter-spacing:.035em;
@@ -304,18 +295,18 @@
 
     body.v014 .seat-card .v024-ready-badge.ready{
       color:#aaffdc;
-      border:1px solid rgba(81,234,174,.38);
-      background:rgba(5,39,31,.82);
-      box-shadow:0 0 10px rgba(64,231,171,.10);
+      border:1px solid rgba(71,230,168,.38);
+      background:rgba(4,38,29,.82);
+      box-shadow:0 0 10px rgba(71,230,168,.10);
     }
     body.v014 .seat-card .v024-ready-badge.ready i{
-      background:#66f0b4;
-      box-shadow:0 0 7px rgba(70,240,180,.72);
+      background:#62efb3;
+      box-shadow:0 0 7px rgba(61,239,176,.72);
     }
 
     body.v014 .seat-card .v024-ready-badge.waiting{
       color:#ffd1a2;
-      border:1px solid rgba(255,174,91,.34);
+      border:1px solid rgba(255,173,91,.34);
       background:rgba(45,24,8,.82);
     }
     body.v014 .seat-card .v024-ready-badge.waiting i{
@@ -325,17 +316,17 @@
 
     body.v014 .mobile-primary-action.v024-ready-button,
     body.v014 #newHand.v024-ready-button{
-      border-color:rgba(72,222,161,.58) !important;
-      background:linear-gradient(180deg,rgba(8,65,50,.96),rgba(5,42,34,.98)) !important;
+      border-color:rgba(55,220,162,.58) !important;
+      background:linear-gradient(180deg,rgba(7,65,47,.96),rgba(4,38,29,.98)) !important;
       color:#b9ffe2 !important;
-      box-shadow:inset 0 0 16px rgba(74,235,176,.06) !important;
+      box-shadow:inset 0 0 16px rgba(71,230,168,.06) !important;
     }
 
     body.v014 .mobile-primary-action.v024-ready-button.v024-all-ready,
     body.v014 #newHand.v024-ready-button.v024-all-ready{
       border-color:rgba(89,246,184,.82) !important;
       background:linear-gradient(180deg,rgba(10,91,67,.98),rgba(5,54,42,.99)) !important;
-      box-shadow:0 0 16px rgba(65,233,170,.16), inset 0 0 18px rgba(91,255,194,.08) !important;
+      box-shadow:0 0 16px rgba(61,239,176,.16), inset 0 0 18px rgba(91,255,194,.08) !important;
     }
 
     body.v014.v024-starting-hand .v028-center-ready-button{
@@ -345,7 +336,7 @@
 
     @media (max-width:780px){
       body.v014 .mobile-primary-action.v024-ready-button{
-        font-size:9px !important;
+        font-size:10px !important;
         letter-spacing:.01em !important;
         padding-left:9px !important;
         padding-right:9px !important;

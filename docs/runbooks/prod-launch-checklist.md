@@ -1,14 +1,18 @@
 # Poker8 — чек-лист прод-запуска
 
-Что нужно поднять на сервере (`64.188.67.9` / `share.play2go.cloud`), чтобы
-Poker8 Online заработал как Telegram Mini App. Доступы — в `servers.md`.
+Что нужно поднять на сервере (`64.188.67.9`), чтобы Poker8 Online заработал
+как Telegram Mini App. Доступы — в `servers.md`.
+
+Боевой домен — **`bubbledouble.cc`** (Caddy + авто-TLS, стек развёрнут в
+`/root/poker8`). `share.play2go.cloud` указывает на тот же хост, но занят
+autorek и для Poker8 не используется.
 
 ## 1. Предусловия на сервере
 
 - [ ] Docker + docker compose установлены (`docker --version`, `docker compose version`).
 - [ ] Каталог проекта `/root/poker8` (код через `git clone`/`rsync`).
 - [ ] Порт `:8000` свободен (autorek его не занимает), порты `80/443` свободны для прокси.
-- [ ] DNS: A-запись домена (напр. `buritoboss.com` или `share.play2go.cloud`)
+- [ ] DNS: A-запись домена (напр. `bubbledouble.cc` или `share.play2go.cloud`)
       указывает на `64.188.67.9`.
 
 ## 2. Секреты и конфиг
@@ -18,7 +22,7 @@ Poker8 Online заработал как Telegram Mini App. Доступы — в
       POKER8_ENV=production
       POKER8_DATABASE_URL=postgresql+psycopg://poker8:<STRONG_PASS>@postgres:5432/poker8
       POKER8_DEFAULT_BOT_TOKEN=<TELEGRAM_BOT_TOKEN>
-      POKER8_TENANTS_JSON=[{"slug":"poker8","hosts":["buritoboss.com"],"name":"Poker8","token_env":"POKER8_DEFAULT_BOT_TOKEN"}]
+      POKER8_TENANTS_JSON=[{"slug":"poker8","hosts":["bubbledouble.cc"],"name":"Poker8","token_env":"POKER8_DEFAULT_BOT_TOKEN"}]
       POSTGRES_PASSWORD=<STRONG_PASS>
       POKER8_COORDINATOR_ENABLED=1
       POKER8_OPEN_ACCESS=0
@@ -44,17 +48,17 @@ Telegram Mini App работает только по HTTPS. Нужен nginx (и
 ```nginx
 server {
     listen 80;
-    server_name buritoboss.com;
+    server_name bubbledouble.cc;
     location /.well-known/acme-challenge/ { root /var/www/certbot; }
     location / { return 301 https://$host$request_uri; }
 }
 
 server {
     listen 443 ssl http2;
-    server_name buritoboss.com;
+    server_name bubbledouble.cc;
 
-    ssl_certificate     /etc/letsencrypt/live/buritoboss.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/buritoboss.com/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/bubbledouble.cc/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/bubbledouble.cc/privkey.pem;
 
     # WebSocket: /ws/tables/{id}
     location /ws/ {
@@ -78,7 +82,7 @@ server {
 ```
 
 - [ ] `ln -s .../sites-available/poker8.conf /etc/nginx/sites-enabled/ && nginx -t && systemctl reload nginx`
-- [ ] TLS-сертификат: `certbot --nginx -d buritoboss.com` (или webroot).
+- [ ] TLS-сертификат: `certbot --nginx -d bubbledouble.cc` (или webroot).
 - [ ] Автопродление certbot включено (`systemctl status certbot.timer`).
 - [ ] `Host`-заголовок доходит до приложения (нужно для маппинга tenant→host).
 - [ ] Сессия-cookie `poker8_session` в проде идёт с флагом `secure` — работает
@@ -86,7 +90,7 @@ server {
 
 ## 5. Привязка к Telegram
 
-- [ ] У @BotFather для бота задан Mini App / Menu Button с URL `https://buritoboss.com/`.
+- [ ] У @BotFather для бота задан Mini App / Menu Button с URL `https://bubbledouble.cc/`.
 - [ ] Проверен вход через Telegram `initData` (не guest): открыть Mini App из бота.
 - [ ] `POKER8_OPEN_ACCESS=0` подтверждён (гостевой вход в проде отключён).
 
@@ -109,8 +113,8 @@ node --check static/app.js
 
 ## Открытые вопросы / решения по инфраструктуре
 
-- Домен: подтвердить, использовать ли поддомен `buritoboss.com` или основной
-  `share.play2go.cloud` (последний сейчас указывает на тот же хост, где autorek).
-- Прокси: nginx или Caddy (Caddy сам управляет TLS — меньше ручной работы).
+- ~~Домен~~ — решено: `bubbledouble.cc`.
+- ~~Прокси~~ — решено: Caddy с авто-TLS (`deploy/compose.caddy.yaml`), развёрнут.
+  Секция nginx выше оставлена как запасной вариант.
 - Размещение БД: Postgres в Compose (как сейчас) или вынести на управляемый инстанс.
 - Ротация бэкапов и хранение вне сервера (S3/rsync на другой хост).
