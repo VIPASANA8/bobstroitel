@@ -113,11 +113,41 @@ def test_player_count_arcs_and_summary_do_not_overlap(online_server: str, player
             seat_rects = page.locator(".seat.v040-dynamic-seat").evaluate_all(
                 "els => els.map(el => { const r=el.getBoundingClientRect(); return {left:r.left,right:r.right,top:r.top,bottom:r.bottom}; })"
             )
+            hud_rects = page.locator(
+                ".seat.v040-dynamic-seat .seat-identity, .seat.v040-dynamic-seat .player-avatar"
+            ).evaluate_all(
+                "els => els.map(el => { const r=el.getBoundingClientRect(); return {left:r.left,right:r.right,top:r.top,bottom:r.bottom}; })"
+            )
             action_rects = page.locator("#actionButtons button:visible").evaluate_all(
                 "els => els.map(el => { const r=el.getBoundingClientRect(); return {left:r.left,right:r.right,top:r.top,bottom:r.bottom}; })"
             )
+            assert all(rect["left"] >= -1 and rect["right"] <= width + 1 for rect in hud_rects)
             assert all(not _rects_intersect(summary, rect) for rect in seat_rects)
             assert all(not _rects_intersect(summary, rect) for rect in action_rects)
+        browser.close()
+
+
+def test_mobile_header_and_center_stack_use_their_reserved_lanes(online_server: str):
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        page = browser.new_page(device_scale_factor=1)
+        for width, height in ((360, 800), (402, 874)):
+            _open_table(page, online_server, width, height)
+            utility = page.locator("#mobileHeaderUtility").evaluate(
+                "el => { const r=el.getBoundingClientRect(); return {left:r.left,right:r.right,top:r.top,bottom:r.bottom}; }"
+            )
+            assert utility["right"] == pytest.approx(width - 8, abs=2)
+
+            layers = page.locator(
+                "#potChips, .pot-total, #board, .v038-hud-summary"
+            ).evaluate_all(
+                "els => els.map(el => { const r=el.getBoundingClientRect(); return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,cx:r.left+r.width/2,cy:r.top+r.height/2}; })"
+            )
+            chips, pot, board_rect, summary = layers
+            assert chips["cy"] < pot["cy"] < board_rect["cy"] < summary["cy"]
+            assert not _rects_intersect(chips, pot)
+            assert not _rects_intersect(pot, board_rect)
+            assert not _rects_intersect(board_rect, summary)
         browser.close()
 
 
@@ -232,6 +262,26 @@ def test_timer_and_semantic_states_are_attached_to_player_huds(online_server: st
         assert turn_timer.locator("b").evaluate(
             "el => el.getBoundingClientRect().left >= el.parentElement.getBoundingClientRect().right - 8"
         )
+        hero_dealer = _state(0, ["check", "fold", "bet", "all_in"], acting="hero")
+        hero_dealer["players"]["hero"]["position"] = "BTN"
+        hero_dealer["players"]["p1"]["folded"] = True
+        hero_dealer["players"]["p4"]["all_in"] = True
+        page.evaluate(
+            "payload => window.Poker8LegacyView.renderSnapshot({table:{id:'t',name:'Test'},state:payload,viewerState:'seated'})",
+            hero_dealer,
+        )
+        hero_timer = page.locator('.seat[data-visual-seat="0"] .avatar-wrap > .v038-turn-timer')
+        dealer_rect = page.locator('.seat[data-visual-seat="0"] .dealer-button').evaluate(
+            "el => { const r=el.getBoundingClientRect(); return {left:r.left,right:r.right,top:r.top,bottom:r.bottom}; }"
+        )
+        timer_badge_rect = hero_timer.locator("b").evaluate(
+            "el => { const r=el.getBoundingClientRect(); return {left:r.left,right:r.right,top:r.top,bottom:r.bottom}; }"
+        )
+        timer_ring_rect = hero_timer.evaluate(
+            "el => { const r=el.getBoundingClientRect(); return {left:r.left,right:r.right,top:r.top,bottom:r.bottom}; }"
+        )
+        assert not _rects_intersect(dealer_rect, timer_badge_rect)
+        assert dealer_rect["right"] <= timer_ring_rect["left"] - 2
 
         folded = page.locator('.seat[data-seat="1"] .seat-card')
         assert 0.35 <= float(folded.evaluate("el => getComputedStyle(el).opacity")) <= 0.5
