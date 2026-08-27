@@ -9,7 +9,12 @@ from playwright.sync_api import Page, sync_playwright
 pytestmark = pytest.mark.e2e
 
 
-def _state(to_call: float = 0, legal: list[str] | None = None, acting: str = "hero") -> dict:
+def _state(
+    to_call: float = 0,
+    legal: list[str] | None = None,
+    acting: str | None = "hero",
+    player_count: int = 6,
+) -> dict:
     players = {
         "hero": {"id": "hero", "name": "SweetGirl", "seat": 0, "stack": 97, "street_invested": 0, "folded": False, "is_bot": False, "profile_id": "hero", "hole_cards": ["4d", "Kc"]},
         "p1": {"id": "p1", "name": "P1", "seat": 1, "stack": 97, "street_invested": 0, "folded": False, "is_bot": True, "hole_cards": ["??", "??"]},
@@ -18,6 +23,7 @@ def _state(to_call: float = 0, legal: list[str] | None = None, acting: str = "he
         "p4": {"id": "p4", "name": "P4", "seat": 4, "stack": 103, "street_invested": 0, "folded": False, "is_bot": True, "hole_cards": ["??", "??"]},
         "p5": {"id": "p5", "name": "P5", "seat": 5, "stack": 67, "street_invested": 0, "folded": False, "is_bot": True, "hole_cards": ["??", "??"]},
     }
+    players = dict(list(players.items())[:player_count])
     return {
         "phase": "active", "hand_id": "layout-hand", "street": "flop", "players": players,
         "acting_player": acting, "legal_actions": legal or ["check", "fold", "bet", "all_in"],
@@ -57,6 +63,61 @@ def test_opponents_form_one_equal_chord_arc_at_both_mobile_sizes(online_server: 
             assert centers[0][1] == pytest.approx(centers[4][1], abs=1)
             assert centers[1][1] == pytest.approx(centers[3][1], abs=1)
             assert centers[2][1] < centers[1][1] < centers[0][1]
+        browser.close()
+
+
+def _rects_intersect(first: dict, second: dict) -> bool:
+    return not (
+        first["right"] <= second["left"]
+        or first["left"] >= second["right"]
+        or first["bottom"] <= second["top"]
+        or first["top"] >= second["bottom"]
+    )
+
+
+@pytest.mark.parametrize("player_count", [2, 3, 4, 5, 6])
+def test_player_count_arcs_and_summary_do_not_overlap(online_server: str, player_count: int):
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        page = browser.new_page(device_scale_factor=1)
+        for width, height in ((360, 800), (402, 874)):
+            _open_table(page, online_server, width, height, _state(player_count=player_count))
+            page.wait_for_function(
+                "count => document.body.classList.contains(`p8-player-count-${count}`)",
+                arg=player_count,
+            )
+            opponents = page.locator(
+                '.seat.v040-dynamic-seat:not([data-visual-seat="0"])'
+            ).evaluate_all(
+                """els => els
+                    .sort((a, b) => Number(a.dataset.visualSeat) - Number(b.dataset.visualSeat))
+                    .map(el => { const r = el.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })"""
+            )
+            assert len(opponents) == player_count - 1
+            for left, right in zip(opponents, reversed(opponents)):
+                assert left[0] + right[0] == pytest.approx(width, abs=2)
+                assert left[1] == pytest.approx(right[1], abs=2)
+            if len(opponents) > 1:
+                chords = [math.dist(opponents[index], opponents[index + 1]) for index in range(len(opponents) - 1)]
+                assert max(chords) - min(chords) <= 3
+
+            hero = page.locator('.seat[data-visual-seat="0"]').evaluate(
+                "el => { const r = el.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; }"
+            )
+            assert hero[0] == pytest.approx(width / 2, abs=1)
+            assert hero[1] > max(point[1] for point in opponents)
+
+            summary = page.locator(".v038-hud-summary").evaluate(
+                "el => { const r = el.getBoundingClientRect(); return {left:r.left,right:r.right,top:r.top,bottom:r.bottom}; }"
+            )
+            seat_rects = page.locator(".seat.v040-dynamic-seat").evaluate_all(
+                "els => els.map(el => { const r=el.getBoundingClientRect(); return {left:r.left,right:r.right,top:r.top,bottom:r.bottom}; })"
+            )
+            action_rects = page.locator("#actionButtons button:visible").evaluate_all(
+                "els => els.map(el => { const r=el.getBoundingClientRect(); return {left:r.left,right:r.right,top:r.top,bottom:r.bottom}; })"
+            )
+            assert all(not _rects_intersect(summary, rect) for rect in seat_rects)
+            assert all(not _rects_intersect(summary, rect) for rect in action_rects)
         browser.close()
 
 
@@ -150,9 +211,27 @@ def test_timer_and_semantic_states_are_attached_to_player_huds(online_server: st
         _open_table(page, online_server, 360, 800, state)
 
         active_avatar = page.locator('.seat[data-seat="3"] .avatar-wrap')
-        assert active_avatar.locator(":scope > .v038-turn-timer").is_visible()
+        turn_timer = active_avatar.locator(":scope > .v038-turn-timer")
+        assert turn_timer.is_visible()
         assert page.locator(".table-frame > .v038-turn-timer").count() == 0
         assert page.locator(".v038-turn-context").count() == 0
+        timer_paint = turn_timer.evaluate(
+            """el => {
+                const own = getComputedStyle(el);
+                const ring = getComputedStyle(el, '::before');
+                return {
+                    background: own.backgroundColor,
+                    image: own.backgroundImage,
+                    mask: ring.maskImage || ring.webkitMaskImage,
+                };
+            }"""
+        )
+        assert timer_paint["background"] == "rgba(0, 0, 0, 0)"
+        assert timer_paint["image"] == "none"
+        assert "radial-gradient" in timer_paint["mask"]
+        assert turn_timer.locator("b").evaluate(
+            "el => el.getBoundingClientRect().left >= el.parentElement.getBoundingClientRect().right - 8"
+        )
 
         folded = page.locator('.seat[data-seat="1"] .seat-card')
         assert 0.35 <= float(folded.evaluate("el => getComputedStyle(el).opacity")) <= 0.5
@@ -167,6 +246,18 @@ def test_timer_and_semantic_states_are_attached_to_player_huds(online_server: st
         page.evaluate("document.getElementById('connectionStatus').textContent = 'reconnecting'")
         page.wait_for_function("document.getElementById('mobileConnectionDot').dataset.state === 'reconnecting'")
         assert page.locator("#mobileConnectionDot").get_attribute("aria-label") == "Переподключение"
+
+        waiting = _state(acting=None)
+        page.evaluate(
+            "payload => window.Poker8LegacyView.renderSnapshot({table:{id:'t',name:'Test'},state:payload,viewerState:'seated'})",
+            waiting,
+        )
+        page.evaluate(
+            "window.dispatchEvent(new CustomEvent('poker8:ready-countdown', {detail:{endsAt:Date.now() + 5000}}))"
+        )
+        ready_timer = page.locator('.seat[data-visual-seat="0"] .avatar-wrap > .v038-ready-countdown')
+        assert ready_timer.is_visible()
+        assert page.locator(".felt > .v038-ready-countdown").count() == 0
         browser.close()
 
 
