@@ -757,10 +757,10 @@
       body.v014.poker8-v2-sixmax .v038-hud-summary{
         position:fixed!important;z-index:82;left:96px!important;right:96px!important;top:auto!important;bottom:calc(158px + env(safe-area-inset-bottom))!important;
         height:38px!important;min-height:38px!important;padding:3px 4px!important;border:1px solid rgba(75,255,181,.32)!important;border-radius:10px!important;
-        background:rgba(0,12,8,.88)!important;box-shadow:0 0 14px rgba(35,218,157,.12)!important;pointer-events:none!important;
-        font-size:8px!important;line-height:1!important;letter-spacing:.025em!important;
+        background:rgba(0,8,5,.88)!important;box-shadow:0 0 14px rgba(41,238,165,.12)!important;pointer-events:none!important;
+        font-size:10px!important;line-height:1!important;letter-spacing:0!important;
       }
-      body.v014.poker8-v2-sixmax .v038-hud-summary b{margin-top:3px!important;font-size:14px!important;}
+      body.v014.poker8-v2-sixmax .v038-hud-summary b{margin-top:3px!important;font-size:15px!important;}
       body.v014.poker8-v2-sixmax .action-grid{display:contents!important;}
       body.v014.poker8-v2-sixmax .action-grid .action-slot{
         position:fixed!important;z-index:90;width:88px!important;max-width:88px!important;min-height:58px!important;height:auto!important;padding:8px 7px!important;
