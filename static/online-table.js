@@ -182,6 +182,7 @@
          with the rankings hint (see v037's ensureChatButton); the order
          belongs on that group so it is still always last/rightmost. */
       .poker8-online .mobile-header-utility{order:2}
+      .poker8-online .mobile-header-utility{margin-left:auto!important}
     }
     /* ------------------------------------------------------------------
        How the seat/utility buttons LOOK, as opposed to where the phone
@@ -232,44 +233,25 @@
       .poker8-online .mobile-header-seat-actions #mobileHeaderObserve{
         border-color:rgba(201,168,255,.55);background:#24103e;color:#f2e9ff;
       }
-      /* The picked mode gets a moving gradient ring instead of a flat border --
-         a 1px inset keeps the button's own background as the solid interior,
-         so only the ring itself shows the gradient/shimmer. */
+      /* A selected observer mode is a stable state, not a second call to
+         action. Queueing is quieter still: one status dot says the request is
+         alive without competing with the controls on the felt. */
       .poker8-online .mobile-header-seat-actions button.mode-active{
-        /* !important: #mobileHeaderObserve's own id rule sets border-color
-           too, and an id always outranks this class selector on specificity. */
-        position:relative;border-color:transparent!important;color:#eafff6;
+        position:relative;color:#eafff6;
       }
-      /* Both the ring and the halo below used to fade to 62% with the rest
-         of the button under button:disabled's own opacity -- for
-         #mobileHeaderTakeSeat that's exactly "В очереди", the one state
-         this glow exists to announce, so it was dimming the very thing it
-         was supposed to highlight. */
       .poker8-online .mobile-header-seat-actions button.mode-active:disabled{opacity:1;}
       .poker8-online .mobile-header-seat-actions #mobileHeaderTakeSeat.mode-active{
-        box-shadow:0 0 16px rgba(64,237,167,.55);
+        padding-left:18px;border-color:rgba(85,243,168,.52)!important;
+        background:#0a3b2b;color:#b8ffda;box-shadow:inset 0 0 12px rgba(85,243,168,.07);
       }
-      /* A wedge of the button's own accent colour, riding a rotating
-         --glow-angle around the ring -- not a shimmer sliding side to side,
-         an actual point of light that travels the full perimeter. */
       .poker8-online .mobile-header-seat-actions #mobileHeaderTakeSeat.mode-active::before{
-        content:"";position:absolute;inset:-1px;z-index:-1;border-radius:inherit;
-        background:conic-gradient(from var(--glow-angle),transparent 0 75%,#7dfff0 88%,transparent 100%);
-        animation:p8HeaderGlowSpin 2.6s linear infinite;
-      }
-      .poker8-online .mobile-header-seat-actions #mobileHeaderTakeSeat.mode-active::after{
-        content:"";position:absolute;inset:1px;z-index:-1;border-radius:inherit;background:#0a3b2b;
+        content:"";position:absolute;left:9px;top:50%;transform:translateY(-50%);
+        width:6px;height:6px;border-radius:50%;background:#55f3a8;
+        box-shadow:0 0 7px rgba(85,243,168,.55);
       }
       .poker8-online .mobile-header-seat-actions #mobileHeaderObserve.mode-active{
-        color:#f2e9ff;box-shadow:0 0 16px rgba(201,168,255,.55);
-      }
-      .poker8-online .mobile-header-seat-actions #mobileHeaderObserve.mode-active::before{
-        content:"";position:absolute;inset:-1px;z-index:-1;border-radius:inherit;
-        background:conic-gradient(from var(--glow-angle),transparent 0 75%,#eaddff 88%,transparent 100%);
-        animation:p8HeaderGlowSpin 2.6s linear infinite;
-      }
-      .poker8-online .mobile-header-seat-actions #mobileHeaderObserve.mode-active::after{
-        content:"";position:absolute;inset:1px;z-index:-1;border-radius:inherit;background:#24103e;
+        border-color:rgba(201,168,255,.62)!important;color:#f2e9ff;
+        box-shadow:inset 0 0 12px rgba(201,168,255,.08);
       }
       /* Same green as #mobileHeaderTakeSeat just above -- it is the same kind
          of element, a go-ahead button in this header, not a new colour. */
@@ -280,11 +262,6 @@
       @keyframes p8HeaderReadyPulse{0%,100%{box-shadow:0 0 0 0 rgba(64,237,167,.35)}50%{box-shadow:0 0 0 4px rgba(64,237,167,0)}}
       @media (prefers-reduced-motion:reduce){
         .poker8-online .mobile-header-seat-actions #mobileHeaderReadyUp{animation:none}
-      }
-      @property --glow-angle{syntax:'<angle>';inherits:false;initial-value:0deg}
-      @keyframes p8HeaderGlowSpin{to{--glow-angle:360deg}}
-      @media (prefers-reduced-motion:reduce){
-        .poker8-online .mobile-header-seat-actions button.mode-active::before{animation:none}
       }
       /* v037 built the chat/hint pair in the table's old cyan; recoloured to
          the same violet as #mobileHeaderObserve above so the whole header
