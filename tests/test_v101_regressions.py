@@ -64,11 +64,14 @@ def test_v038_uses_full_height_arc_and_viewport_edge_controls():
     assert 'data-visual-seat="3"]{--v040-seat-x:50%' in source
     assert 'data-visual-seat="4"]{--v040-seat-x:calc(50% + var(--p8-arc-diagonal))' in source
     assert 'data-visual-seat="5"]{--v040-seat-x:calc(50% + var(--p8-arc-radius))' in source
+    for count in range(2, 6):
+        assert f"p8-player-count-{count} .seat[data-visual-seat=" in source
     assert "height:calc(100dvh - var(--p8-header-h))" in source
     assert ".action-panel" in source and "position:fixed!important" in source
     assert "background:transparent!important" in source
     assert "mobileConnectionDot" in source
-    assert "mobileHelpButton" in source
+    assert "mobileHelpButton" not in source
+    assert 'hint.textContent = "?"' in loader
     assert "ЗАНЯТЬ МЕСТО" not in source
     assert '/static/component-ui.js?v=mobile-edge-prod-1' in index
     assert '/static/v037-poker8-v2-reference-table.js?v=mobile-edge-prod-1' in component
