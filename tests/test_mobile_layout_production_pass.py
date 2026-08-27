@@ -38,7 +38,21 @@ def test_mobile_center_stack_is_chips_then_pot_then_board_then_summary():
 
 
 def test_mobile_dealer_uses_the_side_opposite_the_timer_badge():
-    assert (
-        ".dealer-button{left:-9px!important;right:auto!important;"
-        "bottom:2px!important;width:22px!important;height:22px!important;}"
-    ) in TABLE
+    """Opposite side, and now at the same height as the badge it mirrors.
+
+    It sat at bottom:2px, level with the name plate, where it read as
+    decoration on the name rather than as this player's button. The timer
+    hangs off the avatar's right edge at calc(100% - 4px) -- 4px of overlap,
+    vertically centred -- so the dealer takes the mirror of exactly that on
+    the left. Measured live: 4px of overlap, dead centre on the avatar, clear
+    of the plate.
+    """
+    rule = TABLE[TABLE.index(".dealer-button{left:"):]
+    rule = rule[:rule.index("}")]
+    assert "right:auto!important" in rule, "must stay on the left, opposite the timer"
+    assert "bottom:auto!important" in rule, "no longer pinned to the plate"
+    # The avatar is 44px tall from the seat's top, so a 22px badge centres at 11.
+    assert "top:11px!important" in rule
+    # The timer bites 4px into the avatar's right edge; this is its mirror.
+    assert "left:-6px!important" in rule
+    assert "left:calc(100% - 4px)" in TABLE, "the badge this mirrors moved"

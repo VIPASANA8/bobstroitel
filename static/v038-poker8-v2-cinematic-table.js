@@ -463,19 +463,6 @@
         border:1px solid #ecece2!important;background:radial-gradient(circle at 32% 28%,#ffffff,#d9d9ce 60%,#83867c)!important;
         color:#181a17!important;box-shadow:0 2px 6px rgba(0,0,0,.62)!important;
       }
-      /* The button sat at the seat's bottom-left (bottom:26px from
-         style.css), which on a 104px box is level with the name plate -- it
-         overlapped the plate's left edge instead of belonging to anyone.
-         Beside the avatar is where it reads as "this player has the button",
-         mirroring the turn timer on the right. The avatar is 44px tall
-         starting at the seat's top, so 11px centres a 22px badge on it.
-         Phone only: desktop's avatar is twice this size and v039 places its
-         own. */
-      @media (max-width:780px){
-        body.v014.poker8-v2-sixmax .dealer-button{
-          left:-14px!important;right:auto!important;top:11px!important;bottom:auto!important;
-        }
-      }
 
       body.v014.poker8-v2-sixmax .seat .seat-card.v032-in-hand:not(.v032-active-turn){
         border:0!important;background:transparent!important;box-shadow:none!important;outline:0!important;
@@ -863,7 +850,13 @@
         position:absolute;left:calc(100% - 4px);top:50%;min-width:29px;padding:4px 5px;transform:translateY(-50%);border-radius:8px;background:#061611;color:#fff;font-size:13px;line-height:1;text-align:center;text-shadow:0 0 7px #55ffe0;box-shadow:0 0 10px rgba(85,255,224,.35);
       }
       body.v014.poker8-v2-sixmax .avatar-wrap>:is(.v038-turn-timer,.v038-ready-countdown) small{display:none;}
-      body.v014.poker8-v2-sixmax .dealer-button{left:-9px!important;right:auto!important;bottom:2px!important;width:22px!important;height:22px!important;}
+      /* Was bottom:2px -- down at the plate, where it read as decoration on
+         the name rather than as this player's button. Beside the avatar
+         instead, mirroring the turn timer that the rule above hangs on the
+         avatar's right edge at calc(100% - 4px): the same 4px bite out of
+         the avatar, on the left, vertically centred. The avatar is 44px
+         from the seat's top, so top:11px centres the 22px badge on it. */
+      body.v014.poker8-v2-sixmax .dealer-button{left:-6px!important;right:auto!important;top:11px!important;bottom:auto!important;width:22px!important;height:22px!important;}
       body.v014.poker8-v2-sixmax #mobileConnectionDot[data-state="connecting"]{background:#8aa99b;box-shadow:0 0 7px rgba(138,169,155,.58);}
       body.v014.poker8-v2-sixmax #mobileConnectionDot[data-state="reconnecting"]{background:#ffbd55;box-shadow:0 0 9px rgba(255,189,85,.88);}
       body.v014.poker8-v2-sixmax #mobileConnectionDot[data-state="error"]{background:#ff554f;box-shadow:0 0 9px rgba(255,85,79,.88);}
