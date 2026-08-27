@@ -219,12 +219,10 @@ def test_all_in_is_announced_once():
     assert 'class="seat-stack">${allIn ? "ALL-IN" : formatBB(stack)}' in app
 
 
-def test_arming_a_press_survives_its_own_click():
-    """A document listener cancelled any armed action on a click outside
-    [data-v038-all-in-trigger] -- an attribute nothing sets. So the button's
-    own click bubbled up and disarmed what it had just armed, and fold and
-    all-in both did nothing at all."""
-    assert 'closest?.("[data-action-key],[data-v038-all-in-trigger]")' in TABLE
+def test_irreversible_bet_waits_for_the_confirmation_control():
+    """All-in opens a sizing overlay and only its confirm control submits."""
+    assert 'openSizingMode("all_in", amountBounds().max)' in TABLE
+    assert 'if (action === "all_in") return sendAction("all_in", 0)' in TABLE
     assert "button.dataset.actionKey = def.key" in TABLE
 
 

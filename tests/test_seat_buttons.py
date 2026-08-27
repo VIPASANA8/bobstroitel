@@ -133,10 +133,8 @@ def test_no_decorative_gear_squats_where_the_chat_button_lands():
     assert ".mobile-game-header::after{" not in layer
 
 
-def test_a_folded_player_keeps_their_light_and_loses_their_cards():
-    """Dimming the whole seat to 28% made a folded player read as gone -- the
-    name and stack you want to keep reading went with the hand. Folding takes
-    your cards, not your seat."""
+def test_a_folded_player_dims_without_disappearing_and_loses_their_cards():
+    """Folded seats stay readable at 35-50% prominence and lose their cards."""
     v038 = Path("static/v038-poker8-v2-cinematic-table.js").read_text(encoding="utf-8")
     v039 = Path("static/v039-poker8-v2-desktop-parity.js").read_text(encoding="utf-8")
 
@@ -146,8 +144,6 @@ def test_a_folded_player_keeps_their_light_and_loses_their_cards():
 
     assert ".seat-card.v032-folded .player-cards{" in v038
     assert ".seat-card.folded .player-cards{display:none!important;}" in v039
-    # And no dimming left anywhere on a folded seat.
-    for layer in (v038, v039):
-        for rule in re.findall(r"\.(?:v032-)?folded[^{]*\{([^}]*)\}", layer):
-            assert "opacity:.2" not in rule and "opacity:.4" not in rule, rule
-            assert "grayscale" not in rule, rule
+    mobile_fold = re.search(r"\.felt \.seat \.seat-card:is\(\.folded,\.v032-folded\)\{([^}]*)\}", v038)
+    assert mobile_fold and "opacity:.45!important" in mobile_fold.group(1)
+    assert "grayscale" not in mobile_fold.group(1)
