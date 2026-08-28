@@ -1,9 +1,12 @@
-"""TEMPORARY -- bots do not take free seats on the server right now.
+"""TEMPORARY -- bots do not take free seats beside a player right now.
 
 Turned off while live testing needs the free seats to stay free. It is
-deliberately narrow: only the *arrival* of new bots is suppressed. Whoever
-is already seated stays and keeps playing, and a table that is over its
-count still sheds the extras, because the removals run before this point.
+deliberately narrow: only the arrival of new bots *at a table someone is
+sitting at* is suppressed. An empty room still fills to its own count, or
+the lobby would drain to nothing and there would be no five-player table
+to find a five-player bug at. Whoever is already seated stays and keeps
+playing, and a table over its count still sheds the extras, because the
+removals run before this point.
 
 **Restore before the MVP release**: delete `POKER8_SEAT_IDLE_BOTS` from
 compose.server.yaml. Nothing else has to change -- the setting defaults to
@@ -19,7 +22,7 @@ from pathlib import Path
 import pytest
 from sqlalchemy import insert, select
 
-from online.catalogue import Catalogue
+from online.catalogue import IDLE_BOT_COUNTS, Catalogue
 from online.config import Settings
 from online.ledger import PlayLedger
 from online.schema import table_seats, tenants, users
@@ -42,6 +45,16 @@ def lobby(db_session_factory):
     asyncio.run(ledger.ensure_faucet())
     asyncio.run(Catalogue(db_session_factory).seed_defaults())
     return ledger, db_session_factory
+
+
+async def _seat_user(session_factory, table_id, seat_no):
+    """Seat rows exist only for seats somebody holds, so a person sitting
+    down is a new row rather than an empty one changing hands."""
+    async with session_factory() as session:
+        await session.execute(insert(table_seats).values(
+            id=f"{table_id}-u{seat_no}", table_id=table_id, seat_no=seat_no,
+            occupant_kind="user", user_id="u1", stack_units=10_000, state="seated"))
+        await session.commit()
 
 
 async def _bots(session_factory, table_id):
@@ -68,11 +81,26 @@ def test_the_server_currently_has_it_off():
 
 
 @pytest.mark.anyio
-async def test_no_bot_takes_a_free_seat_while_it_is_off(lobby):
+async def test_no_bot_takes_a_free_seat_beside_a_player(lobby):
+    """micro-a holds one bot. Seat a person, drop the bot, and no
+    replacement arrives to take the seat next to them."""
     ledger, session_factory = lobby
-    seating = SeatingService(session_factory, ledger, seat_idle_bots=False)
-    await seating.process_boundary("mid-b", now=START)
-    assert await _bots(session_factory, "mid-b") == 0
+    off = SeatingService(session_factory, ledger, seat_idle_bots=False)
+    await _seat_user(session_factory, "micro-a", seat_no=0)
+    await off.process_boundary("micro-a", now=START)
+    assert await _bots(session_factory, "micro-a") == 0
+
+
+@pytest.mark.anyio
+async def test_an_empty_room_still_fills_to_its_own_count(lobby):
+    """The lobby's shop window, and the reason the switch is not a freeze:
+    each room holds its configured number so a layout can be checked at
+    every player count from one to six."""
+    ledger, session_factory = lobby
+    off = SeatingService(session_factory, ledger, seat_idle_bots=False)
+    for table_id, expected in IDLE_BOT_COUNTS.items():
+        await off.process_boundary(table_id, now=START)
+        assert await _bots(session_factory, table_id) == expected, table_id
 
 
 @pytest.mark.anyio

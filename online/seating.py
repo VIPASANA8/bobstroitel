@@ -732,9 +732,13 @@ class SeatingService:
             1 for row in active_rows if row["occupant_kind"] == "system" and row["state"] == "seated"
         )
         needed = max(0, target_bot_count - seated_bot_count)
-        # The switch stops bots arriving, nothing else: the removals above have
-        # already run, so a table still sheds bots it should not have.
-        if not self.seat_idle_bots:
+        # The switch keeps free seats free *at a table someone is playing at*
+        # -- it is not a freeze on bots existing. An empty room still fills to
+        # its own count, because those six tables are the lobby's shop window
+        # and because finding a layout bug at five players needs a room that
+        # holds five. Removals above have already run either way, so a table
+        # over its count still sheds the extras.
+        if not self.seat_idle_bots and user_count:
             needed = 0
         # Capped, never forced: whoever is already seated stays seated. This
         # only holds back the ones who have not walked in yet.

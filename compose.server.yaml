@@ -26,8 +26,10 @@ services:
       POKER8_TENANTS_JSON: ${POKER8_TENANTS_JSON:?POKER8_TENANTS_JSON is required}
       POKER8_COORDINATOR_ENABLED: ${POKER8_COORDINATOR_ENABLED:-1}
       # TEMPORARY -- delete this line to restore bot seating before the
-      # MVP release. Off while live testing needs the free seats to stay
-      # free; bots already at a table keep playing.
+      # MVP release. Off while live testing needs the free seats beside a
+      # player to stay free; bots already at a table keep playing, and an
+      # empty room still fills to its own count so the lobby holds a table
+      # at every player count from one to six.
       POKER8_SEAT_IDLE_BOTS: ${POKER8_SEAT_IDLE_BOTS:-0}
       POKER8_OPEN_ACCESS: ${POKER8_OPEN_ACCESS:-0}
     command: ["sh", "-c", "python -m alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]
