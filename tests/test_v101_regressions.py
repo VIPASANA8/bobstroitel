@@ -76,11 +76,19 @@ def test_v038_uses_full_height_arc_and_viewport_edge_controls():
     assert "top:var(--v038-summary-top,41%)!important" in source
     assert 'hint.textContent = "?"' in loader
     assert "ЗАНЯТЬ МЕСТО" not in source
-    assert '/static/component-ui.js?v=sit-slot-4' in index
-    assert '/static/online-table.js?v=mobile-layout-prod-15' in index
-    assert '/static/v037-poker8-v2-reference-table.js?v=sit-slot-4' in component
-    assert '/static/v038-poker8-v2-cinematic-table.js?v=sit-slot-4' in loader
-    assert '/static/v040-poker8-v2-dynamic-seats.js?v=seat-levels-2' in loader
+    # Pinned as "carries some cache-bust", not as a literal slug. Spelling
+    # each one out here is what let the chain drift into three slugs at once
+    # and still look correct: online-table.js and v041 sat on
+    # mobile-layout-prod-15 and v040 on seat-levels-2 while index.html was
+    # bumped past both, so the page kept asking for URLs that had not
+    # changed in many deploys. test_the_loader_chain_moves_as_one owns the
+    # rule that they all match.
+    import re as _re
+    for source, name in ((index, "component-ui.js"), (index, "online-table.js"),
+                         (component, "v037-poker8-v2-reference-table.js"),
+                         (loader, "v038-poker8-v2-cinematic-table.js"),
+                         (loader, "v040-poker8-v2-dynamic-seats.js")):
+        assert _re.search(_re.escape(name) + r"\?v=[A-Za-z0-9._-]+", source), name
 
 
 def test_v025_showdown_modal_is_readable_on_mobile():
