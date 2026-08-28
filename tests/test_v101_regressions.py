@@ -74,10 +74,10 @@ def test_v038_uses_full_height_arc_and_viewport_edge_controls():
     assert "mobileHelpButton" not in source
     assert 'hint.textContent = "?"' in loader
     assert "ЗАНЯТЬ МЕСТО" not in source
-    assert '/static/component-ui.js?v=mobile-layout-prod-12' in index
-    assert '/static/online-table.js?v=mobile-layout-prod-12' in index
-    assert '/static/v037-poker8-v2-reference-table.js?v=mobile-layout-prod-12' in component
-    assert '/static/v038-poker8-v2-cinematic-table.js?v=mobile-layout-prod-12' in loader
+    assert '/static/component-ui.js?v=mobile-layout-prod-13' in index
+    assert '/static/online-table.js?v=mobile-layout-prod-13' in index
+    assert '/static/v037-poker8-v2-reference-table.js?v=mobile-layout-prod-13' in component
+    assert '/static/v038-poker8-v2-cinematic-table.js?v=mobile-layout-prod-13' in loader
 
 
 def test_v025_showdown_modal_is_readable_on_mobile():

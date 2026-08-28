@@ -53,7 +53,7 @@ def test_every_layout_still_has_a_point_per_player():
 
 def test_one_empty_seat_is_kept_as_the_invitation():
     body = V040[V040.index("const activeSet = new Set(active);"):]
-    body = body[:body.index("const countClass")]
+    body = body[:body.index(chr(10) + "  }" + chr(10))]
     assert "sitSeat" in body
     assert "!viewer && count < 6" in body, "not offered to someone already seated, nor in a full room"
     # app.js's renderSeats renders the "Сесть" button into exactly one empty
@@ -70,3 +70,15 @@ def test_the_invitation_is_placed_in_the_hero_chair():
     assert f"moveSeatTo(sitSeat, {HERO_X}, {HERO_Y})" in V040
     # And it must not also be swept up by the leftover-seat placement below.
     assert "!activeSet.has(seat) && seat !== sitSeat" in V040
+
+
+def test_seats_are_placed_before_they_are_revealed():
+    """Revealing first meant any failure in between -- a layout short of
+    points, a class pair matching neither half of the stylesheet -- left a
+    seat on screen with nothing positioning it, so it fell back to
+    style.css's seven-seat ring. That is how the Сесть button kept landing
+    in the top-left corner. A seat that cannot be placed stays hidden."""
+    body = V040[V040.index("function applyDynamicLayoutInner"):]
+    body = body[:body.index("\n  }\n")]
+    assert body.index("moveSeatTo(sitSeat") < body.index('classList.toggle("v040-dynamic-seat"')
+    assert body.index("moveSeatTo(seat, x, y)") < body.index('classList.toggle("v040-empty-seat"')

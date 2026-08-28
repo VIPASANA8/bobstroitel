@@ -150,18 +150,21 @@
   document.head.appendChild(style);
 
   function playerForSeat(gameState, seat) {
-    const physical = Number(seat.dataset.seat);
-    const fromGame = Object.values(gameState?.players || {}).find(player => Number(player?.seat) === physical) || null;
-    if (fromGame) return fromGame;
-    // A seat can be occupied without being in gameState.players -- e.g.
-    // someone seated while a hand they aren't dealt into is running (see
-    // current_seats on the server, and the same fallback in app.js's
-    // seatHtml/renderSeats). The seat-card app.js already rendered for them
-    // is the only signal of that here; .viewer-seat is the same fallback's
-    // own "is this you" marker, reused instead of re-deriving it a third time.
+    // Whether a seat is taken is app.js's answer, and the seat-card it drew is
+    // where that answer lives. gameState.players is the last *dealt* hand's
+    // roster and outlives the people in it -- on a table that can no longer
+    // deal it never updates again -- so reading it directly laid the felt out
+    // for players who had already left: ghost boxes on the ring, everybody
+    // real pushed into the wrong layout, and the Сесть button carried off to
+    // a player's position. app.js filters the same thing by current_seats
+    // (see playerAtSeat), which is why only its output can be trusted here.
     const card = seat.querySelector(".seat-card");
     if (!card) return null;
-    return { seat: physical, id: null, isViewerCard: card.classList.contains("viewer-seat") };
+    const physical = Number(seat.dataset.seat);
+    // The roster is still the better source for *who* it is when it has them;
+    // .viewer-seat is app.js's own "is this you" marker for when it does not.
+    return Object.values(gameState?.players || {}).find(player => Number(player?.seat) === physical)
+      || { seat: physical, id: null, isViewerCard: card.classList.contains("viewer-seat") };
   }
 
   function orderedActiveSeats(gameState, tableState) {
@@ -286,12 +289,6 @@
     const sitSeat = !viewer && count < 6
       ? allSeats.find(seat => !activeSet.has(seat) && seat.querySelector("[data-add-seat]")) || null
       : null;
-    allSeats.forEach(seat => {
-      const shown = activeSet.has(seat) || seat === sitSeat;
-      seat.classList.toggle("v040-empty-seat", !shown);
-      seat.classList.toggle("v040-dynamic-seat", shown);
-      seat.classList.toggle("v040-sit-slot", seat === sitSeat);
-    });
     // This runs on every snapshot/poll, i.e. continuously on a live table. A
     // remove-then-add of the class the body already carries still restarts
     // the width/height/transform transitions on .v040-dynamic-seat (verified:
@@ -328,6 +325,20 @@
         const point = spare[index % Math.max(1, spare.length)];
         if (point) moveSeatTo(seat, point[0], point[1]);
       });
+
+    // Revealed last, and only now that every seat above has its coordinates.
+    // Doing this first meant anything that went wrong in between -- a layout
+    // with fewer points than players, a class combination matching neither
+    // half of the stylesheet -- left a seat on screen with nothing positioning
+    // it, so it fell back to style.css's seven-seat ring. That is how the
+    // Сесть button kept turning up in the top-left corner instead of the
+    // hero's chair. A seat that cannot be placed now simply stays hidden.
+    allSeats.forEach(seat => {
+      const shown = activeSet.has(seat) || seat === sitSeat;
+      seat.classList.toggle("v040-empty-seat", !shown);
+      seat.classList.toggle("v040-dynamic-seat", shown);
+      seat.classList.toggle("v040-sit-slot", seat === sitSeat);
+    });
     // Seats are where they belong -- the caller uses this to decide the boot
     // cloak can come off.
     return true;
