@@ -165,7 +165,15 @@
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat[data-visual-seat="0"] .player-avatar{border-color:#35bfff!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat[data-visual-seat="0"] .player-cards{top:-30px!important;z-index:9!important;gap:4px!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat[data-visual-seat="0"] .player-cards .card{width:47px!important;height:65px!important;border-color:#56c8ff!important;box-shadow:0 0 12px rgba(47,184,255,.46),0 5px 9px rgba(0,0,0,.54)!important;}
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .dealer-button{right:-6px!important;bottom:28px!important;z-index:12!important;}
+      /* Beside the avatar on its left, the way the phone places it -- it sat
+         bottom-right of the whole seat box here, which on a 146x154 box reads
+         as floating off the seat rather than belonging to it. The avatar is
+         88px centred in that box, so its left edge is at 29px and this sits
+         just outside it, centred on the same line. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .dealer-button{
+        left:-5px!important;top:31px!important;right:auto!important;bottom:auto!important;
+        width:30px!important;height:30px!important;z-index:12!important;
+      }
 
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .table-center{transform:translate(-50%,-50%) scale(.94)!important;z-index:12!important;}
       /* Same on desktop: the player stays lit, the cards go. */
@@ -343,9 +351,37 @@
          200px of empty dark either side -- measured live at 1732px, and the
          single thing that made the seated table read as unfinished. Track
          the felt instead so the HUD and the table share one edge. */
+      /* The sidebar is a two-column grid, and with the other panels hidden the
+         action panel landed in the second column while still being told to be
+         940px wide -- it started at the sidebar's midpoint and ran past the
+         layout's right edge. One column, and the panel spans it. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .sidebar{
+        grid-template-columns:minmax(0,1fr)!important;justify-items:center!important;
+      }
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .action-panel{
         position:relative!important;width:min(100%,860px)!important;margin-inline:auto!important;
+        grid-column:1 / -1!important;
       }
+
+      /* The phone's bet-gesture furniture. Desktop has a slider and a row of
+         quick sizes doing the same job, so these three only stacked on top of
+         them: measured, the confirm button sat on the quick sizes and the
+         rail crossed both the sizes and the slider. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .mobile-sizing-head,
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #mobileSizingConfirm,
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #mobileSizingCancel,
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #mobileBetRail{display:none!important;}
+
+      /* The same arrangement the phone reads, on desktop's own buttons:
+             ALL-IN  |  CHECK/CALL
+             FOLD    |  RAISE/BET
+         Their order comes from a different renderer here, so it is set on the
+         grid rather than in the list that builds them. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons .action-slot.all-in{order:1!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons .action-slot.check,
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons .action-slot.call{order:2!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons .action-slot.fold{order:3!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons .action-slot.raise{order:4!important;}
       /* The stage is a grid row here, not a subtraction from the viewport. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2{
         --p8-bottom-reserve:0px!important;

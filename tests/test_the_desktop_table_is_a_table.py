@@ -98,3 +98,51 @@ def test_the_centre_reads_the_same_way_as_the_phone():
     # rules for .pot-total come after this one.
     for selector, order in ((".pot-chips", 1), (".pot-total", 2), (".board-cards", 3)):
         assert f"{DESKTOP} {selector}{{order:{order}!important;top:auto!important;}}" in V039, selector
+
+
+def test_the_phones_two_player_nudges_stay_on_the_phone():
+    """Two numbers tuned for the phone's 79x83 two-player box carried an
+    extra attribute selector, so they outranked the desktop's own geometry
+    on a 146x154 box with an 88px avatar: measured, the name plate ran 45px
+    through the middle of the face."""
+    for part in (".avatar-wrap", ".seat-identity"):
+        rule = f'body.v014.poker8-v2-sixmax:not(.poker8-desktop-v2).p8-player-count-2 .seat.v040-dynamic-seat[data-visual-seat="1"] {part}'
+        assert rule in V040, part
+    assert 'body.v014.poker8-v2-sixmax.p8-player-count-2 .seat.v040-dynamic-seat[data-visual-seat="1"]' not in V040
+
+
+def test_the_dealer_button_sits_beside_the_avatar():
+    """It was pinned to the bottom-right of the whole seat box, which on a
+    146x154 box reads as floating off the seat. The avatar is 88px centred
+    there, so its left edge is at 29px."""
+    rule = _rule(V039, f"{DESKTOP} .dealer-button")
+    assert "left:-5px!important" in rule and "top:31px!important" in rule
+    assert "right:auto!important" in rule and "bottom:auto!important" in rule
+
+
+def test_the_phones_bet_gesture_furniture_is_not_drawn_on_desktop():
+    """Desktop has a slider and a row of quick sizes doing the same job.
+    Measured with all of them on screen: the confirm button sat on the quick
+    sizes and the rail crossed both the sizes and the slider."""
+    for part in (".mobile-sizing-head", "#mobileSizingConfirm", "#mobileSizingCancel", "#mobileBetRail"):
+        assert f"{DESKTOP} {part}" in V039, part
+
+
+def test_the_action_panel_is_centred_under_the_table():
+    """The sidebar is a two-column grid; with the other panels hidden the
+    action panel landed in the second column while still 940px wide, so it
+    started at the sidebar's midpoint and ran past the layout's right edge."""
+    sidebar = _rule(V039, f"{DESKTOP} .sidebar")
+    assert "grid-template-columns:minmax(0,1fr)!important" in sidebar
+    panel = _rule(V039, f"{DESKTOP} .action-panel")
+    assert "grid-column:1 / -1!important" in panel
+    assert "margin-inline:auto!important" in panel
+
+
+def test_desktop_buttons_take_the_same_arrangement_as_the_phone():
+    """ALL-IN | CHECK over FOLD | RAISE. Desktop builds these with a
+    different renderer, so the order is set on the grid rather than in the
+    list that makes them."""
+    for cls, order in (("all-in", 1), ("fold", 3), ("raise", 4)):
+        assert f"#actionButtons .action-slot.{cls}{{order:{order}!important;}}" in V039, cls
+    assert f"{DESKTOP} #actionButtons .action-slot.call{{order:2!important;}}" in V039

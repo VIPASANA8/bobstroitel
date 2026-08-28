@@ -151,8 +151,13 @@
       body.v014.poker8-v2-sixmax.p8-player-count-6 .seat.v040-dynamic-seat{width:67px!important;height:77px!important;}
       /* The hero seat used to be pinned at a fixed 87x87 regardless of player
          count -- now it takes the same per-count size as every other seat. */
-      body.v014.poker8-v2-sixmax.p8-player-count-2 .seat.v040-dynamic-seat[data-visual-seat="1"] .avatar-wrap{top:7px!important;}
-      body.v014.poker8-v2-sixmax.p8-player-count-2 .seat.v040-dynamic-seat[data-visual-seat="1"] .seat-identity{top:50px!important;}
+      /* Phone only. These two numbers are the phone's 79x83 two-player box;
+         desktop's is 146x154 with an 88px avatar, and 50px put the name plate
+         straight through the middle of it -- measured, a 45px overlap. The
+         extra attribute here outranks v039's own desktop geometry, so the
+         exclusion has to be explicit. */
+      body.v014.poker8-v2-sixmax:not(.poker8-desktop-v2).p8-player-count-2 .seat.v040-dynamic-seat[data-visual-seat="1"] .avatar-wrap{top:7px!important;}
+      body.v014.poker8-v2-sixmax:not(.poker8-desktop-v2).p8-player-count-2 .seat.v040-dynamic-seat[data-visual-seat="1"] .seat-identity{top:50px!important;}
 
       /* The invitation is a chair, so it takes the chair's own shape: the
          avatar's circle, in the avatar's place, with the label where the
