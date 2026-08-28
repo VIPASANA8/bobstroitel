@@ -577,7 +577,7 @@
            content: 15px, which is what lets it sit in the 24px gap between
            the pot's bottom and the board's top on a 321x760 phone felt. */
         position:absolute!important;bottom:auto!important;
-        left:50%!important;right:auto!important;top:41%!important;
+        left:50%!important;right:auto!important;top:var(--v038-summary-top,41%)!important;
         /* A plate of its own, in the pot's colours -- it read as text lying
            loose on the felt before. */
         padding:4px 10px!important;border-radius:7px!important;
@@ -1446,6 +1446,25 @@
     row.querySelectorAll("button small").forEach(value => setText(value, stripHudUnit(value.textContent)));
   }
 
+  function positionHudSummary(summary, host) {
+    const pot = document.querySelector(".pot-total");
+    const board = document.getElementById("board");
+    if (!summary.classList.contains("on-felt") || !pot || !board) {
+      summary.style.removeProperty("--v038-summary-top");
+      return;
+    }
+    const hostRect = host.getBoundingClientRect();
+    const potRect = pot.getBoundingClientRect();
+    const boardRect = board.getBoundingClientRect();
+    const summaryRect = summary.getBoundingClientRect();
+    if (!potRect.height || !boardRect.height || !summaryRect.height || boardRect.top <= potRect.bottom) {
+      summary.style.removeProperty("--v038-summary-top");
+      return;
+    }
+    const top = (potRect.bottom + boardRect.top - summaryRect.height) / 2 - hostRect.top;
+    summary.style.setProperty("--v038-summary-top", `${top}px`);
+  }
+
   function ensureHudSummary() {
     // On a phone this belongs on the felt, in the gap between the pot and
     // the board -- down in the action panel it is outside where the eye is
@@ -1468,6 +1487,7 @@
       else host.prepend(summary);
     }
     summary.classList.toggle("on-felt", onFelt);
+    positionHudSummary(summary, host);
     const call = typeof estimatedLocalToCall === "function" ? formatBB(estimatedLocalToCall()) : "0.00 ББ";
     const raw = Number(document.getElementById("amount")?.value);
     const amount = typeof formatBB === "function" && Number.isFinite(raw) ? formatBB(raw) : "0.00";

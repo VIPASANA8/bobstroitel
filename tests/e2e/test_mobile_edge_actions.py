@@ -32,13 +32,20 @@ def _state(
     }
 
 
-def _open_table(page: Page, base_url: str, width: int, height: int, state: dict | None = None) -> None:
+def _open_table(
+    page: Page,
+    base_url: str,
+    width: int,
+    height: int,
+    state: dict | None = None,
+    viewer_state: str = "seated",
+) -> None:
     page.set_viewport_size({"width": width, "height": height})
     page.goto(f"{base_url}/table", wait_until="domcontentloaded")
     page.wait_for_function("window.Poker8LegacyView && document.getElementById('v038-poker8-v2-cinematic-table-style')")
     page.evaluate(
-        "payload => window.Poker8LegacyView.renderSnapshot({table:{id:'t',name:'Test'},state:payload,viewerState:'seated'})",
-        state or _state(),
+        "payload => window.Poker8LegacyView.renderSnapshot({table:{id:'t',name:'Test'},state:payload.state,viewerState:payload.viewerState})",
+        {"state": state or _state(), "viewerState": viewer_state},
     )
     page.wait_for_function("document.body.classList.contains('poker8-v2-sixmax')")
     page.wait_for_timeout(100)
@@ -127,6 +134,30 @@ def test_player_count_arcs_and_summary_do_not_overlap(online_server: str, player
         browser.close()
 
 
+@pytest.mark.parametrize("viewer_state", ["seated", "spectator"])
+def test_call_bet_summary_stays_centered_when_the_table_resizes(
+    online_server: str, viewer_state: str,
+):
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        page = browser.new_page(device_scale_factor=1)
+        for height in (640, 720, 800, 874):
+            _open_table(page, online_server, 374, height, viewer_state=viewer_state)
+            rects = page.locator(".pot-total,.v038-hud-summary.on-felt,#board").evaluate_all(
+                """els => Object.fromEntries(els.map(el => {
+                    const rect = el.getBoundingClientRect();
+                    const key = el.classList.contains('pot-total') ? 'pot' : el.id === 'board' ? 'board' : 'summary';
+                    return [key, {top:rect.top,bottom:rect.bottom}];
+                }))"""
+            )
+            above = rects["summary"]["top"] - rects["pot"]["bottom"]
+            below = rects["board"]["top"] - rects["summary"]["bottom"]
+            assert above >= -1
+            assert below >= -1
+            assert above == pytest.approx(below, abs=1)
+        browser.close()
+
+
 def test_mobile_header_and_center_stack_use_their_reserved_lanes(online_server: str):
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
@@ -154,10 +185,10 @@ def test_mobile_header_and_center_stack_use_their_reserved_lanes(online_server: 
             pot = layers["potTotal"]
             board_rect = layers["board"]
             summary = layers["summary"]
-            assert chips["cy"] < pot["cy"] < board_rect["cy"] < summary["cy"]
+            assert chips["cy"] < pot["cy"] < summary["cy"] < board_rect["cy"]
             assert not _rects_intersect(chips, pot)
-            assert not _rects_intersect(pot, board_rect)
-            assert not _rects_intersect(board_rect, summary)
+            assert not _rects_intersect(pot, summary)
+            assert not _rects_intersect(summary, board_rect)
         browser.close()
 
 

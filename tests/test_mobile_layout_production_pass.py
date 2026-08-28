@@ -49,11 +49,17 @@ def test_mobile_center_stack_is_chips_then_pot_then_summary_then_board():
 
     chips, pot, board = top_of(".pot-chips"), top_of(".pot-total"), top_of(".board-cards")
 
-    summary = re.search(r"\.v038-hud-summary\.on-felt\{[^}]*?top:(\d+)%!important", TABLE, re.S)
+    summary = re.search(
+        r"\.v038-hud-summary\.on-felt\{[^}]*?top:var\(--v038-summary-top,(\d+)%\)!important",
+        TABLE,
+        re.S,
+    )
     assert summary, "the felt strip lost its position"
     strip = int(summary.group(1))
 
     assert chips < pot < strip < board, (chips, pot, strip, board)
+    assert "(potRect.bottom + boardRect.top - summaryRect.height) / 2 - hostRect.top" in TABLE
+    assert 'window.addEventListener("resize", queueSync)' in TABLE
     # It needs its own plate, or it reads as text lying loose on the felt.
     plate = TABLE[TABLE.index(".v038-hud-summary.on-felt{"):]
     plate = plate[:plate.index("}")]
