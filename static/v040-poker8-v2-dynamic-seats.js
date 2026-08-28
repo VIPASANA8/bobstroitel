@@ -226,19 +226,29 @@
   // flashing on entry. Wrapped so every exit path clears it, including the
   // empty-table one: with no seats to place there is nothing left to jump.
   function applyDynamicLayout(gameState, tableState) {
+    let placed = false;
     try {
-      applyDynamicLayoutInner(gameState, tableState);
+      placed = applyDynamicLayoutInner(gameState, tableState) === true;
     } finally {
-      document.body.classList.add("p8-boot-ready");
+      // Only once the table is actually showing the truth. The first sync
+      // runs before any snapshot has arrived: no player data, so nothing is
+      // placed and the seats still sit at style.css's seven-seat defaults --
+      // with the previous hand's roster drawn into them. Revealing then is
+      // what put a crooked table full of the wrong players on screen for a
+      // moment. A table that is genuinely empty still reveals immediately:
+      // there is data, there is simply nobody in it.
+      if (placed || tableState || gameState) {
+        document.body.classList.add("p8-boot-ready");
+      }
     }
   }
 
   function applyDynamicLayoutInner(gameState, tableState) {
-    if (!isMobile() && !isDesktop()) return;
+    if (!isMobile() && !isDesktop()) return false;
     const allSeats = [...document.querySelectorAll(".seat[data-seat]")];
     const { active, viewer } = orderedActiveSeats(gameState, tableState);
     const count = Math.min(6, active.length);
-    if (!count) return;
+    if (!count) return false;
 
     const activeSet = new Set(active);
     allSeats.forEach(seat => {
@@ -280,6 +290,9 @@
         const point = spare[index % Math.max(1, spare.length)];
         if (point) moveSeatTo(seat, point[0], point[1]);
       });
+    // Seats are where they belong -- the caller uses this to decide the boot
+    // cloak can come off.
+    return true;
   }
 
   const previousLayout = window.syncComponentSeatLayout;

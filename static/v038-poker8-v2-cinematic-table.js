@@ -921,7 +921,12 @@
       dot.id = "mobileConnectionDot";
       dot.setAttribute("role", "status");
       dot.setAttribute("aria-label", "Подключение");
-      document.getElementById("mobileMenuButton")?.after(dot);
+      // Appended to the body, not into the header. The header carries a
+      // backdrop-filter, and that makes it the containing block for any
+      // fixed descendant -- so the dot's right/bottom resolved against the
+      // 50px header and it parked in the header's own corner instead of the
+      // screen's. Nothing here has a layout relationship to the header.
+      document.body.appendChild(dot);
     }
     syncConnectionDot();
   }

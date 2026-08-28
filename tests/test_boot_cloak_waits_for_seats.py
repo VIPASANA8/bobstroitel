@@ -30,19 +30,32 @@ def test_no_layer_lifts_it_merely_on_load():
     assert "p8-boot-ready" not in V041
 
 
-def test_every_exit_path_clears_it():
-    """Including the empty-table one -- with no seats to place there is
-    nothing left to jump, so waiting the full failsafe there would be a
-    blank table for no reason."""
+def test_it_waits_for_real_data_not_just_for_the_call():
+    """The first sync runs before any snapshot arrives.
+
+    Clearing the cloak on *every* exit was the first attempt, and it was
+    wrong in the case that matters: with no player data nothing is placed,
+    the seats keep style.css's seven-seat defaults, and app.js has already
+    drawn the previous hand's roster into them -- which is how a crooked
+    table showing four players landed on a one-bot table for a moment.
+
+    A genuinely empty table still reveals at once: there is data, there is
+    simply nobody in it.
+    """
     start = V040.index("function applyDynamicLayout(gameState, tableState) {")
     wrapper = V040[start:V040.index("function applyDynamicLayoutInner")]
-    assert "finally" in wrapper, "an early return would skip the class"
+    assert "finally" in wrapper, "an exception must not strand the cloak"
     assert 'classList.add("p8-boot-ready")' in wrapper
+    assert "if (placed || tableState || gameState)" in wrapper, (
+        "the cloak must not lift on a data-less first pass"
+    )
 
-    # The real work must have moved into the inner function, or the wrapper
-    # is wrapping nothing.
+    # The inner pass has to actually report whether it placed anything, or
+    # the guard above is reading a value nobody sets.
     inner = V040[V040.index("function applyDynamicLayoutInner"):]
     assert "orderedActiveSeats" in inner[:2000]
+    assert "return false;" in inner
+    assert "return true;" in inner
 
 
 def test_the_failsafe_survives():
