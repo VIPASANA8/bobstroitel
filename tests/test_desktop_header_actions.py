@@ -50,6 +50,9 @@ def _run_place(is_phone):
       body: {classList: {toggle(name, on) { on ? state.bodyClasses.add(name) : state.bodyClasses.delete(name); }}},
     };
     const $ = id => ({mobileHeaderSeatActions: seatActions, mobileHeaderUtility: utility}[id] || null);
+    // Sizing the seat pair is measured against a real rendered font, which
+    // this DOM does not have; placing the groups is what is under test here.
+    const sizeHeaderSeatButtons = () => {};
     %s
     placeHeaderActions();
     console.log(JSON.stringify({

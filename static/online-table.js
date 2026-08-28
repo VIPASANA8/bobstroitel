@@ -214,12 +214,14 @@
       /* Fixed rather than content-width: "Занять место" swaps to "В очереди"
          and "Наблюдать" swaps to "Отменить" in the same slot (see
          syncHeaderSeatButtons), and an auto width visibly resized the whole
-         pair on every click. 88px fits the longer label of each pair with
-         the tighter padding above; text-align centres the shorter one in it
-         instead of hugging the left edge. */
+         pair on every click. The width is measured from the widest of those
+         four labels in whatever font actually rendered -- 88px was measured
+         in Inter, and a phone that falls back to its own system face draws
+         the same string wider, which cut "Занять место" to "Занять ме...".
+         text-align centres the shorter label instead of hugging the left. */
       .poker8-online .mobile-header-seat-actions #mobileHeaderTakeSeat,
       .poker8-online .mobile-header-seat-actions #mobileHeaderObserve{
-        width:88px;text-align:center;
+        width:var(--p8-seat-action-w,88px);text-align:center;
       }
       .poker8-online .mobile-header-seat-actions #mobileHeaderTakeSeat{
         border-color:rgba(64,237,167,.7);background:#0a3b2b;
@@ -345,6 +347,7 @@
     // failure above can never leave desktop with no way to sit down at all:
     // #readyPanel stays as the fallback until this says otherwise.
     document.body.classList.toggle("p8-desktop-header-actions", !phone);
+    sizeHeaderSeatButtons();
   }
   placeHeaderActions();
   mobileQuery?.addEventListener?.("change", placeHeaderActions);
@@ -621,6 +624,35 @@
     voluntaryCancelInFlight = true;
     await window.Poker8Transport.cancelReady();
     await refreshState();
+  }
+
+  //: Every label either button can carry -- the width has to fit the widest,
+  //: or the swap resizes the pair.
+  const SEAT_ACTION_LABELS = ["Занять место", "Наблюдать", "В очереди", "Отменить"];
+
+  // Measured rather than assumed: the 88px this replaces was right in Inter
+  // and too narrow in the system face a phone falls back to, which truncated
+  // the longest label. Capped so a very wide face cannot push the pair into
+  // the utility group beside it; the ellipsis is still there underneath.
+  function sizeHeaderSeatButtons() {
+    const wrap = $("mobileHeaderSeatActions");
+    const button = $("mobileHeaderTakeSeat");
+    if (!wrap || !button) return;
+    const style = window.getComputedStyle(button);
+    const probe = document.createElement("span");
+    probe.style.cssText = `position:absolute;visibility:hidden;white-space:nowrap;font:${style.font}`;
+    document.body.appendChild(probe);
+    let widest = 0;
+    for (const label of SEAT_ACTION_LABELS) {
+      probe.textContent = label;
+      widest = Math.max(widest, probe.getBoundingClientRect().width);
+    }
+    probe.remove();
+    if (!widest) return;
+    const chrome = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight)
+      + parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth);
+    const width = Math.min(Math.ceil(widest + chrome) + 2, Math.round(window.innerWidth * 0.34));
+    wrap.style.setProperty("--p8-seat-action-w", `${width}px`);
   }
 
   function syncHeaderSeatButtons(state) {
@@ -1031,7 +1063,15 @@
   async function readyUp() {
     // Toggling mid-hand would just be marking readiness for whichever hand
     // deals next, which is confusing -- gate the same way v024 does locally.
+    //
+    // viewerState is not enough on its own: the server reports "seated" for a
+    // seat that is merely held for the next boundary, or on its way out,
+    // while the endpoint behind this call counts only a seat in state
+    // "seated" and answers "take a seat before marking ready" for the rest.
+    // viewerSeatNo applies that same rule, so gating on it means the button
+    // is offered exactly when the call behind it can succeed.
     if (readyUpInFlight || viewerState !== "seated" || !isPreHand()) return;
+    if (viewerSeatNo(latestState) == null) return;
     readyUpInFlight = true;
     try {
       await window.Poker8Transport.readyUp();

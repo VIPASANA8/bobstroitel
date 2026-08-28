@@ -141,3 +141,29 @@ def test_a_held_seat_is_not_read_as_a_seated_one():
     seating = runtime[runtime.index("async def _current_seating"):]
     seating = seating[:seating.index("@staticmethod")]
     assert '"state": seat["state"]' in seating, "the client cannot filter what it is not told"
+
+
+def test_marking_ready_needs_the_seat_the_server_counts():
+    """The server reports viewer_state "seated" for a seat that is only held
+    for the next boundary (app/routers/tables.py), while the ready-up
+    endpoint behind the button counts only state == "seated" and refuses the
+    rest with "take a seat before marking ready". Gating readyUp on
+    viewerSeatNo -- which applies the server's own rule -- means the button
+    is offered exactly when the call behind it can succeed. Reported live
+    from both the header button and the avatar, which share this path."""
+    online = (STATIC / "online-table.js").read_text(encoding="utf-8")
+    body = online[online.index("async function readyUp() {"):]
+    body = body[:body.index(chr(10) + "  }")]
+    assert "viewerSeatNo(latestState) == null" in body
+
+
+def test_the_invitation_ring_cannot_be_squashed_into_an_ellipse():
+    """Sized as a percentage of the button, the ring depended on the button
+    resolving a height; where it did not, the ring collapsed to the glyph's
+    line box and drew as a flat ellipse -- reported from a phone. Its own
+    pixels, plus aspect-ratio as a floor, keep it round."""
+    block = V040[V040.index(".v040-sit-slot .empty-avatar{"):]
+    block = block[:block.index("}")]
+    assert "width:var(--p8-sit-size)" in block and "height:var(--p8-sit-size)" in block
+    assert "aspect-ratio:1" in block
+    assert "height:100%" not in block, "a percentage height is what collapsed"

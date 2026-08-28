@@ -158,3 +158,31 @@ def test_the_pair_never_gets_the_solo_centring_class():
     # the class must stay off whenever the pair is what's showing.
     assert _run("spectator")["soloClass"] is False
     assert _run("waiting")["soloClass"] is False
+
+
+def test_the_seat_pair_is_as_wide_as_its_widest_label_really_renders():
+    """88px was measured in Inter. A phone that falls back to its own system
+    face draws the same string wider, and "Занять место" arrived as
+    "Занять ме...". The pair still has one fixed width -- the labels swap in
+    place and an auto width resized them on every click -- but that width is
+    now measured from the widest label in whatever font actually rendered."""
+    source = Path("static/online-table.js").read_text(encoding="utf-8")
+    rule = source[source.index("#mobileHeaderTakeSeat,"):]
+    rule = rule[:rule.index("}")]
+    assert "width:var(--p8-seat-action-w" in rule
+    assert "width:88px" not in rule
+
+    sizer = source[source.index("function sizeHeaderSeatButtons() {"):]
+    sizer = sizer[:sizer.index(chr(10) + "  }")]
+    # Every label either button can carry, or the swap resizes the pair.
+    for label in ("Занять место", "Наблюдать", "В очереди", "Отменить"):
+        assert label in source
+    assert "SEAT_ACTION_LABELS" in sizer
+    assert "getComputedStyle" in sizer, "measured in the rendered font, not assumed"
+    assert "innerWidth" in sizer, "capped so a wide face cannot push the row apart"
+
+    # placeHeaderActions is the one that already runs on every render and on
+    # the resize/breakpoint change -- the two moments the font or the width
+    # budget can have moved.
+    place = source[source.index("function placeHeaderActions() {"):]
+    assert "sizeHeaderSeatButtons();" in place[:place.index(chr(10) + "  }")]

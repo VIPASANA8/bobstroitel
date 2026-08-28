@@ -149,7 +149,12 @@
       }
       body.v014.poker8-v2-sixmax .seat.v040-sit-slot .empty-avatar{
         display:grid!important;place-items:center!important;
-        width:100%!important;height:100%!important;box-sizing:border-box!important;
+        /* Its own pixels, not a percentage of the button: a percentage height
+           depends on the parent resolving one, and where it did not the ring
+           collapsed to the glyph's line box and drew as a flat ellipse
+           instead of a circle. aspect-ratio holds it round even then. */
+        width:var(--p8-sit-size)!important;height:var(--p8-sit-size)!important;
+        aspect-ratio:1!important;box-sizing:border-box!important;
         border:2px dashed rgba(75,255,181,.72)!important;border-radius:50%!important;
         background:rgba(0,0,0,.62)!important;color:rgba(75,255,181,.72)!important;
         font-size:var(--p8-sit-glyph)!important;line-height:1!important;
