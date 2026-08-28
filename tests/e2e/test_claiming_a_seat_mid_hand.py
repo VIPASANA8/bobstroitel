@@ -6,10 +6,20 @@ reading "Сесть" as though nothing had been pressed, so the only sign was a
 line in the header.
 """
 
+import re
+from pathlib import Path
+
 import pytest
 from playwright.sync_api import Page, sync_playwright
 
 pytestmark = pytest.mark.e2e
+
+#: Read out of the layer rather than repeated here, so the word on the felt
+#: and the word this test expects cannot drift apart.
+HELD_LABEL = re.search(
+    r'v040-sit-slot .seat-empty strong::after\{\s*content:"([^"]+)"',
+    Path("static/v040-poker8-v2-dynamic-seats.js").read_text(encoding="utf-8"),
+).group(1)
 
 CHAIR = """() => {
   const seat = document.querySelector('.seat.v040-sit-slot');
@@ -66,7 +76,7 @@ def test_a_seat_claimed_during_a_hand_is_held_and_says_so(spectator_server):
             held = page.evaluate(CHAIR)
             assert held["ring"] == held["avatar"], "the held chair changed size"
             assert held["borderStyle"] == "solid", held
-            assert held["label"] == "ЗАБРОНИРОВАНО", held
+            assert held["label"] == HELD_LABEL, held
             assert held["clickable"] == "none", "a held seat must not take another click"
 
             # Hand the seat back, so a rerun starts from the same table this

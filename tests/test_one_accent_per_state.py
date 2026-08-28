@@ -365,28 +365,51 @@ def test_spectator_wing_seats_stay_clear_of_the_board_band():
             assert not (22 < y < 56), f"{line.strip()} has a point at y:{y}, inside the reserved band"
 
 
-def test_five_spectator_upper_wings_stay_above_the_pot():
-    """The pole takes the former wing level and both wings move down equally."""
+#: Measured live on a 317x615 phone felt: a seat's name plate runs from
+#: +2px to +47px below its centre point, and the pot plate starts at 209px.
+FELT_H, PLATE_TOP, PLATE_BOTTOM, POT_TOP = 615, 2, 47, 209
+
+#: Clear air wanted between the pole's plate and the wings' -- enough that
+#: the three read as a stagger rather than one row of boxes.
+TOP_ROW_GAP = 8
+
+
+def _top_three(count, wing_indices):
     seats = (STATIC / "v040-poker8-v2-dynamic-seats.js").read_text(encoding="utf-8")
     block = seats[seats.index("const SPECTATOR_LAYOUTS = {"):seats.index("const style = document.createElement")]
-    line = next(l for l in block.splitlines() if re.match(r"\s*5:", l))
+    line = next(l for l in block.splitlines() if re.match(rf"\s*{count}:", l))
     points = [(int(x), int(y)) for x, y in re.findall(r"\[(\d+),\s*(\d+)\]", line)]
-
-    assert points[0] == (50, 14)
-    assert points[1] == (20, 19)
-    assert points[2] == (80, 19)
+    return points, points[0], [points[i] for i in wing_indices]
 
 
-def test_six_spectator_top_seats_use_the_lowered_two_step_arc():
-    """The top pole takes the old wing level; both wings move one level down."""
-    seats = (STATIC / "v040-poker8-v2-dynamic-seats.js").read_text(encoding="utf-8")
-    block = seats[seats.index("const SPECTATOR_LAYOUTS = {"):seats.index("const style = document.createElement")]
-    line = next(l for l in block.splitlines() if re.match(r"\s*6:", l))
-    points = [(int(x), int(y)) for x, y in re.findall(r"\[(\d+),\s*(\d+)\]", line)]
+def _assert_top_row_is_staggered(pole, wings):
+    """Pole at 14 with wings at 19 put the three plates 14px on top of each
+    other vertically while they sat 5px apart horizontally -- reported live
+    as a wall of boxes across the top of the felt. The pole has to clear the
+    wings' plates by more than the plates are tall."""
+    pole_plate_bottom = pole[1] / 100 * FELT_H + PLATE_BOTTOM
+    for wing in wings:
+        assert wing[1] > pole[1], f"wing {wing} is not below the pole {pole}"
+        gap = wing[1] / 100 * FELT_H + PLATE_TOP - pole_plate_bottom
+        assert gap >= TOP_ROW_GAP, f"{wing} leaves {gap:.0f}px under the pole's plate, not a stagger"
 
-    assert points[0] == (50, 14)
-    assert points[1] == (83, 19)
-    assert points[5] == (17, 19)
+
+def _assert_wings_stay_above_the_pot(wings):
+    for wing in wings:
+        assert wing[1] / 100 * FELT_H + PLATE_BOTTOM < POT_TOP, wing
+
+
+def test_five_spectator_upper_wings_are_staggered_and_stay_above_the_pot():
+    _, pole, wings = _top_three(5, (1, 2))
+    _assert_top_row_is_staggered(pole, wings)
+    _assert_wings_stay_above_the_pot(wings)
+
+
+def test_six_spectator_top_seats_use_a_staggered_two_step_arc():
+    _, pole, wings = _top_three(6, (1, 5))
+    _assert_top_row_is_staggered(pole, wings)
+    _assert_wings_stay_above_the_pot(wings)
+    assert wings[0][1] == wings[1][1], "the two wings share one level"
 
 
 def test_five_spectators_form_a_balanced_pentagon_not_a_lopsided_cluster():

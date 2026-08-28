@@ -56,9 +56,14 @@
     // Only the spectator layouts move; a seated player's own ring is
     // untouched, and so are the top rows below.
     4: [[24, 14], [76, 14], [83, 75], [17, 75]],
-    // As with six players, the top pole takes the former wing level and both
-    // wings move down together.
-    5: [[50, 14], [20, 19], [80, 19], [85, 75], [15, 75]],
+    // The top three are staggered, not stacked in a row. At pole y:14 with
+    // wings at y:19 the three name plates overlapped vertically by 14px
+    // while sitting 5px apart horizontally -- measured on a 317x615 phone
+    // felt -- so they read as one wall of boxes across the top. Pole 12 and
+    // wings 21 put 10px of clear air between the pole's plate and theirs,
+    // and the pole's cards still land 5px inside the felt. Both stay off the
+    // pot, the chips, the summary strip and the board.
+    5: [[50, 12], [20, 21], [80, 21], [85, 75], [15, 75]],
     // The top three use two distinct levels: the pole takes the former wing
     // level at y:14 and both wings move down together to y:19. All three stay
     // above the reserved pot/board band, which begins below y:22.
@@ -71,7 +76,7 @@
     // 20-point gap to the bottom pole, so the ring read as a hexagon rather
     // than two rows -- is what 75 gives up; the pole is cleared sideways
     // instead, which is what the test now checks.
-    6: [[50, 14], [83, 19], [83, 75], [50, 85], [17, 75], [17, 19]],
+    6: [[50, 12], [83, 21], [83, 75], [50, 85], [17, 75], [17, 21]],
   };
 
   const style = document.createElement("style");
@@ -174,7 +179,7 @@
         font-size:0!important;
       }
       body.v014.poker8-v2-sixmax.p8-seat-reserved .seat.v040-sit-slot .seat-empty strong::after{
-        content:"ЗАБРОНИРОВАНО";
+        content:"ВАШЕ МЕСТО";
         font-size:10px;letter-spacing:.06em;
       }
     }

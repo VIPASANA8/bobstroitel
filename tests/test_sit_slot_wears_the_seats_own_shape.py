@@ -80,7 +80,11 @@ def test_a_claimed_seat_stops_offering_itself():
     reserved = V040[V040.index(".p8-seat-reserved .seat.v040-sit-slot"):]
     reserved = reserved[:reserved.index("`")]
     assert "pointer-events:none!important" in reserved, "a held seat must not take another click"
-    assert 'content:"ЗАБРОНИРОВАНО"' in reserved
+    # Measured in the browser at the 10px/0.6px the plate is set in:
+    # ЗАБРОНИРОВАНО renders 96px wide inside a 90px plate and spills out of
+    # it. Whatever the word is, it has to fit the plate it sits on.
+    word = re.search(r'content:"([^"]+)"', reserved[reserved.index("strong::after"):]).group(1)
+    assert len(word) <= 10, f"{word} is wider than the name plate it replaces"
     assert "border-style:solid!important" in reserved, "the open ring closes once the seat is held"
 
 
