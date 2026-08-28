@@ -1823,7 +1823,16 @@ window.Poker8LegacyView = {
       // the next deal put everyone back into state.players.
       return row ? { ...row, seat: seatNo, stack: Number(row.stack || 0), hole_cards: [] } : null;
     };
-    const playerAtSeat = seatNo => players.find(row => Number(row.seat) === seatNo) || currentSeatFor(seatNo);
+    // current_seats is the live seating; state.players is the last hand's
+    // roster. They agree during a hand, but on an idle table the roster is
+    // frozen -- and on one that can never deal again it is frozen for good.
+    // So where the server sends the seating, it decides who is present, and
+    // players only fills in the detail for the seats it confirms.
+    const liveSeating = state?.current_seats || null;
+    const playerAtSeat = seatNo => {
+      if (liveSeating && !liveSeating[seatNo]) return null;
+      return players.find(row => Number(row.seat) === seatNo) || currentSeatFor(seatNo);
+    };
     const viewer = state?.viewer_player_id
       ? players.find(player => player.id === state.viewer_player_id)
         || Object.keys(state?.current_seats || {}).map(Number).map(currentSeatFor).find(row => row?.id === state.viewer_player_id)

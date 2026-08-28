@@ -429,9 +429,16 @@ class TableRuntimeManager:
         # seating instead, whenever that gap applies to this specific viewer
         # (not fetched for everyone on every poll -- only the one case that
         # actually needs it).
+        # Also whenever no hand is running. state.players is the roster of the
+        # last hand that was dealt, and a table that cannot deal again -- one
+        # bot has nobody to play -- keeps presenting it for good: micro-a sat
+        # there showing four players who had long since left. While the table
+        # is idle the seating is the only truthful answer, so it goes to
+        # everyone watching, not just to a viewer caught between hands.
         current_seats = (
             await self._current_seating(table_id)
-            if participant_id is not None and participant_id not in loaded.state.players
+            if (participant_id is not None and participant_id not in loaded.state.players)
+            or loaded.phase == "waiting"
             else None
         )
         return self._snapshot_for_state(loaded, participant_id, table_id, current_seats)
