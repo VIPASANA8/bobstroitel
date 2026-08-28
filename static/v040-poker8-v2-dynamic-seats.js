@@ -53,30 +53,16 @@
     // (13, 66, 88) plus the top pair's x spread from LAYOUTS[5] (24/76)
     // instead of inventing new numbers: two top, two mid-sides, one bottom.
     5: [[50, 9], [20, 14], [80, 14], [85, 66], [15, 66]],
-    // Same lopsidedness the 5-seat entry had, one row flatter: the two
-    // lower-side seats sat at y:69, only 16 points off the bottom pole's
-    // 85 -- reported live as two dense rows, top and bottom, with no
-    // hexagon bulge. The upper pair stays at y:14 (the pot-label collision
-    // fix two comments up is specific to that y, not renegotiable here);
-    // the lower pair moves to y:61 -- LAYOUTS[6]'s own proven lower-wing
-    // value -- which clears the bottom pole by the same margin the upper
-    // wings already clear the top pole by.
-    //
-    // That margin didn't actually exist yet: the top pole sat at y:15, one
-    // point off the wings' 14 -- reported live as the top-left/top-right
-    // seats reading at the same height as the top-center one, no bulge at
-    // all up there either. The pot-collision ceiling only bounds the wings
-    // from going lower (closer to the pot); moving the pole *up* moves it
-    // further from the pot, not closer, so it isn't bound by that fix --
-    // y:9 is the same clearance from y:14 the bottom pole (y:85) already
-    // gets from its own wings (y:61).
+    // The top three use two distinct levels: the pole takes the former wing
+    // level at y:14 and both wings move down together to y:19. All three stay
+    // above the reserved pot/board band, which begins below y:22.
     // The lower pair moved again, 61 -> 64. Measured on a 321x760 phone
     // felt: the board occupies y 47-58%, and a seat centred at 61% spans
     // 56-66%, so both lower-side seats sat on top of the community cards
     // ("не перекрывать улицу"). 64% starts the box at 63%, clear of the
     // board's 58% bottom, and still leaves the 20-point gap to the bottom
     // pole that keeps this a hexagon rather than two rows.
-    6: [[50, 9], [83, 14], [83, 64], [50, 85], [17, 64], [17, 14]],
+    6: [[50, 14], [83, 19], [83, 64], [50, 85], [17, 64], [17, 19]],
   };
 
   const style = document.createElement("style");

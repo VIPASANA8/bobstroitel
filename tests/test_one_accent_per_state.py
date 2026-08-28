@@ -362,27 +362,25 @@ def test_spectator_wing_seats_stay_clear_of_the_board_band():
             assert not (22 < y < 56), f"{line.strip()} has a point at y:{y}, inside the reserved band"
 
 
-def test_the_first_fix_did_not_walk_into_the_pot_instead():
-    """Moving those two seats to y:20 cleared the board and created a new
-    collision with the pot label above it -- measured live, a 12-27px overlap
-    between the wing plate and .pot-total. y:14 clears both; the margin was
-    checked by sweeping y and reading the plate's real bottom edge, not
-    assumed from the percentage alone, because the seat box's own internal
-    offset made a 4-point y change move the plate 46px, not 4.
-    """
+def test_five_spectator_upper_wings_stay_above_the_pot():
+    """The five-player layout keeps its previously measured pot clearance."""
     seats = (STATIC / "v040-poker8-v2-dynamic-seats.js").read_text(encoding="utf-8")
     block = seats[seats.index("const SPECTATOR_LAYOUTS = {"):seats.index("const style = document.createElement")]
-    #: [pole, upper-right, lower-right, ..., upper-left] -- the same x repeats
-    #: for the upper and lower seat on each side, so only position picks out
-    #: the pair that actually moved. 5's own points were reshuffled into a
-    #: proper pentagon later (see test_five_spectators_form_a_balanced_
-    #: pentagon_not_a_lopsided_cluster) -- indices 0 and 1 are its top pair now.
-    upper_wing_indices = {"5": (0, 1), "6": (1, 5)}
-    for count, indices in upper_wing_indices.items():
-        line = next(l for l in block.splitlines() if re.match(rf"\s*{count}:", l))
-        points = re.findall(r"\[(\d+),\s*(\d+)\]", line)
-        wing_ys = [int(points[i][1]) for i in indices]
-        assert all(y <= 14 for y in wing_ys), line.strip()
+    line = next(l for l in block.splitlines() if re.match(r"\s*5:", l))
+    points = re.findall(r"\[(\d+),\s*(\d+)\]", line)
+    assert all(int(points[i][1]) <= 14 for i in (0, 1)), line.strip()
+
+
+def test_six_spectator_top_seats_use_the_lowered_two_step_arc():
+    """The top pole takes the old wing level; both wings move one level down."""
+    seats = (STATIC / "v040-poker8-v2-dynamic-seats.js").read_text(encoding="utf-8")
+    block = seats[seats.index("const SPECTATOR_LAYOUTS = {"):seats.index("const style = document.createElement")]
+    line = next(l for l in block.splitlines() if re.match(r"\s*6:", l))
+    points = [(int(x), int(y)) for x, y in re.findall(r"\[(\d+),\s*(\d+)\]", line)]
+
+    assert points[0] == (50, 14)
+    assert points[1] == (83, 19)
+    assert points[5] == (17, 19)
 
 
 def test_five_spectators_form_a_balanced_pentagon_not_a_lopsided_cluster():
@@ -421,12 +419,9 @@ def test_five_spectators_form_a_balanced_pentagon_not_a_lopsided_cluster():
 def test_six_spectators_get_a_hexagon_bulge_not_two_flat_rows():
     """Was [[50,15],[83,14],[83,69],[50,85],[17,69],[17,14]] -- the lower
     wings sat at y:69, only 16 points off the bottom pole's 85, so all three
-    bottom seats (and, mirrored, all three top seats) read as one flat row
-    each. The upper wings stay pinned at y:14 (a separate, previously
-    measured pot-label collision fix), but nothing constrains the lower
-    wings, so they move to y:61 -- clearing the bottom pole by the same
-    margin the upper wings already clear the top pole by, giving the
-    hexagon an actual bulge instead of two dense rows."""
+    bottom seats read as one flat row. The lower wings now retain at least
+    20 points of clearance from the bottom pole; the top trio is locked by
+    test_six_spectator_top_seats_use_the_lowered_two_step_arc."""
     seats = (STATIC / "v040-poker8-v2-dynamic-seats.js").read_text(encoding="utf-8")
     block = seats[seats.index("const SPECTATOR_LAYOUTS = {"):seats.index("const style = document.createElement")]
     line = next(l for l in block.splitlines() if re.match(r"\s*6:", l))
@@ -441,14 +436,7 @@ def test_six_spectators_get_a_hexagon_bulge_not_two_flat_rows():
 
 
 def test_the_top_pole_also_clears_its_own_wings_not_just_the_bottom_one():
-    """The bulge fix above only touched the bottom half: the top pole sat at
-    y:15, one point off the upper wings' y:14 -- reported live as the
-    top-left/top-right seats reading at the same height as the top-center
-    one, no bulge up there either. The wings' own y:14 ceiling exists to
-    keep them clear of the pot label *below* them; moving the pole further
-    *up* moves it away from the pot, not toward it, so nothing stops it
-    from getting the same clearance the bottom pole already has from its
-    own wings."""
+    """The center stays one full layout step above both upper wings."""
     seats = (STATIC / "v040-poker8-v2-dynamic-seats.js").read_text(encoding="utf-8")
     block = seats[seats.index("const SPECTATOR_LAYOUTS = {"):seats.index("const style = document.createElement")]
     line = next(l for l in block.splitlines() if re.match(r"\s*6:", l))

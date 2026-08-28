@@ -217,7 +217,7 @@
       return;
     }
     const v040 = document.createElement("script");
-    v040.src = "/static/v040-poker8-v2-dynamic-seats.js?v=mobile-layout-prod-15";
+    v040.src = "/static/v040-poker8-v2-dynamic-seats.js?v=top-observer-seats-1";
     v040.setAttribute("data-v040-poker8-v2-dynamic-seats", "");
     v040.addEventListener("load", ensureTurnClarityPatch, { once:true });
     document.body.appendChild(v040);
