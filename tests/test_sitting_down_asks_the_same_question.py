@@ -14,7 +14,7 @@ import re
 from pathlib import Path
 
 ONLINE = Path("static/online-table.js").read_text(encoding="utf-8")
-V037 = Path("static/v037-poker8-v2-reference-table.js").read_text(encoding="utf-8")
+V037 = Path("static/table-guide.js").read_text(encoding="utf-8")
 
 
 def test_a_seat_on_the_felt_opens_the_buy_in_dialog():
@@ -101,8 +101,54 @@ def test_the_instruction_sits_under_the_seat_count_and_holds_all_three_parts():
     identity = ONLINE[ONLINE.index("box.innerHTML = '<b data-name>"):]
     assert "p8TableGuide" in identity[:identity.index(";")], "not under the count"
 
-    v037 = Path("static/v037-poker8-v2-reference-table.js").read_text(encoding="utf-8")
+    v037 = Path("static/table-guide.js").read_text(encoding="utf-8")
     for section in ("Комбинации", "Правила", "Кнопки"):
         assert f'<h4 class="hr-section">{section}</h4>' in v037, section
     for key in ("FOLD", "CHECK", "CALL", "BET / RAISE", "ALL-IN"):
         assert f'["{key}"' in v037.replace('["', '["'), key
+
+
+def test_each_action_wears_its_own_buttons_colour():
+    """The names read as plain text next to five differently coloured
+    buttons. --act-* live in style.css, which the lobby never loads, so each
+    rule carries the same literal as its fallback."""
+    guide = Path("static/table-guide.js").read_text(encoding="utf-8")
+    # check and call share one rule, so match the pairing rather than a
+    # selector-by-selector shape.
+    for cls, var, literal in (("fold", "--act-fold", "#ff4d42"),
+                              ("check", "--act-check", "#49caff"),
+                              ("call", "--act-check", "#49caff"),
+                              ("bet", "--act-raise", "#55f16e"),
+                              ("allin", "--act-allin", "#ffc44d")):
+        assert f".hr-act-{cls} strong" in guide, cls
+        assert f"color:var({var},{literal})" in guide, (cls, var)
+    table = Path("static/v038-poker8-v2-cinematic-table.js").read_text(encoding="utf-8")
+    for cls, var in (("fold", "--act-fold"), ("call", "--act-check"), ("all-in", "--act-allin")):
+        assert f".action-slot.{cls}{{--v038-action:var({var});}}" in table, cls
+
+
+def test_the_lobby_offers_the_same_panel_before_anyone_sits_down():
+    """It lived in v037, which the lobby never loads -- and the lobby is
+    where somebody is most likely to want it."""
+    for page in ("static/index.html", "static/lobby.html"):
+        assert "table-guide.js?v=" in Path(page).read_text(encoding="utf-8"), page
+    lobby = Path("static/lobby.js").read_text(encoding="utf-8")
+    assert 'window.Poker8TableGuide?.toggle()' in lobby
+    assert "window.Poker8TableGuide?.close()" in lobby
+    v037 = Path("static/v037-poker8-v2-reference-table.js").read_text(encoding="utf-8")
+    assert "HAND_RANKINGS" not in v037, "one copy, or the two pages drift"
+    assert "window.Poker8TableGuide?.ensure();" in v037
+
+
+def test_a_tap_anywhere_on_a_table_card_opens_it():
+    """"Войти" is a small target inside something that already looks
+    pressable, so on a phone every tap that landed beside it did nothing.
+    The close-room "×" is the one part of a card that means something else."""
+    lobby = Path("static/lobby.js").read_text(encoding="utf-8")
+    assert 'data-open-table="${escape(table.id)}"' in lobby
+    handler = lobby[lobby.index('.table-card[data-open-table]'):]
+    handler = handler[:handler.index("}));") + 4]
+    assert 'closest?.("[data-close-room]")' in handler
+    assert "openTable(card.dataset.openTable)" in handler
+    css = Path("static/network.css").read_text(encoding="utf-8")
+    assert ".table-card[data-open-table]{cursor:pointer}" in css

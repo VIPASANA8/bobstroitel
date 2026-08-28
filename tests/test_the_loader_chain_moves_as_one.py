@@ -20,7 +20,11 @@ COMPONENT_UI = (STATIC / "component-ui.js").read_text(encoding="utf-8")
 V037 = (STATIC / "v037-poker8-v2-reference-table.js").read_text(encoding="utf-8")
 
 #: Each link in the chain: (source, the file it pulls in).
+LOBBY = (STATIC / "lobby.html").read_text(encoding="utf-8")
+
 CHAIN = [
+    (INDEX, "table-guide.js"),
+    (LOBBY, "table-guide.js"),
     (INDEX, "component-ui.js"),
     (INDEX, "online-table.js"),
     (COMPONENT_UI, "v037-poker8-v2-reference-table.js"),
@@ -49,6 +53,14 @@ def test_the_layers_that_draw_the_table_are_versioned_at_all():
     the ones that change."""
     for source, filename in CHAIN:
         assert f'{filename}"' not in source, f"{filename} is loaded with no ?v="
+
+
+def test_the_lobby_asks_for_the_same_one():
+    """It loads the shared guide now, so it is part of the same chain -- and
+    per-file slugs are exactly how the table page drifted apart."""
+    slugs = set(re.findall(r"/static/[A-Za-z0-9._-]+\.(?:js|css)\?v=([A-Za-z0-9._-]+)", LOBBY))
+    assert len(slugs) == 1, f"lobby.html asks for {sorted(slugs)}"
+    assert slugs == set(re.findall(r"component-ui\.js\?v=([A-Za-z0-9._-]+)", INDEX))
 
 
 def test_the_table_page_asks_for_one_cache_bust_and_no_more():

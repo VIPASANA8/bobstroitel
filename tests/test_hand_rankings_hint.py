@@ -7,6 +7,9 @@ import tempfile
 from pathlib import Path
 
 SOURCE = Path("static/v037-poker8-v2-reference-table.js").read_text(encoding="utf-8")
+#: The panel itself lives here now: the lobby shows the same one and
+#: never loads v037.
+GUIDE = Path("static/table-guide.js").read_text(encoding="utf-8")
 ONLINE_TABLE = Path("static/online-table.js").read_text(encoding="utf-8")
 
 
@@ -56,9 +59,9 @@ def test_the_rankings_are_ten_hands_highest_to_lowest_with_only_the_defining_car
     coreComboCards in app.js: a category's kickers are not shown, since they
     are not what makes the hand that category -- a pair is two cards, not a
     pair plus three kickers."""
-    start = SOURCE.index("const HAND_RANKINGS")
-    end = SOURCE.index("];", start) + 2
-    data = SOURCE[start:end]
+    start = GUIDE.index("const HAND_RANKINGS")
+    end = GUIDE.index("];", start) + 2
+    data = GUIDE[start:end]
 
     harness = data + "\nconsole.log(JSON.stringify(HAND_RANKINGS));"
     with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False, encoding="utf-8") as handle:
@@ -81,4 +84,4 @@ def test_the_rankings_are_ten_hands_highest_to_lowest_with_only_the_defining_car
 
 
 def test_the_mini_cards_are_centered_so_a_short_row_does_not_look_left_jammed():
-    assert ".hr-cards{display:flex;justify-content:center;}" in SOURCE
+    assert ".hr-cards{display:flex;justify-content:center;}" in GUIDE

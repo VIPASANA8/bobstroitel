@@ -97,7 +97,7 @@
       const full = table.occupied_count >= 6;
       const seatDots = Array.from({ length: 6 }, (_, seat) => `<i class="${seat < table.occupied_count ? "on" : ""}"></i>`).join("");
       return `
-      <article class="table-card" style="--delay:${index * 45}ms;--tier-glow:${TIER_GLOW[tier]}">
+      <article class="table-card" data-open-table="${escape(table.id)}" style="--delay:${index * 45}ms;--tier-glow:${TIER_GLOW[tier]}">
         <div class="card-top">
           <span class="top-left"><span class="table-index">${String(index + 1).padStart(2, "0")}</span><span class="tier-tag ${tier}">${tier}</span></span>
           <span class="table-state${table.id === myRoom?.id ? " mine" : ""}">${table.id === myRoom?.id ? "● ВАША" : "● ОТКРЫТ"}</span>
@@ -115,6 +115,14 @@
       </article>`;
     }).join("");
     document.querySelectorAll("[data-observe-table]").forEach(button => button.addEventListener("click", () => openTable(button.dataset.observeTable)));
+    // The whole card opens the table. On a phone the "Войти" button is a
+    // small target inside something that already looks pressable, and every
+    // tap that landed beside it did nothing. The close-room "×" is the one
+    // part of the card that means something else.
+    document.querySelectorAll(".table-card[data-open-table]").forEach(card => card.addEventListener("click", event => {
+      if (event.target?.closest?.("[data-close-room]")) return;
+      openTable(card.dataset.openTable);
+    }));
     document.querySelectorAll("[data-close-room]").forEach(button => button.addEventListener("click", () => closeRoom(button.dataset.closeRoom)));
   }
 
@@ -245,6 +253,15 @@
   }
 
   $("createRoom").addEventListener("click", () => openRoomDialog().catch(error => alert(error.message)));
+  // The same panel the felt shows, opened before anyone has sat down: what
+  // beats what, how a hand runs, and what each action button does.
+  $("lobbyGuide")?.addEventListener("click", () => window.Poker8TableGuide?.toggle());
+  document.addEventListener("click", event => {
+    if (event.target?.closest?.(".hr-backdrop, #handRankingsClose")) window.Poker8TableGuide?.close();
+  });
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape") window.Poker8TableGuide?.close();
+  });
 
   $("roomForm").addEventListener("submit", async event => {
     event.preventDefault();
