@@ -36,7 +36,7 @@ class TableScheduler:
     async def start_hand(self, table_id: str):
         snapshot = await self.runtime.start_hand(table_id)
         loaded = self.runtime._tables[table_id]
-        if loaded.state.acting_player and not loaded.state.players[loaded.state.acting_player].is_bot:
+        if loaded.state.acting_player:
             self.deadlines[table_id] = self.now_plus(seconds=30)
         return snapshot
 

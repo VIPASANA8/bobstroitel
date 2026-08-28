@@ -321,10 +321,15 @@ class TableRuntimeManager:
                     state = self.engine.new_hand(engine_seats, button_seat=button_seat)
                     payload = serialize_state(state)
                     revision = 1
+                    # Bots are on the same clock as anybody else. Withholding it
+                    # was a tell: the ring around the avatar had nothing to count,
+                    # so a bot's turn looked different from a person's. Nothing
+                    # times a bot out in practice -- the coordinator hands them
+                    # their move first, and bot_think_delay is capped at 12s,
+                    # well inside this -- so the clock is what a watcher sees,
+                    # not a new way to lose a hand.
                     action_deadline = (
-                        self._now() + timedelta(seconds=30)
-                        if state.acting_player and not state.players[state.acting_player].is_bot
-                        else None
+                        self._now() + timedelta(seconds=30) if state.acting_player else None
                     )
                     runtime_values = {
                         "revision": revision,
@@ -503,9 +508,7 @@ class TableRuntimeManager:
                         loaded.action_deadline = None
                     else:
                         loaded.action_deadline = (
-                            self._now() + timedelta(seconds=30)
-                            if loaded.state.acting_player and not loaded.state.players[loaded.state.acting_player].is_bot
-                            else None
+                            self._now() + timedelta(seconds=30) if loaded.state.acting_player else None
                         )
                     snapshot = self._snapshot_for_state(loaded, participant_id, table_id)
                     result = RuntimeActionResult(

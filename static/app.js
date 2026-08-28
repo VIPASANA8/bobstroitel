@@ -1011,15 +1011,17 @@ function gamePlayerForSeat(seatNumber) {
   return row ? { ...row, seat: seatNumber, stack: Number(row.stack || 0), hole_cards: [] } : null;
 }
 
-function avatarInitials(name, isBot = false) {
-  if (isBot) return "AI";
+function avatarInitials(name) {
+  // Was "AI" for a bot, which announced them before anything else on the
+  // felt did. Everyone gets their name's initials now.
   const parts = String(name || "Игрок").trim().split(/\s+/).filter(Boolean);
   return parts.slice(0, 2).map(x => x[0]?.toUpperCase() || "").join("") || "И";
 }
 
-function avatarHue(seat, isBot = false) {
-  const base = isBot ? 188 : 286;
-  return (base + Number(seat || 0) * 37) % 360;
+function avatarHue(seat) {
+  // One base for the table: bots used to start at 188 and people at 286, so
+  // the two kinds of player were two colours before a card was dealt.
+  return (286 + Number(seat || 0) * 37) % 360;
 }
 
 //: What fits on a seat plate. Counting characters could not answer that: at
@@ -1081,7 +1083,7 @@ function seatHtml(config, player, offerSeat = true) {
   const activeTurn = game && !game.terminal && game.acting_player === source.id;
   const folded = Boolean(player?.folded);
   const allIn = Boolean(player?.all_in);
-  const position = player?.position || (isHuman ? "ИГРОК" : "БОТ");
+  const position = player?.position || "ИГРОК";
   const buttonClass = String(position).includes("BTN") ? "btn-pos" : "";
   const stack = player ? player.stack : config.balance;
   const wager = Number(player?.street_invested || 0);
@@ -1089,8 +1091,13 @@ function seatHtml(config, player, offerSeat = true) {
   // A human's turn is shown by the seat's own glow (.active-turn) -- the
   // "ХОД" badge on top of it was redundant. Bots keep "ДУМАЕТ": it's the
   // only sign a bot is actually deciding, not just informational chrome.
-  const status = folded ? "ПАС" : activeTurn && !isHuman ? "ДУМАЕТ" : "";
-  const typeClass = isHuman ? "seat-human" : "seat-bot";
+  // A human on the clock shows nothing here -- the seat's own glow says it
+  // -- so a bot showing "ДУМАЕТ" with animated dots was a tell, not
+  // information.
+  const status = folded ? "ПАС" : "";
+  // One class for anybody sitting: .seat-bot carried its own border, glow
+  // and label colour, so a bot's plate read differently across the felt.
+  const typeClass = "seat-human";
   // game is null before a hand exists (waiting/countdown) -- tableData's own
   // copy survives those phases, so a freshly seated player still gets a hero
   // seat and can click ready instead of staying invisible until dealt in.
@@ -1100,8 +1107,8 @@ function seatHtml(config, player, offerSeat = true) {
   const displayName = telegramProfile?.displayName || source.name || config.name || "Игрок";
   // Avatars are level-based, not photos -- no --profile-avatar-image here.
   // The CSS hook stays (v038) since nothing sets the inline style anymore.
-  const avatar = isViewer ? "ВЫ" : avatarInitials(displayName, !isHuman);
-  const hue = avatarHue(config.seat, !isHuman);
+  const avatar = isViewer ? "ВЫ" : avatarInitials(displayName);
+  const hue = avatarHue(config.seat);
 
   return `
     <div class="seat-card ${typeClass} ${isViewer ? "viewer-seat" : ""} ${activeTurn ? "active-turn p8-turn-gradient" : ""} ${folded ? "folded" : ""} ${allIn ? "all-in" : ""}" style="--avatar-hue:${hue}">
@@ -1109,7 +1116,7 @@ function seatHtml(config, player, offerSeat = true) {
       ${isDealer ? `<div class="dealer-button" title="Дилер / BTN">D</div>` : ""}
       <div class="avatar-wrap">
         <div class="player-avatar"><span>${escapeHtml(avatar)}</span>${wager > 0 ? `<b class="seat-wager">${bareBB(wager)}</b>` : ""}</div>
-        ${status ? `<div class="player-status ${folded ? "status-fold" : activeTurn && !isHuman ? "status-thinking" : "status-turn"}">${status}${activeTurn && !isHuman ? `<i class="thinking-dots"><b></b><b></b><b></b></i>` : ""}</div>` : ""}
+        ${status ? `<div class="player-status status-fold">${status}</div>` : ""}
       </div>
       <div class="seat-identity">
         <div class="seat-topline">
@@ -1117,7 +1124,7 @@ function seatHtml(config, player, offerSeat = true) {
           <div class="position-chip ${buttonClass}">${escapeHtml(position)}</div>
         </div>
         <div class="seat-stack">${allIn ? "ALL-IN" : formatBB(stack)}</div>
-        <div class="bot-level">${isHuman ? "ИГРОК" : DIFFICULTY_LABELS[source.difficulty || config.difficulty] || "БОТ"}</div>
+        <div class="bot-level">ИГРОК</div>
       </div>
       <div class="player-cards" data-cards-seat="${config.seat}"></div>
     </div>
@@ -1337,6 +1344,15 @@ async function setBotCooldown(minutes) {
     return;
   }
   await loadTable(true);
+}
+
+// Whose turn it is, without asking what kind of player they are: the panel
+// used to read "БОТ ДУМАЕТ", which named the opponent's nature rather than
+// the only thing the reader needs -- that it is not their turn.
+function actingSomeoneElse() {
+  if (!game || game.terminal || !game.acting_player) return false;
+  const viewerId = game.viewer_player_id || tableData?.viewer_player_id || null;
+  return viewerId ? game.acting_player !== viewerId : Boolean(activeBotPlayer());
 }
 
 function activeBotPlayer() {
@@ -1712,7 +1728,7 @@ function renderGame() {
     if (!ONLINE_TABLE_ID) renderCards($("board"), []);
     $("result").textContent = "Посадите людей или ботов и начните раздачу";
     $("turnTitle").textContent = spectatorOnly() ? "Стол наблюдения готов" : "Стол не запущен";
-    $("actionPanelKicker").textContent = spectatorOnly() ? "НАБЛЮДЕНИЕ" : activeBotPlayer() ? "БОТ ДУМАЕТ" : "ВАШ ХОД";
+    $("actionPanelKicker").textContent = spectatorOnly() ? "НАБЛЮДЕНИЕ" : actingSomeoneElse() ? "ХОД СОПЕРНИКА" : "ВАШ ХОД";
     $("hint").textContent = spectatorOnly()
       ? "Стол может работать без людей. Нажмите «Новая раздача» — боты будут ходить по одному, чтобы вы видели игру."
       : "За столом могут одновременно играть несколько профилей людей и боты.";
@@ -1743,7 +1759,7 @@ function renderGame() {
   $("analysisLink").href = `/api/game/${game.hand_id}/analysis`;
   $("analysisLink").classList.remove("disabled");
   renderProfile(game.training_profile);
-  $("actionPanelKicker").textContent = spectatorOnly() ? "НАБЛЮДЕНИЕ" : activeBotPlayer() ? "БОТ ДУМАЕТ" : "ВАШ ХОД";
+  $("actionPanelKicker").textContent = spectatorOnly() ? "НАБЛЮДЕНИЕ" : actingSomeoneElse() ? "ХОД СОПЕРНИКА" : "ВАШ ХОД";
 
   if (game.terminal) {
     $("turnTitle").textContent = "Раздача завершена";
