@@ -27,6 +27,17 @@ def _sit_vars(selector):
             for name, value in re.findall(r"--p8-sit-([a-z-]+):(-?[\d.]+)px", block)}
 
 
+def _last_rule_text(source, selector, prop):
+    """The whole body of the last rule for this selector that declares prop."""
+    found = None
+    for match in re.finditer(re.escape(selector) + r"\{", source):
+        rule = source[match.end():source.index("}", match.end())]
+        if prop + ":" in rule:
+            found = rule
+    assert found is not None, f"{selector} never declares {prop}"
+    return found
+
+
 def _declared(source, selector, prop):
     """The value that actually applies: later rules win at equal specificity,
     and a selector is written several times over, so the live value is the
@@ -96,3 +107,37 @@ def test_the_css_escapes_survive_the_template_literal():
     block = V040[V040.index("const style = document.createElement"):]
     for escape in (chr(92) + "27", chr(92) + "04"):
         assert escape not in block, "write the character, not a numeric escape"
+
+
+def test_the_label_sits_on_a_plate_like_a_name_does():
+    """Bare text under the circle was the half of this that still did not
+    look like a seat. It takes .seat-identity's own box: same padding,
+    radius and ground, with the empty seat's mint edge in place of the
+    accent hue a taken seat carries."""
+    block = V040[V040.index(".v040-sit-slot .seat-empty strong{"):]
+    block = block[:block.index("}")]
+    plate = _last_rule_text(V038, "body.v014.poker8-v2-sixmax .seat-identity", "border-radius")
+    for prop in ("padding", "border-radius", "background"):
+        assert prop in block, f"the label has no {prop}, so it is not a plate"
+    # Read off the plate rather than repeated, so a restyled name plate takes
+    # the label with it instead of leaving the two subtly different.
+    for prop in ("border-radius", "padding"):
+        value = re.search(prop + r":([^;!]+)", plate).group(1).strip()
+        assert prop + ":" + value in block, f"label {prop} is {block!r}, plate wants {value}"
+
+
+def test_a_held_seat_is_not_read_as_a_seated_one():
+    """current_seats carries seats that are only held for the next boundary,
+    and seats on their way out. The server counts neither as seated, so
+    reading a held one as the viewer's own seat put a "mark ready" button in
+    front of somebody with no seat to be ready in -- the server answered
+    "take a seat before marking ready"."""
+    online = (STATIC / "online-table.js").read_text(encoding="utf-8")
+    lookup = online[online.index("function viewerSeatNo(state) {"):]
+    lookup = lookup[:lookup.index(chr(10) + "  }")]
+    assert 'row.state === "seated"' in lookup
+
+    runtime = Path("online/runtime.py").read_text(encoding="utf-8")
+    seating = runtime[runtime.index("async def _current_seating"):]
+    seating = seating[:seating.index("@staticmethod")]
+    assert '"state": seat["state"]' in seating, "the client cannot filter what it is not told"

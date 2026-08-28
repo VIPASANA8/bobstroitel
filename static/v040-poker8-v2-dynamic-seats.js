@@ -154,9 +154,17 @@
         background:rgba(0,0,0,.62)!important;color:rgba(75,255,181,.72)!important;
         font-size:var(--p8-sit-glyph)!important;line-height:1!important;
       }
+      /* The word sits on a plate, the way a name does. Bare text under the
+         circle was the half of this that still did not look like a seat. Same
+         box as .seat-identity in v038 -- position, width, padding, radius and
+         ground -- with the empty seat's own mint edge instead of the accent
+         hue a taken seat carries. */
       body.v014.poker8-v2-sixmax .seat.v040-sit-slot .seat-empty strong{
         position:absolute!important;left:50%!important;top:var(--p8-sit-label-top)!important;
         transform:translateX(-50%)!important;width:var(--p8-sit-label-w)!important;
+        box-sizing:border-box!important;padding:5px 6px 4px!important;
+        border:1px solid rgba(75,255,181,.72)!important;border-radius:9px!important;
+        background:linear-gradient(180deg,rgba(0,0,0,.98),rgba(0,0,0,.995))!important;
         color:rgba(75,255,181,.72)!important;font-size:10px!important;line-height:1.1!important;
         letter-spacing:.06em!important;text-align:center!important;
       }

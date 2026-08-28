@@ -475,7 +475,11 @@
     const fromHand = state.players?.[viewerId];
     if (fromHand) return Number(fromHand.seat);
     for (const [seatNo, row] of Object.entries(state.current_seats || {})) {
-      if (row?.id === viewerId) return Number(seatNo);
+      // current_seats also carries seats that are only held for the next
+      // boundary, and seats on their way out. The server counts neither as
+      // seated, so treating one as this viewer's seat put a "mark ready"
+      // button in front of somebody who had no seat to be ready in.
+      if (row?.id === viewerId && (!row.state || row.state === "seated")) return Number(seatNo);
     }
     return null;
   }

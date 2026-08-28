@@ -1185,6 +1185,13 @@ class TableRuntimeManager:
                 # every player reads "0" until the next deal lands.
                 "stack": seat["stack_units"] / table["big_blind_units"],
                 "is_bot": seat["occupant_kind"] == "system",
+                # "seated" is not the only state in here: a seat queued for
+                # the next boundary is "held", and one being vacated is
+                # "leaving". The client cannot tell them apart without this,
+                # and reading a held seat as its own made it offer "mark
+                # ready" to somebody the server does not consider seated yet
+                # -- which came back as "take a seat before marking ready".
+                "state": seat["state"],
             }
             for seat in seats
         }

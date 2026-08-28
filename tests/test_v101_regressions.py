@@ -76,10 +76,10 @@ def test_v038_uses_full_height_arc_and_viewport_edge_controls():
     assert "top:var(--v038-summary-top,41%)!important" in source
     assert 'hint.textContent = "?"' in loader
     assert "ЗАНЯТЬ МЕСТО" not in source
-    assert '/static/component-ui.js?v=sit-slot-2' in index
+    assert '/static/component-ui.js?v=sit-slot-3' in index
     assert '/static/online-table.js?v=mobile-layout-prod-15' in index
-    assert '/static/v037-poker8-v2-reference-table.js?v=sit-slot-2' in component
-    assert '/static/v038-poker8-v2-cinematic-table.js?v=sit-slot-2' in loader
+    assert '/static/v037-poker8-v2-reference-table.js?v=sit-slot-3' in component
+    assert '/static/v038-poker8-v2-cinematic-table.js?v=sit-slot-3' in loader
     assert '/static/v040-poker8-v2-dynamic-seats.js?v=seat-levels-2' in loader
 
 
