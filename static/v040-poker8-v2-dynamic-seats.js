@@ -323,4 +323,14 @@
   };
 
   window.addEventListener("resize", () => applyDynamicLayout(window.game, window.tableData), { passive: true });
+
+  // Lay the table out once on load, rather than only waiting to be called.
+  // This layer is appended late in the chain, so on a table that renders once
+  // and then sits still -- one that cannot deal, so no snapshot ever differs
+  // and renderSnapshot's dedup never lets another render through -- the hooks
+  // above are attached after the only render that was ever going to happen.
+  // Nothing then positions a seat, and the table stays on style.css's
+  // seven-seat defaults for good. The retry inside carries this until the
+  // seat cards exist.
+  applyDynamicLayout(window.game, window.tableData);
 })();

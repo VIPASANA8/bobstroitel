@@ -70,6 +70,20 @@ def test_it_waits_for_real_data_not_just_for_the_call():
     assert "return true;" in inner
 
 
+def test_it_lays_the_table_out_on_load_too():
+    """The hooks alone are not enough.
+
+    This layer is appended late, so on a table that renders once and then
+    sits still -- one that cannot deal, where no snapshot differs and
+    renderSnapshot's dedup lets nothing else through -- the hooks attach
+    after the only render there was ever going to be. Without a pass of its
+    own nothing positions a seat, and the retry never starts because nothing
+    calls it even once.
+    """
+    tail = V040[V040.index('window.addEventListener("resize"'):]
+    assert "applyDynamicLayout(window.game, window.tableData);" in tail
+
+
 def test_the_failsafe_survives():
     """The cloak must never be able to stick if a layer fails to load."""
     match = re.search(r'setTimeout\(\(\) => document\.body\.classList\.add\("p8-boot-ready"\), (\d+)\)', INDEX)
