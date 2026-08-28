@@ -59,6 +59,7 @@ def test_v038_uses_full_height_arc_and_viewport_edge_controls():
     assert "--p8-seat-safe-inset:50px" in source
     assert "--p8-arc-radius:min(46vw,calc(50vw - var(--p8-seat-safe-inset)))" in source
     assert "--p8-arc-diagonal:calc(var(--p8-arc-radius) * .70710678)" in source
+    assert "--p8-arc-top:78px" in source
     assert '--p8-seat-angles:"180 135 90 45 0"' in source
     assert 'data-visual-seat="1"]{--v040-seat-x:calc(50% - var(--p8-arc-radius))' in source
     assert 'data-visual-seat="2"]{--v040-seat-x:calc(50% - var(--p8-arc-diagonal))' in source
@@ -74,11 +75,11 @@ def test_v038_uses_full_height_arc_and_viewport_edge_controls():
     assert "mobileHelpButton" not in source
     assert 'hint.textContent = "?"' in loader
     assert "ЗАНЯТЬ МЕСТО" not in source
-    assert '/static/component-ui.js?v=top-observer-seats-1' in index
+    assert '/static/component-ui.js?v=seat-levels-2' in index
     assert '/static/online-table.js?v=mobile-layout-prod-15' in index
-    assert '/static/v037-poker8-v2-reference-table.js?v=top-observer-seats-1' in component
-    assert '/static/v038-poker8-v2-cinematic-table.js?v=mobile-layout-prod-15' in loader
-    assert '/static/v040-poker8-v2-dynamic-seats.js?v=top-observer-seats-1' in loader
+    assert '/static/v037-poker8-v2-reference-table.js?v=seat-levels-2' in component
+    assert '/static/v038-poker8-v2-cinematic-table.js?v=seat-levels-2' in loader
+    assert '/static/v040-poker8-v2-dynamic-seats.js?v=seat-levels-2' in loader
 
 
 def test_v025_showdown_modal_is_readable_on_mobile():

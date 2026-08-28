@@ -47,12 +47,10 @@
     2: [[20, 14], [80, 14]],
     3: [[50, 13], [18, 70], [82, 70]],
     4: [[24, 14], [76, 14], [83, 66], [17, 66]],
-    // Was three seats crammed onto the same y:14-16 top band and only two
-    // down at y:78, leaving the whole middle band empty on both sides --
-    // lopsided, not a pentagon. Reuses the 4-seat entry's own proven y bands
-    // (13, 66, 88) plus the top pair's x spread from LAYOUTS[5] (24/76)
-    // instead of inventing new numbers: two top, two mid-sides, one bottom.
-    5: [[50, 9], [20, 14], [80, 14], [85, 66], [15, 66]],
+    // As with six players, the top pole takes the former wing level and both
+    // wings move down together. The lower side pair stays where it already
+    // clears the board.
+    5: [[50, 14], [20, 19], [80, 19], [85, 66], [15, 66]],
     // The top three use two distinct levels: the pole takes the former wing
     // level at y:14 and both wings move down together to y:19. All three stay
     // above the reserved pot/board band, which begins below y:22.

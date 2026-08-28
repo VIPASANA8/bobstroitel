@@ -363,12 +363,15 @@ def test_spectator_wing_seats_stay_clear_of_the_board_band():
 
 
 def test_five_spectator_upper_wings_stay_above_the_pot():
-    """The five-player layout keeps its previously measured pot clearance."""
+    """The pole takes the former wing level and both wings move down equally."""
     seats = (STATIC / "v040-poker8-v2-dynamic-seats.js").read_text(encoding="utf-8")
     block = seats[seats.index("const SPECTATOR_LAYOUTS = {"):seats.index("const style = document.createElement")]
     line = next(l for l in block.splitlines() if re.match(r"\s*5:", l))
-    points = re.findall(r"\[(\d+),\s*(\d+)\]", line)
-    assert all(int(points[i][1]) <= 14 for i in (0, 1)), line.strip()
+    points = [(int(x), int(y)) for x, y in re.findall(r"\[(\d+),\s*(\d+)\]", line)]
+
+    assert points[0] == (50, 14)
+    assert points[1] == (20, 19)
+    assert points[2] == (80, 19)
 
 
 def test_six_spectator_top_seats_use_the_lowered_two_step_arc():

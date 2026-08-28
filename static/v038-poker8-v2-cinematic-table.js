@@ -705,7 +705,10 @@
         --p8-arc-diagonal:calc(var(--p8-arc-radius) * .70710678);
         --p8-arc-half:calc(var(--p8-arc-radius) * .5);
         --p8-arc-wide:calc(var(--p8-arc-radius) * .8660254);
-        --p8-arc-top:38px;
+        /* The old 38px pin compressed all five opponents against the header.
+           At 78px the top pole lands at the former upper-wing level, while
+           both wing pairs move down by the same 40px. */
+        --p8-arc-top:78px;
         --p8-arc-center-y:calc(var(--p8-arc-top) + var(--p8-arc-radius));
         --p8-seat-angles:"180 135 90 45 0";
         --table-stage-h:calc(100dvh - var(--p8-header-h))!important;
