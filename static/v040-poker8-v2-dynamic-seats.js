@@ -38,7 +38,13 @@
   //: top rather than in the chair being offered.
   const SPECTATOR_LAYOUTS = {
     1: [[50, 13]],
-    2: [[12, 50], [88, 50]],
+    // Both up on the top band rather than facing each other across the
+    // middle of the felt. Side-by-side is how the pair reads as opponents at
+    // the same table; at y:50 they sat level with the pot and board, one on
+    // each flank, and the whole top of the felt stood empty. x:20/80 and
+    // y:14 are the upper-wing values 5 and 6 already use, so the pair lands
+    // in the band those were measured to clear the pot label from.
+    2: [[20, 14], [80, 14]],
     3: [[50, 13], [18, 70], [82, 70]],
     4: [[24, 14], [76, 14], [83, 66], [17, 66]],
     // Was three seats crammed onto the same y:14-16 top band and only two

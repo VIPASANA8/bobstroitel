@@ -97,3 +97,14 @@ def test_a_seat_that_is_no_longer_active_loses_its_visual_seat():
     # Before the placement below, or the rules it frees are still in force
     # while the seat is being measured for its move.
     assert body.index("delete seat.dataset.visualSeat") < body.index("moveSeatTo(sitSeat")
+
+
+def test_two_spectated_players_sit_side_by_side_on_the_top_band():
+    """Facing each other across the middle of the felt (x:12/88, y:50) put
+    them level with the pot and board and left the whole top empty. Both go
+    up instead, on the same y:14 band 5 and 6 use for their upper wings --
+    the band already measured to clear the pot label."""
+    (left, right) = sorted(_spectator_layouts()[2])
+    assert left[1] == right[1] == 14, "same band, or they do not read as a pair"
+    assert left[0] + right[0] == 100, "mirrored about the centre line"
+    assert right[0] - left[0] >= 50, "far enough apart to be two sides of a table"
