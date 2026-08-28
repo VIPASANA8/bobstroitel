@@ -225,20 +225,31 @@
   // long as the first snapshot took to arrive -- reported as a crooked table
   // flashing on entry. Wrapped so every exit path clears it, including the
   // empty-table one: with no seats to place there is nothing left to jump.
+  //: Bounded retry for the case below -- roughly two seconds at 60fps.
+  let placementRetries = 0;
+
   function applyDynamicLayout(gameState, tableState) {
     let placed = false;
     try {
       placed = applyDynamicLayoutInner(gameState, tableState) === true;
     } finally {
-      // Only once the table is actually showing the truth. The first sync
-      // runs before any snapshot has arrived: no player data, so nothing is
-      // placed and the seats still sit at style.css's seven-seat defaults --
-      // with the previous hand's roster drawn into them. Revealing then is
-      // what put a crooked table full of the wrong players on screen for a
-      // moment. A table that is genuinely empty still reveals immediately:
-      // there is data, there is simply nobody in it.
-      if (placed || tableState || gameState) {
+      // The cloak comes off only once the seats are actually where they
+      // belong. Until then they hold style.css's seven-seat defaults, and
+      // app.js has drawn a roster into them -- revealing that is the crooked
+      // table. A genuinely empty table is covered by index.html's failsafe
+      // rather than by guessing here: three seconds of "loading" beats
+      // showing a wrong table, and it only happens with nobody seated.
+      if (placed) {
+        placementRetries = 0;
         document.body.classList.add("p8-boot-ready");
+      } else if (placementRetries < 120) {
+        // This sync can land before app.js has painted the seat cards, and
+        // on an idle table the snapshot never changes again -- renderSnapshot
+        // dedups on its own hash -- so nothing would ever call us a second
+        // time. Without this the table stays unpositioned for good, which is
+        // exactly what a one-bot table showed.
+        placementRetries += 1;
+        requestAnimationFrame(() => applyDynamicLayout(window.game, window.tableData));
       }
     }
   }

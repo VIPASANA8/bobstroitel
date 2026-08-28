@@ -39,16 +39,22 @@ def test_it_waits_for_real_data_not_just_for_the_call():
     drawn the previous hand's roster into them -- which is how a crooked
     table showing four players landed on a one-bot table for a moment.
 
-    A genuinely empty table still reveals at once: there is data, there is
-    simply nobody in it.
+    A genuinely empty table falls to index.html's failsafe instead of being
+    guessed at here: three seconds of "loading" beats showing a wrong table,
+    and it only happens with nobody seated at all.
     """
     start = V040.index("function applyDynamicLayout(gameState, tableState) {")
     wrapper = V040[start:V040.index("function applyDynamicLayoutInner")]
     assert "finally" in wrapper, "an exception must not strand the cloak"
     assert 'classList.add("p8-boot-ready")' in wrapper
-    assert "if (placed || tableState || gameState)" in wrapper, (
-        "the cloak must not lift on a data-less first pass"
-    )
+    assert "if (placed)" in wrapper, "the cloak must not lift before the seats are placed"
+
+    # And it has to try again: this sync can land before app.js has painted
+    # the seat cards, and on an idle table the snapshot never changes again
+    # (renderSnapshot dedups on its own hash), so nothing would call it a
+    # second time -- the table stayed unpositioned for good.
+    assert "requestAnimationFrame" in wrapper
+    assert "placementRetries" in wrapper
 
     # The inner pass has to actually report whether it placed anything, or
     # the guard above is reading a value nobody sets.
