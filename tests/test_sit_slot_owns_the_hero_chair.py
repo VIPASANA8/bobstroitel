@@ -56,6 +56,10 @@ def test_one_empty_seat_is_kept_as_the_invitation():
     body = body[:body.index("const countClass")]
     assert "sitSeat" in body
     assert "!viewer && count < 6" in body, "not offered to someone already seated, nor in a full room"
+    # app.js's renderSeats renders the "Сесть" button into exactly one empty
+    # seat and nothing into the rest, so picking our own would place a blank
+    # box and hide the real offer.
+    assert 'seat.querySelector("[data-add-seat]")' in body, "follow app.js's offered seat"
     assert 'classList.toggle("v040-sit-slot"' in body
     # It has to be shown and positioned like a real seat, or hiding empties
     # would swallow it again.

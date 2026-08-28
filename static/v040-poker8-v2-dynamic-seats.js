@@ -277,8 +277,14 @@
     // stays on the felt as the invitation to sit -- in the hero's chair,
     // which is where they would end up. Every other empty seat stays hidden;
     // six of them scattered round the ring is furniture, not an offer.
+    // Which empty seat carries the offer is app.js's decision, not ours:
+    // renderSeats picks one `offeredSeat` and leaves the other empty seats
+    // with no markup at all. Finding our own would be a second guess from a
+    // different source (DOM seat order vs tableData.seats, .seat-card vs
+    // occupant_type) and the two would drift apart -- we would place a blank
+    // box on the felt and hide the real button. So: follow the button.
     const sitSeat = !viewer && count < 6
-      ? allSeats.find(seat => !activeSet.has(seat)) || null
+      ? allSeats.find(seat => !activeSet.has(seat) && seat.querySelector("[data-add-seat]")) || null
       : null;
     allSeats.forEach(seat => {
       const shown = activeSet.has(seat) || seat === sitSeat;
