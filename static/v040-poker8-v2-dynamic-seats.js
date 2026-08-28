@@ -228,7 +228,12 @@
   //: Bounded retry for the case below -- roughly two seconds at 60fps.
   let placementRetries = 0;
 
-  function applyDynamicLayout(gameState, tableState) {
+  function applyDynamicLayout(gameState, tableState, isRetry) {
+    // Every real render restarts the budget. Keying it to the first failure
+    // instead burned all 120 frames during boot -- the layer chain calls this
+    // with nulls long before the opening snapshot lands, so the retries were
+    // spent and gone by the time the seat cards actually appeared.
+    if (!isRetry) placementRetries = 0;
     let placed = false;
     try {
       placed = applyDynamicLayoutInner(gameState, tableState) === true;
@@ -240,7 +245,6 @@
       // rather than by guessing here: three seconds of "loading" beats
       // showing a wrong table, and it only happens with nobody seated.
       if (placed) {
-        placementRetries = 0;
         document.body.classList.add("p8-boot-ready");
       } else if (placementRetries < 120) {
         // This sync can land before app.js has painted the seat cards, and
@@ -249,7 +253,7 @@
         // time. Without this the table stays unpositioned for good, which is
         // exactly what a one-bot table showed.
         placementRetries += 1;
-        requestAnimationFrame(() => applyDynamicLayout(window.game, window.tableData));
+        requestAnimationFrame(() => applyDynamicLayout(window.game, window.tableData, true));
       }
     }
   }

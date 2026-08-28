@@ -43,7 +43,7 @@ def test_it_waits_for_real_data_not_just_for_the_call():
     guessed at here: three seconds of "loading" beats showing a wrong table,
     and it only happens with nobody seated at all.
     """
-    start = V040.index("function applyDynamicLayout(gameState, tableState) {")
+    start = V040.index("function applyDynamicLayout(gameState, tableState, isRetry) {")
     wrapper = V040[start:V040.index("function applyDynamicLayoutInner")]
     assert "finally" in wrapper, "an exception must not strand the cloak"
     assert 'classList.add("p8-boot-ready")' in wrapper
@@ -55,6 +55,12 @@ def test_it_waits_for_real_data_not_just_for_the_call():
     # second time -- the table stayed unpositioned for good.
     assert "requestAnimationFrame" in wrapper
     assert "placementRetries" in wrapper
+    # And the budget has to restart on each real render. Keyed to the first
+    # failure it was spent during boot -- the chain calls this with nulls long
+    # before the opening snapshot -- so the retries were gone by the time the
+    # seat cards appeared, and the table stayed crooked anyway.
+    assert "if (!isRetry) placementRetries = 0;" in wrapper
+    assert "window.tableData, true)" in wrapper, "the retry must mark itself as one"
 
     # The inner pass has to actually report whether it placed anything, or
     # the guard above is reading a value nobody sets.
