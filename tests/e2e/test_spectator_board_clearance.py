@@ -28,42 +28,44 @@ POT_CHIP_GAP = 4
 #: Room for a rounded pixel on each side of the measured gap.
 TOLERANCE = 1
 
-#: Clone the last board card until five are on the felt. A bot-only table
-#: reaches the river on its own schedule, and waiting for it would make a
-#: geometry check hostage to how the hand happens to play; the clones carry
-#: the real card box, which is the only part being measured.
-FIVE_CARD_BOARD = """() => {
+#: Tops the board up to five cards and measures in the same call, because
+#: the two cannot be separated: a bot-only table ends hands on its own
+#: schedule, and a board that had cards when the wait passed could be empty
+#: again by the time a second evaluate ran. Returns null until there is a
+#: board to work with, so it can be polled. The clones carry the real card
+#: box, which is the only part being measured -- waiting for a hand to
+#: actually reach the river would make a geometry check hostage to how that
+#: hand happens to play.
+TOP_UP_AND_MEASURE = """() => {
   const board = document.querySelector('.board-cards');
-  if (!board) return 0;
-  const card = board.querySelector('.card');
-  if (!card) return 0;
-  while (board.querySelectorAll('.card').length < 5) {
-    board.appendChild(card.cloneNode(true));
-  }
+  const card = board && board.querySelector('.card');
+  if (!card) return null;
+  while (board.querySelectorAll('.card').length < 5) board.appendChild(card.cloneNode(true));
   window.syncComponentUi?.(window.game, window.tableData);
-  return board.querySelectorAll('.card').length;
-}"""
-
-MEASURE = """() => {
+  const chipsNode = document.querySelector('#potChips');
+  if (!chipsNode?.classList.contains('has-chips')) return null;
   const box = node => {
     if (!node) return null;
     const r = node.getBoundingClientRect();
     return {top: r.top, bottom: r.bottom, left: r.left, right: r.right, cx: r.left + r.width / 2};
   };
-  const seats = [...document.querySelectorAll('.seat.v040-dynamic-seat')]
-    .filter(seat => !seat.classList.contains('v040-sit-slot'))
-    .map(seat => ({
-      y: parseFloat(seat.style.getPropertyValue('--v040-seat-y')) || 0,
-      // The cards overhang the box upward, so they are the topmost thing a
-      // seat puts on the felt and the part that reached the board first.
-      top: Math.min(box(seat).top, box(seat.querySelector('.player-cards'))?.top ?? Infinity),
-    }));
+  const chips = box(chipsNode);
+  if (!chips || chips.bottom === chips.top) return null;
   return {
+    cards: board.querySelectorAll('.card').length,
+    clusters: document.querySelectorAll('#potChips .chip-cluster').length,
     felt: box(document.querySelector('.felt')),
-    board: box(document.querySelector('.board-cards')),
-    chips: box(document.querySelector('#potChips')),
+    board: box(board),
+    chips,
     pot: box(document.querySelector('.pot-total')),
-    seats,
+    seats: [...document.querySelectorAll('.seat.v040-dynamic-seat')]
+      .filter(seat => !seat.classList.contains('v040-sit-slot'))
+      .map(seat => ({
+        y: parseFloat(seat.style.getPropertyValue('--v040-seat-y')) || 0,
+        // The cards overhang the box upward, so they are the topmost thing a
+        // seat puts on the felt and the part that reached the board first.
+        top: Math.min(box(seat).top, box(seat.querySelector('.player-cards'))?.top ?? Infinity),
+      })),
   };
 }"""
 
@@ -95,12 +97,8 @@ def test_the_spectator_strip_is_readable_at_every_phone_height(spectator_server,
                     page.wait_for_function("document.body.classList.contains('p8-spectator-layout')")
                     # A board on the felt means a hand is running, which is
                     # also what puts money in the pot for the chips below.
-                    page.wait_for_function("document.querySelectorAll('.board-cards .card').length > 0")
-                    page.wait_for_function(
-                        "document.querySelector('#potChips')?.classList.contains('has-chips')")
-                    assert page.evaluate(FIVE_CARD_BOARD) == 5, (table, height)
-
-                    measured = page.evaluate(MEASURE)
+                    measured = page.wait_for_function(TOP_UP_AND_MEASURE).json_value()
+                    assert measured["cards"] == 5, (table, height)
                     board, chips, pot, felt = (
                         measured["board"], measured["chips"], measured["pot"], measured["felt"])
 
@@ -111,7 +109,7 @@ def test_the_spectator_strip_is_readable_at_every_phone_height(spectator_server,
                             f"{table} at {height}px: a lower seat starts "
                             f"{board['bottom'] - seat['top']:.0f}px above the board's bottom edge")
 
-                    assert page.locator("#potChips .chip-cluster").count() == 1, (table, height)
+                    assert measured["clusters"] == 1, (table, height)
                     assert abs(chips["cx"] - felt["cx"]) <= TOLERANCE, (
                         f"{table} at {height}px: chips off-centre by {chips['cx'] - felt['cx']:.1f}px")
                     gap = pot["top"] - chips["bottom"]

@@ -119,6 +119,64 @@
          count -- now it takes the same per-count size as every other seat. */
       body.v014.poker8-v2-sixmax.p8-player-count-2 .seat.v040-dynamic-seat[data-visual-seat="1"] .avatar-wrap{top:7px!important;}
       body.v014.poker8-v2-sixmax.p8-player-count-2 .seat.v040-dynamic-seat[data-visual-seat="1"] .seat-identity{top:50px!important;}
+
+      /* The invitation is a chair, so it takes the chair's own shape: the
+         avatar's circle, in the avatar's place, with the label where the
+         name plate goes. It used to be a 29px dashed dot floating inside a
+         44px button with the word tucked under it -- next to a real seat it
+         read as a stray control rather than a place at the table. The
+         numbers are v038's and v039's own avatar/identity geometry, kept in
+         variables so the two modes differ by four values instead of two
+         copies of every rule. */
+      body.v014.poker8-v2-sixmax .seat.v040-sit-slot{
+        --p8-sit-size:44px;--p8-sit-top:0px;--p8-sit-label-top:40px;--p8-sit-label-w:90px;--p8-sit-glyph:20px;
+      }
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat.v040-sit-slot{
+        --p8-sit-size:88px;--p8-sit-top:2px;--p8-sit-label-top:82px;--p8-sit-label-w:116px;--p8-sit-glyph:27px;
+      }
+      body.v014.poker8-v2-sixmax .seat.v040-sit-slot .seat-empty{
+        position:absolute!important;left:50%!important;top:var(--p8-sit-top)!important;
+        transform:translateX(-50%)!important;
+        width:var(--p8-sit-size)!important;height:var(--p8-sit-size)!important;
+        min-height:0!important;min-width:0!important;padding:0!important;
+        display:block!important;border:0!important;background:none!important;
+        border-radius:50%!important;overflow:visible!important;z-index:4;
+      }
+      body.v014.poker8-v2-sixmax .seat.v040-sit-slot .empty-avatar{
+        display:grid!important;place-items:center!important;
+        width:100%!important;height:100%!important;box-sizing:border-box!important;
+        border:2px dashed rgba(75,255,181,.72)!important;border-radius:50%!important;
+        background:rgba(0,0,0,.62)!important;color:rgba(75,255,181,.72)!important;
+        font-size:var(--p8-sit-glyph)!important;line-height:1!important;
+      }
+      body.v014.poker8-v2-sixmax .seat.v040-sit-slot .seat-empty strong{
+        position:absolute!important;left:50%!important;top:var(--p8-sit-label-top)!important;
+        transform:translateX(-50%)!important;width:var(--p8-sit-label-w)!important;
+        color:rgba(75,255,181,.72)!important;font-size:10px!important;line-height:1.1!important;
+        letter-spacing:.06em!important;text-align:center!important;
+      }
+      /* Held for you. Claiming a seat during a hand always worked -- the
+         queue seats you at the boundary -- but the chair carried on offering
+         itself, so the only sign anything had happened was in the header.
+         The ring closes and fills, and the word changes; pressing it again
+         does nothing, since cancelling lives in the header. */
+      body.v014.poker8-v2-sixmax.p8-seat-reserved .seat.v040-sit-slot .seat-empty{
+        pointer-events:none!important;
+      }
+      body.v014.poker8-v2-sixmax.p8-seat-reserved .seat.v040-sit-slot .empty-avatar{
+        border-style:solid!important;background:rgba(75,255,181,.18)!important;
+        font-size:0!important;
+      }
+      body.v014.poker8-v2-sixmax.p8-seat-reserved .seat.v040-sit-slot .empty-avatar::after{
+        content:"✓";font-size:var(--p8-sit-glyph);line-height:1;
+      }
+      body.v014.poker8-v2-sixmax.p8-seat-reserved .seat.v040-sit-slot .seat-empty strong{
+        font-size:0!important;
+      }
+      body.v014.poker8-v2-sixmax.p8-seat-reserved .seat.v040-sit-slot .seat-empty strong::after{
+        content:"ЗАБРОНИРОВАНО";
+        font-size:10px;letter-spacing:.06em;
+      }
     }
     @media (min-width:781px){
       body.v014.poker8-desktop-v2 .seat.v040-empty-seat{display:none!important;}

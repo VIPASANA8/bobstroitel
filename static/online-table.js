@@ -745,6 +745,13 @@
 
     const observerMode = ["spectator", "waiting"].includes(viewerState);
     document.body.classList.toggle("p8-observer-mode", observerMode);
+    // Claiming a seat mid-hand already worked -- the queue holds it and seats
+    // you at the boundary -- but the felt did not say so: the chair carried
+    // on offering itself as if nothing had been pressed, and the only sign
+    // was the header. The seat being held is the one still carrying the
+    // offer, since the queue takes the same seat renderSeats offers, so the
+    // class is all v040 needs to mark the right chair.
+    document.body.classList.toggle("p8-seat-reserved", viewerState === "waiting");
     ensureHeaderSeatButtons();
     // The nodes do not exist at module init, and v037 appends the chat/hint
     // group later still, so the initial call above cannot have placed them.
