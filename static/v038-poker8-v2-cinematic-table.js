@@ -577,8 +577,13 @@
            content: 15px, which is what lets it sit in the 24px gap between
            the pot's bottom and the board's top on a 321x760 phone felt. */
         position:absolute!important;bottom:auto!important;
-        left:50%!important;right:auto!important;top:44%!important;
-        height:auto!important;min-height:0!important;padding:0!important;border:0!important;
+        left:50%!important;right:auto!important;top:41%!important;
+        /* A plate of its own, in the pot's colours -- it read as text lying
+           loose on the felt before. */
+        padding:4px 10px!important;border-radius:7px!important;
+        border:1px solid rgba(60,225,150,.22)!important;
+        background:rgba(4,31,20,.66)!important;
+        height:auto!important;min-height:0!important;
         transform:translateX(-50%);z-index:6;
         display:flex!important;gap:16px;align-items:baseline;white-space:nowrap;
       }
@@ -715,8 +720,15 @@
         width:48px!important;height:48px!important;min-width:48px!important;min-height:48px!important;border-radius:14px!important;
       }
       body.v014.poker8-v2-sixmax .mobile-header-utility{margin-left:auto!important;}
+      /* Out of the header and into the bottom-right corner: beside the
+         hamburger it sat in the one row the eye uses for actions, and a
+         connection light is ambient, not something you act on. Fixed rather
+         than moved in the DOM -- it has no layout relationship to anything
+         around it. */
       body.v014.poker8-v2-sixmax #mobileConnectionDot{
         display:block;width:8px;height:8px;flex:0 0 8px;border-radius:50%;background:#55f3a8;box-shadow:0 0 9px rgba(85,243,168,.92);
+        position:fixed!important;right:12px!important;left:auto!important;top:auto!important;
+        bottom:calc(12px + env(safe-area-inset-bottom))!important;z-index:200!important;pointer-events:none;
       }
       body.v014.poker8-v2-sixmax #connectionStatus{display:none!important;}
       body.v014.poker8-v2-sixmax .app-shell{
@@ -768,8 +780,11 @@
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .player-cards{top:-52px!important;gap:4px!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .player-cards .card{width:50px!important;height:70px!important;}
       body.v014.poker8-v2-sixmax .board-cards .card{width:46px!important;height:64px!important;}
+      /* Pot lifted 38% -> 34%. It sat directly on top of the call/bet strip
+         with nothing between them; the four points it gives up are what that
+         strip now has to breathe in. */
       body.v014.poker8-v2-sixmax .pot-chips{top:29%!important;}
-      body.v014.poker8-v2-sixmax .pot-total{top:38%!important;}
+      body.v014.poker8-v2-sixmax .pot-total{top:34%!important;}
       body.v014.poker8-v2-sixmax .board-cards{top:47%!important;}
       body.v014.poker8-v2-sixmax .sidebar,
       body.v014.poker8-v2-sixmax .action-panel,

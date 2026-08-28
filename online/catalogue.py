@@ -30,8 +30,16 @@ DEFAULT_TABLES = (
 #: that one queues and takes a bot's seat at the next hand boundary, which
 #: _choose_seat already does whenever more than the minimum three are sitting.
 #: Both drop back to the normal count as soon as people arrive.
+# One count per table, 1 through 6, so every seat count is reachable for
+# testing without editing anything: the layouts, the ready gate and the
+# spectator hexagon all behave differently at each, and only two of the six
+# were exercised before.
 IDLE_BOT_COUNTS = {
-    "low-b": 5,
+    "micro-a": 1,
+    "micro-b": 2,
+    "low-a": 3,
+    "low-b": 4,
+    "mid-a": 5,
     "mid-b": 6,
 }
 

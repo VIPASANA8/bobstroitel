@@ -1,4 +1,10 @@
-"""Two lobby tables show a different number of bots while nobody is there."""
+"""Each lobby table shows its own number of bots while nobody is there.
+
+Was two named tables against a shared default. Every seat count now has a
+table, 1 through 6, so the layouts, the ready gate and the spectator
+hexagon can each be looked at without editing anything -- only two of the
+six counts were reachable before.
+"""
 
 import asyncio
 from datetime import datetime, timezone
@@ -51,12 +57,18 @@ async def _sit(session_factory, table_id, user_id, seat_no):
         await session.commit()
 
 
-def test_the_two_named_tables_are_the_only_ones_that_differ():
-    assert IDLE_BOT_COUNTS == {"low-b": 5, "mid-b": 6}
+def test_every_default_table_owns_a_distinct_count():
+    from online.catalogue import DEFAULT_TABLES
+
+    assert sorted(IDLE_BOT_COUNTS.values()) == [1, 2, 3, 4, 5, 6]
+    assert set(IDLE_BOT_COUNTS) == {table[0] for table in DEFAULT_TABLES}
+    # Nothing may exceed the room, and the eviction floor is about yielding a
+    # seat to a person, not a minimum to seed -- so 1 and 2 are legitimate.
+    assert max(IDLE_BOT_COUNTS.values()) <= 6
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("table_id,expected", [("low-b", 5), ("mid-b", 6), ("micro-a", MAX_SYSTEM_BOTS)])
+@pytest.mark.parametrize("table_id,expected", sorted(IDLE_BOT_COUNTS.items()))
 async def test_an_empty_table_shows_its_own_number(lobby, table_id, expected):
     seating, session_factory = lobby
     await seating.process_boundary(table_id, now=START)
@@ -67,17 +79,19 @@ async def test_an_empty_table_shows_its_own_number(lobby, table_id, expected):
 async def test_the_five_bot_table_is_full_once_you_join(lobby):
     """Five bots plus you is six. Nobody has to leave for that to happen.
 
+    The five-bot table is mid-a now that every count has one of its own.
+
     The first version clamped this to four the moment anyone sat down, so
     taking the one free seat made a bot leave and opened another -- the table
     could never actually be full, which is the entire point of it.
     """
     seating, session_factory = lobby
-    await seating.process_boundary("low-b", now=START)
-    assert await _bots(session_factory, "low-b") == 5
+    await seating.process_boundary("mid-a", now=START)
+    assert await _bots(session_factory, "mid-a") == 5
 
-    await _sit(session_factory, "low-b", "u1", 5)  # the one seat no bot took
-    await seating.process_boundary("low-b", now=START)
-    assert await _bots(session_factory, "low-b") == 5, "a bot left a seat that was not needed"
+    await _sit(session_factory, "mid-a", "u1", 5)  # the one seat no bot took
+    await seating.process_boundary("mid-a", now=START)
+    assert await _bots(session_factory, "mid-a") == 5, "a bot left a seat that was not needed"
 
 
 @pytest.mark.anyio

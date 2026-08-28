@@ -30,10 +30,34 @@ def test_queued_seat_status_is_static_and_quiet():
     assert "width:6px;height:6px;border-radius:50%;background:#55f3a8" in queued_rules
 
 
-def test_mobile_center_stack_is_chips_then_pot_then_board_then_summary():
-    assert ".pot-chips{top:29%!important;" in TABLE
-    assert ".pot-total{top:38%!important;}" in TABLE
-    assert ".board-cards{top:47%!important;}" in TABLE
+def test_mobile_center_stack_is_chips_then_pot_then_summary_then_board():
+    """The call/bet strip moved up between the pot and the board.
+
+    It used to sit under the board in the action panel, repeating the pot's
+    own number. Asserted as an order rather than four literals so raising the
+    pot -- which is what made room for the strip -- does not have to be
+    re-typed here every time it moves.
+    """
+    import re
+
+    def top_of(selector):
+        # Several rules set each of these; the last one in the file is the one
+        # that actually paints, since they tie on specificity.
+        hits = re.findall(re.escape(selector) + r"\{top:(\d+)%!important;", TABLE)
+        assert hits, selector
+        return int(hits[-1])
+
+    chips, pot, board = top_of(".pot-chips"), top_of(".pot-total"), top_of(".board-cards")
+
+    summary = re.search(r"\.v038-hud-summary\.on-felt\{[^}]*?top:(\d+)%!important", TABLE, re.S)
+    assert summary, "the felt strip lost its position"
+    strip = int(summary.group(1))
+
+    assert chips < pot < strip < board, (chips, pot, strip, board)
+    # It needs its own plate, or it reads as text lying loose on the felt.
+    plate = TABLE[TABLE.index(".v038-hud-summary.on-felt{"):]
+    plate = plate[:plate.index("}")]
+    assert "background:" in plate and "border:" in plate
     assert "bottom:calc(183px + env(safe-area-inset-bottom))!important" in TABLE
 
 

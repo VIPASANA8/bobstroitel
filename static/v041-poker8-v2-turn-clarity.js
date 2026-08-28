@@ -142,7 +142,8 @@
   window.setInterval(queueSync, 450);
   queueSync();
 
-  // v041 is the last mobile v2 layer to load -- its style being in place
-  // means the table can finally paint without the boot cloak in index.html.
-  document.body.classList.add("p8-boot-ready");
+  // The cloak used to come off here, on this layer's load. That is too early:
+  // the styles are in place but v040 has not positioned a single seat yet, so
+  // the table painted at style.css's seven-seat defaults until the first
+  // snapshot landed. v040 lifts it now, once the seats are where they belong.
 })();

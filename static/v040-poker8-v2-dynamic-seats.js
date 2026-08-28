@@ -219,7 +219,21 @@
     requestAnimationFrame(() => requestAnimationFrame(settle));
   }
 
+  // The boot cloak in index.html comes off here, not when the last stylesheet
+  // loads. Until a seat has been through the pass below it sits at style.css's
+  // seven-seat defaults, so lifting the cloak on load showed that layout for as
+  // long as the first snapshot took to arrive -- reported as a crooked table
+  // flashing on entry. Wrapped so every exit path clears it, including the
+  // empty-table one: with no seats to place there is nothing left to jump.
   function applyDynamicLayout(gameState, tableState) {
+    try {
+      applyDynamicLayoutInner(gameState, tableState);
+    } finally {
+      document.body.classList.add("p8-boot-ready");
+    }
+  }
+
+  function applyDynamicLayoutInner(gameState, tableState) {
     if (!isMobile() && !isDesktop()) return;
     const allSeats = [...document.querySelectorAll(".seat[data-seat]")];
     const { active, viewer } = orderedActiveSeats(gameState, tableState);
