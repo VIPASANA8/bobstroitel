@@ -314,6 +314,17 @@
     // put them outside the ellipse entirely. They are how a player sits down
     // now, so they have to be places at the table, not leftovers beside it.
     // Each takes a slot on the full ring that no active seat is near.
+    // Cleared on the way out, or it outlives the seat's turn at being taken.
+    // Half a dozen layers pin a seat by [data-visual-seat="N"], at the same
+    // specificity as the rule below that reads --v040-seat-x, so a stale
+    // attribute is not a tie v040 wins -- load order decides, and v040 loses.
+    // A leftover "1" on the seat holding the Сесть button pinned it to the
+    // first chair's arc position in the corner, whatever coordinates it had
+    // just been given.
+    allSeats.forEach(seat => {
+      if (!activeSet.has(seat)) delete seat.dataset.visualSeat;
+    });
+
     const ring = (!viewer && SPECTATOR_LAYOUTS[6]) || LAYOUTS[6];
     const used = points.slice(0, active.length);
     const spare = ring.filter(([x, y]) =>

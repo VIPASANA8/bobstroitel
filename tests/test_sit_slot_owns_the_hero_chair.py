@@ -82,3 +82,18 @@ def test_seats_are_placed_before_they_are_revealed():
     body = body[:body.index("\n  }\n")]
     assert body.index("moveSeatTo(sitSeat") < body.index('classList.toggle("v040-dynamic-seat"')
     assert body.index("moveSeatTo(seat, x, y)") < body.index('classList.toggle("v040-empty-seat"')
+
+
+def test_a_seat_that_is_no_longer_active_loses_its_visual_seat():
+    """`data-visual-seat` is how half a dozen layers pin a seat -- at the same
+    specificity as v040's own rule, so a stale one is not a tie v040 wins:
+    load order decides it, and v040 loses. Measured live: a leftover "1" on
+    the seat holding the Сесть button held it at the first chair's arc
+    position in the corner (7%/24%) no matter what coordinates it was given.
+    Clearing it put the button back in the hero chair (50%/80%)."""
+    body = V040[V040.index("function applyDynamicLayoutInner"):]
+    body = body[:body.index(chr(10) + "  }" + chr(10))]
+    assert "delete seat.dataset.visualSeat" in body
+    # Before the placement below, or the rules it frees are still in force
+    # while the seat is being measured for its move.
+    assert body.index("delete seat.dataset.visualSeat") < body.index("moveSeatTo(sitSeat")
