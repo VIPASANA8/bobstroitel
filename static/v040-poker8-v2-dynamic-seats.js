@@ -30,16 +30,23 @@
   // community card was hidden behind a player's name. Moved to y:20, next to
   // the top pole the same way LAYOUTS[6]'s own upper-side seats sit near its
   // top pole (13 and 19) -- clear of the band, not just barely.
+  //: The seat at 50%/80% is the hero's, and while nobody is sitting there it
+  //: is where the "take a seat" control goes -- so no spectator layout may
+  //: use the bottom-centre unless the room is full and there is no seat to
+  //: offer. That is why 4 and 5 spread across the top and the sides instead
+  //: of putting somebody where the invitation belongs, and why 1 sits at the
+  //: top rather than in the chair being offered.
   const SPECTATOR_LAYOUTS = {
+    1: [[50, 13]],
     2: [[12, 50], [88, 50]],
     3: [[50, 13], [18, 70], [82, 70]],
-    4: [[50, 13], [86, 66], [50, 88], [14, 66]],
+    4: [[24, 14], [76, 14], [83, 66], [17, 66]],
     // Was three seats crammed onto the same y:14-16 top band and only two
     // down at y:78, leaving the whole middle band empty on both sides --
     // lopsided, not a pentagon. Reuses the 4-seat entry's own proven y bands
     // (13, 66, 88) plus the top pair's x spread from LAYOUTS[5] (24/76)
     // instead of inventing new numbers: two top, two mid-sides, one bottom.
-    5: [[24, 14], [76, 14], [88, 66], [50, 88], [12, 66]],
+    5: [[50, 9], [20, 14], [80, 14], [85, 66], [15, 66]],
     // Same lopsidedness the 5-seat entry had, one row flatter: the two
     // lower-side seats sat at y:69, only 16 points off the bottom pole's
     // 85 -- reported live as two dense rows, top and bottom, with no
@@ -266,9 +273,18 @@
     if (!count) return false;
 
     const activeSet = new Set(active);
+    // While the viewer has no seat and the room is not full, one empty seat
+    // stays on the felt as the invitation to sit -- in the hero's chair,
+    // which is where they would end up. Every other empty seat stays hidden;
+    // six of them scattered round the ring is furniture, not an offer.
+    const sitSeat = !viewer && count < 6
+      ? allSeats.find(seat => !activeSet.has(seat)) || null
+      : null;
     allSeats.forEach(seat => {
-      seat.classList.toggle("v040-empty-seat", !activeSet.has(seat));
-      seat.classList.toggle("v040-dynamic-seat", activeSet.has(seat));
+      const shown = activeSet.has(seat) || seat === sitSeat;
+      seat.classList.toggle("v040-empty-seat", !shown);
+      seat.classList.toggle("v040-dynamic-seat", shown);
+      seat.classList.toggle("v040-sit-slot", seat === sitSeat);
     });
     // This runs on every snapshot/poll, i.e. continuously on a live table. A
     // remove-then-add of the class the body already carries still restarts
@@ -299,8 +315,9 @@
     const used = points.slice(0, active.length);
     const spare = ring.filter(([x, y]) =>
       used.every(([ax, ay]) => Math.hypot(x - ax, y - ay) > 12));
+    if (sitSeat) moveSeatTo(sitSeat, 50, 80);
     allSeats
-      .filter(seat => !activeSet.has(seat))
+      .filter(seat => !activeSet.has(seat) && seat !== sitSeat)
       .forEach((seat, index) => {
         const point = spare[index % Math.max(1, spare.length)];
         if (point) moveSeatTo(seat, point[0], point[1]);
