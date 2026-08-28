@@ -151,7 +151,11 @@ def test_the_header_offers_ready_up_for_a_seated_player_with_nothing_dealt():
     requires no seat, the other requires one, so the wrap stays open exactly
     when either has something to offer."""
     source = Path("static/online-table.js").read_text(encoding="utf-8")
-    assert 'const seatNo = viewerState === "seated" ? viewerSeatNo(state) : null;' in source
+    # The seat number comes from the server (viewer_seat_no) rather than
+    # being worked out here: viewer_state reads "seated" for a seat that is
+    # only held -- which is what a reconnect, and every restart, leaves --
+    # and the ready-up endpoint refuses those.
+    assert 'const seatNo = viewerState === "seated" ? (state?.viewer_seat_no ?? viewerSeatedSeat) : null;' in source
     assert "isPreHand()" in source[source.index("function syncHeaderSeatButtons"):]
     assert "wrap.hidden = !offer && !awaitingReady;" in source
     assert 'readyButton.hidden = !awaitingReady;' in source

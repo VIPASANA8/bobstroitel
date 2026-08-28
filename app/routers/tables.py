@@ -115,7 +115,19 @@ async def table_snapshot(
         else "waiting" if queue == "waiting"
         else "spectator"
     )
-    return {"table": dict(row), "state": state, "viewer_state": viewer_state, "queue_state": queue}
+    # The seat the ready-up endpoint itself would find -- state == "seated",
+    # nothing else. viewer_state above deliberately reads "seated" for a seat
+    # that is only held or leaving, and during a live hand the snapshot omits
+    # current_seats entirely, so the client has no way to work this out and
+    # was offering "mark ready" to somebody the endpoint then refused. A
+    # reconnect holds the seat for its grace window, and a restart holds every
+    # seat at once, so that window opens on every deploy.
+    seated_seat_no = await request.app.state.seating.user_seat_number(user.user_id, table_id)
+    state["viewer_seat_no"] = seated_seat_no
+    return {
+        "table": dict(row), "state": state, "viewer_state": viewer_state,
+        "queue_state": queue, "viewer_seat_no": seated_seat_no,
+    }
 
 
 @router.post("/{table_id}/ready")

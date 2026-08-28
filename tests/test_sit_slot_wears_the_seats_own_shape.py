@@ -154,7 +154,7 @@ def test_marking_ready_needs_the_seat_the_server_counts():
     online = (STATIC / "online-table.js").read_text(encoding="utf-8")
     body = online[online.index("async function readyUp() {"):]
     body = body[:body.index(chr(10) + "  }")]
-    assert "viewerSeatNo(latestState) == null" in body
+    assert "viewer_seat_no" in body, "the seat has to come from the server"
 
 
 def test_the_invitation_ring_cannot_be_squashed_into_an_ellipse():
@@ -167,3 +167,20 @@ def test_the_invitation_ring_cannot_be_squashed_into_an_ellipse():
     assert "width:var(--p8-sit-size)" in block and "height:var(--p8-sit-size)" in block
     assert "aspect-ratio:1" in block
     assert "height:100%" not in block, "a percentage height is what collapsed"
+
+
+def test_the_turn_ring_only_runs_while_the_server_keeps_a_clock():
+    """action_deadline is set for a human and left null for a bot, which is
+    not an omission -- a bot is never timed out. The ring was drawn for any
+    actor, so it invented a 30s countdown for bots and restarted it at 30 on
+    every bot action as the turn moved round the table. Reported as the
+    timer jumping back to 30."""
+    table = (STATIC / "v038-poker8-v2-cinematic-table.js").read_text(encoding="utf-8")
+    body = table[table.index("function syncTableTurnHud() {"):]
+    body = body[:body.index(chr(10) + "  }")]
+    # The ring still marks whose turn it is, so an untimed actor keeps it --
+    # it just stops carrying a number, and stops restarting a countdown that
+    # nothing was counting.
+    assert "const timed = !Number.isNaN(deadline);" in body
+    assert 'setText(timer.querySelector("b"), "");' in body
+    assert "TURN_VISUAL_MS - (Date.now() - turnVisualStartedAt)" not in body

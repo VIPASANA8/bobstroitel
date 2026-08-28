@@ -275,6 +275,8 @@
         content:"";position:absolute;inset:4px;border-radius:50%;background:#07100f;border:1px solid color-mix(in srgb,var(--turn) 72%,transparent);
       }
       body.v014.poker8-v2-sixmax .v038-turn-timer b{position:relative;color:#ffffff;font-size:20px;line-height:1;text-shadow:0 0 7px var(--turn);}
+      /* No number, so no unit under it. */
+      body.v014.poker8-v2-sixmax .v038-turn-timer.v038-untimed small{display:none!important;}
       body.v014.poker8-v2-sixmax .v038-turn-timer small{position:absolute;bottom:-11px;color:color-mix(in srgb,var(--turn) 62%,#ffffff);font-size:10px;font-weight:900;letter-spacing:.08em;}
       body.v014.poker8-v2-sixmax .v038-turn-context.visible{display:block;}
       body.v014.poker8-v2-sixmax .v038-turn-context{
@@ -1074,19 +1076,28 @@
     }
     if (timer.parentElement !== host) host.appendChild(timer);
     timer.classList.add("visible");
-    const token = `${game.hand_id}:${game.street}:${game.acting_player}:${game.history?.length || 0}`;
-    if (turnVisualToken !== token) {
-      turnVisualToken = token;
-      turnVisualStartedAt = Date.now();
-    }
     // The server owns the clock and folds on its own deadline, so a locally
     // restarted countdown would promise time the player does not have.
+    //
+    // It only keeps a clock for a human: action_deadline is null for a bot,
+    // and that is not an omission -- a bot is never timed out. The ring used
+    // to invent a 30-second countdown for them anyway, keyed to a token that
+    // changes on every action, so as the turn moved round the table the
+    // number visibly jumped back to 30 again and again. The ring still marks
+    // whose turn it is; it just does not claim to be counting anything.
     const deadline = game.action_deadline ? Date.parse(game.action_deadline) : NaN;
-    const left = Number.isNaN(deadline)
-      ? Math.max(0, TURN_VISUAL_MS - (Date.now() - turnVisualStartedAt))
-      : Math.max(0, deadline - Date.now());
-    const seconds = Math.ceil(left / 1000);
-    setText(timer.querySelector("b"), String(seconds));
+    const timed = !Number.isNaN(deadline);
+    timer.classList.toggle("v038-untimed", !timed);
+    if (!timed) {
+      setText(timer.querySelector("b"), "");
+      timer.style.setProperty("--timer-progress", "100%");
+      window.clearInterval(turnVisualTicker);
+      turnVisualTicker = 0;
+      turnVisualToken = "";
+      return;
+    }
+    const left = Math.max(0, deadline - Date.now());
+    setText(timer.querySelector("b"), String(Math.ceil(left / 1000)));
     timer.style.setProperty("--timer-progress", `${Math.min(100, left / TURN_VISUAL_MS * 100)}%`);
     if (!turnVisualTicker) turnVisualTicker = window.setInterval(syncTableTurnHud, 250);
   }

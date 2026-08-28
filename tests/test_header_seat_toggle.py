@@ -104,7 +104,10 @@ def _run_solo_ready_up():
     block = _extract_block()
     harness = """
     const viewerState = "seated";
-    function viewerSeatNo() { return 2; }
+    // The seat the server counts as really seated -- see viewer_seat_no. A
+    // seat that is only held reports viewer_state "seated" with no number,
+    // and that is the case this button must not appear in.
+    let viewerSeatedSeat = 2;
     function isPreHand() { return true; }
     const elements = {
       mobileHeaderSeatActions: {

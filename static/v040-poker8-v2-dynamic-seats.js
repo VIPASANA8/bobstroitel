@@ -185,8 +185,17 @@
         border-style:solid!important;background:rgba(75,255,181,.18)!important;
         font-size:0!important;
       }
+      /* Laid over the circle rather than placed in it: the "+" it replaces is
+         a bare text node, and grid wraps that in an anonymous item even at
+         font-size:0, so the tick was auto-placed into a second row and sat
+         below centre. Absolute inset:0 has no such neighbour to queue behind. */
+      body.v014.poker8-v2-sixmax.p8-seat-reserved .seat.v040-sit-slot .empty-avatar{
+        position:relative!important;
+      }
       body.v014.poker8-v2-sixmax.p8-seat-reserved .seat.v040-sit-slot .empty-avatar::after{
-        content:"✓";font-size:var(--p8-sit-glyph);line-height:1;
+        content:"✓";position:absolute;inset:0;
+        display:grid;place-items:center;
+        font-size:var(--p8-sit-glyph);line-height:1;
       }
       body.v014.poker8-v2-sixmax.p8-seat-reserved .seat.v040-sit-slot .seat-empty strong{
         font-size:0!important;

@@ -358,6 +358,9 @@
   }[char]));
   let table = null;
   let viewerState = "spectator";
+  //: The seat the server counts as actually seated, straight from it --
+  //: null while a seat is only held or leaving. See viewer_seat_no.
+  let viewerSeatedSeat = null;
   let latestState = null;
   let pollTimer = null;
   let lastRenderKey = null;
@@ -667,7 +670,10 @@
     // The avatar's own checkmark and pulse already carry the state; this is
     // just a second way to reach the same toggle, up where the seat/observe
     // pair lives when there's no seat/observe choice to make.
-    const seatNo = viewerState === "seated" ? viewerSeatNo(state) : null;
+    // From the server, not inferred: viewer_state says "seated" for a seat
+    // that is only held or leaving too. Falls back to the last REST value
+    // for websocket pushes, which do not carry the field.
+    const seatNo = viewerState === "seated" ? (state?.viewer_seat_no ?? viewerSeatedSeat) : null;
     const awaitingReady = viewerState === "seated" && isPreHand() && seatNo != null
       && !(state?.ready_seats || []).includes(seatNo);
     if (readyButton) readyButton.hidden = !awaitingReady;
@@ -966,6 +972,7 @@
     const payload = await response.json();
     table = payload.table;
     viewerState = payload.viewer_state || viewerState;
+    viewerSeatedSeat = payload.viewer_seat_no ?? null;
     noticeLostSeatRequest(payload.queue_state);
     window.Poker8Transport?.setRevision?.(payload.state?.revision);
     renderSnapshot(payload.state);
@@ -1071,7 +1078,7 @@
     // viewerSeatNo applies that same rule, so gating on it means the button
     // is offered exactly when the call behind it can succeed.
     if (readyUpInFlight || viewerState !== "seated" || !isPreHand()) return;
-    if (viewerSeatNo(latestState) == null) return;
+    if ((latestState?.viewer_seat_no ?? viewerSeatedSeat) == null) return;
     readyUpInFlight = true;
     try {
       await window.Poker8Transport.readyUp();
