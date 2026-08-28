@@ -39,7 +39,9 @@ def test_v037_stays_decorative_like_the_chat_button():
 
 
 def test_the_hint_button_toggles_and_also_closes_two_other_ways():
-    body = ONLINE_TABLE[ONLINE_TABLE.index('"#mobileHintButton"') - 200:]
+    # The "?" in the header and the "Инструкция" under the seat count open
+    # the same panel, so they share this one handler.
+    body = ONLINE_TABLE[ONLINE_TABLE.index('"#mobileHintButton, #p8TableGuide"') - 200:]
     body = body[:body.index("modal.hidden = true;\n    });") + 30]
     assert 'modal.hidden = !modal.hidden;' in body, "the button must toggle, not just open"
     assert '".hr-backdrop, #handRankingsClose"' in body

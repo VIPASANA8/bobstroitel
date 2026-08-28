@@ -77,3 +77,32 @@ def test_the_maximum_raise_does_not_print_all_in_twice():
     table = Path("static/v038-poker8-v2-cinematic-table.js").read_text(encoding="utf-8")
     assert "const hasAllInSlot = defs.some(def => def.key === \"all_in\");" in table
     assert "if (aggressive && atMax && !hasAllInSlot) {" in table
+
+
+def test_the_trainer_controls_are_gone_from_an_online_drawer():
+    """Online the server deals, starts the next hand and never pauses, so
+    "Новая раздача", "∞ Бесконечный режим" and "Пауза / продолжить" did
+    nothing there. Hidden by mode, not deleted -- the local trainer still
+    uses all three -- and the divider goes with them or it opens the
+    drawer."""
+    for control in ("#mobileDrawerNewHand", "#mobileDrawerInfinite",
+                    "#mobileDrawerPause", ".mobile-drawer-divider"):
+        assert f".poker8-online {control}" in ONLINE, control
+    markup = Path("static/index.html").read_text(encoding="utf-8")
+    assert 'id="mobileDrawerInfinite"' in markup, "the trainer still needs them"
+
+
+def test_the_instruction_sits_under_the_seat_count_and_holds_all_three_parts():
+    """"2 из 6 мест" is where somebody looking for help is already looking.
+    It opens the same panel the header's "?" does, so there is one place
+    holding what beats what, how a hand runs, and what each button does."""
+    assert 'id="p8TableGuide"' in ONLINE
+    assert '"#mobileHintButton, #p8TableGuide"' in ONLINE
+    identity = ONLINE[ONLINE.index("box.innerHTML = '<b data-name>"):]
+    assert "p8TableGuide" in identity[:identity.index(";")], "not under the count"
+
+    v037 = Path("static/v037-poker8-v2-reference-table.js").read_text(encoding="utf-8")
+    for section in ("Комбинации", "Правила", "Кнопки"):
+        assert f'<h4 class="hr-section">{section}</h4>' in v037, section
+    for key in ("FOLD", "CHECK", "CALL", "BET / RAISE", "ALL-IN"):
+        assert f'["{key}"' in v037.replace('["', '["'), key

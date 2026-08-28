@@ -43,6 +43,18 @@
        these must stay above the @media(max-width:780px) block below, and
        they must stay scoped to .poker8-online so local mode keeps them. */
     .poker8-online .seat-edit,.poker8-online .table-count{display:none!important}
+    .poker8-online .p8-table-guide{
+      display:block;margin-top:5px;padding:4px 9px;border:1px solid rgba(64,237,167,.42);
+      border-radius:8px;background:rgba(4,31,20,.86);color:#91e8ba;
+      font:800 10px/1 Inter,ui-sans-serif,system-ui;letter-spacing:.06em;cursor:pointer;
+    }
+    .poker8-online .p8-table-guide:hover{border-color:rgba(64,237,167,.7);color:#eafff6}
+    /* The drawer's three trainer controls: online the server deals, runs the
+       next hand and never pauses, so all three did nothing here. Hidden by
+       mode rather than deleted -- the local trainer still needs them -- and
+       the divider goes with them, or it would open the drawer. */
+    .poker8-online #mobileDrawerNewHand,.poker8-online #mobileDrawerInfinite,
+    .poker8-online #mobileDrawerPause,.poker8-online .mobile-drawer-divider{display:none!important}
     /* Same reasoning for the identity block: an online table is not
        "ЛОКАЛЬНЫЙ ТРЕНАЖЁР", and the build tag beside it is meaningless to a
        player. The markup stays for local mode; Phase 2 fills this space
@@ -420,7 +432,12 @@
       box = document.createElement("div");
       box.id = "p8TableIdentity";
       box.className = "p8-table-identity";
-      box.innerHTML = "<b data-name></b><small data-meta></small>";
+      // The instruction sits under the seat count, where somebody reading
+      // "2 из 6 мест" is already looking. It opens the same panel the header's
+      // "?" does -- one place that holds the combinations, the rules and what
+      // each action button does.
+      box.innerHTML = '<b data-name></b><small data-meta></small>'
+        + '<button id="p8TableGuide" class="p8-table-guide" type="button">Инструкция</button>';
       host.appendChild(box);
     }
     // Same units-to-money convention the lobby prints blinds with.
@@ -1233,7 +1250,7 @@
     // Same reason as the chat button above: v037 creates it, and v037 runs
     // after boot.
     document.addEventListener("click", event => {
-      if (event.target?.closest?.("#mobileHintButton")) {
+      if (event.target?.closest?.("#mobileHintButton, #p8TableGuide")) {
         const modal = $("handRankingsModal");
         if (modal) modal.hidden = !modal.hidden;
         return;

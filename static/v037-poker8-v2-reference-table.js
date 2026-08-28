@@ -26,6 +26,23 @@
     { name: "Старшая карта", desc: "Комбинации нет — решает старшая карта", cards: ["Ah"] },
   ];
 
+  //: Everything the hint has to say, in the order a new player needs it:
+  //: what beats what, how a hand runs, and what each control does.
+  const TABLE_RULES = [
+    ["Цель", "Собрать из своих двух карт и пяти общих лучшую комбинацию из пяти карт — или заставить остальных сбросить."],
+    ["Блайнды", "Два места слева от дилера ставят малый и большой блайнд до раздачи. Кнопка дилера сдвигается на одного каждую раздачу."],
+    ["Улицы", "Префлоп — по две карты в руки. Флоп — три общие карты, тёрн — четвёртая, ривер — пятая. Торговля идёт на каждой."],
+    ["Вскрытие", "Если после ривера остались двое и больше, карты открываются и банк забирает старшая комбинация. Равные руки делят банк."],
+  ];
+
+  const ACTION_GUIDE = [
+    ["FOLD", "Сбросить карты и выйти из раздачи. Всё, что уже поставлено, остаётся в банке."],
+    ["CHECK", "Пропустить ход, ничего не ставя. Доступно, только когда ставки перед вами нет."],
+    ["CALL", "Уравнять ставку соперника. На кнопке написано, сколько это стоит."],
+    ["BET / RAISE", "Поставить первым или повысить чужую ставку. Размер выбирается ползунком над кнопками."],
+    ["ALL-IN", "Поставить весь свой стек. Дальше вы не платите и не сбрасываете — ждёте вскрытия."],
+  ];
+
   function miniCardHtml(code) {
     const rank = code[0] === "T" ? "10" : code[0];
     const suit = code[1];
@@ -47,11 +64,20 @@
         <div class="hr-text"><strong>${hand.name}</strong><span>${hand.desc}</span></div>
       </div>
     `).join("");
+    const defs = list => list.map(([term, text]) =>
+      `<div class="hr-def"><strong>${term}</strong><span>${text}</span></div>`).join("");
     modal.innerHTML = `
       <div class="hr-backdrop"></div>
-      <div class="hr-panel" role="dialog" aria-modal="true" aria-label="Комбинации покера">
-        <div class="hr-head"><strong>Комбинации рук</strong><button id="handRankingsClose" type="button" aria-label="Закрыть">×</button></div>
-        <div class="hr-list">${rows}</div>
+      <div class="hr-panel" role="dialog" aria-modal="true" aria-label="Инструкция">
+        <div class="hr-head"><strong>Инструкция</strong><button id="handRankingsClose" type="button" aria-label="Закрыть">×</button></div>
+        <div class="hr-body">
+          <h4 class="hr-section">Комбинации</h4>
+          <div class="hr-list">${rows}</div>
+          <h4 class="hr-section">Правила</h4>
+          <div class="hr-defs">${defs(TABLE_RULES)}</div>
+          <h4 class="hr-section">Кнопки</h4>
+          <div class="hr-defs">${defs(ACTION_GUIDE)}</div>
+        </div>
       </div>
     `;
     document.body.appendChild(modal);
@@ -167,6 +193,17 @@
       .hand-rankings-modal .hr-card.red{color:#d0271c;}
       .hand-rankings-modal .hr-card b{font-size:10px;}
       .hand-rankings-modal .hr-text{display:flex;flex-direction:column;gap:1px;min-width:0;}
+      .hand-rankings-modal .hr-section{
+        margin:18px 0 2px;color:#6f8b81;font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+      }
+      .hand-rankings-modal .hr-section:first-child{margin-top:2px;}
+      .hand-rankings-modal .hr-defs{display:flex;flex-direction:column;}
+      .hand-rankings-modal .hr-def{
+        display:grid;grid-template-columns:var(--hr-cards-w) 1fr;gap:10px;align-items:baseline;
+        padding:8px 4px;border-top:1px solid rgba(120,150,140,.14);
+      }
+      .hand-rankings-modal .hr-def strong{color:#eafff6;font-size:12px;}
+      .hand-rankings-modal .hr-def span{color:#8ca59c;font-size:10px;line-height:1.35;}
       .hand-rankings-modal .hr-text strong{color:#eafff6;font-size:12px;}
       .hand-rankings-modal .hr-text span{color:#8ca59c;font-size:10px;line-height:1.25;}
       body.v014.poker8-v2-sixmax .table-frame{
@@ -214,7 +251,7 @@
   function ensureTurnClarityPatch() {
     if (document.querySelector("script[data-v041-poker8-v2-turn-clarity]")) return;
     const v041 = document.createElement("script");
-    v041.src = "/static/v041-poker8-v2-turn-clarity.js?v=seat-dialog-1";
+    v041.src = "/static/v041-poker8-v2-turn-clarity.js?v=table-guide-1";
     v041.setAttribute("data-v041-poker8-v2-turn-clarity", "");
     document.body.appendChild(v041);
   }
@@ -225,7 +262,7 @@
       return;
     }
     const v040 = document.createElement("script");
-    v040.src = "/static/v040-poker8-v2-dynamic-seats.js?v=seat-dialog-1";
+    v040.src = "/static/v040-poker8-v2-dynamic-seats.js?v=table-guide-1";
     v040.setAttribute("data-v040-poker8-v2-dynamic-seats", "");
     v040.addEventListener("load", ensureTurnClarityPatch, { once:true });
     document.body.appendChild(v040);
@@ -233,7 +270,7 @@
 
   if (!document.querySelector('script[data-v038-poker8-v2-cinematic-table]')) {
     const v038 = document.createElement("script");
-    v038.src = "/static/v038-poker8-v2-cinematic-table.js?v=seat-dialog-1";
+    v038.src = "/static/v038-poker8-v2-cinematic-table.js?v=table-guide-1";
     v038.setAttribute("data-v038-poker8-v2-cinematic-table", "");
     v038.addEventListener("load", ensureDynamicSeatLayout, { once: true });
     document.body.appendChild(v038);

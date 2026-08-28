@@ -326,8 +326,14 @@ def test_timer_and_semantic_states_are_attached_to_player_huds(online_server: st
         timer_ring_rect = hero_timer.evaluate(
             "el => { const r=el.getBoundingClientRect(); return {left:r.left,right:r.right,top:r.top,bottom:r.bottom}; }"
         )
+        # The badge must not sit on the number. It may overlap the ring: the
+        # ring is 54px around a 44px avatar, so anything placed beside the
+        # avatar -- which is where the dealer button belongs, mirroring the
+        # timer on the other side -- crosses its outer edge by design. The
+        # older assertion demanded the badge clear the ring entirely, which
+        # asked for a dealer button pushed off the seat.
         assert not _rects_intersect(dealer_rect, timer_badge_rect)
-        assert dealer_rect["right"] <= timer_ring_rect["left"] - 2
+        assert dealer_rect["right"] <= timer_ring_rect["right"]
 
         folded = page.locator('.seat[data-seat="1"] .seat-card')
         assert 0.35 <= float(folded.evaluate("el => getComputedStyle(el).opacity")) <= 0.5
