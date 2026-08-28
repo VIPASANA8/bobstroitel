@@ -49,3 +49,13 @@ def test_the_layers_that_draw_the_table_are_versioned_at_all():
     the ones that change."""
     for source, filename in CHAIN:
         assert f'{filename}"' not in source, f"{filename} is loaded with no ?v="
+
+
+def test_the_table_page_asks_for_one_cache_bust_and_no_more():
+    """Per-file slugs are what let three of them sit many deploys apart while
+    each looked deliberate. One value for everything index.html pulls in
+    costs a single extra fetch on a deploy and removes the whole class."""
+    slugs = set(re.findall(r"/static/[A-Za-z0-9._-]+\.(?:js|css)\?v=([A-Za-z0-9._-]+)", INDEX))
+    assert len(slugs) == 1, f"index.html asks for {len(slugs)} different slugs: {sorted(slugs)}"
+    chain_slug = next(iter(_slugs(INDEX, "component-ui.js")))
+    assert slugs == {chain_slug}, "the page and the chain it loads must agree"
