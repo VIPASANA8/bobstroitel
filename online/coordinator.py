@@ -327,7 +327,17 @@ class OnlineCoordinator:
                 await self.runtime.mark_countdown(table_id)
             return
 
-        if loaded.phase == "countdown" and loaded.next_hand_at is not None and loaded.next_hand_at <= now:
+        # A missing next_hand_at means deal now, not wait forever. The
+        # countdown exists only to hold the seven seconds after a result, so
+        # with no record of when that ends there is nothing left to wait for.
+        # Requiring the timestamp made a table that lost it a permanent dead
+        # end: nothing else advances a countdown, so it never dealt again and
+        # never ran process_boundary, which is also how it stopped picking up
+        # bot-count changes. Found on mid-a after the host was hard-killed
+        # mid-transition -- the row survived as countdown with a NULL timer.
+        # The result branch just above already guards its own timestamps this
+        # way; this is the same guard on the phase that follows it.
+        if loaded.phase == "countdown" and (loaded.next_hand_at is None or loaded.next_hand_at <= now):
             await self.runtime.prepare_next_hand(table_id)
             await self.seating.process_boundary(table_id, now=now)
             should_start, sit_out, evict = await self._may_start_hand(table_id, now)

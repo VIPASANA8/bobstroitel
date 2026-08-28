@@ -145,6 +145,31 @@ async def test_coordinator_recovers_a_paused_table_instead_of_leaving_it_stuck(c
 
 
 @pytest.mark.anyio
+async def test_a_countdown_with_no_timer_deals_instead_of_stalling_forever(coordinator):
+    """A countdown that lost its next_hand_at was a permanent dead end.
+
+    Nothing else advances that phase, so the table never dealt again -- and
+    because the next hand is also what runs process_boundary, it stopped
+    picking up seat and bot-count changes too. Found live on mid-a after the
+    host was hard-killed mid-transition: the row survived as countdown with a
+    NULL timer and sat there.
+
+    The result phase one block above already re-settles itself when its own
+    timestamps are missing; this is the same guard on the phase that follows.
+    """
+    await coordinator.tick()
+    loaded = coordinator.runtime._tables["t1"]
+    loaded.phase = "countdown"
+    loaded.next_hand_at = None
+
+    await coordinator.tick()
+
+    assert coordinator.runtime._tables["t1"].phase != "countdown", (
+        "a countdown with no timer never leaves it"
+    )
+
+
+@pytest.mark.anyio
 async def test_bot_moves_are_paced_not_instant(coordinator):
     """Coordinator.tick() used to call system_step unconditionally, so a bot
     acted on every ~250ms poll -- a uniform, obviously-robotic beat. A move
