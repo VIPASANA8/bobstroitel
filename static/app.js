@@ -375,14 +375,14 @@ function renderPotChips(value) {
     );
     visualValue = Math.max(visualValue, Number(game.pot || 0) + liveWagers);
   }
-  // Split into two piles flanking the amount instead of one cluster piled
-  // underneath it -- right gets the extra column on an odd count.
+  // One cluster, not two piles flanking the amount. Splitting the columns
+  // left/right across a 170px row meant a small pot -- one or two columns --
+  // arrived as two lone stacks marooned either side of the plate, reading as
+  // two pots rather than one; a single compact cluster is one pile of money.
   const stackCount = visualValue > 0
     ? Math.min(7, Math.max(1, visualStackCount(visualValue, false) + (visualValue >= 8 ? 1 : 0)))
     : 0;
-  const rightCount = Math.floor(stackCount / 2);
-  const leftCount = stackCount - rightCount;
-  target.innerHTML = potWingHtml(visualValue, leftCount, 0) + potWingHtml(visualValue, rightCount, leftCount);
+  target.innerHTML = potWingHtml(visualValue, stackCount, 0);
   target.classList.toggle("has-chips", visualValue > 0);
 }
 

@@ -46,21 +46,32 @@
     // in the band those were measured to clear the pot label from.
     2: [[20, 14], [80, 14]],
     3: [[50, 13], [18, 70], [82, 70]],
-    4: [[24, 14], [76, 14], [83, 66], [17, 66]],
+    // 4, 5 and 6 share one lower band at y:75. At 66 (64 on the hexagon) the
+    // lower side seats' hole-card boxes ran into the community-card row:
+    // measured 33px of vertical overlap on a 765px viewport and 54px at 640,
+    // with their horizontal edges crossing the board as well, so a spectator
+    // watching from the side had the street covered by a player. 75 clears a
+    // five-card board and those cards from 640px through 874px, and stays
+    // wide of the bottom-centre seat, a third of the felt away horizontally.
+    // Only the spectator layouts move; a seated player's own ring is
+    // untouched, and so are the top rows below.
+    4: [[24, 14], [76, 14], [83, 75], [17, 75]],
     // As with six players, the top pole takes the former wing level and both
-    // wings move down together. The lower side pair stays where it already
-    // clears the board.
-    5: [[50, 14], [20, 19], [80, 19], [85, 66], [15, 66]],
+    // wings move down together.
+    5: [[50, 14], [20, 19], [80, 19], [85, 75], [15, 75]],
     // The top three use two distinct levels: the pole takes the former wing
     // level at y:14 and both wings move down together to y:19. All three stay
     // above the reserved pot/board band, which begins below y:22.
-    // The lower pair moved again, 61 -> 64. Measured on a 321x760 phone
-    // felt: the board occupies y 47-58%, and a seat centred at 61% spans
-    // 56-66%, so both lower-side seats sat on top of the community cards
-    // ("не перекрывать улицу"). 64% starts the box at 63%, clear of the
-    // board's 58% bottom, and still leaves the 20-point gap to the bottom
-    // pole that keeps this a hexagon rather than two rows.
-    6: [[50, 14], [83, 19], [83, 64], [50, 85], [17, 64], [17, 19]],
+    //
+    // The lower pair went 61 -> 64 to get off the community cards, measured
+    // on a 321x760 phone felt where the board occupies y 47-58% and a seat
+    // centred at 61% spans 56-66% ("не перекрывать улицу"). 64 cleared the
+    // board itself but not the hole cards above those seats, which is why it
+    // moved again to the shared 75 band above. What 64 also bought -- a
+    // 20-point gap to the bottom pole, so the ring read as a hexagon rather
+    // than two rows -- is what 75 gives up; the pole is cleared sideways
+    // instead, which is what the test now checks.
+    6: [[50, 14], [83, 19], [83, 75], [50, 85], [17, 75], [17, 19]],
   };
 
   const style = document.createElement("style");

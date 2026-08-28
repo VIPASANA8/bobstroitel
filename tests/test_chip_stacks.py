@@ -48,36 +48,38 @@ def test_three_explicit_layers_plaque_below_chips_below_the_amount():
     assert number_z > chips_z
 
 
-def test_the_pot_wings_stay_clear_of_the_felts_own_border_at_the_worst_case_column_count():
-    """A real screenshot at pot=41 (5 columns split 3/2) showed the chip
-    piles overlapping the felt's own decorative border. .table-center spans
-    the felt's full border-box width (measured live: 321px felt, .table-
-    center also 0-321 relative to it) -- not just the inner surface inside
-    the 13px border -- so a wide .pot-chips row centers into that same
-    border-box span and its outer wing can end up sitting on the border
-    itself. Reproduces the live measurement (17px per column once the -5px
-    overlap margin is accounted for) for the widest case a real pot can
-    reach -- 7 stacks, split 4/3 -- and checks real clearance, not just
-    "technically not touching"."""
+def test_the_pot_cluster_stays_clear_of_the_felts_own_border_at_its_widest():
+    """A real screenshot at pot=41 showed the chip piles overlapping the
+    felt's own decorative border. .table-center spans the felt's full
+    border-box width (measured live: 321px felt, .table-center also 0-321
+    relative to it) -- not just the inner surface inside the 13px border --
+    so a .pot-chips row centred in that span can put its outer edge on the
+    border itself.
+
+    The row is one shrink-to-fit cluster now rather than two halves held
+    apart by a fixed width, so the widest case is all 7 columns side by side
+    (17px per column once the -5px overlap margin is accounted for) instead
+    of a 4/3 split across 170px. Narrower than what it replaced, but the
+    clearance is checked rather than assumed."""
     table = Path("static/v038-poker8-v2-cinematic-table.js").read_text(encoding="utf-8")
     rule = table[table.index(".pot-chips{"):]
     rule = rule[:rule.index("}") + 1]
-    width = int(re.search(r"width:(\d+)px", rule).group(1))
+    # Shrink-to-fit is the whole point: a fixed width would re-centre the
+    # cluster inside empty air, and an inherited min-width would restore the
+    # span this test exists to keep off the border.
+    assert "width:auto!important" in rule
+    assert "min-width:0!important" in rule
+    assert "justify-content:center!important" in rule
 
     felt_w, border, column_step, column_w = 321, 13, 17, 22
-    # 62.5px measured live at the fixed width (170px); 32.5px measured live
-    # at the width that produced the reported overlap (230px) -- the
+    # 62.5px measured live at the old fixed width (170px); 32.5px measured
+    # live at the width that produced the reported overlap (230px) -- the
     # midpoint is a real threshold, not an arbitrary one.
     required_clearance_from_border = 50
 
-    def wing_width(count):
-        return column_w + max(0, count - 1) * column_step
-
-    left_edge = (felt_w - width) / 2  # where the whole row (and its first wing) starts
-    left_wing_far_edge = left_edge + wing_width(4)  # the wider half of a 4/3 split
-
-    assert left_edge - border > required_clearance_from_border, "the row starts too close to the border again"
-    assert left_wing_far_edge < felt_w / 2, "the widest wing reaches past the felt's own center"
+    widest = column_w + 6 * column_step  # 7 columns, the cap in renderPotChips
+    left_edge = (felt_w - widest) / 2
+    assert left_edge - border > required_clearance_from_border, "the cluster reaches the border again"
 
 
 def test_a_wager_is_one_stack_whatever_it_is_worth():
@@ -121,17 +123,22 @@ def test_layers_never_run_away_or_collapse():
     assert "Math.max(2, Math.min(7," in body, "and the single wager stack"
 
 
-def test_the_pot_splits_into_two_wings_flanking_the_amount():
-    """renderPotChips used to draw one scattered cluster piled under the
-    board; it now splits the same column count into a left and a right wing
-    so the amount sits between them, with the extra column on an odd count
-    going to the right."""
+def test_every_calculated_column_lands_in_one_cluster():
+    """renderPotChips used to split its columns across a left and a right
+    wing so the amount sat between them. On a small pot that produced two
+    lone stacks marooned either side of the plate, reading as two pots.
+    Every column goes into a single cluster now.
+
+    Checked against each column's own `--cols`, which potWingHtml writes as
+    the size of the cluster it belongs to: if the columns were split again,
+    that number would come out below the total on screen."""
     import json
+    import re as _re
     import subprocess
     import tempfile
 
     start = APP.index("const CHIP_DENOMS")
-    end = APP.index("\n}", APP.index("function renderPotChips(value) {")) + 2
+    end = APP.index(chr(10) + "}", APP.index("function renderPotChips(value) {")) + 2
     source = APP[start:end]
     probe = """
     let game = null;
@@ -143,11 +150,7 @@ def test_the_pot_splits_into_two_wings_flanking_the_amount():
       $ = () => target;
       renderPotChips(n);
       $ = originalDollar;
-      const [left, right] = target.innerHTML.split("</div>").filter(s => s.includes("chip-column"));
-      out[n] = {
-        left: (left.match(/chip-column/g) || []).length,
-        right: (right ? right.match(/chip-column/g) : [] || []).length,
-      };
+      out[n] = target.innerHTML;
     }
     console.log(JSON.stringify(out));
     """
@@ -155,14 +158,19 @@ def test_the_pot_splits_into_two_wings_flanking_the_amount():
         handle.write(source + chr(10) + probe)
         path = handle.name
 
-    result = subprocess.run(["node", path], capture_output=True, text=True, check=True)
-    counts = json.loads(result.stdout)
-    for pot, sides in counts.items():
-        total = sides["left"] + sides["right"]
-        assert total >= 1
-        # Right never gets fewer than left minus one -- the split is even or
-        # the odd one out goes right, never left.
-        assert sides["right"] in (sides["left"], sides["left"] - 1), (pot, sides)
+    try:
+        result = subprocess.run(["node", path], capture_output=True, text=True, check=True)
+    finally:
+        Path(path).unlink(missing_ok=True)
+
+    for pot, html in json.loads(result.stdout).items():
+        clusters = html.count("chip-cluster")
+        columns = html.count("chip-column")
+        assert clusters == 1, f"pot {pot} drew {clusters} clusters"
+        assert columns >= 1, pot
+        declared = {int(value) for value in _re.findall(r"--cols:(\d+)", html)}
+        assert declared == {columns}, f"pot {pot}: {columns} columns on screen, cluster says {declared}"
+
 
 def test_the_countdown_sits_at_the_center_of_the_felt():
     """No longer tied to the room label's variable -- the label is silent for

@@ -300,13 +300,16 @@ def test_the_stake_is_written_in_the_avatar_not_on_the_felt():
     assert "chipStackHtml" not in body and "bet-marker" not in body
 
 
-def test_the_pot_cluster_splits_into_two_wings():
-    """renderPotChips draws its own two-wing layout now (see test_chip_stacks)
-    rather than delegating to chipStackHtml, which wager markers still use."""
+def test_the_pot_is_drawn_as_one_cluster():
+    """renderPotChips draws its own cluster (see test_chip_stacks) rather
+    than delegating to chipStackHtml, which wager markers still use. One
+    call, with the whole stack count: the two-wing split it replaced left a
+    small pot looking like two pots."""
     app = (STATIC / "app.js").read_text(encoding="utf-8")
     pot = app[app.index("function renderPotChips(value) {"):]
-    pot = pot[:pot.index("\n}")]
-    assert "potWingHtml(visualValue, leftCount, 0)" in pot
+    pot = pot[:pot.index(chr(10) + "}")]
+    assert "potWingHtml(visualValue, stackCount, 0)" in pot
+    assert pot.count("potWingHtml") == 1
     assert "chipStackHtml" not in pot
 
 
@@ -435,7 +438,27 @@ def test_six_spectators_get_a_hexagon_bulge_not_two_flat_rows():
     bottom_pole_y = points[3][1]
     for y in lower_wing_ys:
         assert not (22 < y < 56), f"lower wing at y:{y} is inside the reserved band"
-        assert bottom_pole_y - y >= 20, "lower wings sit too close to the bottom pole to read as a bulge"
+
+    # The bulge was originally held by a 20-point vertical gap from the
+    # bottom pole. That gap no longer survives: the lower wings had to drop
+    # to y:75 to stop their hole cards covering the board (measured 33px of
+    # overlap at a 765px viewport, 54px at 640). They clear the pole
+    # horizontally instead, a third of the felt away, so this checks the real
+    # thing the gap stood in for -- the boxes must not collide -- plus the
+    # ordering that makes the ring a ring.
+    felt_w, felt_h, seat_w, seat_h = 321, 761, 67, 77
+
+    def box(point):
+        cx, cy = point[0] / 100 * felt_w, point[1] / 100 * felt_h
+        return (cx - seat_w / 2, cy - seat_h / 2, cx + seat_w / 2, cy + seat_h / 2)
+
+    pole = box(points[3])
+    for index in (2, 4):
+        wing = box(points[index])
+        assert not (wing[0] < pole[2] and wing[2] > pole[0]
+                    and wing[1] < pole[3] and wing[3] > pole[1]), (points[index], points[3])
+    assert min(lower_wing_ys) > max(points[1][1], points[5][1]), "lower wings must sit below the upper ones"
+    assert bottom_pole_y >= max(lower_wing_ys), "the bottom pole is the lowest seat on the ring"
 
 
 def test_the_top_pole_also_clears_its_own_wings_not_just_the_bottom_one():

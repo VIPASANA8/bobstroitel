@@ -16,10 +16,9 @@ def _free_port() -> int:
         return int(sock.getsockname()[1])
 
 
-@pytest.fixture(scope="session")
-def online_server(tmp_path_factory):
+def _serve(tmp_path_factory, name, module):
     port = _free_port()
-    database = tmp_path_factory.mktemp("e2e") / "online.sqlite3"
+    database = tmp_path_factory.mktemp(name) / "online.sqlite3"
     env = os.environ.copy()
     env.update({
         "POKER8_ENV": "development",
@@ -30,7 +29,7 @@ def online_server(tmp_path_factory):
     log_path = database.with_suffix(".log")
     log_handle = log_path.open("w+", encoding="utf-8")
     process = subprocess.Popen(
-        [sys.executable, "-m", "uvicorn", "tests.e2e.server:app", "--host", "127.0.0.1", "--port", str(port)],
+        [sys.executable, "-m", "uvicorn", module, "--host", "127.0.0.1", "--port", str(port)],
         cwd=os.getcwd(), env=env, stdout=log_handle, stderr=subprocess.STDOUT,
     )
     base_url = f"http://127.0.0.1:{port}"
@@ -55,3 +54,14 @@ def online_server(tmp_path_factory):
         except subprocess.TimeoutExpired:
             process.kill()
         log_handle.close()
+
+
+@pytest.fixture(scope="session")
+def online_server(tmp_path_factory):
+    yield from _serve(tmp_path_factory, "e2e", "tests.e2e.server:app")
+
+
+@pytest.fixture(scope="session")
+def spectator_server(tmp_path_factory):
+    """Every bot active, so the lobby seeds its real 4/5/6-player rooms."""
+    yield from _serve(tmp_path_factory, "e2e-spectator", "tests.e2e.server_all_bots:app")

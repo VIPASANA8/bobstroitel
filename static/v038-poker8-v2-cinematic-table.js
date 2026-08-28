@@ -522,18 +522,21 @@
          touches the pot or a board card at 34%, with 17-25px to spare on
          every side. */
       body.v014.poker8-v2-sixmax .board-cards{top:34%!important;}
-      /* The two piles sit on the same row as the amount and flank it, rather
-         than piling up as one cluster under the board -- the row is wide
-         enough that both piles clear the amount plate on every player count
-         checked (min-width:74px on .pot-total, 25-45px to spare each side).
+      /* One centred cluster. It used to be two piles held apart by a fixed
+         170px row (justify-content:space-between), which is fine for a big
+         pot and wrong for a small one: one or two columns arrived as two
+         lone stacks marooned either side of the plate. The row now shrinks
+         to its chips -- width:auto with the inherited min-width (170px from
+         .neon-ref-v107, 92px from the base rule) cleared, or the box keeps
+         its old span and re-centres the cluster inside empty air.
          Full opacity immediately, no transition: the base .has-chips rule
          fades opacity in over .18s, and renderPotChips can repaint several
          times a second while a decision is on the clock -- each repaint
-         restarts that transition, so the piles could sit at their
+         restarts that transition, so the pile could sit at its
          .15-opacity starting point indefinitely instead of ever reaching 1. */
       body.v014.poker8-v2-sixmax .pot-chips{
-        top:25%!important;width:170px!important;max-width:66%!important;
-        display:flex!important;justify-content:space-between!important;align-items:flex-end!important;
+        top:25%!important;width:auto!important;min-width:0!important;max-width:66%!important;
+        display:flex!important;justify-content:center!important;align-items:flex-end!important;
         opacity:1!important;transition:none!important;z-index:2!important;
       }
 
@@ -1672,6 +1675,37 @@
   // an exception thrown by any earlier cosmetic step (stack labels, ready
   // marks, the turn HUD...) must never be able to stop configureReferenceActions
   // from running. Each step is isolated so one bad step can't take the rest down.
+  //: The chips sit this far above the pot plate.
+  const POT_CHIP_GAP = 4;
+
+  // The cluster's height is not fixed -- it grows with the pot, since taller
+  // stacks mean a taller box -- so a single top in the stylesheet is right
+  // for one pot size and wrong for the rest: too low and the chips sit on
+  // the plate, too high and they drift toward the board. Measure both boxes
+  // instead and close the gap to POT_CHIP_GAP.
+  //
+  // Worked as a correction to wherever the chips currently are, rather than
+  // as a position inside the felt, so it does not care which ancestor the
+  // chips are actually positioned against. Once applied the correction is
+  // zero, so re-running it on every sync is stable.
+  function syncPotChipStack() {
+    const chips = document.getElementById("potChips");
+    const pot = document.querySelector(".pot-total");
+    if (!chips || !pot) return;
+    const chipsBox = chips.getBoundingClientRect();
+    const potBox = pot.getBoundingClientRect();
+    const currentTop = parseFloat(getComputedStyle(chips).top);
+    // Nothing to measure -- an empty pot, or a felt that has not been painted
+    // yet. The stylesheet's own top is the fallback, so give it back rather
+    // than freezing the chips wherever the last measured pot left them.
+    if (!chipsBox.height || !potBox.height || !Number.isFinite(currentTop)) {
+      chips.style.removeProperty("top");
+      return;
+    }
+    const corrected = currentTop + (potBox.top - POT_CHIP_GAP - chipsBox.bottom);
+    chips.style.setProperty("top", `${Math.round(corrected)}px`, "important");
+  }
+
   function runSyncStep(fn) {
     try {
       fn();
@@ -1702,6 +1736,7 @@
     runSyncStep(syncCompletedHandReset);
     runSyncStep(configureReferenceActions);
     runSyncStep(syncSizingModeText);
+    runSyncStep(syncPotChipStack);
   }
 
   let syncQueued = false;
