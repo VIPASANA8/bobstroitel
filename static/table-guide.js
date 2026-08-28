@@ -91,8 +91,13 @@
       .hand-rankings-modal[hidden]{display:none;}
       .hand-rankings-modal .hr-backdrop{position:absolute;inset:0;background:rgba(7,16,15,.72);backdrop-filter:blur(2px);}
       .hand-rankings-modal .hr-panel{
-        position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-        width:min(92vw,380px);max-height:82vh;overflow-y:auto;
+        /* Pinned near the top rather than centred: centring spent half the
+           spare height above the panel, and at a phone's height that cut the
+           list off partway down the combinations. From here it can use
+           everything the viewport has. dvh, so the browser's own collapsing
+           chrome does not take a slice of it. */
+        position:absolute;left:50%;top:8px;transform:translateX(-50%);
+        width:min(92vw,380px);max-height:calc(100dvh - 16px);overflow-y:auto;
         background:linear-gradient(180deg,#0a1512,#07100f);border:1px solid rgba(64,237,167,.28);
         border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.6),0 0 30px rgba(64,237,167,.1);
         padding:14px;

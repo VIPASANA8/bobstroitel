@@ -152,3 +152,36 @@ def test_a_tap_anywhere_on_a_table_card_opens_it():
     assert "openTable(card.dataset.openTable)" in handler
     css = Path("static/network.css").read_text(encoding="utf-8")
     assert ".table-card[data-open-table]{cursor:pointer}" in css
+
+
+def test_the_instruction_uses_the_whole_height_it_has():
+    """Centred at 82vh, half the spare height went above the panel and the
+    list was cut off partway down the combinations on a phone. Pinned near
+    the top it gets everything the viewport has -- measured at 690px: the
+    panel runs 8..682 and the tenth combination ends at 553, so all ten are
+    there without scrolling."""
+    guide = Path("static/table-guide.js").read_text(encoding="utf-8")
+    panel = guide[guide.index(".hand-rankings-modal .hr-panel{"):]
+    panel = panel[:panel.index("}")]
+    assert "top:8px" in panel and "transform:translateX(-50%)" in panel
+    assert "top:50%" not in panel, "centring is what spent the height"
+    # dvh, or a browser's collapsing chrome takes a slice of it.
+    assert "max-height:calc(100dvh - 16px)" in panel
+
+
+def test_the_boot_veil_covers_the_whole_page_at_every_width():
+    """It hung off .app-shell::after behind a max-width query, so the mobile
+    header ("СТОЛ", "Новая раздача") and the bet bar -- .app-shell's own
+    siblings -- painted their pre-v2 selves around it, and at desktop width
+    nothing was covered at all."""
+    index = Path("static/index.html").read_text(encoding="utf-8")
+    # Rules only: the comment above them names what it replaced, in the same
+    # words these assertions look for.
+    style = re.sub(r"/\*.*?\*/", "", index[index.index("<style>"):index.index("</style>")], flags=re.S)
+    assert "body:not(.p8-boot-ready)::after" in style
+    assert ".app-shell::after" not in style
+    assert "@media (max-width: 780px)" not in style, "the veil must not be width-gated"
+    assert "z-index: 999" in style
+    # And a failsafe, so a layer that never reports ready cannot leave a
+    # permanently blank page.
+    assert 'window.setTimeout(() => document.body.classList.add("p8-boot-ready"), 3000);' in index
