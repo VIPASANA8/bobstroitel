@@ -79,10 +79,17 @@ class BoundaryResult:
 
 class SeatingService:
     def __init__(
-        self, session_factory: async_sessionmaker[AsyncSession], ledger: PlayLedger
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        ledger: PlayLedger,
+        seat_idle_bots: bool = True,
     ) -> None:
         self.session_factory = session_factory
         self.ledger = ledger
+        # TEMPORARY -- see POKER8_SEAT_IDLE_BOTS in online/config.py. Restore
+        # before the MVP release. Only the adding is switched off; removals and
+        # everyone already seated are untouched.
+        self.seat_idle_bots = seat_idle_bots
         # When each seated bot is due to leave. In memory on purpose: a restart
         # just re-rolls the timers, and rotation has nothing to recover.
         self._bot_rotate_at: dict[str, datetime] = {}
@@ -725,6 +732,10 @@ class SeatingService:
             1 for row in active_rows if row["occupant_kind"] == "system" and row["state"] == "seated"
         )
         needed = max(0, target_bot_count - seated_bot_count)
+        # The switch stops bots arriving, nothing else: the removals above have
+        # already run, so a table still sheds bots it should not have.
+        if not self.seat_idle_bots:
+            needed = 0
         # Capped, never forced: whoever is already seated stays seated. This
         # only holds back the ones who have not walked in yet.
         if table["created_by"]:

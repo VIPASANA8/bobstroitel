@@ -108,7 +108,7 @@ def create_app(
         app.state.chat = ChatService(session_factory)
         app.state.history = HistoryService(session_factory)
         app.state.runtime = TableRuntimeManager(session_factory, ledger)
-        app.state.seating = SeatingService(session_factory, ledger)
+        app.state.seating = SeatingService(session_factory, ledger, settings.seat_idle_bots)
         await app.state.runtime.restore_all()
         await app.state.seating.hold_all_users(datetime.now(timezone.utc))
         if fixture is not None:

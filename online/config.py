@@ -17,6 +17,7 @@ class Settings:
     coordinator_enabled: bool
     open_access: bool
     self_top_up_enabled: bool
+    seat_idle_bots: bool
     dev_profiles: dict[int, str]
     tenant_configs: dict[str, dict[str, object]] = field(default_factory=dict)
 
@@ -37,6 +38,13 @@ class Settings:
             "POKER8_SELF_TOP_UP",
             "1" if environment == "development" else "0",
         ).strip().lower()
+        # TEMPORARY -- restore before the MVP release. Off on the server while
+        # live testing needs the seats predictable: bots stop taking free ones,
+        # but whoever is already seated stays and keeps playing, and a bot that
+        # should leave still leaves. Defaults on, so tests and local runs are
+        # unchanged; turning it back on is deleting one line from
+        # compose.server.yaml.
+        raw_seat_idle_bots = source.get("POKER8_SEAT_IDLE_BOTS", "1").strip().lower()
         database_url = source.get("POKER8_DATABASE_URL", "").strip()
         bot_token = source.get("POKER8_DEFAULT_BOT_TOKEN", "").strip() or None
         if environment == "production" and not database_url:
@@ -80,6 +88,7 @@ class Settings:
             coordinator_enabled=raw_coordinator in {"1", "true", "yes", "on"},
             open_access=environment != "production" and raw_open_access in {"1", "true", "yes", "on"},
             self_top_up_enabled=raw_self_top_up in {"1", "true", "yes", "on"},
+            seat_idle_bots=raw_seat_idle_bots in {"1", "true", "yes", "on"},
             dev_profiles=profiles,
             tenant_configs=tenant_configs,
         )
