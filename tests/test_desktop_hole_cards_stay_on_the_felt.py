@@ -67,7 +67,7 @@ def test_the_floor_does_not_flatten_the_hexagon_on_a_tall_felt():
     sit at 14% -- on the ~780px felt this table actually renders that is
     109px, so the floor has to stay below it or pole and wings collapse
     onto one line."""
-    block = V040[V040.index("const SPECTATOR_LAYOUTS = {"):V040.index("const style = document.createElement")]
+    block = V040[V040.index("const SPECTATOR_LAYOUTS = {"):V040.index("const DESKTOP_LAYOUTS")]
     line = next(l for l in block.splitlines() if re.match(r"\s*6:", l))
     points = [(int(x), int(y)) for x, y in re.findall(r"\[(\d+),\s*(\d+)\]", line)]
     upper_wing_pct = min(points[1][1], points[5][1])

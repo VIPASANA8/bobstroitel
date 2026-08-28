@@ -356,7 +356,7 @@ def test_spectator_wing_seats_stay_clear_of_the_board_band():
     rather than "fixed" against a case that was never broken.
     """
     seats = (STATIC / "v040-poker8-v2-dynamic-seats.js").read_text(encoding="utf-8")
-    block = seats[seats.index("const SPECTATOR_LAYOUTS = {"):seats.index("const style = document.createElement")]
+    block = seats[seats.index("const SPECTATOR_LAYOUTS = {"):seats.index("const DESKTOP_LAYOUTS")]
     for line in block.splitlines():
         if not re.match(r"\s*[56]:", line):
             continue
@@ -376,7 +376,7 @@ TOP_ROW_GAP = 8
 
 def _top_three(count, wing_indices):
     seats = (STATIC / "v040-poker8-v2-dynamic-seats.js").read_text(encoding="utf-8")
-    block = seats[seats.index("const SPECTATOR_LAYOUTS = {"):seats.index("const style = document.createElement")]
+    block = seats[seats.index("const SPECTATOR_LAYOUTS = {"):seats.index("const DESKTOP_LAYOUTS")]
     line = next(l for l in block.splitlines() if re.match(rf"\s*{count}:", l))
     points = [(int(x), int(y)) for x, y in re.findall(r"\[(\d+),\s*(\d+)\]", line)]
     return points, points[0], [points[i] for i in wing_indices]
@@ -421,7 +421,7 @@ def test_five_spectators_form_a_balanced_pentagon_not_a_lopsided_cluster():
     five points -- spread top/top/side/bottom/side -- clear each other with
     real margin, not just in the abstract."""
     seats = (STATIC / "v040-poker8-v2-dynamic-seats.js").read_text(encoding="utf-8")
-    block = seats[seats.index("const SPECTATOR_LAYOUTS = {"):seats.index("const style = document.createElement")]
+    block = seats[seats.index("const SPECTATOR_LAYOUTS = {"):seats.index("const DESKTOP_LAYOUTS")]
     line = next(l for l in block.splitlines() if re.match(r"\s*5:", l))
     points = [(int(x), int(y)) for x, y in re.findall(r"\[(\d+),\s*(\d+)\]", line)]
     assert len(points) == 5
@@ -452,7 +452,7 @@ def test_six_spectators_get_a_hexagon_bulge_not_two_flat_rows():
     20 points of clearance from the bottom pole; the top trio is locked by
     test_six_spectator_top_seats_use_the_lowered_two_step_arc."""
     seats = (STATIC / "v040-poker8-v2-dynamic-seats.js").read_text(encoding="utf-8")
-    block = seats[seats.index("const SPECTATOR_LAYOUTS = {"):seats.index("const style = document.createElement")]
+    block = seats[seats.index("const SPECTATOR_LAYOUTS = {"):seats.index("const DESKTOP_LAYOUTS")]
     line = next(l for l in block.splitlines() if re.match(r"\s*6:", l))
     points = [(int(x), int(y)) for x, y in re.findall(r"\[(\d+),\s*(\d+)\]", line)]
     assert len(points) == 6
@@ -487,7 +487,7 @@ def test_six_spectators_get_a_hexagon_bulge_not_two_flat_rows():
 def test_the_top_pole_also_clears_its_own_wings_not_just_the_bottom_one():
     """The center stays one full layout step above both upper wings."""
     seats = (STATIC / "v040-poker8-v2-dynamic-seats.js").read_text(encoding="utf-8")
-    block = seats[seats.index("const SPECTATOR_LAYOUTS = {"):seats.index("const style = document.createElement")]
+    block = seats[seats.index("const SPECTATOR_LAYOUTS = {"):seats.index("const DESKTOP_LAYOUTS")]
     line = next(l for l in block.splitlines() if re.match(r"\s*6:", l))
     points = [(int(x), int(y)) for x, y in re.findall(r"\[(\d+),\s*(\d+)\]", line)]
     assert len(points) == 6

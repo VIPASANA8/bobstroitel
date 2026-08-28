@@ -183,6 +183,27 @@
         box-shadow:0 4px 10px rgba(0,0,0,.42)!important;
       }
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .board-cards .card{width:66px!important;height:92px!important;border-color:rgba(98,255,170,.82)!important;background:linear-gradient(150deg,#07100f,#000000)!important;box-shadow:0 0 12px rgba(35,255,159,.32),0 6px 11px rgba(0,0,0,.58)!important;}
+      /* Same reading order as the phone -- chips, then the amount, then the
+         board -- which desktop had upside down: the board sat at 42% of the
+         felt with the pot below it at 63%. Placed against this oval rather
+         than inherited from the tall one: the top seats' plates end at 25%
+         and the bottom seats' boxes begin at 59%, so the run 26 -> 58 is the
+         band that is actually free. */
+      /* Chips, then the amount, then the board -- the order the phone reads
+         in, which desktop had upside down: the board sat above a pot below
+         it. These three live in normal flow inside .table-center here (they
+         are absolutely placed on the phone, where that box is the whole
+         felt), so the fix is the flow's own order, not a top percentage --
+         on a relative element that only nudges it along from where the flow
+         already put it, which is what pushed the cluster into the lower
+         third. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .table-center{
+        display:flex!important;flex-direction:column!important;
+        align-items:center!important;justify-content:center!important;gap:12px!important;
+      }
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .pot-chips{order:1!important;top:auto!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .pot-total{order:2!important;top:auto!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .board-cards{order:3!important;top:auto!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .pot-total{border-color:rgba(60,225,150,.26)!important;background:rgba(4,31,20,.78)!important;box-shadow:0 5px 13px rgba(0,0,0,.42)!important;}
       /* v019-center-polish sets display:flex!important on the same selector
          family, so the hide needs !important here to actually win. */
@@ -213,9 +234,13 @@
          beside them full height. The felt keeps a sane width and centres. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .layout{
         display:grid!important;
-        grid-template-columns:minmax(0,1fr) 330px!important;
+        /* One column. The chat was a permanent 330px card whether anyone was
+           talking or not, and it took the width the table needed to stop
+           being square. It opens over the felt now, from the same button the
+           phone uses -- which already sits in this header. */
+        grid-template-columns:minmax(0,1fr)!important;
         grid-template-rows:minmax(0,1fr) auto!important;
-        grid-template-areas:"table chat" "actions chat"!important;
+        grid-template-areas:"table" "actions"!important;
         gap:14px!important;
         /* Was height:calc(100dvh - 76px) -- the 76 stood for a topbar that
            was out of flow and reserved nothing. Now that it is in flow (see
@@ -235,8 +260,42 @@
         grid-area:table!important;min-height:0!important;height:100%!important;
         display:flex!important;flex-direction:column!important;justify-content:center!important;
       }
+      /* A table, not a square. Width was pinned at 940px while the height
+         followed the viewport, so a bigger screen made the felt taller
+         rather than wider: 928x906 at 1080p, an aspect of 1.02. The width is
+         now the smallest of what the column offers, a 1240px cap, and what
+         the free height allows at 16:10 -- so the ratio holds at every size
+         and the height can never overflow the row. */
+      /* What is left for the table once the page's own furniture is out of
+         the way. Two values, because a seated player has the action panel
+         under the felt and a watcher does not: measured at 1440x900, the
+         seated row is 557px tall against a 900px viewport. Getting this
+         wrong is what squashed the table to 2.21 -- max-height stepped in
+         and the ratio broke. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2{--p8-stage-h:calc(100dvh - 344px);}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2.p8-observer-mode{--p8-stage-h:calc(100dvh - 150px);}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .table-frame{
-        width:min(100%,940px)!important;height:100%!important;margin-inline:auto!important;
+        /* The smallest of: the column, a cap so it stops growing on a very
+           wide screen, and what the free height allows at 16:10. Height then
+           follows the ratio and can never exceed that allowance. */
+        width:min(100%,1240px,calc(var(--p8-stage-h) * 1.6))!important;
+        aspect-ratio:16 / 10!important;
+        height:auto!important;min-height:0!important;
+        /* A last resort only. If it ever engages the ratio is already wrong;
+           an overflowing table would be worse. */
+        max-height:100%!important;
+        margin-inline:auto!important;
+      }
+
+      /* Over the felt rather than beside it, and only once asked for. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #chatPanel{
+        display:none!important;
+        position:fixed!important;top:96px!important;right:20px!important;bottom:20px!important;
+        left:auto!important;width:380px!important;height:auto!important;z-index:140!important;
+        margin:0!important;border-radius:18px!important;
+      }
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #chatPanel.is-open{
+        display:flex!important;flex-direction:column!important;
       }
       /* The felt sat 66px inside the frame on the left and 12px past it on the
          right -- a twelve-pixel border counted outside the box, plus whatever
@@ -254,10 +313,14 @@
          of the desktop .sidebar rule above, it kept its grid box. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2.p8-observer-mode .sidebar{display:none!important}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .history-card{display:none!important;}
+      /* Was a docked column in the grid's "chat" area. It is an overlay now
+         (see the rule further up): the permanent 330px card was holding the
+         width that kept the table square. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 #chatPanel{
-        grid-area:chat!important;height:100%!important;min-height:0!important;
-        display:flex!important;flex-direction:column!important;
+        grid-area:auto!important;min-height:0!important;
+        display:none!important;flex-direction:column!important;
       }
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #chatPanel.is-open{display:flex!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 #chatMessages{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;}
       /* The panel keeps the mobile arrangement -- a fixed height with its
          controls absolutely placed inside it. Making it position:static and

@@ -79,6 +79,35 @@
     6: [[50, 12], [83, 21], [83, 75], [50, 85], [17, 75], [17, 21]],
   };
 
+  // Desktop has its own ring. The felt there is a 16:10 oval (1228x722 at
+  // 1080p) where the phone's is tall and narrow, and the percentages above
+  // were worked out against the narrow one: on a wide table they left the
+  // top third empty and crowded three boxes along the bottom. Keeping them
+  // separate also unpicks the knot where a phone fix moved desktop and back.
+  const DESKTOP_LAYOUTS = {
+    1: [[50, 86]],
+    2: [[50, 86], [50, 12]],
+    3: [[50, 86], [18, 30], [82, 30]],
+    4: [[50, 86], [16, 62], [50, 12], [84, 62]],
+    5: [[50, 86], [15, 62], [26, 18], [74, 18], [85, 62]],
+    6: [[50, 86], [16, 68], [16, 26], [50, 12], [84, 26], [84, 68]],
+  };
+
+  // Watching, so nobody owns the near chair: the ring closes over the bottom
+  // and the empty seat that carries the invitation takes it instead.
+  const DESKTOP_SPECTATOR_LAYOUTS = {
+    1: [[50, 12]],
+    2: [[26, 18], [74, 18]],
+    3: [[50, 12], [18, 60], [82, 60]],
+    4: [[26, 16], [74, 16], [84, 62], [16, 62]],
+    5: [[50, 10], [20, 22], [80, 22], [85, 64], [15, 64]],
+    6: [[50, 10], [82, 24], [82, 70], [50, 88], [18, 70], [18, 24]],
+  };
+
+  const ringsFor = viewer => (isDesktop()
+    ? (viewer ? DESKTOP_LAYOUTS : DESKTOP_SPECTATOR_LAYOUTS)
+    : (viewer ? LAYOUTS : SPECTATOR_LAYOUTS));
+
   const style = document.createElement("style");
   style.id = "v040-poker8-v2-dynamic-seats-style";
   style.textContent = `
@@ -387,7 +416,8 @@
       document.body.classList.add(countClass);
     }
 
-    const points = !viewer && SPECTATOR_LAYOUTS[count] ? SPECTATOR_LAYOUTS[count] : LAYOUTS[count];
+    const table = ringsFor(viewer);
+    const points = table[count] || (viewer ? LAYOUTS[count] : SPECTATOR_LAYOUTS[count]);
     document.body.classList.toggle("p8-spectator-layout", !viewer);
     active.forEach((seat, index) => {
       const [x, y] = points[index];
@@ -411,11 +441,15 @@
       if (!activeSet.has(seat)) delete seat.dataset.visualSeat;
     });
 
-    const ring = (!viewer && SPECTATOR_LAYOUTS[6]) || LAYOUTS[6];
+    const ring = table[6] || LAYOUTS[6];
     const used = points.slice(0, active.length);
     const spare = ring.filter(([x, y]) =>
       used.every(([ax, ay]) => Math.hypot(x - ax, y - ay) > 12));
-    if (sitSeat) moveSeatTo(sitSeat, 50, 80);
+    // The hero's own chair, read off the seated ring rather than written out:
+    // it is 50/80 on the phone and 50/86 on the desktop oval, and an
+    // invitation that sits anywhere else is not "where you would end up".
+    const heroPoint = ringsFor(true)[6][0];
+    if (sitSeat) moveSeatTo(sitSeat, heroPoint[0], heroPoint[1]);
     allSeats
       .filter(seat => !activeSet.has(seat) && seat !== sitSeat)
       .forEach((seat, index) => {

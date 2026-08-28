@@ -20,7 +20,7 @@ HERO_X, HERO_Y = 50, 80
 
 
 def _spectator_layouts():
-    block = V040[V040.index("const SPECTATOR_LAYOUTS = {"):V040.index("const style = document.createElement")]
+    block = V040[V040.index("const SPECTATOR_LAYOUTS = {"):V040.index("const DESKTOP_LAYOUTS")]
     out = {}
     for line in block.splitlines():
         match = re.match(r"\s*(\d):\s*(\[\[.*\]\]),", line)
@@ -67,7 +67,16 @@ def test_one_empty_seat_is_kept_as_the_invitation():
 
 
 def test_the_invitation_is_placed_in_the_hero_chair():
-    assert f"moveSeatTo(sitSeat, {HERO_X}, {HERO_Y})" in V040
+    # Read off the seated ring, not written out: the hero sits at 50/80 on
+    # the phone and 50/86 on the desktop oval, and the invitation has to
+    # follow whichever ring is in force.
+    assert "const heroPoint = ringsFor(true)[6][0];" in V040
+    assert "moveSeatTo(sitSeat, heroPoint[0], heroPoint[1])" in V040
+    for name in ("LAYOUTS", "DESKTOP_LAYOUTS"):
+        block = V040[V040.index(f"const {name} = {{"):]
+        hero = re.search(r"6: \[\[(\d+), (\d+)\]", block)
+        assert int(hero.group(1)) == HERO_X, name
+        assert int(hero.group(2)) >= HERO_Y, name
     # And it must not also be swept up by the leftover-seat placement below.
     assert "!activeSet.has(seat) && seat !== sitSeat" in V040
 

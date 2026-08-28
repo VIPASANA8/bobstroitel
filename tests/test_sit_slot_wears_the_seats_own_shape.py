@@ -104,7 +104,7 @@ def test_the_css_escapes_survive_the_template_literal():
     numeric escape is swallowed as a JS escape before the stylesheet ever
     sees it -- the tick came out as the two characters the mangled escape
     happened to spell, and the label rule was dropped entirely."""
-    block = V040[V040.index("const style = document.createElement"):]
+    block = V040[V040.index("const DESKTOP_LAYOUTS"):]
     for escape in (chr(92) + "27", chr(92) + "04"):
         assert escape not in block, "write the character, not a numeric escape"
 
