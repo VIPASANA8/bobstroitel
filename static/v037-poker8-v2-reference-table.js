@@ -143,13 +143,21 @@
         width:30px;height:30px;border-radius:8px;border:1px solid rgba(120,150,140,.3);
         background:rgba(255,255,255,.04);color:#c3d7cc;font-size:20px;line-height:1;cursor:pointer;
       }
+      /* The card column is fixed at the widest hand rather than auto: each
+         row is its own grid, so an auto column took the width of that row's
+         own cards and a five-card hand pushed its text further right than a
+         pair did. 72px is five 20px cards at the -7px overlap below, so
+         every group centres on the same axis and every name starts on the
+         same line. */
       .hand-rankings-modal .hr-row{
-        display:grid;grid-template-columns:20px auto 1fr;gap:10px;align-items:center;
+        display:grid;grid-template-columns:20px var(--hr-cards-w) 1fr;gap:10px;align-items:center;
         padding:8px 4px;border-top:1px solid rgba(120,150,140,.14);
       }
       .hand-rankings-modal .hr-row:first-child{border-top:0;}
       .hand-rankings-modal .hr-rank{color:#6f8b81;font-size:12px;font-weight:800;font-variant-numeric:tabular-nums;}
       .hand-rankings-modal .hr-cards{display:flex;justify-content:center;}
+      /* 20px per card, less the 7px each one overlaps the last: 20 + 4*13. */
+      .hand-rankings-modal{--hr-cards-w:72px;}
       .hand-rankings-modal .hr-card{
         display:grid;place-items:center;width:20px;height:28px;margin-left:-7px;
         border:1px solid rgba(255,255,255,.5);border-radius:4px;background:#ffffff;color:#1a1a1a;
@@ -206,7 +214,7 @@
   function ensureTurnClarityPatch() {
     if (document.querySelector("script[data-v041-poker8-v2-turn-clarity]")) return;
     const v041 = document.createElement("script");
-    v041.src = "/static/v041-poker8-v2-turn-clarity.js?v=humanised-bots-1";
+    v041.src = "/static/v041-poker8-v2-turn-clarity.js?v=seat-dialog-1";
     v041.setAttribute("data-v041-poker8-v2-turn-clarity", "");
     document.body.appendChild(v041);
   }
@@ -217,7 +225,7 @@
       return;
     }
     const v040 = document.createElement("script");
-    v040.src = "/static/v040-poker8-v2-dynamic-seats.js?v=humanised-bots-1";
+    v040.src = "/static/v040-poker8-v2-dynamic-seats.js?v=seat-dialog-1";
     v040.setAttribute("data-v040-poker8-v2-dynamic-seats", "");
     v040.addEventListener("load", ensureTurnClarityPatch, { once:true });
     document.body.appendChild(v040);
@@ -225,7 +233,7 @@
 
   if (!document.querySelector('script[data-v038-poker8-v2-cinematic-table]')) {
     const v038 = document.createElement("script");
-    v038.src = "/static/v038-poker8-v2-cinematic-table.js?v=humanised-bots-1";
+    v038.src = "/static/v038-poker8-v2-cinematic-table.js?v=seat-dialog-1";
     v038.setAttribute("data-v038-poker8-v2-cinematic-table", "");
     v038.addEventListener("load", ensureDynamicSeatLayout, { once: true });
     document.body.appendChild(v038);

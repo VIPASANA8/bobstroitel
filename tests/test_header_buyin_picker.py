@@ -53,7 +53,7 @@ def test_no_chosen_amount_still_falls_back_to_the_old_flat_forty_bb():
 
 def _run_slider_bounds(min_bb, max_bb):
     block = _extract(
-        "function showBuyInDialog() {",
+        "function showBuyInDialog(seatNo = null) {",
         "\n  }\n",
     )
     harness = """

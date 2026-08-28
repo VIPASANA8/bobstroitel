@@ -201,9 +201,14 @@ def test_mobile_actions_hide_irrelevant_controls_and_touch_viewport_edges(online
         browser = playwright.chromium.launch(headless=True)
         page = browser.new_page(viewport={"width": 360, "height": 800}, device_scale_factor=1)
         _open_table(page, online_server, 360, 800, _state(0, ["check", "fold", "bet", "all_in"]))
-        assert _action_keys(page) == ["check", "fold", "aggressive", "all_in"]
+        # ALL-IN | CHECK over FOLD | BET -- one arrangement on every street, so
+        # a thumb that has learned where FOLD is does not have it move.
+        assert _action_keys(page) == ["all_in", "check", "fold", "aggressive"]
         _open_table(page, online_server, 360, 800, _state(4, ["fold", "call", "raise", "all_in"]))
-        assert _action_keys(page) == ["fold", "call", "aggressive"]
+        # Same arrangement facing a bet, with CALL where CHECK was. ALL-IN
+        # has a slot of its own now instead of appearing only as a relabelled
+        # maximum raise.
+        assert _action_keys(page) == ["all_in", "call", "fold", "aggressive"]
         boxes = page.locator("#actionButtons button:visible").evaluate_all(
             "els => els.map(el => { const r=el.getBoundingClientRect(); return {key:el.dataset.actionKey,left:r.left,right:r.right,height:r.height}; })"
         )

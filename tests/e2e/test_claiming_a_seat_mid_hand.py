@@ -70,7 +70,14 @@ def test_a_seat_claimed_during_a_hand_is_held_and_says_so(spectator_server):
             assert offered["borderStyle"] == "dashed", offered
             assert offered["clickable"] != "none"
 
+            # The seat opens the same buy-in dialog the header's "Занять
+            # место" does -- sitting from the felt used to skip it and buy in
+            # for a flat 40, so the same chair cost a different stack
+            # depending on which control was pressed.
             page.locator(".seat.v040-sit-slot [data-add-seat]").click()
+            dialog = page.locator("[data-confirm]")
+            dialog.wait_for(state="visible")
+            dialog.click()
             page.wait_for_function("document.body.classList.contains('p8-seat-reserved')")
 
             held = page.evaluate(CHAIR)

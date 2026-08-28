@@ -1511,18 +1511,27 @@
 
   function mobileActionDefinitions({ localTurn, legal, toCall, amount, allInTotal, aggressiveLabel }) {
     const available = action => !localTurn || legal.includes(action);
+    // One arrangement whether or not there is a bet to call, because the
+    // hand a thumb has learned should not move between streets:
+    //
+    //     ALL-IN  |  CHECK/CALL
+    //     FOLD    |  RAISE/BET
+    //
+    // The grid fills left to right, top to bottom, so this order is the
+    // layout. Leaving is on the left, staying in is on the right.
     if (toCall > 0) {
       return [
-        { key:"fold", label:"FOLD", amount:"", cls:"fold", edge:"left", slot:"top", enabled:available("fold") },
+        { key:"all_in", label:"ALL-IN", amount:stripHudUnit(formatBB(allInTotal)), cls:"all-in", edge:"left", slot:"top", enabled:available("all_in"), allIn:true },
         { key:"call", label:"CALL", amount:stripHudUnit(formatBB(toCall)), cls:"call", edge:"right", slot:"top", enabled:available("call") },
+        { key:"fold", label:"FOLD", amount:"", cls:"fold", edge:"left", slot:"bottom", enabled:available("fold") },
         { key:"aggressive", label:aggressiveLabel, amount:stripHudUnit(formatBB(amount)), cls:"raise", edge:"right", slot:"bottom", enabled:available("raise") },
       ].filter(def => def.enabled);
     }
     return [
-      { key:"check", label:"CHECK", amount:"", cls:"check", edge:"left", slot:"top", enabled:available("check") },
+      { key:"all_in", label:"ALL-IN", amount:stripHudUnit(formatBB(allInTotal)), cls:"all-in", edge:"left", slot:"top", enabled:available("all_in"), allIn:true },
+      { key:"check", label:"CHECK", amount:"", cls:"check", edge:"right", slot:"top", enabled:available("check") },
       { key:"fold", label:"FOLD", amount:"", cls:"fold", edge:"left", slot:"bottom", enabled:available("fold") },
-      { key:"aggressive", label:"BET", amount:stripHudUnit(formatBB(amount)), cls:"raise", edge:"right", slot:"top", enabled:available("bet") },
-      { key:"all_in", label:"ALL-IN", amount:stripHudUnit(formatBB(allInTotal)), cls:"all-in", edge:"right", slot:"bottom", enabled:available("all_in"), allIn:true },
+      { key:"aggressive", label:"BET", amount:stripHudUnit(formatBB(amount)), cls:"raise", edge:"right", slot:"bottom", enabled:available("bet") },
     ].filter(def => def.enabled);
   }
 
@@ -1558,7 +1567,11 @@
     const defs = mobileActionDefinitions({ localTurn, legal, toCall, amount, allInTotal, aggressiveLabel });
     const aggressive = defs.find(def => def.key === "aggressive");
     const atMax = Math.abs(amount - Number(bounds.max || 0)) < 1e-9;
-    if (aggressive && atMax) {
+    // Only when there is no ALL-IN slot of its own to say it. Raising to the
+    // maximum *is* all-in, and with the dedicated button present this used to
+    // put the same word on two of the four.
+    const hasAllInSlot = defs.some(def => def.key === "all_in");
+    if (aggressive && atMax && !hasAllInSlot) {
       aggressive.label = "ALL-IN";
       aggressive.amount = stripHudUnit(formatBB(allInTotal));
       aggressive.cls = "all-in";

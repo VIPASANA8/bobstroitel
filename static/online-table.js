@@ -562,6 +562,11 @@
   }
 
   // A native <dialog>, same reasoning as ensureFundsDialog just above.
+  //: Which seat the dialog was opened for. The header's "Занять место" has
+  //: no particular one in mind, so it stays null and the server takes the
+  //: first free chair; a click on the seat itself means that chair.
+  let pendingBuyInSeat = null;
+
   function ensureBuyInDialog() {
     const existing = document.getElementById("p8BuyInDialog");
     if (existing) return existing;
@@ -587,14 +592,15 @@
     dialog.querySelector("[data-confirm]").addEventListener("click", () => {
       const bb = Number(slider.value);
       dialog.close();
-      ready(null, bb).catch(error => alert(error.message));
+      ready(pendingBuyInSeat, bb).catch(error => alert(error.message));
     });
     return dialog;
   }
 
   // min/max_buy_in_bb come straight off the table row (see catalogue.py) --
   // every table can set its own range, so nothing here is hardcoded.
-  function showBuyInDialog() {
+  function showBuyInDialog(seatNo = null) {
+    pendingBuyInSeat = Number.isFinite(seatNo) ? seatNo : null;
     const dialog = ensureBuyInDialog();
     const min = Number(table?.min_buy_in_bb) || 40;
     const max = Math.max(min, Number(table?.max_buy_in_bb) || 100);
@@ -1178,7 +1184,10 @@
       const button = event.target?.closest?.("[data-add-seat]");
       if (!button) return;
       event.preventDefault();
-      ready(Number(button.dataset.addSeat)).catch(error => alert(error.message));
+      // The same dialog the header's "Занять место" opens. Sitting down from
+      // the felt used to skip it and buy in for a flat 40 ББ, so the two ways
+      // into the same seat bought different stacks.
+      showBuyInDialog(Number(button.dataset.addSeat));
     });
     $("mobileDrawerTakeSeat")?.addEventListener("click", () => {
       ready().catch(error => alert(error.message));

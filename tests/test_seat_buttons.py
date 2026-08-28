@@ -36,7 +36,10 @@ def test_the_seat_click_is_delegated_so_a_redraw_cannot_lose_it():
     handler = online[online.index('closest?.("[data-add-seat]")') - 300:]
     handler = handler[:handler.index("});") + 3]
     assert 'document.addEventListener("click"' in handler
-    assert "ready(Number(button.dataset.addSeat))" in handler
+    # Opens the buy-in dialog for that chair rather than seating straight
+    # away: sitting from the felt used to skip the slider and buy in for a
+    # flat 40, while the header asked. Same chair, different stack.
+    assert "showBuyInDialog(Number(button.dataset.addSeat))" in handler
     assert "seatNo == null ? firstOpenSeat(latestState) : seatNo" in online
 
 
