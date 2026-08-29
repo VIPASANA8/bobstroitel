@@ -145,19 +145,25 @@
 
       body.v014.poker8-desktop-v2 .table-frame{
         height:clamp(620px,calc(100dvh - 156px),860px)!important;
-        min-height:620px!important;padding:8px!important;overflow:hidden!important;
+        /* padding, overflow and box-shadow used to be stated here too. All
+           three lose to v038 today -- measured -- and losing is the only
+           reason they are harmless: they would come back the moment this
+           file's place in the load order changed. The three below win, so
+           they stay. */
+        min-height:620px!important;
         border:1px solid rgba(44,255,172,.13)!important;border-radius:28px!important;
         background:
           linear-gradient(90deg,rgba(0,0,0,.58),transparent 17%,transparent 83%,rgba(0,0,0,.58)),
           url("/static/assets/poker8-v2-table-mobile.webp") center/cover no-repeat,
           repeating-linear-gradient(96deg,#000000 0 8px,#180b05 9px 17px,#0c0503 18px 27px)!important;
-        box-shadow:0 24px 54px rgba(0,0,0,.55),inset 0 0 0 1px rgba(255,194,114,.05)!important;
       }
+      /* The felt this file used to draw: its own size, oval and neon. Every
+         one of those loses to v037/v038 today, and would wake up if this
+         file ever loaded last -- which is exactly what the dry run showed
+         (docs/layer-cleanup.md). Only the inset survives, because nothing
+         else states it. */
       body.v014.poker8-desktop-v2 .felt{
-        width:calc(100% - 76px)!important;height:calc(100% - 50px)!important;inset:25px 38px!important;
-        border:2px solid rgba(35,255,159,.84)!important;border-radius:49% / 38%!important;
-        background:radial-gradient(ellipse at 50% 45%,rgba(0,74,43,.90),rgba(0,35,22,.98) 68%,rgba(7,16,15,.99))!important;
-        box-shadow:inset 0 0 0 8px rgba(0,8,5,.57),inset 0 0 44px rgba(0,0,0,.68),0 0 22px rgba(38,255,167,.34)!important;
+        inset:25px 38px!important;
       }
       body.v014.poker8-desktop-v2 .felt::before{display:block!important;inset:16px!important;border:1px solid rgba(44,255,172,.34)!important;border-radius:inherit!important;background:none!important;}
       body.v014.poker8-desktop-v2 .felt::after{display:none!important;}
