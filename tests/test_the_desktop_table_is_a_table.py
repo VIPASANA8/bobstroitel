@@ -192,3 +192,20 @@ def test_what_the_table_draws_grows_with_the_table():
     # Read off .layout, not the frame: the panel's height is an input to the
     # frame's size, so the frame cannot be the input to the panel's.
     assert "function uiScale(layout)" in V039
+
+
+def test_the_felt_draws_nothing_that_stayed_behind():
+    """A sweep of .felt's own children on the live table: the seats and the
+    centre cluster take the factor where they are defined, and these are
+    everything else it draws. The wager layer's bet markers are display:none
+    on this table -- the stake is inside the avatar, which is inside the
+    seat -- so there is nothing there to scale."""
+    for selector, transform in (
+        (".street-splash", "translate(-50%,-50%) scale(calc(.86 * var(--p8-ui-scale)))"),
+        (".v038-ready-countdown", "translate(-50%,-50%) scale(var(--p8-ui-scale))"),
+    ):
+        assert f"transform:{transform}!important" in _rule(V039, f"{DESKTOP} {selector}"), selector
+    # Both sit on the felt's bottom edge and have to grow away from it.
+    bottom = _rule(V039, f"{DESKTOP} .v038-turn-context")
+    assert "transform:translateX(-50%) scale(var(--p8-ui-scale))!important" in bottom
+    assert "transform-origin:bottom center!important" in bottom

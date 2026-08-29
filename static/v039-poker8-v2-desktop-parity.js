@@ -208,6 +208,25 @@
       }
 
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .table-center{transform:translate(-50%,-50%) scale(calc(.94 * var(--p8-ui-scale)))!important;z-index:12!important;}
+      /* The rest of what the felt itself draws. The seats and the centre
+         cluster take the factor where they are defined; these four are laid
+         out against the felt directly, so they take it here.
+
+         The two on the bottom edge grow from that edge -- their own
+         translateX keeps them centred on their column, and an origin at the
+         bottom stops the growth from pushing them through the rail. The
+         other two are already centred on a point and grow about it. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .street-splash{
+        transform:translate(-50%,-50%) scale(calc(.86 * var(--p8-ui-scale)))!important;
+      }
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .v038-ready-countdown{
+        transform:translate(-50%,-50%) scale(var(--p8-ui-scale))!important;
+      }
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .v038-turn-timer,
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .v038-turn-context{
+        transform:translateX(-50%) scale(var(--p8-ui-scale))!important;
+        transform-origin:bottom center!important;
+      }
       /* Same on desktop: the player stays lit, the cards go. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat-card.folded{opacity:1!important;filter:none!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat-card.folded .player-cards{display:none!important;}
