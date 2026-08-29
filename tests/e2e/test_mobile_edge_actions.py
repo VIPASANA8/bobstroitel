@@ -42,7 +42,7 @@ def _open_table(
 ) -> None:
     page.set_viewport_size({"width": width, "height": height})
     page.goto(f"{base_url}/table", wait_until="domcontentloaded")
-    page.wait_for_function("window.Poker8LegacyView && document.getElementById('v038-poker8-v2-cinematic-table-style')")
+    page.wait_for_function("window.Poker8LegacyView && document.getElementById('v040-poker8-v2-dynamic-seats-style')")
     page.evaluate(
         "payload => window.Poker8LegacyView.renderSnapshot({table:{id:'t',name:'Test'},state:payload.state,viewerState:payload.viewerState})",
         {"state": state or _state(), "viewerState": viewer_state},
@@ -55,6 +55,48 @@ def _centers(page: Page) -> list[tuple[float, float]]:
     return page.locator('.seat[data-visual-seat="1"],.seat[data-visual-seat="2"],.seat[data-visual-seat="3"],.seat[data-visual-seat="4"],.seat[data-visual-seat="5"]').evaluate_all(
         "els => els.map(el => { const r=el.getBoundingClientRect(); return [r.x+r.width/2,r.y+r.height/2]; })"
     )
+
+
+def _center(page: Page, selector: str) -> tuple[float, float]:
+    return page.locator(selector).evaluate(
+        "el => { const r = el.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; }"
+    )
+
+
+def test_the_sit_button_occupies_the_hero_avatars_exact_place(online_server: str):
+    """Changing from spectator to seated must replace the invitation in
+    place, rather than making the avatar jump inside the same outer chair."""
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        page = browser.new_page(device_scale_factor=1)
+        try:
+            for width, height in ((360, 800), (402, 874)):
+                state = _state(player_count=3)
+                _open_table(page, online_server, width, height, state, viewer_state="spectator")
+                # The fixture serves the legacy view without a table query;
+                # switch on the online identity rule before measuring the
+                # spectator render so no local profile is promoted to hero.
+                page.evaluate("window.Poker8OnlineTable = {}")
+                page.evaluate(
+                    "payload => window.Poker8LegacyView.renderSnapshot({table:{id:'t',name:'Test'},state:payload,viewerState:'spectator'})",
+                    state,
+                )
+                page.wait_for_function("!!document.querySelector('.seat.v040-sit-slot .empty-avatar')")
+                page.wait_for_timeout(500)
+                invitation = _center(page, ".seat.v040-sit-slot .empty-avatar")
+
+                state["viewer_player_id"] = "hero"
+                page.evaluate(
+                    "payload => window.Poker8LegacyView.renderSnapshot({table:{id:'t',name:'Test'},state:payload,viewerState:'seated'})",
+                    state,
+                )
+                page.wait_for_function("!!document.querySelector('.seat[data-visual-seat=\"0\"] .player-avatar')")
+                page.wait_for_timeout(500)
+                avatar = _center(page, '.seat[data-visual-seat="0"] .player-avatar')
+
+                assert invitation == pytest.approx(avatar, abs=1)
+        finally:
+            browser.close()
 
 
 def test_opponents_form_one_equal_chord_arc_at_both_mobile_sizes(online_server: str):

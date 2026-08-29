@@ -58,17 +58,25 @@ def _declared(source, selector, prop):
 
 
 def test_the_phone_invitation_is_the_size_of_a_phone_avatar():
-    sit = _sit_vars("body.v014.poker8-v2-sixmax .seat.v040-sit-slot{")
-    avatar = "body.v014.poker8-v2-sixmax .avatar-wrap"
-    assert sit["size"] == _declared(V038, avatar, "width")
-    assert sit["top"] == _declared(V038, avatar, "top")
+    sit = _last_rule_text(V040, "body.v014.poker8-v2-sixmax .seat.v040-sit-slot", "--p8-sit-size")
+    hero = _last_rule_text(V038, 'body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"]', "--p8-hero-avatar-size")
+    avatar = _last_rule_text(V038, 'body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .avatar-wrap', "width")
+    assert "--p8-sit-size:var(--p8-hero-avatar-size,44px)" in sit
+    assert "--p8-sit-top:var(--p8-hero-avatar-top,0px)" in sit
+    assert "--p8-hero-avatar-size:48px" in hero and "--p8-hero-avatar-top:9px" in hero
+    assert "width:var(--p8-hero-avatar-size)" in avatar
+    assert "top:var(--p8-hero-avatar-top)" in avatar
 
 
 def test_the_phone_label_sits_where_the_name_plate_sits():
-    sit = _sit_vars("body.v014.poker8-v2-sixmax .seat.v040-sit-slot{")
-    plate = "body.v014.poker8-v2-sixmax .seat-identity"
-    assert sit["label-top"] == _declared(V038, plate, "top")
-    assert sit["label-w"] == _declared(V038, plate, "width")
+    sit = _last_rule_text(V040, "body.v014.poker8-v2-sixmax .seat.v040-sit-slot", "--p8-sit-label-top")
+    hero = _last_rule_text(V038, 'body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"]', "--p8-hero-label-top")
+    plate = _last_rule_text(V038, 'body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-identity', "top")
+    assert "--p8-sit-label-top:var(--p8-hero-label-top,40px)" in sit
+    assert "--p8-sit-label-w:var(--p8-hero-label-w,90px)" in sit
+    assert "--p8-hero-label-top:54px" in hero and "--p8-hero-label-w:108px" in hero
+    assert "top:var(--p8-hero-label-top)" in plate
+    assert "width:var(--p8-hero-label-w)" in plate
 
 
 def test_the_desktop_invitation_matches_the_desktop_avatar_and_plate():

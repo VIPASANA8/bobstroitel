@@ -26,7 +26,7 @@ CHAIR = """() => {
   if (!seat) return null;
   const ring = seat.querySelector('.empty-avatar');
   const label = seat.querySelector('strong');
-  const avatar = document.querySelector('.seat .seat-card .player-avatar');
+  const heroSize = parseFloat(getComputedStyle(seat).getPropertyValue('--p8-hero-avatar-size'));
   const box = node => {
     if (!node) return null;
     const r = node.getBoundingClientRect();
@@ -34,7 +34,7 @@ CHAIR = """() => {
   };
   return {
     ring: box(ring),
-    avatar: box(avatar),
+    hero: {w: Math.round(heroSize), h: Math.round(heroSize)},
     borderStyle: ring && getComputedStyle(ring).borderStyle,
     label: label && (getComputedStyle(label, '::after').content || '').replace(/"/g, '') || label?.textContent,
     clickable: getComputedStyle(seat.querySelector('.seat-empty')).pointerEvents,
@@ -66,7 +66,7 @@ def test_a_seat_claimed_during_a_hand_is_held_and_says_so(spectator_server):
             page.wait_for_function("document.querySelectorAll('.board-cards .card').length > 0")
 
             offered = page.evaluate(CHAIR)
-            assert offered["ring"] == offered["avatar"], "the empty chair is not the size of a taken one"
+            assert offered["ring"] == offered["hero"], "the empty chair is not the size of the hero avatar"
             assert offered["borderStyle"] == "dashed", offered
             assert offered["clickable"] != "none"
 
@@ -81,7 +81,7 @@ def test_a_seat_claimed_during_a_hand_is_held_and_says_so(spectator_server):
             page.wait_for_function("document.body.classList.contains('p8-seat-reserved')")
 
             held = page.evaluate(CHAIR)
-            assert held["ring"] == held["avatar"], "the held chair changed size"
+            assert held["ring"] == held["hero"], "the held chair changed size"
             assert held["borderStyle"] == "solid", held
             assert held["label"] == HELD_LABEL, held
             assert held["clickable"] == "none", "a held seat must not take another click"

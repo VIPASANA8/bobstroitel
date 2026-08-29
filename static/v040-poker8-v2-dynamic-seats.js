@@ -168,7 +168,8 @@
          variables so the two modes differ by four values instead of two
          copies of every rule. */
       body.v014.poker8-v2-sixmax .seat.v040-sit-slot{
-        --p8-sit-size:44px;--p8-sit-top:0px;--p8-sit-label-top:40px;--p8-sit-label-w:90px;--p8-sit-glyph:20px;
+        --p8-sit-size:var(--p8-hero-avatar-size,44px);--p8-sit-top:var(--p8-hero-avatar-top,0px);
+        --p8-sit-label-top:var(--p8-hero-label-top,40px);--p8-sit-label-w:var(--p8-hero-label-w,90px);--p8-sit-glyph:20px;
       }
       /* The head has a ceiling on desktop (v039's --p8-avatar), and an empty
          chair the size of a taken one is the whole point of this block -- so
@@ -496,6 +497,12 @@
     allSeats.forEach(seat => {
       if (!activeSet.has(seat)) delete seat.dataset.visualSeat;
     });
+
+    // v038 owns the phone hero's final pixel anchor (100% - 86px), which is
+    // more specific than the proportional point above. Give the invitation
+    // that same identity so the real avatar replaces it at the exact same
+    // outer position, size and internal centre when the viewer sits down.
+    if (sitSeat) sitSeat.dataset.visualSeat = "0";
 
     const ring = table[6] || LAYOUTS[6];
     const used = points.slice(0, active.length);

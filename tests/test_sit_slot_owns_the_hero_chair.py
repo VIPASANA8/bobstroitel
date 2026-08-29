@@ -72,6 +72,7 @@ def test_the_invitation_is_placed_in_the_hero_chair():
     # follow whichever ring is in force.
     assert "const heroPoint = ringsFor(true)[6][0];" in V040
     assert "moveSeatTo(sitSeat, heroPoint[0], heroPoint[1])" in V040
+    assert 'sitSeat.dataset.visualSeat = "0"' in V040, "inherit the hero's final CSS anchor"
     for name in ("LAYOUTS", "DESKTOP_LAYOUTS"):
         block = V040[V040.index(f"const {name} = {{"):]
         hero = re.search(r"6: \[\[(\d+), (\d+)\]", block)
@@ -99,13 +100,15 @@ def test_a_seat_that_is_no_longer_active_loses_its_visual_seat():
     load order decides it, and v040 loses. Measured live: a leftover "1" on
     the seat holding the Сесть button held it at the first chair's arc
     position in the corner (7%/24%) no matter what coordinates it was given.
-    Clearing it put the button back in the hero chair (50%/80%)."""
+    Clearing it before assigning the hero marker prevents the old chair from
+    winning while still letting the invitation inherit the real hero anchor."""
     body = V040[V040.index("function applyDynamicLayoutInner"):]
     body = body[:body.index(chr(10) + "  }" + chr(10))]
     assert "delete seat.dataset.visualSeat" in body
-    # Before the placement below, or the rules it frees are still in force
-    # while the seat is being measured for its move.
-    assert body.index("delete seat.dataset.visualSeat") < body.index("moveSeatTo(sitSeat")
+    assert 'sitSeat.dataset.visualSeat = "0"' in body
+    # Drop the stale chair first, then attach the hero identity, then measure.
+    assert body.index("delete seat.dataset.visualSeat") < body.index('sitSeat.dataset.visualSeat = "0"')
+    assert body.index('sitSeat.dataset.visualSeat = "0"') < body.index("moveSeatTo(sitSeat")
 
 
 def test_two_spectated_players_sit_side_by_side_on_the_top_band():
