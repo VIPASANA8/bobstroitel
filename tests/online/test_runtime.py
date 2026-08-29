@@ -2,7 +2,7 @@ import asyncio
 from types import SimpleNamespace
 
 import pytest
-from sqlalchemy import insert, select
+from sqlalchemy import insert, select, update
 
 from online.ledger import PlayLedger
 from online.runtime import StaleRevision, TableRuntimeManager
@@ -311,3 +311,26 @@ async def test_public_snapshot_skips_the_extra_query_for_an_active_participant(r
 
     assert not called
     assert snapshot["current_seats"] is None
+
+
+@pytest.mark.anyio
+async def test_idle_snapshot_does_not_promote_a_departed_player_from_the_last_hand(
+    runtime, db_session_factory,
+):
+    await runtime.start_hand("t1")
+    loaded = await runtime.load("t1")
+    loaded.phase = "waiting"
+
+    async with db_session_factory() as session:
+        await session.execute(
+            update(table_seats)
+            .where(table_seats.c.user_id == "u1")
+            .values(occupant_kind="empty", user_id=None, stack_units=0, state="empty")
+        )
+        await session.commit()
+
+    snapshot = await runtime.public_snapshot("t1", "u1")
+
+    assert "u1" in snapshot["players"], "the reproduction needs a stale last-hand roster"
+    assert snapshot["current_seats"] is not None
+    assert snapshot["viewer_player_id"] is None

@@ -423,7 +423,12 @@ class TableRuntimeManager:
         # Without this fallback they are demoted to a spectator mid-hand: no
         # hole cards, no viewer_player_id, so the client hides every action
         # control while the turn timer keeps auto-folding them, hand after hand.
-        if participant_id is None and viewer_user_id and viewer_user_id in loaded.state.players:
+        if (
+            loaded.phase in ("active", "result")
+            and participant_id is None
+            and viewer_user_id
+            and viewer_user_id in loaded.state.players
+        ):
             participant_id = viewer_user_id
         # A seat only joins state.players at the next hand boundary -- whether
         # because no hand exists yet (waiting for ready-up, countdown) or
