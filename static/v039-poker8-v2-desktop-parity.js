@@ -135,7 +135,13 @@
       body.v014.poker8-desktop-v2 .layout{grid-template-columns:minmax(0,1fr) 296px!important;gap:18px!important;align-items:start!important;}
       body.v014.poker8-desktop-v2 .left-column{min-width:0!important;}
       body.v014.poker8-desktop-v2 .sidebar{gap:14px!important;}
-      body.v014.poker8-desktop-v2 .panel,
+      /* :not(.action-panel) -- the action panel is a .panel too, and this
+         rule has always claimed it and always lost: v036 and v038 paint that
+         one, and this only wins for the panels nobody else touches. Saying
+         so is what makes this file's place in the load order stop mattering;
+         with the claim still here, moving the file repainted the panel's
+         border and shadow (measured: the last three differences of fifty). */
+      body.v014.poker8-desktop-v2 .panel:not(.action-panel),
       body.v014.poker8-desktop-v2 .history-card,
       body.v014.poker8-desktop-v2 .online-chat-panel{
         border-color:rgba(64,237,167,.18)!important;
@@ -694,6 +700,21 @@
   }
 
   document.head.appendChild(style);
+  /* And again once everything else has had its say.
+
+     This file is a static tag in index.html, so it runs before every layer
+     component-ui and v037 append -- which is why its rules have needed three
+     classes to beat v038's two, and why two of this week's faults were pure
+     source order (the table picture sized to the window, the page's floor).
+     Re-appending the same element moves it to the end of <head>, so desktop
+     geometry is simply last, without moving the script itself: the class
+     this file sets on <body> still lands before anything reads it.
+
+     Verified before doing it, by making the same move by hand on the live
+     table and diffing every computed property: 3 differences across 25
+     elements, all of them the .action-panel claim above, and 0 once that
+     claim was dropped. */
+  window.addEventListener("load", () => document.head.appendChild(style), { once: true });
   syncDesktopMode();
   syncStage();
   if (window.ResizeObserver) {

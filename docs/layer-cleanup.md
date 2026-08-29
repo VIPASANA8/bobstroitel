@@ -174,7 +174,27 @@ this is ever pulled apart again:
 * the `<script>` tag at the very bottom, which is the only thing that loads
   v031 — the wager geometry every chip flies by.
 
-## v039 must not be moved to the end of the chain (measured, 2026-08-29)
+## v039 now loads last (done, 2026-08-29)
+
+The dry run below is what called this off the first time, at 50 changed
+properties. After the dead two-class geometry came out -- the seat ring, the
+felt's paint, the frame's padding/overflow/shadow, `.felt::before`,
+`.table-glow` -- the same dry run measured **3**, all of them this file's
+`.panel` rule claiming `.action-panel`, which v036 and v038 actually paint.
+Scoping that rule with `:not(.action-panel)` took it to **0**.
+
+The move itself is not a move of the script. v039 is a static tag, so its
+JavaScript has to keep running early: it is what puts `poker8-desktop-v2` on
+`<body>`, and every desktop rule in every other layer keys off that class.
+Only its `<style>` goes last, by re-appending the same element on `load` --
+same node, end of `<head>`, so desktop geometry is simply the last word.
+
+What this buys: the three-class selectors this file needed to beat v038 on
+source order are no longer load-bearing. They can come down to two, one rule
+at a time, each verified the same way. Not done yet -- the arms race is over,
+the disarmament is a separate afternoon.
+
+## The dry run that called it off first (measured, 2026-08-29)
 
 The plan was to load v039 last so the desktop layer stops needing
 three-class selectors to beat v038 on source order. Dry run first: on the
