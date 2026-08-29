@@ -71,11 +71,9 @@ def test_the_layout_no_longer_subtracts_the_bar_it_now_sits_below():
     assert "height:100dvh!important" in shell
 
 
-def test_the_action_panel_tracks_the_felt_instead_of_a_phone_column():
-    start = V039.index("body.v014.poker8-v2-sixmax.poker8-desktop-v2 .action-panel{")
+def test_the_action_panel_tracks_the_whole_felt_instead_of_a_phone_column():
+    start = V039.index("body.v014.poker8-v2-sixmax.poker8-desktop-v2 .table-frame > .action-panel{")
     rule = V039[start:V039.index("}", start)]
-    match = re.search(r"width:min\(100%,(\d+)px\)", rule)
-    assert match, "expected a capped width"
-    # 520 was the phone-sized column that left ~200px of dark either side of
-    # a ~930px felt.
-    assert int(match.group(1)) >= 800
+    assert "inset:0!important" in rule
+    assert "width:100%!important" in rule
+    assert "height:100%!important" in rule

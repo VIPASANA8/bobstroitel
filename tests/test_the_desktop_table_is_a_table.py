@@ -69,7 +69,8 @@ def test_the_table_is_measured_rather_than_remembered():
 
 def test_the_chat_no_longer_holds_the_width_the_table_needs():
     layout = _rule(V039, f"{DESKTOP} .layout")
-    assert 'grid-template-areas:"table" "actions"!important' in layout
+    assert 'grid-template-areas:"table"!important' in layout
+    assert "grid-template-rows:minmax(0,1fr)!important" in layout
     # Rules only: the comment above names the column it replaced.
     assert "330px" not in re.sub(r"/\*.*?\*/", "", layout, flags=re.S),         "the docked column is what the table was missing"
     assert 'grid-template-areas:"table chat"' not in V039
@@ -139,35 +140,36 @@ def test_the_dealer_button_sits_beside_the_avatar():
     assert "right:auto!important" in rule and "bottom:auto!important" in rule
 
 
-def test_the_phones_bet_gesture_furniture_is_not_drawn_on_desktop():
-    """Desktop has a slider and a row of quick sizes doing the same job.
-    Measured with all of them on screen: the confirm button sat on the quick
-    sizes and the rail crossed both the sizes and the slider."""
+def test_the_phones_sizing_controls_form_the_desktop_popover():
+    """Desktop reuses the phone's explicit amount, cancel and confirmation
+    controls in a transient overlay; only the vertical gesture rail stays
+    hidden because a pointer already has the slider."""
     for part in (".mobile-sizing-head", "#mobileSizingConfirm", "#mobileSizingCancel", "#mobileBetRail"):
         assert f"{DESKTOP} {part}" in V039, part
 
 
-def test_the_action_panel_is_centred_under_the_table():
-    """It was a two-column grid: with the other panels hidden the action
-    panel landed in the second column while still 940px wide, so it started
-    at the sidebar's midpoint and ran past the layout's right edge. It is
-    not a grid at all now -- see the flex row below -- so what this holds is
-    the half that survived: the panel centres itself in whatever box it is
-    given, and claims no column."""
-    panel = _rule(V039, f"{DESKTOP} .action-panel")
-    assert "left:50%!important" in panel
-    assert "translateX(-50%)" in panel
-    assert "grid-column:auto!important" in panel
-    assert "grid-column:1 / -1" not in panel, "there is no grid to span any more"
+def test_the_action_panel_lives_inside_the_table():
+    """The controls cannot own a layout row: changing viewer or turn state
+    must not change the table's box. The real panel is moved into the frame
+    and becomes a transparent interaction layer over it."""
+    assert "frame.appendChild(actionPanel)" in V039
+    panel = _rule(V039, f"{DESKTOP} .table-frame > .action-panel")
+    assert "position:absolute!important" in panel
+    assert "inset:0!important" in panel
+    assert "pointer-events:none!important" in panel
+    sidebar = _rule(V039, f"{DESKTOP} .sidebar")
+    assert "display:none!important" in sidebar
 
 
-def test_desktop_buttons_take_the_same_arrangement_as_the_phone():
-    """ALL-IN | CHECK over FOLD | RAISE. Desktop builds these with a
-    different renderer, so the order is set on the grid rather than in the
-    list that makes them."""
-    for cls, order in (("all-in", 1), ("fold", 3), ("raise", 4)):
-        assert f"#actionButtons .action-slot.{cls}{{order:{order}!important;}}" in V039, cls
-    assert f"{DESKTOP} #actionButtons .action-slot.call{{order:2!important;}}" in V039
+def test_desktop_buttons_reuse_the_phones_four_edge_slots():
+    """ALL-IN | CHECK/CALL over FOLD | BET/RAISE, rendered by the same
+    controller as the phone and anchored to the two lower table corners."""
+    assert 'grid.dataset.v038ReferenceActions = "1"' in V038
+    assert 'document.body.classList.contains("poker8-desktop-v2")' in V038
+    for edge in ("left", "right"):
+        assert f'[data-edge="{edge}"]' in V039
+    for slot in ("top", "bottom"):
+        assert f'[data-slot="{slot}"]' in V039
 
 def test_the_table_photo_is_fitted_to_the_frame_not_the_window():
     """v038 paints it at 100vw, which is the frame's width on a phone and
@@ -182,21 +184,18 @@ def test_the_table_photo_is_fitted_to_the_frame_not_the_window():
 
 def test_what_the_table_draws_grows_with_the_table():
     """Every size on this table is a fixed pixel value tuned at 1240x775. The
-    frame can be half again that now, so the seats, the centre cluster and
-    the action panel take a scale factor."""
+    frame can be half again that now, so the seats and centre cluster take a
+    scale factor. The corner controls use clamp() against the frame."""
     assert "--p8-ui-scale:1;" in V039
     assert "scale(var(--p8-ui-scale,1))" in V040, "the seat transform is v040's"
     centre = _first_rule(V039, f"{DESKTOP} .table-center")
     assert "scale(calc(.94 * var(--p8-ui-scale)))" in centre
-    panel = _rule(V039, f"{DESKTOP} .action-panel")
-    assert "scale(var(--p8-ui-scale))!important" in panel
-    assert "transform-origin:top center!important" in panel
-    # The row has to be as tall as the panel it holds, and an observer's is
-    # pinned at 0 elsewhere.
-    assert f"{DESKTOP}:not(.p8-observer-mode){{" in V039
-    assert "--p8-hud-h:calc(214px * var(--p8-ui-scale))!important" in V039
-    # Read off .layout, not the frame: the panel's height is an input to the
-    # frame's size, so the frame cannot be the input to the panel's.
+    actions = _rule(V039, f"{DESKTOP} #actionButtons .action-slot")
+    assert "width:clamp(128px,18%,176px)!important" in actions
+    # No action row is reserved in any state.
+    assert f"{DESKTOP}{{--p8-hud-h:0px!important;}}" in V039
+    assert "--p8-hud-h:calc(214px * var(--p8-ui-scale))!important" not in V039
+    # Read off .layout, not the frame, to avoid a scale feedback loop.
     assert "function uiScale(layout)" in V039
     # It shrinks as well as grows. The factor only ever grew, so a window
     # smaller than the size these pixel values were drawn at got the
@@ -225,23 +224,13 @@ def test_the_felt_draws_nothing_that_stayed_behind():
     assert "transform-origin:bottom center!important" in bottom
 
 
-def test_the_action_bar_is_a_centred_row_not_a_grid():
-    """Twice the panel has landed under the right half of the table -- once
-    in the sidebar's second track, and again after that column was taken
-    away. So it stopped depending on how the bar lays its children out."""
+def test_the_old_action_bar_has_no_layout_job():
+    """The sidebar stays in the DOM as the mobile home for the panel, but on
+    desktop it contributes no width or height at all."""
     rule = _rule(V039, f"{DESKTOP} .sidebar")
-    # The bar is the full width of its row and nothing else; the panel hangs
-    # off its centre line, so no track, sibling or auto margin is left in the
-    # path between the two.
-    assert "position:relative!important" in rule
-    assert "width:100%!important" in rule
-    assert "grid-template-columns:none!important" in rule
-    panel = _rule(V039, f"{DESKTOP} .action-panel")
-    assert "position:absolute!important" in panel and "left:50%!important" in panel
-    # Also stated for a desktop table that has not been given the sixmax
-    # class, the one state where the old grid could still bite.
-    assert "body.v014.poker8-desktop-v2 .sidebar," in V039
-    assert "body.v014.poker8-desktop-v2 .action-panel," in V039
+    assert "display:none!important" in rule
+    assert 'grid-template-areas:"table" "actions"!important' not in V039
+    assert "actionHome.insertBefore(actionPanel" in V039, "mobile restores the original DOM home"
 
 
 def test_the_controls_go_when_the_seat_is_not_in_the_hand():

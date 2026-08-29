@@ -424,7 +424,7 @@ def test_timer_and_semantic_states_are_attached_to_player_huds(online_server: st
         browser.close()
 
 
-def test_mobile_sizes_hold_and_desktop_layout_returns_at_781(online_server: str):
+def test_mobile_sizes_hold_and_compact_actions_continue_at_781(online_server: str):
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         page = browser.new_page(device_scale_factor=1)
@@ -441,9 +441,85 @@ def test_mobile_sizes_hold_and_desktop_layout_returns_at_781(online_server: str)
         page.set_viewport_size({"width": 781, "height": 900})
         page.wait_for_timeout(100)
         assert page.locator("body").evaluate("el => el.classList.contains('poker8-desktop-v2')")
-        assert page.locator("#actionButtons").get_attribute("data-v038-reference-actions") is None
-        assert page.locator("#actionButtons [data-edge]").count() == 0
+        assert page.locator("#actionButtons").get_attribute("data-v038-reference-actions") == "1"
+        assert page.locator("#actionButtons [data-edge]").count() == 4
 
         page.set_viewport_size({"width": 360, "height": 800})
         page.wait_for_function("document.body.classList.contains('poker8-v2-sixmax')")
         browser.close()
+
+
+def test_desktop_actions_live_inside_the_table_without_a_layout_row(online_server: str):
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        page = browser.new_page(device_scale_factor=1)
+        try:
+            _open_table(page, online_server, 1192, 877)
+            page.wait_for_function("document.body.classList.contains('poker8-desktop-v2')")
+
+            measured = page.evaluate(
+                """() => {
+                    const box = el => {
+                        const r = el.getBoundingClientRect();
+                        return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,cx:r.left+r.width/2};
+                    };
+                    const frame = document.querySelector('.table-frame');
+                    const hero = document.querySelector('.seat[data-visual-seat="0"]');
+                    const actions = [...document.querySelectorAll('#actionButtons [data-edge]')].map(el => ({
+                        edge:el.dataset.edge, slot:el.dataset.slot, box:box(el), visible:el.checkVisibility(),
+                    }));
+                    return {
+                        frame:box(frame), hero:box(hero), actions,
+                        panelParent:document.querySelector('.action-panel').parentElement.className,
+                        hudHeight:getComputedStyle(document.body).getPropertyValue('--p8-hud-h').trim(),
+                        scrollHeight:document.documentElement.scrollHeight,
+                        viewportHeight:innerHeight,
+                    };
+                }"""
+            )
+            assert "table-frame" in measured["panelParent"]
+            assert measured["hudHeight"] == "0px"
+            assert measured["scrollHeight"] <= measured["viewportHeight"] + 1
+            assert len(measured["actions"]) == 4 and all(action["visible"] for action in measured["actions"])
+            assert {action["edge"] for action in measured["actions"]} == {"left", "right"}
+            assert {action["slot"] for action in measured["actions"]} == {"top", "bottom"}
+            for action in measured["actions"]:
+                rect = action["box"]
+                assert rect["left"] >= measured["frame"]["left"]
+                assert rect["right"] <= measured["frame"]["right"]
+                assert rect["top"] >= measured["frame"]["top"]
+                assert rect["bottom"] <= measured["frame"]["bottom"]
+                if action["edge"] == "left":
+                    assert rect["right"] < measured["hero"]["cx"]
+                else:
+                    assert rect["left"] > measured["hero"]["cx"]
+
+            page.locator('[data-action-key="aggressive"]').click()
+            page.wait_for_function("document.body.classList.contains('v038-sizing-open')")
+            sizing = page.locator("#sizingWrap")
+            assert sizing.is_visible()
+            sizing_box = sizing.bounding_box()
+            assert sizing_box is not None
+            assert sizing_box["x"] >= measured["frame"]["left"]
+            assert sizing_box["x"] + sizing_box["width"] <= measured["frame"]["right"]
+            assert sizing_box["y"] >= measured["frame"]["top"]
+            assert sizing_box["y"] + sizing_box["height"] <= measured["frame"]["bottom"]
+            assert not page.locator('#actionButtons [data-edge="left"]').first.is_visible()
+            page.locator("#mobileSizingCancel").click()
+            page.wait_for_function("!document.body.classList.contains('v038-sizing-open')")
+
+            frame_before = {
+                key: measured["frame"][key]
+                for key in ("left", "right", "top", "bottom")
+            }
+            page.evaluate(
+                "payload => window.Poker8LegacyView.renderSnapshot({table:{id:'t',name:'Test'},state:payload,viewerState:'seated'})",
+                _state(acting="p1"),
+            )
+            page.wait_for_timeout(100)
+            frame_after = page.locator(".table-frame").evaluate(
+                "el => { const r=el.getBoundingClientRect(); return {left:r.left,right:r.right,top:r.top,bottom:r.bottom}; }"
+            )
+            assert frame_after == pytest.approx(frame_before, abs=1)
+        finally:
+            browser.close()

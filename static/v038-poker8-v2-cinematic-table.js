@@ -1705,6 +1705,11 @@
   function syncFinalReference() {
     if (!isMobileV2()) {
       teardownFinalReference();
+      if (document.body.classList.contains("poker8-desktop-v2")) {
+        runSyncStep(ensurePresetButtons);
+        runSyncStep(configureReferenceActions);
+        runSyncStep(syncSizingModeText);
+      }
       return;
     }
     referenceActive = true;

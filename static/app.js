@@ -1624,7 +1624,7 @@ function refreshQuickSizeLabels() {
 function renderPersistentActionButtons() {
   const buttons = $("actionButtons");
   if (!buttons) return;
-  if (window.matchMedia?.("(max-width: 780px)")?.matches && buttons.dataset.v038ReferenceActions === "1") return;
+  if (buttons.dataset.v038ReferenceActions === "1") return;
   buttons.innerHTML = "";
   const alive = localPlayerAlive();
   const localTurn = isLocalHumanTurn();

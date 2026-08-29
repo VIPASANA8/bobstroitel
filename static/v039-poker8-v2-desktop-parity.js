@@ -2,12 +2,19 @@
   "use strict";
 
   const DESKTOP_QUERY = "(min-width: 781px)";
+  const actionPanel = document.querySelector(".action-panel");
+  const actionHome = actionPanel?.parentElement;
+  const actionNext = actionPanel?.nextSibling;
 
   function syncDesktopMode() {
-    document.body.classList.toggle(
-      "poker8-desktop-v2",
-      window.matchMedia?.(DESKTOP_QUERY)?.matches ?? false,
-    );
+    const desktop = window.matchMedia?.(DESKTOP_QUERY)?.matches ?? false;
+    document.body.classList.toggle("poker8-desktop-v2", desktop);
+    const frame = document.querySelector(".table-frame");
+    if (!actionPanel || !actionHome || !frame) return;
+    if (desktop && actionPanel.parentElement !== frame) frame.appendChild(actionPanel);
+    else if (!desktop && actionPanel.parentElement !== actionHome) {
+      actionHome.insertBefore(actionPanel, actionNext?.parentElement === actionHome ? actionNext : actionHome.firstChild);
+    }
   }
 
   const style = document.createElement("style");
@@ -362,8 +369,8 @@
          does not scroll. The felt also ran the full 1364px, which is not a
          shape a poker table has.
 
-         Two columns instead: the table and its controls on the left, chat
-         beside them full height. The felt keeps a sane width and centres. */
+         The controls now live inside the table frame, so this is one stable
+         row at every hand state. Chat remains an overlay. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .layout{
         display:grid!important;
         /* One column. The chat was a permanent 330px card whether anyone was
@@ -371,9 +378,9 @@
            being square. It opens over the felt now, from the same button the
            phone uses -- which already sits in this header. */
         grid-template-columns:minmax(0,1fr)!important;
-        grid-template-rows:minmax(0,1fr) auto!important;
-        grid-template-areas:"table" "actions"!important;
-        gap:14px!important;
+        grid-template-rows:minmax(0,1fr)!important;
+        grid-template-areas:"table"!important;
+        gap:0!important;
         /* Was height:calc(100dvh - 76px) -- the 76 stood for a topbar that
            was out of flow and reserved nothing. Now that it is in flow (see
            the .topbar rule above) subtracting it as well would count it
@@ -559,97 +566,63 @@
       }
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 #chatPanel.is-open{display:flex!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 #chatMessages{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;}
-      /* The panel keeps the mobile arrangement -- a fixed height with its
-         controls absolutely placed inside it. Making it position:static and
-         height:auto collapsed it to sixteen pixels, because absolute children
-         contribute nothing to an auto height. */
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .sidebar{
-        grid-area:actions!important;width:min(100%,940px)!important;margin-inline:auto!important;
-        height:var(--p8-hud-h)!important;
-        /* One column. The other four panels here -- solver, stats, saved
-           tables, format -- are trainer leftovers, hidden on a network table,
-           and their empty tracks squeezed the action panel into a quarter of
-           the bar. */
-        grid-template-columns:minmax(0,1fr)!important;
+      /* The old 214px action row was the page jump: observer/seated state
+         changed that row and therefore the table's own height. The real panel
+         is reparented into .table-frame above; the leftover sidebar has no
+         layout job and the frame never gives space back to it. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2{--p8-hud-h:0px!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .sidebar{display:none!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .table-frame > .action-panel{
+        position:absolute!important;z-index:70!important;inset:0!important;
+        width:100%!important;height:100%!important;min-height:0!important;
+        margin:0!important;padding:0!important;transform:none!important;
+        border:0!important;border-radius:0!important;background:transparent!important;
+        box-shadow:none!important;backdrop-filter:none!important;overflow:visible!important;
+        pointer-events:none!important;
       }
-      /* The controls inside are placed absolutely against phone widths, so on
-         a 940px bar they huddled in a 207px column against the left edge.
-         Give them a box their own size and centre that instead of trying to
-         re-pin every one of them. */
-      /* 520px was a phone-sized column parked under a ~930px felt, leaving
-         200px of empty dark either side -- measured live at 1732px, and the
-         single thing that made the seated table read as unfinished. Track
-         the felt instead so the HUD and the table share one edge. */
-      /* The sidebar is a two-column grid, and with the other panels hidden the
-         action panel landed in the second column while still being told to be
-         940px wide -- it started at the sidebar's midpoint and ran past the
-         layout's right edge. One column, and the panel spans it. */
-      /* Not a grid at all any more. Twice now the panel has ended up in a
-         column nobody meant to exist -- it is a bar with one thing on it,
-         and a centred flex row cannot put that thing anywhere but the
-         middle. Stated at two class depths on purpose: the deeper one is
-         the rule for this table, and the shallower catches a desktop table
-         that has not been given .poker8-v2-sixmax yet, which is the only
-         state in which the old grid could still bite. */
-      body.v014.poker8-desktop-v2 .sidebar,
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .sidebar{
-        display:block!important;position:relative!important;
-        width:100%!important;max-width:none!important;min-width:0!important;
-        margin:0!important;padding:0!important;
-        grid-template-columns:none!important;grid-template-areas:none!important;
-        justify-self:stretch!important;align-self:start!important;
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .action-panel > :is(.panel-kicker,h2,.hint,.turn-meta,.mobile-turn-tools,.mobile-auto-action){display:none!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons{
+        display:contents!important;position:static!important;inset:auto!important;
+        width:auto!important;height:auto!important;padding:0!important;background:transparent!important;
       }
-      /* The panel keeps its own internal layout -- the controls inside are
-         absolutely placed against phone widths -- so it grows the only way
-         such a box can: scaled from its top edge, with the row it sits in
-         told to be exactly as tall as the result. The observer's panel is
-         hidden and its --p8-hud-h is pinned at 0 by online-table.js, hence
-         the :not(). */
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2:not(.p8-observer-mode){
-        --p8-hud-h:calc(214px * var(--p8-ui-scale))!important;
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons .action-slot{
+        position:absolute!important;z-index:4!important;
+        width:clamp(128px,18%,176px)!important;max-width:none!important;
+        min-height:46px!important;height:46px!important;padding:7px 10px!important;
+        border-radius:11px!important;font-size:12px!important;pointer-events:auto!important;
       }
-      /* Centred on the bar's own middle, and nothing between it and that
-         middle. Twice this ended up under the right half of the table: once
-         in a grid column nobody meant to exist, and again after that column
-         was taken away -- so it stopped depending on how the bar lays its
-         children out at all. The bar is the full width of the row, the panel
-         hangs off its centre line, and there is no track, no sibling and no
-         auto margin left in the path. */
-      body.v014.poker8-desktop-v2 .action-panel,
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .action-panel{
-        position:absolute!important;left:50%!important;top:0!important;right:auto!important;
-        width:min(100%,860px)!important;margin:0!important;
-        grid-column:auto!important;grid-row:auto!important;flex:none!important;
-        transform:translateX(-50%) scale(var(--p8-ui-scale))!important;
-        transform-origin:top center!important;
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons .action-slot[data-edge="left"]{left:16px!important;right:auto!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons .action-slot[data-edge="right"]{right:16px!important;left:auto!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons .action-slot[data-slot="top"]{top:auto!important;bottom:70px!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons .action-slot[data-slot="bottom"]{top:auto!important;bottom:16px!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .v038-action-amount{font-size:12px!important;}
+
+      /* Sizing is transient, like the phone: no permanent preset/slider block.
+         It opens over the felt and therefore cannot resize the page. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #sizingWrap{
+        display:none!important;position:absolute!important;z-index:8!important;
+        left:50%!important;right:auto!important;top:50%!important;bottom:auto!important;
+        width:min(360px,calc(100% - 40px))!important;height:auto!important;
+        transform:translate(-50%,-50%)!important;padding:10px!important;
+        border:1px solid rgba(71,255,190,.42)!important;border-radius:16px!important;
+        background:rgba(0,8,5,.97)!important;box-shadow:0 18px 42px rgba(0,0,0,.60),0 0 28px rgba(44,247,169,.18)!important;
+        pointer-events:auto!important;
       }
-      /* Nothing to press: the hand is running and this seat is not in it --
-         it folded, or it was claimed after the cards were out. The panel
-         keeps its box so the table does not jump a hundred pixels taller in
-         the middle of a hand; only the controls go. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2.v038-sizing-open #sizingWrap{display:block!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2.v038-sizing-open #actionButtons .action-slot{visibility:hidden!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .mobile-sizing-head{display:flex!important;align-items:center!important;justify-content:center!important;min-height:40px!important;margin-bottom:7px!important;position:relative!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #mobileSizingAmount{font-size:24px!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #mobileSizingCancel{display:block!important;position:absolute!important;right:0!important;top:0!important;width:40px!important;height:40px!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .quick-sizes{position:static!important;display:grid!important;grid-template-columns:repeat(5,1fr)!important;height:auto!important;margin:0!important;gap:5px!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .quick-sizes button{height:40px!important;min-height:40px!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .bet-slider-row{position:static!important;display:block!important;height:30px!important;margin:7px 0 5px!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #mobileSizingConfirm{display:block!important;width:100%!important;min-height:44px!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #mobileBetRail{display:none!important;}
+
+      /* Nothing to press: the hand is running and this seat is not in it. */
       body.v014.poker8-desktop-v2.p8-not-in-hand #actionButtons,
       body.v014.poker8-desktop-v2.p8-not-in-hand #sizingWrap,
       body.v014.poker8-desktop-v2.p8-not-in-hand #mobileAutoActionBar{display:none!important;}
-
-      /* The phone's bet-gesture furniture. Desktop has a slider and a row of
-         quick sizes doing the same job, so these three only stacked on top of
-         them: measured, the confirm button sat on the quick sizes and the
-         rail crossed both the sizes and the slider. */
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .mobile-sizing-head,
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #mobileSizingConfirm,
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #mobileSizingCancel,
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #mobileBetRail{display:none!important;}
-
-      /* The same arrangement the phone reads, on desktop's own buttons:
-             ALL-IN  |  CHECK/CALL
-             FOLD    |  RAISE/BET
-         Their order comes from a different renderer here, so it is set on the
-         grid rather than in the list that builds them. */
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons .action-slot.all-in{order:1!important;}
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons .action-slot.check,
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons .action-slot.call{order:2!important;}
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons .action-slot.fold{order:3!important;}
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons .action-slot.raise{order:4!important;}
       /* The stage is a grid row here, not a subtraction from the viewport. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2{
         --p8-bottom-reserve:0px!important;
@@ -662,10 +635,8 @@
      the gap and the action panel are already in it, and so is whatever
      replaces them later. No feedback loop -- the row is a 1fr grid track, so
      its size does not depend on the frame it sizes. */
-  /* The size everything on this table was drawn at, and the panel height
-     that goes under it -- the frame at the time was 1240x775 with a 214px
-     panel and a 14px gap below it. */
-  const BASE = { w: 1240, h: 775, hud: 228 };
+  /* The size everything on this table was drawn at. */
+  const BASE = { w: 1240, h: 775 };
   const CAP = 1.35;
   /* And a floor. The factor only ever grew, so a window smaller than the size
      these pixel values were drawn at got the full-size furniture on a smaller
@@ -682,14 +653,10 @@
      at, by area -- a table that grew mostly in width still counts, which
      taking the smaller of the two dimensions would have thrown away.
 
-     Worked out from .layout rather than from the frame itself, and with the
-     panel at its unscaled height: the panel is one of the inputs to the
-     frame's size, so a scale read off the frame would feed back into the
-     thing it scales. .layout is everything below the topbar and does not
-     move when the split between table and panel does. */
+     Worked out from .layout rather than from the frame itself, so a scale
+     read off the frame cannot feed back into the thing it scales. */
   function uiScale(layout) {
-    const seated = !document.body.classList.contains("p8-observer-mode");
-    const row = layout.height - (seated ? BASE.hud : 0);
+    const row = layout.height;
     const width = Math.min(layout.width, (row - 50) * 1.9);
     const height = Math.min(row, width / 1.6 + 50);
     const grown = Math.sqrt((width * height) / (BASE.w * BASE.h));
