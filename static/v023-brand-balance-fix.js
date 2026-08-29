@@ -13,6 +13,11 @@
 
   let marking = false;
   function markPrimaryHumanSeat() {
+    // "The seat in chair 0 is you" is the trainer's truth. On a network table
+    // the server names the viewer, chair 0 belongs to whoever the layout put
+    // there, and stamping .viewer-seat on them both offered their stack as
+    // your top-up button and taught v040 to keep them in that chair.
+    if (window.Poker8OnlineTable) return;
     if (marking) return;
     marking = true;
 

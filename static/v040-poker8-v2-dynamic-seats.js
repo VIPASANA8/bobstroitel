@@ -306,11 +306,30 @@
     const active = seats.filter(seat => playerForSeat(gameState, seat));
     if (!active.length) return { active, viewer: null };
 
-    const viewerId = gameState?.viewer_player_id;
-    let viewer = active.find(seat => {
-      const player = playerForSeat(gameState, seat);
-      return player?.id === viewerId || player?.isViewerCard;
-    }) || null;
+    // Between hands there is no roster, so playerForSeat derives a stand-in
+    // whose id is null -- and the viewer id is null too while nobody is
+    // seated. `player?.id === viewerId` was then null === null for the very
+    // first chair, which is how a table with one player in it drew that
+    // player in the hero's seat, the one the "Сесть" invitation belongs in,
+    // and dropped the invitation with it. The id only answers this question
+    // when there is an id to answer it with.
+    //
+    // tableData carries it between hands as well, which is exactly why it is
+    // set there (app.js: "needed to know which seat is you before a hand
+    // exists").
+    const online = Boolean(window.Poker8OnlineTable);
+    const viewerId = gameState?.viewer_player_id || tableState?.viewer_player_id || null;
+    let viewer = viewerId
+      ? active.find(seat => playerForSeat(gameState, seat)?.id === viewerId) || null
+      : null;
+    // .viewer-seat is app.js's own marker -- but v023 stamps it on whatever
+    // seat is in chair 0 so the balance stays clickable between hands, which
+    // online means stamping it on a stranger and then reading it back as
+    // proof they are you. Off the network table it is still the trainer's
+    // answer, where nothing else knows.
+    if (!viewer && !online) {
+      viewer = active.find(seat => playerForSeat(gameState, seat)?.isViewerCard) || null;
+    }
     // The trainer has no viewer_player_id, so there the hero is found by
     // profile -- and with no active profile to match, by "the first player
     // who has one at all". On a network table that reads the first human at

@@ -265,7 +265,14 @@ def test_watching_a_table_never_promotes_somebody_else_to_hero():
     first human at the table as you: they took the hero's chair -- the one
     the Сесть invitation belongs in -- and the invitation was dropped with
     it, because it is only offered while your own seat is empty."""
-    assert "if (!viewer && !window.Poker8OnlineTable) {" in V040
+    assert "if (!viewer && !online) {" in V040
+    # null === null was the first half: between hands the derived player has
+    # no id, and neither does a viewer who is not seated.
+    assert "const viewerId = gameState?.viewer_player_id || tableState?.viewer_player_id || null;" in V040
+    assert "let viewer = viewerId" in V040
+    # And the marker that fed it back: v023 stamps .viewer-seat on chair 0.
+    v023 = Path("static/v023-brand-balance-fix.js").read_text(encoding="utf-8")
+    assert "if (window.Poker8OnlineTable) return;" in v023
     # The seated ring starts at the hero's chair; the watching one does not
     # use that point until the table is full enough to need it.
     seated = re.search(r"const DESKTOP_LAYOUTS = \{\s*1: \[\[(\d+), (\d+)\]\]", V040)
