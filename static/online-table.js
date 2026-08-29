@@ -362,13 +362,18 @@
     // cancel-ready-then-disconnect stay bound to the one node. On a phone it
     // goes back where it was, above "Покинуть стол", which is the order the
     // drawer reads in.
-    const lobbyButton = $("mobileDrawerLobby");
     const drawer = document.getElementById("mobileDrawer");
-    if (lobbyButton && drawer) {
+    const leaveButton = document.getElementById("mobileDrawerLeave");
+    const lobbyButton = $("mobileDrawerLobby");
+    // Order matters on the way back: the drawer reads take-seat, close-room,
+    // lobby, leave, and then a paragraph. Both go in front of that paragraph,
+    // leave last.
+    for (const [button, before] of [[lobbyButton, leaveButton], [leaveButton, drawer?.querySelector("p")]]) {
+      if (!button || !drawer) continue;
       if (phone) {
-        if (lobbyButton.parentElement !== drawer) drawer.insertBefore(lobbyButton, document.getElementById("mobileDrawerLeave"));
-      } else if (lobbyButton.parentElement !== host) {
-        host.append(lobbyButton);
+        if (button.parentElement !== drawer) drawer.insertBefore(button, before ?? null);
+      } else if (button.parentElement !== host) {
+        host.append(button);
       }
     }
     // Only claimed once the buttons are actually in the desktop header, so a

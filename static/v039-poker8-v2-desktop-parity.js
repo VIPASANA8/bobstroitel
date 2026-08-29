@@ -116,15 +116,22 @@
       body.v014.poker8-desktop-v2 .mobile-header-seat-actions button{
         min-height:42px!important;padding:9px 14px!important;
       }
-      /* The drawer's own button, parked in this header on desktop (see
-         placeHeaderActions). Its drawer styling is scoped to .mobile-drawer,
-         so out here it needs the header's shape. */
-      body.v014.poker8-desktop-v2 .top-actions #mobileDrawerLobby{
+      /* The drawer's own buttons, parked in this header on desktop (see
+         placeHeaderActions). Their drawer styling is scoped to
+         .mobile-drawer, so out here they need the header's shape. */
+      body.v014.poker8-desktop-v2 .top-actions #mobileDrawerLobby,
+      body.v014.poker8-desktop-v2 .top-actions #mobileDrawerLeave{
         width:auto!important;min-height:42px!important;padding:9px 14px!important;
         border:1px solid rgba(64,237,167,.34)!important;border-radius:11px!important;
         background:rgba(4,31,20,.72)!important;color:#b8ffda!important;
         font:700 13px/1 Inter,ui-sans-serif,system-ui!important;
         white-space:nowrap!important;cursor:pointer!important;
+      }
+      /* Same danger colours it wears in the drawer -- this one gives up a
+         seat, and the one beside it only stops watching. */
+      body.v014.poker8-desktop-v2 .top-actions #mobileDrawerLeave{
+        border-color:rgba(255,125,111,.34)!important;
+        background:rgba(52,14,12,.58)!important;color:#ffc1b6!important;
       }
       body.v014.poker8-desktop-v2 .mobile-header-seat-actions #mobileHeaderTakeSeat,
       body.v014.poker8-desktop-v2 .mobile-header-seat-actions #mobileHeaderObserve{
