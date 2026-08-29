@@ -33,9 +33,13 @@
         --seat-5-x:83%; --seat-5-y:39%;
         --seat-6-x:80%; --seat-6-y:70%;
         color:#eafff6!important;
+        /* A photographed floor instead of the three-tone stripe that stood
+           in for one. Fixed and covering, so it does not slide or tile: it
+           is one board room, not a repeating pattern. */
         background:
           radial-gradient(ellipse at 50% 26%,rgba(15,95,58,.16),transparent 43%),
-          repeating-linear-gradient(96deg,#000000 0 8px,#180b05 9px 17px,#0c0503 18px 27px)!important;
+          url("/static/assets/room-wood-desktop.webp") center/cover no-repeat fixed,
+          #0c0503!important;
       }
 
       body.v014.poker8-desktop-v2 .mobile-game-header,
@@ -317,12 +321,17 @@
            above: -50px took the top rail with it.
 
            Fit it to the frame, which is the box it is a picture of. Nothing
-           is cut at any size. It is still a portrait photo stretched to a
-           landscape frame -- the asset is 720x1080. A landscape one belongs
-           here, and swapping it in is the url in the .table-frame rule near
-           the top of this file, nothing else. */
+           is cut at any size.
+
+           The picture is the landscape table now (1618x972, ratio 1.67).
+           The frame's own ratio floats between 1.5 and 1.78 across the band
+           above, so it is stretched by under a tenth at either end -- on a
+           photograph of wood and baize that is not a thing anyone can see,
+           and it beats cropping the ends off. */
+        background-image:url("/static/assets/poker8-v2-table-desktop.webp")!important;
         background-size:100% 100%!important;
         background-position:center!important;
+        background-repeat:no-repeat!important;
       }
       /* Over the felt rather than beside it, and only once asked for. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 #chatPanel{
