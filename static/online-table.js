@@ -355,6 +355,22 @@
     for (const group of groups) {
       if (group.parentElement !== host) host.append(group);
     }
+    // The way back to the lobby lives in the drawer, and v039 hides the
+    // drawer on desktop -- so a desktop table was a room with no door: the
+    // only exits were the browser's back button and closing the tab. Moved
+    // the same way the seat buttons are, so returnToLobby and its
+    // cancel-ready-then-disconnect stay bound to the one node. On a phone it
+    // goes back where it was, above "Покинуть стол", which is the order the
+    // drawer reads in.
+    const lobbyButton = $("mobileDrawerLobby");
+    const drawer = document.getElementById("mobileDrawer");
+    if (lobbyButton && drawer) {
+      if (phone) {
+        if (lobbyButton.parentElement !== drawer) drawer.insertBefore(lobbyButton, document.getElementById("mobileDrawerLeave"));
+      } else if (lobbyButton.parentElement !== host) {
+        host.append(lobbyButton);
+      }
+    }
     // Only claimed once the buttons are actually in the desktop header, so a
     // failure above can never leave desktop with no way to sit down at all:
     // #readyPanel stays as the fallback until this says otherwise.

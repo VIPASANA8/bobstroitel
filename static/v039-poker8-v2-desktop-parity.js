@@ -116,6 +116,16 @@
       body.v014.poker8-desktop-v2 .mobile-header-seat-actions button{
         min-height:42px!important;padding:9px 14px!important;
       }
+      /* The drawer's own button, parked in this header on desktop (see
+         placeHeaderActions). Its drawer styling is scoped to .mobile-drawer,
+         so out here it needs the header's shape. */
+      body.v014.poker8-desktop-v2 .top-actions #mobileDrawerLobby{
+        width:auto!important;min-height:42px!important;padding:9px 14px!important;
+        border:1px solid rgba(64,237,167,.34)!important;border-radius:11px!important;
+        background:rgba(4,31,20,.72)!important;color:#b8ffda!important;
+        font:700 13px/1 Inter,ui-sans-serif,system-ui!important;
+        white-space:nowrap!important;cursor:pointer!important;
+      }
       body.v014.poker8-desktop-v2 .mobile-header-seat-actions #mobileHeaderTakeSeat,
       body.v014.poker8-desktop-v2 .mobile-header-seat-actions #mobileHeaderObserve{
         width:auto!important;min-width:104px!important;
@@ -190,7 +200,7 @@
         width:30px!important;height:30px!important;z-index:12!important;
       }
 
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .table-center{transform:translate(-50%,-50%) scale(.94)!important;z-index:12!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .table-center{transform:translate(-50%,-50%) scale(calc(.94 * var(--p8-ui-scale)))!important;z-index:12!important;}
       /* Same on desktop: the player stays lit, the cards go. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat-card.folded{opacity:1!important;filter:none!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat-card.folded .player-cards{display:none!important;}
@@ -312,6 +322,11 @@
         --p8-felt-squarest:1.6;
         --p8-stage-h:calc(100dvh - 344px);
         --p8-stage-w:calc(100vw - 40px);
+        /* Everything drawn on this table is a fixed pixel size, tuned when
+           the frame was 1240x775. It can be half again that now, and a seat
+           plate does not grow with it. syncStage() measures the knob; 1 is
+           the size everything was drawn at. */
+        --p8-ui-scale:1;
       }
       body.v014.poker8-v2-sixmax.poker8-desktop-v2.p8-observer-mode{--p8-stage-h:calc(100dvh - 150px);}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .table-frame{
@@ -407,9 +422,19 @@
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .sidebar{
         grid-template-columns:minmax(0,1fr)!important;justify-items:center!important;
       }
+      /* The panel keeps its own internal layout -- the controls inside are
+         absolutely placed against phone widths -- so it grows the only way
+         such a box can: scaled from its top edge, with the row it sits in
+         told to be exactly as tall as the result. The observer's panel is
+         hidden and its --p8-hud-h is pinned at 0 by online-table.js, hence
+         the :not(). */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2:not(.p8-observer-mode){
+        --p8-hud-h:calc(214px * var(--p8-ui-scale))!important;
+      }
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .action-panel{
         position:relative!important;width:min(100%,860px)!important;margin-inline:auto!important;
         grid-column:1 / -1!important;
+        transform:scale(var(--p8-ui-scale))!important;transform-origin:top center!important;
       }
 
       /* The phone's bet-gesture furniture. Desktop has a slider and a row of
@@ -443,6 +468,30 @@
      the gap and the action panel are already in it, and so is whatever
      replaces them later. No feedback loop -- the row is a 1fr grid track, so
      its size does not depend on the frame it sizes. */
+  /* The size everything on this table was drawn at, and the panel height
+     that goes under it -- the frame at the time was 1240x775 with a 214px
+     panel and a 14px gap below it. */
+  const BASE = { w: 1240, h: 775, hud: 228 };
+  const CAP = 1.35;
+
+  /* How much bigger the table is than the size its pixel values were tuned
+     at, by area -- a table that grew mostly in width still counts, which
+     taking the smaller of the two dimensions would have thrown away.
+
+     Worked out from .layout rather than from the frame itself, and with the
+     panel at its unscaled height: the panel is one of the inputs to the
+     frame's size, so a scale read off the frame would feed back into the
+     thing it scales. .layout is everything below the topbar and does not
+     move when the split between table and panel does. */
+  function uiScale(layout) {
+    const seated = !document.body.classList.contains("p8-observer-mode");
+    const row = layout.height - (seated ? BASE.hud : 0);
+    const width = Math.min(layout.width, (row - 50) * 1.9);
+    const height = Math.min(row, width / 1.6 + 50);
+    const grown = Math.sqrt((width * height) / (BASE.w * BASE.h));
+    return Math.min(CAP, Math.max(1, grown));
+  }
+
   function syncStage() {
     const column = document.querySelector(".left-column");
     if (!column) return;
@@ -450,12 +499,21 @@
     if (box.height < 1 || box.width < 1) return;
     document.body.style.setProperty("--p8-stage-h", `${Math.round(box.height)}px`);
     document.body.style.setProperty("--p8-stage-w", `${Math.round(box.width)}px`);
+    const layout = document.querySelector(".layout")?.getBoundingClientRect();
+    if (layout?.height > 1) {
+      document.body.style.setProperty("--p8-ui-scale", uiScale(layout).toFixed(3));
+    }
   }
 
   document.head.appendChild(style);
   syncDesktopMode();
   syncStage();
-  const column = document.querySelector(".left-column");
-  if (column && window.ResizeObserver) new ResizeObserver(syncStage).observe(column);
+  if (window.ResizeObserver) {
+    const watch = new ResizeObserver(syncStage);
+    for (const name of [".left-column", ".layout"]) {
+      const node = document.querySelector(name);
+      if (node) watch.observe(node);
+    }
+  }
   window.addEventListener("resize", () => { syncDesktopMode(); syncStage(); }, { passive: true });
 })();

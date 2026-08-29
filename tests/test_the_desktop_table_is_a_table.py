@@ -63,7 +63,8 @@ def test_the_table_is_measured_rather_than_remembered():
     assert f"{DESKTOP}.p8-observer-mode{{--p8-stage-h:calc(100dvh - 150px);}}" in V039
     assert 'document.body.style.setProperty("--p8-stage-h"' in V039
     assert 'document.body.style.setProperty("--p8-stage-w"' in V039
-    assert "new ResizeObserver(syncStage).observe(column)" in V039
+    assert "new ResizeObserver(syncStage)" in V039
+    assert '[".left-column", ".layout"]' in V039
 
 
 def test_the_chat_no_longer_holds_the_width_the_table_needs():
@@ -171,3 +172,23 @@ def test_the_table_photo_is_fitted_to_the_frame_not_the_window():
     assert "background-position:center!important" in rule
     # v038's rule carries two classes; this one has to outrank it.
     assert "100vw" in V038, "the phone rule this is written against"
+
+
+def test_what_the_table_draws_grows_with_the_table():
+    """Every size on this table is a fixed pixel value tuned at 1240x775. The
+    frame can be half again that now, so the seats, the centre cluster and
+    the action panel take a scale factor."""
+    assert "--p8-ui-scale:1;" in V039
+    assert "scale(var(--p8-ui-scale,1))" in V040, "the seat transform is v040's"
+    centre = _first_rule(V039, f"{DESKTOP} .table-center")
+    assert "scale(calc(.94 * var(--p8-ui-scale)))" in centre
+    panel = _rule(V039, f"{DESKTOP} .action-panel")
+    assert "transform:scale(var(--p8-ui-scale))!important" in panel
+    assert "transform-origin:top center!important" in panel
+    # The row has to be as tall as the panel it holds, and an observer's is
+    # pinned at 0 elsewhere.
+    assert f"{DESKTOP}:not(.p8-observer-mode){{" in V039
+    assert "--p8-hud-h:calc(214px * var(--p8-ui-scale))!important" in V039
+    # Read off .layout, not the frame: the panel's height is an input to the
+    # frame's size, so the frame cannot be the input to the panel's.
+    assert "function uiScale(layout)" in V039
