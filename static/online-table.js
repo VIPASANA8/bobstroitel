@@ -1223,12 +1223,12 @@
     // on every render, so a direct listener would be lost the moment a
     // snapshot redraws the table.
     document.addEventListener("click", event => {
-      if (!event.target?.closest?.('.seat[data-visual-seat="0"] .avatar-wrap, .v038-room-prompt')) return;
+      if (!event.target?.closest?.('.seat[data-visual-seat="0"] .avatar-wrap')) return;
       readyUp().catch(error => { alert(error.message); });
     });
     document.addEventListener("keydown", event => {
       if (!["Enter", " "].includes(event.key)) return;
-      if (!event.target?.matches?.('.seat[data-visual-seat="0"] .avatar-wrap, .v038-room-prompt')) return;
+      if (!event.target?.matches?.('.seat[data-visual-seat="0"] .avatar-wrap')) return;
       event.preventDefault();
       readyUp().catch(error => { alert(error.message); });
     });

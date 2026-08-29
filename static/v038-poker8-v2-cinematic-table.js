@@ -342,10 +342,9 @@
            every seat layout now deliberately avoids, so the prompt can no
            longer land on top of another seat's avatar.
 
-           Was max-width:78% -- "МЕСТО ЗАНЯТО" hit that cap edge to edge on a
-           321px felt, 250px wide, near enough to the side seats to look like
-           it was reaching for them. Narrower, and every message wraps its
-           subtitle onto two short lines instead of one long one. */
+           At max-width:78% the card reached almost edge to edge on a 321px
+           felt. Narrower, every local-room message wraps instead of reaching
+           toward the side seats. */
         position:absolute;z-index:72;left:50%;top:var(--p8-prompt-y, 36%);transform:translate(-50%,-50%);display:none;width:max-content;max-width:64%;
         padding:10px 14px;border:1px solid rgba(61,235,190,.58);border-radius:12px;background:rgba(2,19,18,.88);text-align:center;
         box-shadow:0 0 18px rgba(28,238,188,.22);pointer-events:auto;cursor:pointer;
@@ -1123,36 +1122,6 @@
     return prompt;
   }
 
-  // Returns whether the prompt has anything to say at all.
-  function syncOnlineRoomPrompt(prompt) {
-    const heroSeat = document.querySelector('.seat[data-visual-seat="0"]');
-    const seated = !tableData?.spectator_only;
-    // A spectator is already told exactly this by the "Занять место /
-    // Наблюдатель" pair in the header, which also says which of the two they
-    // are in right now. A card repeating it over the felt only hid the table
-    // they came to watch.
-    if (!seated) return false;
-    // The server can report "seated" a moment before the seat actually shows
-    // up here -- seats are still drawn from the current hand's player list,
-    // and a fresh seat only joins that list at the next hand boundary. Until
-    // then there is nothing to click, so don't tell the viewer to click it.
-    if (!heroSeat) {
-      prompt.innerHTML = "<strong>МЕСТО ЗАНЯТО</strong><span>Раздача начнётся с вашим участием совсем скоро</span>";
-      prompt.setAttribute("role", "status");
-      prompt.removeAttribute("tabindex");
-      prompt.setAttribute("aria-live", "polite");
-      return true;
-    }
-    // Neither ready state is said here any more, for the same reason: a card
-    // over the felt covering the board and the pot, saying something the
-    // avatar's own pulse and checkmark already say. Not-ready moved to the
-    // header (#mobileHeaderReadyUp in online-table.js); "waiting on the
-    // others" now says nothing at all -- the checkmark already shows this
-    // viewer clicked ready, and there is no action left for them to take, so
-    // there is nothing this card would be prompting them to do.
-    return false;
-  }
-
   function cancelRoomReset() {
     window.clearTimeout(roomResetTimer);
     roomResetTimer = 0;
@@ -1166,14 +1135,9 @@
     document.body.classList.toggle("v038-room-awaiting", room);
     const prompt = ensureRoomPrompt();
     if (window.Poker8OnlineTable) {
-      // Sitting out a hand that started before this seat joined looks exactly
-      // like "room" here too (no cards, no action of theirs) -- the prompt
-      // must stay up so they still see "click your avatar" while it runs.
-      // Only when there is no hand to look at. While one runs, this card sat
-      // over the board and the pot to say something the avatar's own checkmark
-      // and pulse now say -- covering the table the player came to watch.
-      const hasSomethingToSay = syncOnlineRoomPrompt(prompt);
-      prompt?.classList.toggle("visible", hasSomethingToSay && room);
+      // Online state lives on the header and hero avatar; the central prompt
+      // belongs only to the local trainer's idle room.
+      prompt?.classList.remove("visible");
       cancelRoomReset();
       return;
     }

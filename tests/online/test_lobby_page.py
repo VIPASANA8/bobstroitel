@@ -93,9 +93,9 @@ def test_online_waiting_prompt_reflects_the_viewers_own_ready_state():
     v038 = Path("static/v038-poker8-v2-cinematic-table.js").read_text(encoding="utf-8")
     assert "ЖДЁМ ОСТАЛЬНЫХ" not in v038
     assert "НАЖМИТЕ НА АВАТАР" not in v038
-    seated = v038[v038.index("if (!heroSeat) {"):]
-    seated = seated[seated.index("return false;"):]
-    assert "МЕСТО ЗАНЯТО" not in seated[:200], "the seated branch must fall through to a bare return false"
+    assert "МЕСТО ЗАНЯТО" not in v038
+    assert "syncOnlineRoomPrompt" not in v038
+    assert 'prompt?.classList.remove("visible");' in v038
 
     header = Path("static/online-table.js").read_text(encoding="utf-8")
     assert "НАЖМИТЕ НА АВАТАР" in header
@@ -107,6 +107,13 @@ def test_online_ready_up_posts_to_the_server_not_the_local_event_bus():
     assert "window.Poker8Transport.readyUp()" in source
     transport = Path("static/online-transport.js").read_text(encoding="utf-8")
     assert "/ready-up" in transport
+
+
+def test_online_ready_handler_does_not_bind_the_removed_room_prompt():
+    source = Path("static/online-table.js").read_text(encoding="utf-8")
+    bindings = source[source.index("function bindControls() {"):]
+    bindings = bindings[:bindings.index("// Delegated, like the hero avatar above")]
+    assert ".v038-room-prompt" not in bindings
 
 
 def test_online_mode_disables_legacy_ready_badges():
@@ -222,9 +229,9 @@ def test_no_card_covers_the_felt_while_a_hand_is_running():
     off the avatar instead -- the checkmark when ready, the pulse when not."""
     source = Path("static/v038-poker8-v2-cinematic-table.js").read_text(encoding="utf-8")
     assert "ВЫ НАБЛЮДАЕТЕ" not in source
-    assert "if (!seated) return false;" in source
-    # Shown for the idle room only, never alongside a live hand.
-    assert 'prompt?.classList.toggle("visible", hasSomethingToSay && room);' in source
+    # Online has no centre prompt in any state; the idle-room prompt remains
+    # available to the local trainer only.
+    assert 'prompt?.classList.remove("visible");' in source
     assert "sittingOut" not in source
 
     # v028 only marks "no hand at all", so the checkmark had nowhere to appear
