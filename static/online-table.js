@@ -363,18 +363,15 @@
     // goes back where it was, above "Покинуть стол", which is the order the
     // drawer reads in.
     const drawer = document.getElementById("mobileDrawer");
-    const leaveButton = document.getElementById("mobileDrawerLeave");
-    const lobbyButton = $("mobileDrawerLobby");
-    // Order matters on the way back: the drawer reads take-seat, close-room,
-    // lobby, leave, and then a paragraph. Both go in front of that paragraph,
-    // leave last.
-    for (const [button, before] of [[lobbyButton, leaveButton], [leaveButton, drawer?.querySelector("p")]]) {
+    // Appended in order rather than inserted before a sibling: an anchor that
+    // is not where it was assumed to be makes insertBefore throw, and a throw
+    // here would abort the rest of this function. These two are the last
+    // things in the drawer, so appending them is the order it reads in.
+    for (const id of ["mobileDrawerLobby", "mobileDrawerLeave"]) {
+      const button = document.getElementById(id);
       if (!button || !drawer) continue;
-      if (phone) {
-        if (button.parentElement !== drawer) drawer.insertBefore(button, before ?? null);
-      } else if (button.parentElement !== host) {
-        host.append(button);
-      }
+      const home = phone ? drawer : host;
+      if (button.parentElement !== home) home.append(button);
     }
     // Only claimed once the buttons are actually in the desktop header, so a
     // failure above can never leave desktop with no way to sit down at all:
@@ -384,6 +381,11 @@
   }
   placeHeaderActions();
   mobileQuery?.addEventListener?.("change", placeHeaderActions);
+  // A webview can report its width before it has settled, and the media
+  // query only fires when the breakpoint is actually crossed -- so a first
+  // pass that read the wrong side would leave the drawer's buttons in a
+  // header nobody can see until the next snapshot render happened to fix it.
+  window.addEventListener("resize", placeHeaderActions, { passive: true });
 
   const units = value => Math.round(Number(value || 0));
   const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, char => ({

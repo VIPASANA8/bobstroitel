@@ -79,3 +79,18 @@ def test_the_floor_does_not_flatten_the_hexagon_on_a_tall_felt():
     points = [(int(x), int(y)) for x, y in re.findall(r"\[(\d+),\s*(\d+)\]", line)]
     upper_wing_pct = min(points[1][1], points[5][1])
     assert _seat_top_floor() < upper_wing_pct / 100 * 780
+
+
+def test_the_pair_is_in_front_of_the_head_and_fanned():
+    """Behind it at -20px all anyone saw was the strip above the hair -- and
+    on the top row that strip is the part nearest the felt's edge, which is
+    what read as cut off."""
+    rule = re.search(
+        r"body\.v014\.poker8-v2-sixmax\.poker8-desktop-v2 \.player-cards\{([^}]*)\}", V039).group(1)
+    assert "z-index:8!important" in rule, "the avatar-wrap is 4 and the plate 6"
+    # A lone card at a showdown stays straight; a pair fans.
+    for selector, turn in ((":first-child:not(:last-child)", "-6deg"), (":last-child:not(:first-child)", "6deg")):
+        fan = re.search(r"\.player-cards \.card" + re.escape(selector) + r"\{([^}]*)\}", V039)
+        assert fan, selector
+        assert f"transform:rotate({turn})!important" in fan.group(1), selector
+    assert "transform-origin:50% 100%!important" in V039, "a held pair pivots on its bottom edge"

@@ -189,13 +189,40 @@
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat-name{max-width:82px!important;font-size:10px!important;line-height:1!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat-stack{margin-top:4px!important;font-size:15px!important;line-height:1!important;color:hsl(var(--avatar-hue) 95% 68%)!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .bot-level,body.v014.poker8-v2-sixmax.poker8-desktop-v2 .position-chip{display:none!important;}
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .player-cards{position:absolute!important;z-index:3!important;left:50%!important;top:-20px!important;bottom:auto!important;transform:translateX(-50%)!important;min-height:0!important;gap:3px!important;pointer-events:none!important;}
+      /* In front of the head, fanned, whole.
+
+         They used to sit behind it at top:-20px, so all anyone saw was the
+         20px strip above the hair -- and on the top row that strip is the
+         part nearest the felt's edge, which is what made them look cut off.
+         Nothing about that reads as a pair of cards on a table this size.
+
+         In front and lower: the pair now lives inside the seat box entirely
+         (-14 to 41 of a 148px box), which is also what lets the top row's
+         pixel floor come down -- the overhang it has to clear is 14px now,
+         not 20. The bottom edge stops 5px short of the avatar's centre,
+         where the stake is printed. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .player-cards{position:absolute!important;z-index:8!important;left:50%!important;top:-14px!important;bottom:auto!important;transform:translateX(-50%)!important;min-height:0!important;gap:0!important;pointer-events:none!important;}
+      /* The fan. Rotated about the bottom edge, which is where a held pair
+         pivots, and overlapped so the two read as one hand rather than two
+         cards standing side by side. :not(:last-child) so a lone card -- a
+         showdown that only turned one over -- stays straight. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .player-cards .card{
+        transform-origin:50% 100%!important;
+      }
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .player-cards .card:first-child:not(:last-child){
+        transform:rotate(-6deg)!important;
+      }
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .player-cards .card:last-child:not(:first-child){
+        transform:rotate(6deg)!important;margin-left:-7px!important;
+      }
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .player-cards .card.back{width:40px!important;height:55px!important;border-color:hsl(var(--avatar-hue) 95% 72% / .82)!important;background:repeating-linear-gradient(45deg,hsl(var(--avatar-hue) 62% 38% / .76) 0 3px,hsl(var(--avatar-hue) 62% 16% / .98) 3px 6px)!important;box-shadow:inset 0 0 0 2px rgba(0,0,0,.50),0 0 10px hsl(var(--avatar-hue) 94% 58% / .30)!important;}
       /* Same avatar size and plate as every other seat -- the hero used to be
          smaller than everyone else here, which read as a rendering bug. Only
          the "this is you" border colour stays hero-specific. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat[data-visual-seat="0"] .player-avatar{border-color:#35bfff!important;}
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat[data-visual-seat="0"] .player-cards{top:-30px!important;z-index:9!important;gap:4px!important;}
+      /* The hero's own pair is bigger (47x65), so it sits a little higher to
+         keep the same 5px clear of the stake. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat[data-visual-seat="0"] .player-cards{top:-22px!important;z-index:12!important;gap:0!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat[data-visual-seat="0"] .player-cards .card{width:47px!important;height:65px!important;border-color:#56c8ff!important;box-shadow:0 0 12px rgba(47,184,255,.46),0 5px 9px rgba(0,0,0,.54)!important;}
       /* Beside the avatar on its left, the way the phone places it -- it sat
          bottom-right of the whole seat box here, which on a 146x154 box reads
