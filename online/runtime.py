@@ -830,6 +830,28 @@ class TableRuntimeManager:
                                 )
                             ) if profile_id else None
                     transfers[("table", table_id, "escrow")] = user_net_total
+                    # What the escrow has to pay out, against what it holds.
+                    # They can disagree by exactly the chips of a seat that
+                    # was cleared mid-hand: releasing it returns the whole
+                    # stack to the wallet, the part already in the pot
+                    # included, and the pot is then owed money that is no
+                    # longer there. Settling would raise
+                    # InsufficientPlayBalance out of the tick -- the same
+                    # forever-hang the missing seat above used to cause, one
+                    # step further along.
+                    owed = -user_net_total
+                    if owed > 0:
+                        held = await self.ledger.table_escrow_units(table_id, session=session)
+                        if owed > held:
+                            await self.ledger.cover_escrow_shortfall(
+                                table_id, owed - held,
+                                f"shortfall:{loaded.state.hand_id}", session=session,
+                            )
+                            await append_integrity_event(
+                                session, event_type="escrow_shortfall_covered", table_id=table_id,
+                                hand_id=loaded.state.hand_id,
+                                payload={"units": owed - held, "held": held, "owed": owed},
+                            )
                     settlement = await self.ledger.settle_hand_transfers(
                         loaded.state.hand_id, transfers, session=session
                     )

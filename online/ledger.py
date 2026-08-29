@@ -286,6 +286,43 @@ class PlayLedger:
             session=session,
         )
 
+    async def table_escrow_units(self, table_id: str, *, session: AsyncSession | None = None) -> int:
+        """What the table's shared escrow account actually holds."""
+        async def operation(db: AsyncSession) -> int:
+            account = await self._find_account(db, "table", table_id, "escrow")
+            return int(account["balance_units"]) if account else 0
+
+        return await self._run(operation, session)
+
+    async def cover_escrow_shortfall(
+        self, table_id: str, amount_units: int, idempotency_key: str, *, session: AsyncSession | None = None
+    ) -> LedgerResult:
+        """Top the table's escrow up from the faucet so a settled hand can pay.
+
+        Only ever needed when chips committed to a running hand have already
+        left the escrow -- a seat cleared mid-hand takes its whole stack back
+        to the wallet, the pot included. The players still owed are paid in
+        full and the difference is the house's, which is where a shortfall of
+        play money belongs; the alternative is a hand that cannot settle, and
+        a table that hangs on it forever.
+        """
+        self._positive(amount_units)
+        return await self._transfer(
+            # play_transactions.kind is a CHECK constraint of five values, and
+            # this is one of them in every sense that matters: play money
+            # entering the system from the faucet. The idempotency key
+            # ("shortfall:<hand>") is what names it in the journal, and the
+            # integrity event beside it carries the numbers.
+            kind="faucet_grant",
+            reference_type="table",
+            reference_id=table_id,
+            idempotency_key=idempotency_key,
+            entries=[FAUCET_OWNER, ("table", table_id, "escrow")],
+            amounts=[-amount_units, amount_units],
+            available_owner=("table", table_id, "escrow"),
+            session=session,
+        )
+
     async def escrow_balances(self, table_id: str, *, session: AsyncSession | None = None) -> list[int]:
         """Return all balances participating in a table's escrow conservation check."""
         async def operation(db: AsyncSession) -> list[int]:

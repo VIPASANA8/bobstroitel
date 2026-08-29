@@ -190,3 +190,39 @@ async def test_a_seat_that_empties_mid_hand_still_settles(settlement_context):
     # chips of the seat that went stay in the table's escrow.
     assert sum(await ledger.escrow_balances("t1")) == 200_000
     assert runtime._tables["t1"].phase == "result"
+
+
+@pytest.mark.anyio
+async def test_a_seat_that_took_its_pot_money_with_it_still_settles(settlement_context):
+    """Releasing a seat returns its whole stack to the wallet -- including the
+    part already in the pot. The hand is then owed money the escrow no longer
+    holds, and settling it raised InsufficientPlayBalance out of the tick:
+    the same forever-hang as the missing seat, one step further along.
+
+    The players still owed are paid in full and the difference comes from the
+    faucet, with an integrity event naming it.
+    """
+    runtime, ledger = settlement_context
+    await runtime.start_hand("t1")
+    snapshot = await runtime.public_snapshot("t1", "u1")
+    await runtime.action("t1", "u1", "fold", snapshot["revision"], "fold", 0)
+    hand_id = runtime._tables["t1"].state.hand_id
+
+    async with runtime.session_factory() as session:
+        async with session.begin():
+            await session.execute(
+                update(table_seats).where(table_seats.c.id == "seat-u1").values(
+                    occupant_kind="empty", user_id=None, system_player_id=None,
+                    stack_units=0, state="empty",
+                )
+            )
+    # The refund that goes with releasing the seat: everything the table held
+    # for that player, pot money and all.
+    await ledger.return_stack("u1", "t1", f"return:{hand_id}", amount_units=100_000)
+
+    settlement = await runtime.finish_and_settle("t1")
+
+    assert settlement.idempotency_key == f"settlement:{hand_id}"
+    assert runtime._tables["t1"].phase == "result"
+    journal = await ledger.journal("table", "t1")
+    assert any(str(row["idempotency_key"]).startswith("shortfall:") for row in journal), journal
