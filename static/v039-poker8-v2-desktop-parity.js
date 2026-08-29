@@ -667,6 +667,16 @@
      panel and a 14px gap below it. */
   const BASE = { w: 1240, h: 775, hud: 228 };
   const CAP = 1.35;
+  /* And a floor. The factor only ever grew, so a window smaller than the size
+     these pixel values were drawn at got the full-size furniture on a smaller
+     table -- measured at 1067x632: a 964x458 felt carrying 88px heads, a
+     centre cluster 54% of the felt's height, and the top seats' name plates
+     lying across the pot's chips.
+
+     0.82 rather than lower because the text goes with it: a 10px name is 8px
+     there, and the next step down stops being readable before it stops being
+     cramped. */
+  const FLOOR = 0.82;
 
   /* How much bigger the table is than the size its pixel values were tuned
      at, by area -- a table that grew mostly in width still counts, which
@@ -683,7 +693,7 @@
     const width = Math.min(layout.width, (row - 50) * 1.9);
     const height = Math.min(row, width / 1.6 + 50);
     const grown = Math.sqrt((width * height) / (BASE.w * BASE.h));
-    return Math.min(CAP, Math.max(1, grown));
+    return Math.min(CAP, Math.max(FLOOR, grown));
   }
 
   function syncStage() {
@@ -695,7 +705,13 @@
     document.body.style.setProperty("--p8-stage-w", `${Math.round(box.width)}px`);
     const layout = document.querySelector(".layout")?.getBoundingClientRect();
     if (layout?.height > 1) {
-      document.body.style.setProperty("--p8-ui-scale", uiScale(layout).toFixed(3));
+      // Desktop's knob, and only desktop's. Before it could shrink, "always
+      // at least 1" kept it harmless on a phone by accident; now that it can
+      // go below, the phone has to be said out loud -- a factor sitting there
+      // for nobody to read is how the next layer reads it.
+      const desktop = document.body.classList.contains("poker8-desktop-v2");
+      document.body.style.setProperty(
+        "--p8-ui-scale", desktop ? uiScale(layout).toFixed(3) : "1");
     }
   }
 

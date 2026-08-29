@@ -198,6 +198,14 @@ def test_what_the_table_draws_grows_with_the_table():
     # Read off .layout, not the frame: the panel's height is an input to the
     # frame's size, so the frame cannot be the input to the panel's.
     assert "function uiScale(layout)" in V039
+    # It shrinks as well as grows. The factor only ever grew, so a window
+    # smaller than the size these pixel values were drawn at got the
+    # full-size furniture on a smaller table: measured at 1067x632, 88px
+    # heads on a 964x458 felt and the top plates lying across the pot.
+    floor = float(re.search(r"const FLOOR = ([\d.]+);", V039).group(1))
+    cap = float(re.search(r"const CAP = ([\d.]+);", V039).group(1))
+    assert 0.75 <= floor < 1 < cap <= 1.5, (floor, cap)
+    assert "Math.max(FLOOR, grown)" in V039
 
 
 def test_the_felt_draws_nothing_that_stayed_behind():
