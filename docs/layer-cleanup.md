@@ -28,9 +28,10 @@ Two consequences worth keeping in mind:
   layer needs three-class selectors where two would look sufficient — it has
   been the direct cause of two fixes (the table picture sized to the window,
   the page's floor).
-* **v031 is appended with `?v=pot-wings-1`**, a cache buster nothing
-  else shares. Every other file is busted together from `index.html`. A
-  change to v031 will not reach a browser that has it cached.
+* **The busters differ per file** — v031 carries `?v=pot-wings-1` and six
+  layers carry none. Static is served `no-cache` with an ETag, so this does
+  not strand anybody (see below); it just makes the version in a URL a poor
+  guide to what is loaded.
 
 ## What collides
 
@@ -148,10 +149,14 @@ this is ever pulled apart again:
   local trainer, which production never mounts. Online the route is
   `POST /api/profiles/play-top-up`. Either point v022 at it or take the
   affordance off the seat; today it is a live button with a 404 behind it.
-* **Two layers are cached outside the shared buster.** v031 is appended with
-  `?v=pot-wings-1`, its own; v029 was appended with no query string at all,
-  so a browser kept it forever. v029 is gone into the merge below; v031's
-  buster is still its own.
+* **The cache busters are uneven, and it matters less than it looks.** v031
+  is appended with `?v=pot-wings-1`, its own; six more (v015, v016, v018,
+  v019, v022, v023) are appended with no query string at all. I first wrote
+  that down as "cached forever" and that was wrong: `RevalidatedStatics` in
+  app/online.py sends `Cache-Control: no-cache` with an ETag on everything
+  under /static, so a browser must revalidate each file on every load and a
+  changed file comes back changed. Measured on the live site. The busters
+  are belt to that braces -- worth evening out, not load-bearing.
 * **`tests/e2e/test_mobile_online_flow.py` is red** — it waits for
   `p8-can-ready` after sitting down and never gets it. It fails the same way
   at `07848bd`, so it predates the 2026-08-29 work.
