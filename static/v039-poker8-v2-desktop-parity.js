@@ -427,6 +427,48 @@
         background-position:center!important;
         background-repeat:no-repeat!important;
       }
+      /* The answer to pressing "Занять место".
+
+         The offer card is hidden on desktop because the header already
+         carries the same pair of buttons -- but hiding it hid the state it
+         also reports: the seat is reserved, the table is full, the queue
+         takes you in at the next boundary. On a phone that comes back as a
+         slim strip on the rail (online-table.js, .is-pending). Same strip
+         here, on the felt's own rail, at desktop's scale.
+
+         Confirmations arrive whenever the table gets to them, which is the
+         whole reason this has to be visible: the wait is the message. */
+      body.v014.poker8-desktop-v2.p8-desktop-header-actions #readyPanel.is-pending,
+      body.v014.poker8-desktop-v2 .felt > #readyPanel{
+        display:grid!important;position:absolute!important;z-index:76!important;
+        left:50%!important;right:auto!important;bottom:auto!important;
+        transform:translateX(-50%) scale(var(--p8-ui-scale))!important;
+        transform-origin:top center!important;
+        margin:0!important;grid-template-columns:minmax(0,1fr) auto!important;
+        gap:3px 12px!important;text-align:left!important;
+        border:1px solid rgba(64,237,167,.48)!important;border-radius:14px!important;
+        background:linear-gradient(135deg,rgba(4,31,20,.94),rgba(7,16,15,.96))!important;
+        box-shadow:0 12px 28px rgba(0,0,0,.42),0 0 20px rgba(44,247,169,.10)!important;
+      }
+      /* The fallback card -- only ever seen if the header buttons failed to
+         land -- keeps the phone's own place, the middle of the felt. */
+      body.v014.poker8-desktop-v2 .felt > #readyPanel{
+        top:52%!important;width:min(46%,380px)!important;padding:12px 14px!important;
+      }
+      /* Reserved: nothing to press, so it collapses to a strip on the rail
+         and hands the middle back to the game. */
+      body.v014.poker8-desktop-v2 .felt > #readyPanel.is-pending{
+        top:12px!important;width:min(42%,340px)!important;padding:7px 13px!important;
+        grid-template-columns:minmax(0,1fr)!important;text-align:center!important;
+        box-shadow:0 8px 18px rgba(0,0,0,.38)!important;
+      }
+      body.v014.poker8-desktop-v2 .felt > #readyPanel strong{grid-column:1!important;color:#a8ffd4!important;font-size:16px!important;line-height:1.1!important;}
+      body.v014.poker8-desktop-v2 .felt > #readyPanel span{grid-column:1!important;color:#c3d7cc!important;font-size:12px!important;line-height:1.3!important;}
+      body.v014.poker8-desktop-v2 .felt > #readyPanel button{grid-column:2!important;grid-row:1 / span 2!important;align-self:center!important;min-height:42px!important;padding:9px 14px!important;white-space:nowrap!important;}
+      body.v014.poker8-desktop-v2 .felt > #readyPanel.is-pending strong{font-size:12px!important;}
+      body.v014.poker8-desktop-v2 .felt > #readyPanel.is-pending span{font-size:12px!important;}
+      body.v014.poker8-desktop-v2 .felt > #readyPanel.is-pending button{display:none!important;}
+
       /* Over the felt rather than beside it, and only once asked for. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 #chatPanel{
         display:none!important;

@@ -91,6 +91,18 @@ def test_the_readypanel_fallback_is_gated_on_that_same_marker():
     assert ".poker8-online.p8-desktop-header-actions #readyPanel{display:none!important}" in SOURCE
 
 
+def test_the_reserved_strip_survives_that_hide():
+    """Hiding the offer card on desktop also hid the state it reports -- the
+    seat is reserved, the queue takes you in at the next boundary -- so
+    pressing the header's button was answered by nothing at all. The panel
+    lives on the felt at every width now, and v039 lets the pending state
+    through the hide."""
+    v039 = Path("static/v039-poker8-v2-desktop-parity.js").read_text(encoding="utf-8")
+    assert "body.v014.poker8-desktop-v2.p8-desktop-header-actions #readyPanel.is-pending," in v039
+    assert "if (panel.parentElement !== felt) felt.append(panel);" in SOURCE
+    assert "layout.prepend(panel)" not in SOURCE, "the desktop panel used to land outside the felt"
+
+
 def test_button_appearance_is_no_longer_width_gated():
     """These rules used to sit inside the phone block, which is why desktop
     would have rendered the relocated buttons unstyled."""

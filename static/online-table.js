@@ -327,11 +327,13 @@
     const felt = document.querySelector(".felt");
     const layout = document.querySelector(".layout");
     if (!panel || !felt || !layout) return;
-    if (mobileQuery?.matches) {
-      if (panel.parentElement !== felt) felt.append(panel);
-    } else if (panel.parentElement !== layout) {
-      layout.prepend(panel);
-    }
+    // The felt at every width now. On desktop this used to be prepended to
+    // .layout, where it was hidden outright once the header carried the seat
+    // buttons -- and the confirmation that a seat request had landed went
+    // with it, so pressing "Занять место" there was answered by nothing at
+    // all. It reads over the felt on both, and v039 styles the desktop one.
+    if (panel.parentElement !== felt) felt.append(panel);
+    void layout;
   }
   placeReadyPanel();
   mobileQuery?.addEventListener?.("change", placeReadyPanel);
