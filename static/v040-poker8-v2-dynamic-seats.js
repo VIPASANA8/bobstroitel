@@ -311,7 +311,17 @@
       const player = playerForSeat(gameState, seat);
       return player?.id === viewerId || player?.isViewerCard;
     }) || null;
-    if (!viewer) {
+    // The trainer has no viewer_player_id, so there the hero is found by
+    // profile -- and with no active profile to match, by "the first player
+    // who has one at all". On a network table that reads the first human at
+    // the table as you: they were placed in the hero's chair, the one the
+    // "Сесть" invitation belongs in, and the invitation itself was dropped
+    // (it is only offered while nobody is sitting in your seat). Reported as
+    // a lone player sitting where Сесть should be.
+    //
+    // Online the server says who you are, in every snapshot, and says
+    // nothing when you are only watching. That answer is the whole answer.
+    if (!viewer && !window.Poker8OnlineTable) {
       const currentProfile = gameState?.active_profile_id || tableState?.active_profile_id;
       viewer = active.find(seat => {
         const player = playerForSeat(gameState, seat);

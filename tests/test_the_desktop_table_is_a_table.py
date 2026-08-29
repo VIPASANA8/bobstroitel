@@ -257,3 +257,19 @@ def test_everyone_elses_ready_check_shows_on_desktop():
     # which is what keeps this out of a running hand.
     assert 'data-visual-seat="0"]\')) return;' in v038
     assert "if (game) {" in v038
+
+
+def test_watching_a_table_never_promotes_somebody_else_to_hero():
+    """The trainer finds the hero by profile, and with no active profile to
+    match, by "the first player who has one at all". Online that reads the
+    first human at the table as you: they took the hero's chair -- the one
+    the Сесть invitation belongs in -- and the invitation was dropped with
+    it, because it is only offered while your own seat is empty."""
+    assert "if (!viewer && !window.Poker8OnlineTable) {" in V040
+    # The seated ring starts at the hero's chair; the watching one does not
+    # use that point until the table is full enough to need it.
+    seated = re.search(r"const DESKTOP_LAYOUTS = \{\s*1: \[\[(\d+), (\d+)\]\]", V040)
+    watching = re.search(r"const DESKTOP_SPECTATOR_LAYOUTS = \{\s*1: \[\[(\d+), (\d+)\]\]", V040)
+    assert seated and watching
+    assert int(seated.group(2)) > 60, "the hero sits at the bottom"
+    assert int(watching.group(2)) < 40, "watching, the lone player is not in your chair"
