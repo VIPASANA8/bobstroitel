@@ -173,9 +173,14 @@
       body.v014.poker8-desktop-v2 .felt{
         width:calc(100% - 76px)!important;height:calc(100% - 50px)!important;inset:25px 38px!important;
       }
-      body.v014.poker8-desktop-v2 .felt::before{display:block!important;inset:16px!important;border:1px solid rgba(44,255,172,.34)!important;border-radius:inherit!important;background:none!important;}
+      /* An inner ring on the felt used to be stated here, and a glow in the
+         middle of it below the ::after. Both lose today, and by more than a
+         value: v038 hides this ::before outright and draws the glow at its
+         own inset with its own gradient. Measured live -- display:none
+         against display:block, 10% against 16%. They were the last two
+         declarations in this block that a change of load order could have
+         woken up. Removed 2026-08-29; docs/layer-cleanup.md. */
       body.v014.poker8-desktop-v2 .felt::after{display:none!important;}
-      body.v014.poker8-desktop-v2 .table-glow{display:block!important;inset:16%!important;background:radial-gradient(ellipse,rgba(25,179,101,.16),transparent 68%)!important;}
 
       /* A fixed seven-point ring used to be stated here, in --seat-N-x/y and
          seven [data-visual-seat$="N"] rules. v040 has placed every seat since

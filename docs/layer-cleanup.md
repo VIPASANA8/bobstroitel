@@ -92,9 +92,11 @@ its own, and none of them is proof by itself.
    build their DOM on demand, one carries the branding. **Do not delete on
    this signal.**
 3. **Does the declaration survive into the computed style** — the useful one.
-   Still blind to: pseudo-elements (`::before/::after` cannot be queried),
-   custom properties, and any state not on screen when it ran (showdown
-   modal, ready phase, a seated player's controls).
+   Blind to custom properties, and to any state not on screen when it ran
+   (showdown modal, ready phase, a seated player's controls). **Not** blind
+   to pseudo-elements, which is what this file said for most of the day and
+   was wrong about: `getComputedStyle(el, '::before')` reads them fine. Two
+   dead rules sat in v039 an extra half-day on the strength of that.
 
    And it answers a subtly different question than it looks: the probe
    *fetches* each file and matches its selectors, so it reports what a layer
@@ -287,6 +289,7 @@ python -m pytest tests -q --ignore=tests/e2e --ignore=tests/load
 | 2026-08-29 | v015's `wagerPointForPlayer` removed — v031 replaces it later without delegating, so it could never run | static suite + the net + the live page |
 | 2026-08-29 | v022 guarded off the network table — its "+" posted to the trainer's route, which production does not mount | static suite; the online funds dialog is untouched |
 | 2026-08-29 | v028 + v029 + v030 merged into `v028-ready-phase.js` (3 files → 1, 3 requests → 1) | 321 static + 13 browser cases |
+| 2026-08-29 | v039's `.felt::before` and `.table-glow` removed — the last two declarations in its two-class block that lost, and so the last that a load-order change could have woken | 321 static + 9 browser cases. Note: the first attempt replaced both rules as one string, which does not occur in the file (the `::after` line sits between them); the script reported success having changed nothing, and the green suites were green on an unchanged file. Read the diff, not the script's own word |
 | 2026-08-29 | v039's dead frame properties removed (padding, overflow, box-shadow) — absolute values, all three losing to v038, all three would wake on a load-order change | 321 static + 9 browser cases, before the commit |
 | 2026-08-29 | v039's dead felt paint removed (gradient, neon border, inset shadow). Its width/height/inset stay: the height is load-bearing, see the percentages warning above | 321 static + 9 browser cases, run **before** the commit this time |
 | 2026-08-29 | **Reverted the same day (9f88bc5):** a first attempt also deleted the felt's height and the frame's padding/overflow/box-shadow. The net caught it at 6 of 9 -- "the felt ends 23px below the bottom edge" -- but the commit had already shipped, because the deploy was chained after a `pytest ... | tail` whose exit code is the tail's. Test, read the result, *then* commit | the net, on the way back |
