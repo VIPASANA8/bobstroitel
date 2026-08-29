@@ -109,6 +109,23 @@ its own, and none of them is proof by itself.
    contributes. It is how the v039 move below was called off before it
    shipped.
 
+   Its diff **nominates candidates; it does not convict them.** Two ways it
+   misleads, both paid for on 2026-08-29:
+
+   * *Consequence, not cause.* Move a layer, the felt changes size, and
+     everything positioned in percentages of the felt moves with it. Half
+     that diff's entries were things the layer never declares.
+   * *Percentages have no fixed computed value.* `.felt`'s
+     `height:calc(100% - 50px)` read as "loses" because moving the layer
+     changed the frame's padding, so 100% was 100% of a different box. It
+     was the winner all along -- `.felt` is `position:relative`, so the
+     `inset` beside it offsets the box without stretching it, and that
+     height is the only thing giving the felt a height. Deleting it put the
+     felt 23px through the bottom of the table on the live site.
+
+   So: nominate with the dry run, convict with the net, and never judge a
+   percentage by its computed value.
+
 For JavaScript there is no probe. Read the file.
 
 ### Snapshot, taken 2026-08-29 on the live table
@@ -243,5 +260,7 @@ python -m pytest tests -q --ignore=tests/e2e --ignore=tests/load
 | 2026-08-29 | v015's `wagerPointForPlayer` removed — v031 replaces it later without delegating, so it could never run | static suite + the net + the live page |
 | 2026-08-29 | v022 guarded off the network table — its "+" posted to the trainer's route, which production does not mount | static suite; the online funds dialog is untouched |
 | 2026-08-29 | v028 + v029 + v030 merged into `v028-ready-phase.js` (3 files → 1, 3 requests → 1) | 321 static + 13 browser cases |
+| 2026-08-29 | v039's dead felt paint removed (gradient, neon border, inset shadow). Its width/height/inset stay: the height is load-bearing, see the percentages warning above | 321 static + 9 browser cases, run **before** the commit this time |
+| 2026-08-29 | **Reverted the same day (9f88bc5):** a first attempt also deleted the felt's height and the frame's padding/overflow/box-shadow. The net caught it at 6 of 9 -- "the felt ends 23px below the bottom edge" -- but the commit had already shipped, because the deploy was chained after a `pytest ... | tail` whose exit code is the tail's. Test, read the result, *then* commit | the net, on the way back |
 | 2026-08-29 | v039's seven-point seat ring removed — the first of its dead two-class geometry; v040 has placed every seat for far longer, and holding the ring meant any load-order change moved the table | 321 static + 13 browser cases; the invariant moved to a test that reads v040 |
 | 2026-08-29 | v035 and v036 deleted — 369 lines nothing loaded; `test_v101_regressions` was asserting v036's loader for v037, which never ran, and now reads component-ui.js | 321 static |

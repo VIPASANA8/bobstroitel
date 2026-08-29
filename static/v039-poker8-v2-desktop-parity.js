@@ -153,11 +153,19 @@
           repeating-linear-gradient(96deg,#000000 0 8px,#180b05 9px 17px,#0c0503 18px 27px)!important;
         box-shadow:0 24px 54px rgba(0,0,0,.55),inset 0 0 0 1px rgba(255,194,114,.05)!important;
       }
+      /* The paint this file used to put on the felt -- its own green
+         gradient, neon border and inset shadow -- is v037/v038's now, and
+         every one of those values loses to them today. Removed 2026-08-29.
+
+         The size stays, and the reason is the whole lesson of that day: this
+         .felt is position:relative, so the inset beside it only offsets the
+         box, it does not stretch it. The height *is* the felt's height. It
+         looked dead in a dry run only because moving this file changed the
+         frame's padding, and a percentage measured against a different
+         parent computes differently without losing anything. Percentages
+         cannot be judged by their computed value. */
       body.v014.poker8-desktop-v2 .felt{
         width:calc(100% - 76px)!important;height:calc(100% - 50px)!important;inset:25px 38px!important;
-        border:2px solid rgba(35,255,159,.84)!important;border-radius:49% / 38%!important;
-        background:radial-gradient(ellipse at 50% 45%,rgba(0,74,43,.90),rgba(0,35,22,.98) 68%,rgba(7,16,15,.99))!important;
-        box-shadow:inset 0 0 0 8px rgba(0,8,5,.57),inset 0 0 44px rgba(0,0,0,.68),0 0 22px rgba(38,255,167,.34)!important;
       }
       body.v014.poker8-desktop-v2 .felt::before{display:block!important;inset:16px!important;border:1px solid rgba(44,255,172,.34)!important;border-radius:inherit!important;background:none!important;}
       body.v014.poker8-desktop-v2 .felt::after{display:none!important;}
