@@ -25,13 +25,6 @@
         --p8-wood-dark:#0c0503;
         --p8-wood-mid:#51270f;
         --p8-felt:#003b24;
-        --seat-0-x:50%; --seat-0-y:80%;
-        --seat-1-x:17%; --seat-1-y:70%;
-        --seat-2-x:13%; --seat-2-y:39%;
-        --seat-3-x:30%; --seat-3-y:17%;
-        --seat-4-x:70%; --seat-4-y:17%;
-        --seat-5-x:83%; --seat-5-y:39%;
-        --seat-6-x:80%; --seat-6-y:70%;
         color:#eafff6!important;
         background:
           radial-gradient(ellipse at 50% 26%,rgba(15,95,58,.16),transparent 43%),
@@ -170,15 +163,16 @@
       body.v014.poker8-desktop-v2 .felt::after{display:none!important;}
       body.v014.poker8-desktop-v2 .table-glow{display:block!important;inset:16%!important;background:radial-gradient(ellipse,rgba(25,179,101,.16),transparent 68%)!important;}
 
-      /* $= (suffix match): same spectator-position gap as v038 -- a
-         spectator's "spectator-N" dataset (v040) needs to hit these too. */
-      body.v014.poker8-desktop-v2 .seat[data-visual-seat$="0"]{left:var(--seat-0-x)!important;top:var(--seat-0-y)!important;}
-      body.v014.poker8-desktop-v2 .seat[data-visual-seat$="1"]{left:var(--seat-1-x)!important;top:var(--seat-1-y)!important;}
-      body.v014.poker8-desktop-v2 .seat[data-visual-seat$="2"]{left:var(--seat-2-x)!important;top:var(--seat-2-y)!important;}
-      body.v014.poker8-desktop-v2 .seat[data-visual-seat$="3"]{left:var(--seat-3-x)!important;top:var(--seat-3-y)!important;}
-      body.v014.poker8-desktop-v2 .seat[data-visual-seat$="4"]{left:var(--seat-4-x)!important;top:var(--seat-4-y)!important;}
-      body.v014.poker8-desktop-v2 .seat[data-visual-seat$="5"]{left:var(--seat-5-x)!important;top:var(--seat-5-y)!important;}
-      body.v014.poker8-desktop-v2 .seat[data-visual-seat$="6"]{left:var(--seat-6-x)!important;top:var(--seat-6-y)!important;}
+      /* A fixed seven-point ring used to be stated here, in --seat-N-x/y and
+         seven [data-visual-seat$="N"] rules. v040 has placed every seat since
+         it arrived: it writes --v040-seat-x/y per seat and per player count,
+         off a ring chosen for the felt's shape and for whether you hold a
+         seat. Measured 2026-08-29 by moving this file's <style> to the end of
+         <head> on the live table: the seats jump to mirrored positions, which
+         is this ring waking up. It has not placed a seat in a long time, and
+         holding it here only means a future load-order change moves the
+         table. Removed; see docs/layer-cleanup.md. */
+
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat{width:128px!important;height:140px!important;min-height:0!important;z-index:20!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat[data-visual-seat="0"]{width:144px!important;height:150px!important;z-index:28!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat-card{width:100%!important;height:100%!important;min-height:0!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important;}

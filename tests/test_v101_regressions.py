@@ -33,10 +33,14 @@ def test_single_human_cards_can_be_revealed_during_bot_turn(tmp_path: Path):
 def test_v037_reference_table_pass_is_loaded_and_chat_is_decorative():
     root = Path(__file__).resolve().parents[1]
     source = (root / 'static' / 'v037-poker8-v2-reference-table.js').read_text(encoding='utf-8')
-    loader = (root / 'static' / 'v036-poker8-v2-prehand-pass.js').read_text(encoding='utf-8')
+    # component-ui.js, not v036. v036 carried a loader for this file too, and
+    # asserting that one passed while proving nothing: nothing ever loaded
+    # v036 itself, so its loader never ran. Deleted 2026-08-29 along with
+    # v035, which nothing referenced either -- see docs/layer-cleanup.md.
+    loader = (root / 'static' / 'component-ui.js').read_text(encoding='utf-8')
 
     assert '/static/v037-poker8-v2-reference-table.js' in loader
-    assert 'data-v037-poker8-v2-reference-table' in loader
+    assert 'data-v037' in loader
     assert 'id = "mobileChatButton"' in source
     assert 'setAttribute("aria-label"' in source
     assert 'type = "button"' in source
@@ -144,15 +148,27 @@ def test_v038_preserves_gameplay_contracts_while_replacing_the_mobile_layout():
     assert '${dy * .52 - arcLift}px' in app
 
 
-def test_v039_desktop_seat_positions_also_resolve_for_a_spectator():
-    # Same bug as v038's hexagon placement, on the desktop parity layer:
-    # an exact ="N" match on data-visual-seat leaves a spectator's
-    # "spectator-N" dataset (v040) with no left/top at all.
+def test_a_spectators_seat_still_gets_a_position():
+    """The bug this guards: an exact ="N" match on data-visual-seat leaves a
+    spectator's "spectator-N" (v040's) with no left/top at all.
+
+    v039 used to answer for this with a seven-point ring of its own, keyed on
+    that attribute, and the fix was a suffix match. The ring is gone
+    (2026-08-29, see docs/layer-cleanup.md): v040 has placed every seat for
+    much longer than that, by writing custom properties onto the seat element
+    itself -- which no selector has to match, so the prefix cannot matter.
+
+    So the invariant moved rather than went: placement is v040's, by element,
+    and no competing ring keyed on the attribute comes back.
+    """
     root = Path(__file__).resolve().parents[1]
-    source = (root / 'static' / 'v039-poker8-v2-desktop-parity.js').read_text(encoding='utf-8')
+    v039 = (root / 'static' / 'v039-poker8-v2-desktop-parity.js').read_text(encoding='utf-8')
+    v040 = (root / 'static' / 'v040-poker8-v2-dynamic-seats.js').read_text(encoding='utf-8')
+
+    assert 'setProperty("--v040-seat-x"' in v040 and 'setProperty("--v040-seat-y"' in v040
+    assert 'left:var(--v040-seat-x)!important' in v040
     for n in range(7):
-        assert f'[data-visual-seat$="{n}"]{{left:var(--seat-{n}-x)' in source
-        assert f'[data-visual-seat="{n}"]{{left:var(--seat-{n}-x)' not in source
+        assert f'--seat-{n}-x' not in v039, "the old ring is back, and it moves the table"
 
 
 def test_no_layer_writes_a_turn_label_onto_the_seat():

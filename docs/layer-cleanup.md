@@ -96,6 +96,19 @@ its own, and none of them is proof by itself.
    custom properties, and any state not on screen when it ran (showdown
    modal, ready phase, a seated player's controls).
 
+   And it answers a subtly different question than it looks: the probe
+   *fetches* each file and matches its selectors, so it reports what a layer
+   would do **if it were loaded**. v035 and v036 scored 93/10 and 22/0 that
+   way while being loaded by nobody at all. Check the page's own script list
+   first — `[...document.querySelectorAll('script[src*="/static/v0"]')]` —
+   and only then ask what a layer's rules are doing.
+
+4. **Move a layer's `<style>` to the end of `<head>` on a live page and diff
+   the computed styles.** The dry run for "what if this loaded last", and
+   the only way to see what a layer is *holding back* rather than what it
+   contributes. It is how the v039 move below was called off before it
+   shipped.
+
 For JavaScript there is no probe. Read the file.
 
 ### Snapshot, taken 2026-08-29 on the live table
@@ -119,8 +132,8 @@ real page — bots-only room, watching, mid-hand.
 | v028-ready-phase | 444 | 48/1 | 48/19 | chains `syncComponentUi`, syncs badges, appends v031 | **merged** from v028+v029+v030, 2026-08-29 |
 | v031-pot-cluster-mobile-fix | 105 | 6/0 | 0/0 | replaces `wagerPointForPlayer` (live, wins) | keep; fix its cache buster |
 | v032-mobile-sixmax | 308 | 141/32 | 82/11 | chains both sync functions | keep — note 32 of its declarations win on **desktop** |
-| v035-pixel-pass | 264 | 93/10 | 62/8 | chains `syncComponentUi` | merge candidate: 96 of 149 declarations are answered later |
-| v036-prehand-pass | 105 | 22/0 | 22/3 | style only | merge candidate |
+| ~~v035-pixel-pass~~ | 264 | — | — | — | **deleted 2026-08-29 — nothing loaded it** |
+| ~~v036-prehand-pass~~ | 105 | — | — | — | **deleted 2026-08-29 — nothing loaded it** |
 | v037-reference-table | 158 | 41/19 | 37/17 | loader for v038/v040/v041 | keep |
 | v038-cinematic-table | 1855 | — | — | the table itself | split by platform, eventually |
 | v039-desktop-parity | 694 | — | — | desktop geometry | move into the chain so it loads last |
@@ -141,6 +154,41 @@ this is ever pulled apart again:
   and everybody's ready check off it;
 * the `<script>` tag at the very bottom, which is the only thing that loads
   v031 — the wager geometry every chip flies by.
+
+## v039 must not be moved to the end of the chain (measured, 2026-08-29)
+
+The plan was to load v039 last so the desktop layer stops needing
+three-class selectors to beat v038 on source order. Dry run first: on the
+live table, its `<style>` was moved to the end of `<head>` and every
+computed property compared before and after.
+
+**50 properties changed across 79 elements.** Not paint — geometry. Seats
+jumped to mirrored positions (seat-1 from `left:1166px` to `left:98px`), the
+felt changed size and shape, the frame changed padding and overflow.
+
+The reason is worth keeping: v039 still carries the *pre-v038* desktop
+table, and it has been losing that argument for as long as v038 has existed.
+Loading it last would resurrect it. What changed, by element:
+
+| element | properties v039 declares and loses today |
+|---|---|
+| `.seat-0` … `.seat-5` | top, left, right, bottom (its own `--seat-N-x/y` ring; v040 owns the ring) |
+| `.felt` | width, height, background-image, border-radius, box-shadow, border-color |
+| `.table-frame` | padding, box-shadow, overflow |
+| `.table-center` | width, top, left, right, bottom, transform |
+| `.street-splash` | top, left, right, bottom |
+| `.action-panel` | background-image, box-shadow, border-color |
+
+The split inside v039 is clean: its **two-class** rules
+(`body.v014.poker8-desktop-v2 …`) are the old table and are dead, because
+every table carries `poker8-v2-sixmax`; its **three-class** rules
+(`…poker8-v2-sixmax.poker8-desktop-v2 …`) are the live ones. So the order of
+work is the other way round from the plan: delete the dead two-class
+geometry first, and only then is the move a safe move.
+
+Careful with the two-class rules that are *not* geometry — the topbar, the
+brand mark, `.panel`/`.history-card`/`.online-chat-panel` — those win today
+and are the only thing styling some of it.
 
 ## Bugs found while auditing, not bloat
 
@@ -195,3 +243,5 @@ python -m pytest tests -q --ignore=tests/e2e --ignore=tests/load
 | 2026-08-29 | v015's `wagerPointForPlayer` removed — v031 replaces it later without delegating, so it could never run | static suite + the net + the live page |
 | 2026-08-29 | v022 guarded off the network table — its "+" posted to the trainer's route, which production does not mount | static suite; the online funds dialog is untouched |
 | 2026-08-29 | v028 + v029 + v030 merged into `v028-ready-phase.js` (3 files → 1, 3 requests → 1) | 321 static + 13 browser cases |
+| 2026-08-29 | v039's seven-point seat ring removed — the first of its dead two-class geometry; v040 has placed every seat for far longer, and holding the ring meant any load-order change moved the table | 321 static + 13 browser cases; the invariant moved to a test that reads v040 |
+| 2026-08-29 | v035 and v036 deleted — 369 lines nothing loaded; `test_v101_regressions` was asserting v036's loader for v037, which never ran, and now reads component-ui.js | 321 static |
