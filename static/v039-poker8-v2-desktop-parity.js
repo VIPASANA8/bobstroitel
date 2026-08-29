@@ -439,6 +439,17 @@
         background-position:center!important;
         background-repeat:no-repeat!important;
       }
+      /* Everyone else's confirmation.
+
+         v038 gates the tick on p8-can-ready, which is about *this* viewer's
+         own ready button -- so watching a table, or sitting a hand out,
+         showed nobody's readiness at all, on a screen with room for it.
+         syncAllSeatReadyMarks only marks seats between hands and never the
+         hero's own, so this cannot leak into a running hand. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .avatar-wrap.v038-viewer-ready .v038-ready-mark{
+        display:grid!important;
+      }
+
       /* The answer to pressing "Занять место".
 
          The offer card is hidden on desktop because the header already

@@ -245,3 +245,15 @@ def test_the_controls_go_when_the_seat_is_not_in_the_hand():
     assert "!observerMode && Boolean(state?.hand_id) && !viewerInHand" in online
     for control in ("#actionButtons", "#sizingWrap", "#mobileAutoActionBar"):
         assert f"body.v014.poker8-desktop-v2.p8-not-in-hand {control}" in V039, control
+
+
+def test_everyone_elses_ready_check_shows_on_desktop():
+    """v038 gates the tick on p8-can-ready, which is about this viewer's own
+    ready button -- so watching a table showed nobody's confirmation."""
+    rule = _rule(V039, f"{DESKTOP} .avatar-wrap.v038-viewer-ready .v038-ready-mark")
+    assert "display:grid!important" in rule
+    v038 = Path("static/v038-poker8-v2-cinematic-table.js").read_text(encoding="utf-8")
+    # The mark only exists between hands, and never on the hero's own seat --
+    # which is what keeps this out of a running hand.
+    assert 'data-visual-seat="0"]\')) return;' in v038
+    assert "if (game) {" in v038
