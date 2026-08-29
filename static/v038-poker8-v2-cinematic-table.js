@@ -432,10 +432,6 @@
         font-size:20px!important;line-height:1!important;
         position:relative!important;z-index:3!important;
       }
-      /* v019-center-polish sets display:flex!important on the same selector
-         family, so the hide needs !important here to actually win. */
-      body.v014.poker8-v2-sixmax.p8-no-pot .pot-total{display:none!important;}
-
       /* Two piles flanking the amount instead of one cluster piled under the
          board -- renderPotChips now splits the count into a left and a right
          .chip-cluster.pot-wing, laid out with the same flex row every other
@@ -598,6 +594,10 @@
       body.v014.poker8-v2-sixmax .v038-hud-summary.on-felt b{
         display:inline!important;margin:0 0 0 5px!important;line-height:1!important;
       }
+      /* One hand-state switch owns both readouts. This comes after on-felt's
+         display:flex!important so the idle state cannot be painted back in. */
+      body.v014.poker8-v2-sixmax.p8-no-pot .pot-total,
+      body.v014.poker8-v2-sixmax.p8-no-pot .v038-hud-summary{display:none!important;}
       body.v014.poker8-v2-sixmax .sizing-wrap{display:contents!important;}
       body.v014.poker8-v2-sixmax .sizing-wrap > label{display:none!important;}
       body.v014.poker8-v2-sixmax .quick-sizes{

@@ -200,6 +200,25 @@ def test_call_bet_summary_stays_centered_when_the_table_resizes(
         browser.close()
 
 
+def test_call_bet_summary_and_pot_share_visibility(online_server: str):
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        page = browser.new_page(device_scale_factor=1)
+        try:
+            _open_table(page, online_server, 374, 800)
+            assert page.locator(".pot-total").is_visible()
+            assert page.locator(".v038-hud-summary").is_visible()
+
+            page.evaluate(
+                "window.Poker8LegacyView.renderSnapshot({table:{id:'t',name:'Test'},state:null,viewerState:'seated'})"
+            )
+            page.wait_for_function("document.body.classList.contains('p8-no-pot')")
+            assert not page.locator(".pot-total").is_visible()
+            assert not page.locator(".v038-hud-summary").is_visible()
+        finally:
+            browser.close()
+
+
 def test_mobile_header_and_center_stack_use_their_reserved_lanes(online_server: str):
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)

@@ -211,6 +211,23 @@ def test_idle_seat_decoration_never_shows_during_a_hand():
     assert 'if (genericPosition && !liveHand) {' in component
 
 
+def test_call_and_bet_summary_follows_the_pot_visibility():
+    """The call/bet strip is part of the same hand HUD as the pot.  Between
+    hands the body carries p8-no-pot, so both must disappear from that one
+    state instead of keeping a stale 0.00 / 1.00 strip on the felt."""
+    root = Path(__file__).resolve().parents[1]
+    app = (root / 'static' / 'app.js').read_text(encoding='utf-8')
+    v038 = (root / 'static' / 'v038-poker8-v2-cinematic-table.js').read_text(encoding='utf-8')
+
+    assert 'classList.toggle("p8-no-pot", !game)' in app
+    assert re.search(
+        r'body\.v014\.poker8-v2-sixmax\.p8-no-pot \.pot-total,\s*'
+        r'body\.v014\.poker8-v2-sixmax\.p8-no-pot \.v038-hud-summary'
+        r'\{display:none!important;\}',
+        v038,
+    )
+
+
 def test_all_in_is_spelled_one_way_and_replaces_the_empty_stack():
     """An all-in player's stack reads 0, which says nothing. The seat shows the
     state there instead, and every layer spells it the same."""
