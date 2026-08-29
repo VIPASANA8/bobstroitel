@@ -472,8 +472,17 @@
          action panel landed in the second column while still being told to be
          940px wide -- it started at the sidebar's midpoint and ran past the
          layout's right edge. One column, and the panel spans it. */
+      /* Not a grid at all any more. Twice now the panel has ended up in a
+         column nobody meant to exist -- it is a bar with one thing on it,
+         and a centred flex row cannot put that thing anywhere but the
+         middle. Stated at two class depths on purpose: the deeper one is
+         the rule for this table, and the shallower catches a desktop table
+         that has not been given .poker8-v2-sixmax yet, which is the only
+         state in which the old grid could still bite. */
+      body.v014.poker8-desktop-v2 .sidebar,
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .sidebar{
-        grid-template-columns:minmax(0,1fr)!important;justify-items:center!important;
+        display:flex!important;justify-content:center!important;align-items:flex-start!important;
+        grid-template-columns:none!important;grid-template-areas:none!important;
       }
       /* The panel keeps its own internal layout -- the controls inside are
          absolutely placed against phone widths -- so it grows the only way
@@ -484,11 +493,19 @@
       body.v014.poker8-v2-sixmax.poker8-desktop-v2:not(.p8-observer-mode){
         --p8-hud-h:calc(214px * var(--p8-ui-scale))!important;
       }
+      body.v014.poker8-desktop-v2 .action-panel,
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .action-panel{
         position:relative!important;width:min(100%,860px)!important;margin-inline:auto!important;
-        grid-column:1 / -1!important;
+        grid-column:auto!important;flex:0 1 860px!important;
         transform:scale(var(--p8-ui-scale))!important;transform-origin:top center!important;
       }
+      /* Nothing to press: the hand is running and this seat is not in it --
+         it folded, or it was claimed after the cards were out. The panel
+         keeps its box so the table does not jump a hundred pixels taller in
+         the middle of a hand; only the controls go. */
+      body.v014.poker8-desktop-v2.p8-not-in-hand #actionButtons,
+      body.v014.poker8-desktop-v2.p8-not-in-hand #sizingWrap,
+      body.v014.poker8-desktop-v2.p8-not-in-hand #mobileAutoActionBar{display:none!important;}
 
       /* The phone's bet-gesture furniture. Desktop has a slider and a row of
          quick sizes doing the same job, so these three only stacked on top of

@@ -145,14 +145,16 @@ def test_the_phones_bet_gesture_furniture_is_not_drawn_on_desktop():
 
 
 def test_the_action_panel_is_centred_under_the_table():
-    """The sidebar is a two-column grid; with the other panels hidden the
-    action panel landed in the second column while still 940px wide, so it
-    started at the sidebar's midpoint and ran past the layout's right edge."""
-    sidebar = _rule(V039, f"{DESKTOP} .sidebar")
-    assert "grid-template-columns:minmax(0,1fr)!important" in sidebar
+    """It was a two-column grid: with the other panels hidden the action
+    panel landed in the second column while still 940px wide, so it started
+    at the sidebar's midpoint and ran past the layout's right edge. It is
+    not a grid at all now -- see the flex row below -- so what this holds is
+    the half that survived: the panel centres itself in whatever box it is
+    given, and claims no column."""
     panel = _rule(V039, f"{DESKTOP} .action-panel")
-    assert "grid-column:1 / -1!important" in panel
     assert "margin-inline:auto!important" in panel
+    assert "grid-column:auto!important" in panel
+    assert "grid-column:1 / -1" not in panel, "there is no grid to span any more"
 
 
 def test_desktop_buttons_take_the_same_arrangement_as_the_phone():
@@ -209,3 +211,29 @@ def test_the_felt_draws_nothing_that_stayed_behind():
     bottom = _rule(V039, f"{DESKTOP} .v038-turn-context")
     assert "transform:translateX(-50%) scale(var(--p8-ui-scale))!important" in bottom
     assert "transform-origin:bottom center!important" in bottom
+
+
+def test_the_action_bar_is_a_centred_row_not_a_grid():
+    """Twice the panel has landed in a column nobody meant to exist -- once
+    in the sidebar's second track, once reported as sitting under the right
+    half of the table. A centred flex row with one item has nowhere else to
+    put it."""
+    rule = _rule(V039, f"{DESKTOP} .sidebar")
+    assert "display:flex!important" in rule
+    assert "justify-content:center!important" in rule
+    assert "grid-template-columns:none!important" in rule
+    # Also stated for a desktop table that has not been given the sixmax
+    # class, the one state where the old grid could still bite.
+    assert "body.v014.poker8-desktop-v2 .sidebar," in V039
+    assert "body.v014.poker8-desktop-v2 .action-panel," in V039
+
+
+def test_the_controls_go_when_the_seat_is_not_in_the_hand():
+    """Folded, or seated after the cards were out: the buttons have nothing
+    to do with this hand. The panel keeps its box -- collapsing it mid-hand
+    would jump the table."""
+    online = Path("static/online-table.js").read_text(encoding="utf-8")
+    assert '"p8-not-in-hand",' in online
+    assert "!observerMode && Boolean(state?.hand_id) && !viewerInHand" in online
+    for control in ("#actionButtons", "#sizingWrap", "#mobileAutoActionBar"):
+        assert f"body.v014.poker8-desktop-v2.p8-not-in-hand {control}" in V039, control

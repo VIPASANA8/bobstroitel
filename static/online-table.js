@@ -833,6 +833,19 @@
 
     const observerMode = ["spectator", "waiting"].includes(viewerState);
     document.body.classList.toggle("p8-observer-mode", observerMode);
+    // Seated, a hand running, and no part in it -- folded, or the seat was
+    // claimed after the cards were out. The controls have nothing to do with
+    // this hand, so they go; see the .p8-not-in-hand rules in v039. The panel
+    // itself stays, because collapsing it mid-hand would jump the table.
+    const viewerInHand = Boolean(
+      state?.viewer_player_id
+      && state.players?.[state.viewer_player_id]
+      && !state.players[state.viewer_player_id].folded,
+    );
+    document.body.classList.toggle(
+      "p8-not-in-hand",
+      !observerMode && Boolean(state?.hand_id) && !viewerInHand,
+    );
     // Claiming a seat mid-hand already worked -- the queue holds it and seats
     // you at the boundary -- but the felt did not say so: the chair carried
     // on offering itself as if nothing had been pressed, and the only sign
