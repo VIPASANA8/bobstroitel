@@ -33,9 +33,20 @@
         --seat-5-x:83%; --seat-5-y:39%;
         --seat-6-x:80%; --seat-6-y:70%;
         color:#eafff6!important;
-        /* A photographed floor instead of the three-tone stripe that stood
-           in for one. Fixed and covering, so it does not slide or tile: it
-           is one board room, not a repeating pattern. */
+        background:
+          radial-gradient(ellipse at 50% 26%,rgba(15,95,58,.16),transparent 43%),
+          repeating-linear-gradient(96deg,#000000 0 8px,#180b05 9px 17px,#0c0503 18px 27px)!important;
+      }
+
+      /* A photographed floor instead of the three-tone stripe that stood in
+         for one. Fixed and covering, so it does not slide with the layout or
+         tile into a seam: it is one room, not a pattern.
+
+         Three classes, not two: v038 paints this same property on
+         body.v014.poker8-v2-sixmax from a stylesheet appended after this
+         one, so at equal specificity it wins on source order -- which is
+         also how its 100vw background-size outlived the frame rule above. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2{
         background:
           radial-gradient(ellipse at 50% 26%,rgba(15,95,58,.16),transparent 43%),
           url("/static/assets/room-wood-desktop.webp") center/cover no-repeat fixed,
