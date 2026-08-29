@@ -220,6 +220,21 @@
          smaller than everyone else here, which read as a rendering bug. Only
          the "this is you" border colour stays hero-specific. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat[data-visual-seat="0"] .player-avatar{border-color:#35bfff!important;}
+      /* Face down goes back behind the head.
+
+         In front, a pair of backs is just a green rectangle over somebody's
+         face -- there is nothing on it to read, so all it does is hide the
+         seat. Face up there is: those stay in front, fanned, where the cards
+         are the point. So the z-order follows what is on the card, and a
+         back also goes back up to its old peek, since behind the avatar only
+         the strip above it shows. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .player-cards:has(.card.back){
+        z-index:3!important;top:-20px!important;
+      }
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat[data-visual-seat="0"] .player-cards:has(.card.back){
+        z-index:3!important;top:-26px!important;
+      }
+
       /* The hero's own pair is bigger (47x65), so it sits a little higher to
          keep the same 5px clear of the stake. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat[data-visual-seat="0"] .player-cards{top:-22px!important;z-index:12!important;gap:0!important;}

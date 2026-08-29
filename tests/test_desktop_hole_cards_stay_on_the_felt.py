@@ -94,3 +94,16 @@ def test_the_pair_is_in_front_of_the_head_and_fanned():
         assert fan, selector
         assert f"transform:rotate({turn})!important" in fan.group(1), selector
     assert "transform-origin:50% 100%!important" in V039, "a held pair pivots on its bottom edge"
+
+
+def test_a_face_down_pair_sits_behind_the_head():
+    """In front, two backs are a green rectangle over somebody's face: there
+    is nothing on them to read, so all they do is hide the seat. Face up
+    stays in front, where the cards are the point."""
+    back = re.search(
+        r"\.poker8-desktop-v2 \.player-cards:has\(\.card\.back\)\{([^}]*)\}", V039)
+    assert back, "no rule for a face-down pair"
+    assert "z-index:3!important" in back.group(1), "the avatar-wrap is 4"
+    assert "top:-20px!important" in back.group(1), "behind it, only the strip above shows"
+    # And the floor covers that deeper overhang, not the face-up one.
+    assert _seat_top_floor() >= _tallest_desktop_seat_box() / 2 + 20

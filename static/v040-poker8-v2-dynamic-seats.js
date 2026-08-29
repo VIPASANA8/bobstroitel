@@ -252,10 +252,11 @@
          it binds on a short felt and does nothing on a tall one, so the
          hexagon keeps its spread wherever there is room for it. */
       body.v014.poker8-desktop-v2 .seat.v040-dynamic-seat{
-        /* Half of the tallest box (154px) plus the overhang above it, scaled
-           with the box: the cards moved in front of the head and now clear it
-           by 14px instead of 20, so the top row can sit that much higher. */
-        left:var(--v040-seat-x)!important;top:max(var(--v040-seat-y),calc(94px * var(--p8-ui-scale,1)))!important;
+        /* Half of the tallest box (154px) plus the deepest overhang above it,
+           scaled with the box. The deepest is the face-down pair's 20px: it
+           sits behind the avatar and has to show a strip above it, where a
+           face-up pair is in front and only needs 14. */
+        left:var(--v040-seat-x)!important;top:max(var(--v040-seat-y),calc(100px * var(--p8-ui-scale,1)))!important;
         /* scale after the translate, so it grows about the seat's own centre
            and the percentage that places it on the felt still lands where it
            did. v039 measures the factor; the fallback is the size these boxes
