@@ -34,7 +34,10 @@ def _serve(tmp_path_factory, name, module):
     )
     base_url = f"http://127.0.0.1:{port}"
     try:
-        deadline = time.monotonic() + 30
+        # Six bot-only rooms seeding into one sqlite process: on a cold cache
+        # the app has taken past 30s to answer, and a browser suite that fails
+        # for that reason teaches people to ignore it.
+        deadline = time.monotonic() + 120
         while time.monotonic() < deadline:
             try:
                 response = httpx.get(f"{base_url}/", timeout=1, trust_env=False)
