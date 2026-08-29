@@ -117,11 +117,7 @@
       body.v014.poker8-v2-sixmax .seat.v040-empty-seat{display:none!important;}
       body.v014.poker8-v2-sixmax .seat.v040-dynamic-seat{
         left:var(--v040-seat-x)!important;top:var(--v040-seat-y)!important;
-        /* scale after the translate, so it grows about the seat's own centre
-           and the percentage that places it on the felt still lands where it
-           did. v039 measures the factor; the fallback is the size these
-           boxes were drawn at. */
-        transform:translate(calc(-50% + var(--v040-flip-x, 0px)),calc(-50% + var(--v040-flip-y, 0px))) scale(var(--p8-ui-scale,1))!important;
+        transform:translate(calc(-50% + var(--v040-flip-x, 0px)),calc(-50% + var(--v040-flip-y, 0px)))!important;
         /* No will-change here. It promoted every seat to its own raster layer,
            which was then resampled through the felt's transform -- paying a
            layer per seat to make the text softer. */
@@ -257,7 +253,12 @@
          hexagon keeps its spread wherever there is room for it. */
       body.v014.poker8-desktop-v2 .seat.v040-dynamic-seat{
         left:var(--v040-seat-x)!important;top:max(var(--v040-seat-y),100px)!important;
-        transform:translate(calc(-50% + var(--v040-flip-x, 0px)),calc(-50% + var(--v040-flip-y, 0px)))!important;
+        /* scale after the translate, so it grows about the seat's own centre
+           and the percentage that places it on the felt still lands where it
+           did. v039 measures the factor; the fallback is the size these boxes
+           were drawn at. Desktop only -- this is the rule that wins there,
+           and the shared one above still holds the phone. */
+        transform:translate(calc(-50% + var(--v040-flip-x, 0px)),calc(-50% + var(--v040-flip-y, 0px))) scale(var(--p8-ui-scale,1))!important;
         transition:transform 320ms cubic-bezier(.22,.8,.24,1)!important;
         will-change:transform;
       }
