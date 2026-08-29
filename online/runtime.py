@@ -741,13 +741,41 @@ class TableRuntimeManager:
                     by_participant = {self._participant_id(seat): seat for seat in seats}
                     recorded = self._worth_recording(loaded.state)
                     starts, ends = self._settlement_units(loaded.state, table["big_blind_units"])
+                    # A seat can empty while its hand is still running -- the
+                    # coordinator's AFK eviction does exactly that -- and
+                    # _clear_seat nulls the ids the seat was found by. This
+                    # used to be by_participant[participant_id]: one KeyError,
+                    # raised inside the tick, and since the hand stays terminal
+                    # it was raised again on every tick after. The table hung
+                    # for good and its buy-ins stayed in escrow (reported live
+                    # on micro-a, with a player who had left long before).
+                    #
+                    # The hand's own row still knows who they were, so the
+                    # settlement can carry on without the seat.
+                    hand_rows = {
+                        row["participant_id"]: row
+                        for row in (
+                            await session.execute(
+                                select(hand_players).where(hand_players.c.hand_id == loaded.state.hand_id)
+                            )
+                        ).mappings().all()
+                    } if recorded else {}
                     transfers: dict[tuple[str, str, str], int] = {}
                     user_net_total = 0
                     for participant_id, player in loaded.state.players.items():
-                        seat = by_participant[participant_id]
+                        seat = by_participant.get(participant_id)
+                        recorded_row = hand_rows.get(participant_id)
+                        # Without a seat, the hand row says which kind they
+                        # were; without either, a user is the safe reading --
+                        # it settles into the table's escrow rather than
+                        # inventing a system transfer.
+                        is_user = (
+                            seat["occupant_kind"] == "user" if seat is not None
+                            else not (recorded_row and recorded_row["system_player_id"])
+                        )
                         start_units = starts[participant_id]
                         end_units = ends[participant_id]
-                        if seat["occupant_kind"] == "user":
+                        if is_user:
                             # A seated user's stack stays in the table escrow between
                             # hands. Only the net change against system players moves
                             # through the shared table account; paying the full stack
@@ -770,17 +798,29 @@ class TableRuntimeManager:
                                 )
                             )
                         # The seat's stack is the game, not the record, and is
-                        # written whoever was playing.
-                        await session.execute(
-                            update(table_seats).where(table_seats.c.id == seat["id"]).values(stack_units=end_units)
-                        )
+                        # written whoever was playing -- when there is still a
+                        # seat to write it to.
+                        #
+                        # ponytail: chips belonging to a player whose seat went
+                        # mid-hand stay in the table's escrow rather than being
+                        # credited to their wallet here. Crediting risks paying
+                        # twice, since the path that took the seat may already
+                        # have refunded them; escrow can only under-pay, and
+                        # /root/audit_user_table_escrow.sh is what finds it.
+                        if seat is not None:
+                            await session.execute(
+                                update(table_seats).where(table_seats.c.id == seat["id"]).values(stack_units=end_units)
+                            )
                         if recorded:
                             # A bot's tally of hands and wins against other bots
                             # counts nothing and is read by nothing -- 331,757
                             # hands and 74,406 wins had accumulated across 36 of
                             # them before this stopped.
-                            profile_table = users if seat["occupant_kind"] == "user" else system_players
-                            profile_id = seat["user_id"] or seat["system_player_id"]
+                            profile_table = users if is_user else system_players
+                            profile_id = (
+                                (seat["user_id"] or seat["system_player_id"]) if seat is not None
+                                else (recorded_row and (recorded_row["user_id"] or recorded_row["system_player_id"]))
+                            )
                             await session.execute(
                                 update(profile_table)
                                 .where(profile_table.c.id == profile_id)
@@ -788,7 +828,7 @@ class TableRuntimeManager:
                                     hands_played=profile_table.c.hands_played + 1,
                                     wins=profile_table.c.wins + (1 if end_units > start_units else 0),
                                 )
-                            )
+                            ) if profile_id else None
                     transfers[("table", table_id, "escrow")] = user_net_total
                     settlement = await self.ledger.settle_hand_transfers(
                         loaded.state.hand_id, transfers, session=session

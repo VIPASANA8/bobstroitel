@@ -7,6 +7,8 @@ from sqlalchemy import insert
 from online.history import HandRecord, HandParticipantRecord, HistoryService
 from online.ledger import PlayLedger
 from online.runtime import TableRuntimeManager
+from sqlalchemy import update
+
 from online.schema import poker_tables, system_players, table_seats, tenants, users
 
 
@@ -156,3 +158,35 @@ def test_split_pot_rounding_cannot_unbalance_a_settlement():
     starts, ends = TableRuntimeManager._settlement_units(state, 100)
 
     assert sum(ends[pid] - starts[pid] for pid in players) == 0
+
+
+@pytest.mark.anyio
+async def test_a_seat_that_empties_mid_hand_still_settles(settlement_context):
+    """The coordinator's AFK eviction clears a seat while its hand is still
+    running: the participant is in the hand and the row it was found by has
+    been nulled. Settlement used to look that up by subscript, so it raised
+    KeyError inside the tick -- and since the hand stays terminal, on every
+    tick after it too. The table hung for good with its buy-ins in escrow.
+    """
+    runtime, ledger = settlement_context
+    await runtime.start_hand("t1")
+    snapshot = await runtime.public_snapshot("t1", "u1")
+    await runtime.action("t1", "u1", "fold", snapshot["revision"], "fold", 0)
+    hand_id = runtime._tables["t1"].state.hand_id
+
+    async with runtime.session_factory() as session:
+        async with session.begin():
+            await session.execute(
+                update(table_seats).where(table_seats.c.id == "seat-u1").values(
+                    occupant_kind="empty", user_id=None, system_player_id=None,
+                    stack_units=0, state="empty",
+                )
+            )
+
+    settlement = await runtime.finish_and_settle("t1")
+
+    assert settlement.idempotency_key == f"settlement:{hand_id}"
+    # Balanced books: nothing was paid twice, and nothing vanished -- the
+    # chips of the seat that went stay in the table's escrow.
+    assert sum(await ledger.escrow_balances("t1")) == 200_000
+    assert runtime._tables["t1"].phase == "result"
