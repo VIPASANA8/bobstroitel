@@ -132,7 +132,10 @@ def test_the_dealer_button_sits_beside_the_avatar():
     146x154 box reads as floating off the seat. The avatar is 88px centred
     there, so its left edge is at 29px."""
     rule = _rule(V039, f"{DESKTOP} .dealer-button")
-    assert "left:-5px!important" in rule and "top:31px!important" in rule
+    assert "left:-5px!important" in rule
+    # Half the avatar, less half the button's own height: it follows the head
+    # now that the head has a ceiling.
+    assert "top:calc(var(--p8-avatar) / 2 - 13px)!important" in rule
     assert "right:auto!important" in rule and "bottom:auto!important" in rule
 
 
@@ -152,7 +155,8 @@ def test_the_action_panel_is_centred_under_the_table():
     the half that survived: the panel centres itself in whatever box it is
     given, and claims no column."""
     panel = _rule(V039, f"{DESKTOP} .action-panel")
-    assert "margin-inline:auto!important" in panel
+    assert "left:50%!important" in panel
+    assert "translateX(-50%)" in panel
     assert "grid-column:auto!important" in panel
     assert "grid-column:1 / -1" not in panel, "there is no grid to span any more"
 
@@ -185,7 +189,7 @@ def test_what_the_table_draws_grows_with_the_table():
     centre = _first_rule(V039, f"{DESKTOP} .table-center")
     assert "scale(calc(.94 * var(--p8-ui-scale)))" in centre
     panel = _rule(V039, f"{DESKTOP} .action-panel")
-    assert "transform:scale(var(--p8-ui-scale))!important" in panel
+    assert "scale(var(--p8-ui-scale))!important" in panel
     assert "transform-origin:top center!important" in panel
     # The row has to be as tall as the panel it holds, and an observer's is
     # pinned at 0 elsewhere.
@@ -214,14 +218,18 @@ def test_the_felt_draws_nothing_that_stayed_behind():
 
 
 def test_the_action_bar_is_a_centred_row_not_a_grid():
-    """Twice the panel has landed in a column nobody meant to exist -- once
-    in the sidebar's second track, once reported as sitting under the right
-    half of the table. A centred flex row with one item has nowhere else to
-    put it."""
+    """Twice the panel has landed under the right half of the table -- once
+    in the sidebar's second track, and again after that column was taken
+    away. So it stopped depending on how the bar lays its children out."""
     rule = _rule(V039, f"{DESKTOP} .sidebar")
-    assert "display:flex!important" in rule
-    assert "justify-content:center!important" in rule
+    # The bar is the full width of its row and nothing else; the panel hangs
+    # off its centre line, so no track, sibling or auto margin is left in the
+    # path between the two.
+    assert "position:relative!important" in rule
+    assert "width:100%!important" in rule
     assert "grid-template-columns:none!important" in rule
+    panel = _rule(V039, f"{DESKTOP} .action-panel")
+    assert "position:absolute!important" in panel and "left:50%!important" in panel
     # Also stated for a desktop table that has not been given the sixmax
     # class, the one state where the old grid could still bite.
     assert "body.v014.poker8-desktop-v2 .sidebar," in V039

@@ -46,7 +46,7 @@ def test_every_desktop_rule_for_them_outranks_the_phone_layer():
 def test_the_avatar_is_desktop_sized_not_phone_sized():
     """49px was chosen for a 375px screen; the felt here is ~930px."""
     match = re.search(
-        r"body\.v014\.poker8-v2-sixmax\.poker8-desktop-v2 \.player-avatar\{width:(\d+)px",
+        r"--p8-avatar:min\((\d+)px,",
         V039,
     )
     assert match, "desktop avatar rule missing"

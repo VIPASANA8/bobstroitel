@@ -98,7 +98,9 @@ def test_the_reserved_strip_survives_that_hide():
     lives on the felt at every width now, and v039 lets the pending state
     through the hide."""
     v039 = Path("static/v039-poker8-v2-desktop-parity.js").read_text(encoding="utf-8")
-    assert "body.v014.poker8-desktop-v2.p8-desktop-header-actions #readyPanel.is-pending," in v039
+    assert "body.v014.poker8-desktop-v2 .felt > #readyPanel.is-pending{" in v039
+    # And the offer card stays hidden: the header carries that button.
+    assert "body.v014.poker8-desktop-v2:not(.p8-desktop-header-actions) .felt > #readyPanel{" in v039
     assert "if (panel.parentElement !== felt) felt.append(panel);" in SOURCE
     assert "layout.prepend(panel)" not in SOURCE, "the desktop panel used to land outside the felt"
 

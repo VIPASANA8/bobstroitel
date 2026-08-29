@@ -182,10 +182,22 @@
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat{width:128px!important;height:140px!important;min-height:0!important;z-index:20!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat[data-visual-seat="0"]{width:144px!important;height:150px!important;z-index:28!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat-card{width:100%!important;height:100%!important;min-height:0!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important;}
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .avatar-wrap{position:absolute!important;left:50%!important;top:2px!important;transform:translateX(-50%)!important;width:88px!important;height:88px!important;z-index:4!important;}
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .player-avatar{width:88px!important;height:88px!important;border:2px solid hsl(var(--avatar-hue) 95% 68%)!important;background:radial-gradient(circle at 50% 30%,hsl(var(--avatar-hue) 62% 44% / .46),transparent 31%),radial-gradient(circle at 50% 78%,#07100f 0 42%,#000000 70%)!important;box-shadow:0 0 0 3px rgba(0,0,0,.92),0 0 20px hsl(var(--avatar-hue) 92% 56% / .42),inset 0 -12px 20px rgba(0,0,0,.52)!important;}
+      /* The head has a ceiling of its own. Everything on this table takes
+         --p8-ui-scale, and at the top of that range an 88px avatar paints
+         119px, which is a portrait rather than a seat marker. Dividing the
+         cap by the scale means the growth stops at 92px painted: nothing
+         changes until the factor passes ~1.05, and the biggest screens get
+         a head the size the middling ones already had.
+
+         The plate and the dealer button hang off the same value, so the 6px
+         the name plate tucks under the chin holds at every size. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2{
+        --p8-avatar:min(88px,calc(92px / var(--p8-ui-scale)));
+      }
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .avatar-wrap{position:absolute!important;left:50%!important;top:2px!important;transform:translateX(-50%)!important;width:var(--p8-avatar)!important;height:var(--p8-avatar)!important;z-index:4!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .player-avatar{width:var(--p8-avatar)!important;height:var(--p8-avatar)!important;border:2px solid hsl(var(--avatar-hue) 95% 68%)!important;background:radial-gradient(circle at 50% 30%,hsl(var(--avatar-hue) 62% 44% / .46),transparent 31%),radial-gradient(circle at 50% 78%,#07100f 0 42%,#000000 70%)!important;box-shadow:0 0 0 3px rgba(0,0,0,.92),0 0 20px hsl(var(--avatar-hue) 92% 56% / .42),inset 0 -12px 20px rgba(0,0,0,.52)!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .avatar-wrap::before,body.v014.poker8-v2-sixmax.poker8-desktop-v2 .avatar-wrap::after{display:none!important;}
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat-identity{position:absolute!important;z-index:6!important;left:50%!important;top:82px!important;transform:translateX(-50%)!important;width:116px!important;min-height:43px!important;padding:7px 8px 6px!important;border:1px solid hsl(var(--avatar-hue) 88% 58% / .72)!important;border-radius:10px!important;background:linear-gradient(180deg,rgba(0,0,0,.98),rgba(0,0,0,.995))!important;box-shadow:0 0 14px hsl(var(--avatar-hue) 88% 55% / .22),0 8px 16px rgba(0,0,0,.64)!important;text-align:center!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat-identity{position:absolute!important;z-index:6!important;left:50%!important;top:calc(var(--p8-avatar) - 6px)!important;transform:translateX(-50%)!important;width:116px!important;min-height:43px!important;padding:7px 8px 6px!important;border:1px solid hsl(var(--avatar-hue) 88% 58% / .72)!important;border-radius:10px!important;background:linear-gradient(180deg,rgba(0,0,0,.98),rgba(0,0,0,.995))!important;box-shadow:0 0 14px hsl(var(--avatar-hue) 88% 55% / .22),0 8px 16px rgba(0,0,0,.64)!important;text-align:center!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat-name{max-width:82px!important;font-size:10px!important;line-height:1!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat-stack{margin-top:4px!important;font-size:15px!important;line-height:1!important;color:hsl(var(--avatar-hue) 95% 68%)!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .bot-level,body.v014.poker8-v2-sixmax.poker8-desktop-v2 .position-chip{display:none!important;}
@@ -245,7 +257,7 @@
          88px centred in that box, so its left edge is at 29px and this sits
          just outside it, centred on the same line. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .dealer-button{
-        left:-5px!important;top:31px!important;right:auto!important;bottom:auto!important;
+        left:-5px!important;top:calc(var(--p8-avatar) / 2 - 13px)!important;right:auto!important;bottom:auto!important;
         width:30px!important;height:30px!important;z-index:12!important;
       }
 
@@ -438,9 +450,11 @@
 
          Confirmations arrive whenever the table gets to them, which is the
          whole reason this has to be visible: the wait is the message. */
-      body.v014.poker8-desktop-v2.p8-desktop-header-actions #readyPanel.is-pending,
+      /* Geometry for both states; which of them is on screen is decided
+         below, because the header already carries "Занять место" and a
+         second one of those on the felt is one too many. */
       body.v014.poker8-desktop-v2 .felt > #readyPanel{
-        display:grid!important;position:absolute!important;z-index:76!important;
+        position:absolute!important;z-index:76!important;
         left:50%!important;right:auto!important;bottom:auto!important;
         transform:translateX(-50%) scale(var(--p8-ui-scale))!important;
         transform-origin:top center!important;
@@ -450,10 +464,21 @@
         background:linear-gradient(135deg,rgba(4,31,20,.94),rgba(7,16,15,.96))!important;
         box-shadow:0 12px 28px rgba(0,0,0,.42),0 0 20px rgba(44,247,169,.10)!important;
       }
-      /* The fallback card -- only ever seen if the header buttons failed to
-         land -- keeps the phone's own place, the middle of the felt. */
+      /* The offer card is the header's job here, so it shows only if the
+         header never took the buttons -- the same fallback the hide in
+         online-table.js is gated on. Then it keeps the phone's own place,
+         the middle of the felt. */
       body.v014.poker8-desktop-v2 .felt > #readyPanel{
         top:52%!important;width:min(46%,380px)!important;padding:12px 14px!important;
+      }
+      body.v014.poker8-desktop-v2:not(.p8-desktop-header-actions) .felt > #readyPanel{
+        display:grid!important;
+      }
+      /* The reserved strip has no twin in the header -- nothing else on
+         desktop says the seat is held for the next hand -- so it comes
+         through the hide. */
+      body.v014.poker8-desktop-v2 .felt > #readyPanel.is-pending{
+        display:grid!important;
       }
       /* Reserved: nothing to press, so it collapses to a strip on the rail
          and hands the middle back to the game. */
@@ -538,8 +563,11 @@
          state in which the old grid could still bite. */
       body.v014.poker8-desktop-v2 .sidebar,
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .sidebar{
-        display:flex!important;justify-content:center!important;align-items:flex-start!important;
+        display:block!important;position:relative!important;
+        width:100%!important;max-width:none!important;min-width:0!important;
+        margin:0!important;padding:0!important;
         grid-template-columns:none!important;grid-template-areas:none!important;
+        justify-self:stretch!important;align-self:start!important;
       }
       /* The panel keeps its own internal layout -- the controls inside are
          absolutely placed against phone widths -- so it grows the only way
@@ -550,11 +578,20 @@
       body.v014.poker8-v2-sixmax.poker8-desktop-v2:not(.p8-observer-mode){
         --p8-hud-h:calc(214px * var(--p8-ui-scale))!important;
       }
+      /* Centred on the bar's own middle, and nothing between it and that
+         middle. Twice this ended up under the right half of the table: once
+         in a grid column nobody meant to exist, and again after that column
+         was taken away -- so it stopped depending on how the bar lays its
+         children out at all. The bar is the full width of the row, the panel
+         hangs off its centre line, and there is no track, no sibling and no
+         auto margin left in the path. */
       body.v014.poker8-desktop-v2 .action-panel,
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .action-panel{
-        position:relative!important;width:min(100%,860px)!important;margin-inline:auto!important;
-        grid-column:auto!important;flex:0 1 860px!important;
-        transform:scale(var(--p8-ui-scale))!important;transform-origin:top center!important;
+        position:absolute!important;left:50%!important;top:0!important;right:auto!important;
+        width:min(100%,860px)!important;margin:0!important;
+        grid-column:auto!important;grid-row:auto!important;flex:none!important;
+        transform:translateX(-50%) scale(var(--p8-ui-scale))!important;
+        transform-origin:top center!important;
       }
       /* Nothing to press: the hand is running and this seat is not in it --
          it folded, or it was claimed after the cards were out. The panel

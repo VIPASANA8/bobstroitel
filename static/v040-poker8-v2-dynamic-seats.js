@@ -170,8 +170,13 @@
       body.v014.poker8-v2-sixmax .seat.v040-sit-slot{
         --p8-sit-size:44px;--p8-sit-top:0px;--p8-sit-label-top:40px;--p8-sit-label-w:90px;--p8-sit-glyph:20px;
       }
+      /* The head has a ceiling on desktop (v039's --p8-avatar), and an empty
+         chair the size of a taken one is the whole point of this block -- so
+         the size and the label's place come from that same value. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat.v040-sit-slot{
-        --p8-sit-size:88px;--p8-sit-top:2px;--p8-sit-label-top:82px;--p8-sit-label-w:116px;--p8-sit-glyph:27px;
+        --p8-sit-size:var(--p8-avatar,88px);--p8-sit-top:2px;
+        --p8-sit-label-top:calc(var(--p8-avatar,88px) - 6px);
+        --p8-sit-label-w:116px;--p8-sit-glyph:27px;
       }
       body.v014.poker8-v2-sixmax .seat.v040-sit-slot .seat-empty{
         position:absolute!important;left:50%!important;top:var(--p8-sit-top)!important;

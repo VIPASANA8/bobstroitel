@@ -72,13 +72,20 @@ def test_the_phone_label_sits_where_the_name_plate_sits():
 
 
 def test_the_desktop_invitation_matches_the_desktop_avatar_and_plate():
-    sit = _sit_vars("body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat.v040-sit-slot{")
+    """Desktop sizes the head off --p8-avatar, which has a ceiling of its own,
+    so the chair takes the variable rather than a copy of today's number --
+    that is what keeps an empty chair the size of a taken one at every scale.
+    """
+    block = V040[V040.index("body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat.v040-sit-slot{"):]
+    block = block[:block.index("}")]
+    assert "--p8-sit-size:var(--p8-avatar,88px)" in block
+    assert "--p8-sit-label-top:calc(var(--p8-avatar,88px) - 6px)" in block
     avatar = "body.v014.poker8-v2-sixmax.poker8-desktop-v2 .avatar-wrap"
     plate = "body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat-identity"
-    assert sit["size"] == _declared(V039, avatar, "width")
-    assert sit["top"] == _declared(V039, avatar, "top")
-    assert sit["label-top"] == _declared(V039, plate, "top")
-    assert sit["label-w"] == _declared(V039, plate, "width")
+    assert "var(--p8-avatar)" in _last_rule_text(V039, avatar, "width")
+    assert "calc(var(--p8-avatar) - 6px)" in _last_rule_text(V039, plate, "top")
+    assert _sit_vars("body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat.v040-sit-slot{")["top"] ==         _declared(V039, avatar, "top")
+    assert _declared(V039, plate, "width") == 116
 
 
 def test_a_claimed_seat_stops_offering_itself():
