@@ -16,8 +16,8 @@ removed so far. Add to it as you go; a number here beats a memory of one.
 index.html static tags:  auth-client → online-transport → component-ui →
                          app → table-guide → chat-format → online-table → v039
 component-ui.js appends: v015 v016 v018 v019 v020 v022 v023 v024 v025 v026
-                         v027 v028 v029 v030 v032 v037
-v030 appends:            v031            (with its own stale buster, see below)
+                         v027 v028-ready-phase v032 v037
+v028-ready-phase appends: v031           (with its own stale buster, see below)
 v037 appends:            v038 → v040 → v041   (v041 on v040's load event)
 ```
 
@@ -28,7 +28,7 @@ Two consequences worth keeping in mind:
   layer needs three-class selectors where two would look sufficient — it has
   been the direct cause of two fixes (the table picture sized to the window,
   the page's floor).
-* **v031 is appended by v030 with `?v=pot-wings-1`**, a cache buster nothing
+* **v031 is appended with `?v=pot-wings-1`**, a cache buster nothing
   else shares. Every other file is busted together from `index.html`. A
   change to v031 will not reach a browser that has it cached.
 
@@ -115,9 +115,7 @@ real page — bots-only room, watching, mid-hand.
 | v025-showdown-compare | 393 | 19/1 | 0/0 | replaces `renderGame`, builds a modal | keep, re-measure at showdown |
 | v026-seat-status-layout | 118 | 1/1 | 1/1 | chains `syncComponentUi` | keep |
 | v027-compact-seats-controls | 338 | 72/9 | 49/24 | chains `syncComponentUi` | keep |
-| v028-center-ready | 195 | 48/1 | 48/19 | chains `syncComponentUi` | phone-only in practice; fold into the ready-phase merge |
-| v029-ready-style | 140 | 37/2 | 37/20 | style only | same merge |
-| v030-seat-ready-fix | 78 | 0/0 | 0/0 | syncs ready badges, appends v031 | same merge — but it is v031's loader |
+| v028-ready-phase | 444 | 48/1 | 48/19 | chains `syncComponentUi`, syncs badges, appends v031 | **merged** from v028+v029+v030, 2026-08-29 |
 | v031-pot-cluster-mobile-fix | 105 | 6/0 | 0/0 | replaces `wagerPointForPlayer` (live, wins) | keep; fix its cache buster |
 | v032-mobile-sixmax | 308 | 141/32 | 82/11 | chains both sync functions | keep — note 32 of its declarations win on **desktop** |
 | v035-pixel-pass | 264 | 93/10 | 62/8 | chains `syncComponentUi` | merge candidate: 96 of 149 declarations are answered later |
@@ -128,6 +126,21 @@ real page — bots-only room, watching, mid-hand.
 | v040-dynamic-seats | 549 | — | — | the seat ring | keep |
 | v041-turn-clarity | 149 | 7/3 | 2/1 | style only | keep |
 
+### What the merge kept, on purpose
+
+The three files became three IIFEs in one file, in the order they used to
+load, each still appending its own `<style>`. The cascade between them is
+decided by that order, so folding them into a single block by hand is
+exactly how such a merge changes what it says it does not.
+
+Two contracts inside are read from outside, and would be easy to lose if
+this is ever pulled apart again:
+
+* the body class `v028-prehand-center-ready` — v038 styles the hero's avatar
+  and everybody's ready check off it;
+* the `<script>` tag at the very bottom, which is the only thing that loads
+  v031 — the wager geometry every chip flies by.
+
 ## Bugs found while auditing, not bloat
 
 * **The "+" on your own stack cannot work online.** v022 posts to
@@ -135,8 +148,10 @@ real page — bots-only room, watching, mid-hand.
   local trainer, which production never mounts. Online the route is
   `POST /api/profiles/play-top-up`. Either point v022 at it or take the
   affordance off the seat; today it is a live button with a 404 behind it.
-* **v031 is cached under its own buster** (`?v=pot-wings-1`), so it does not
-  refresh with the rest of the stack.
+* **Two layers are cached outside the shared buster.** v031 is appended with
+  `?v=pot-wings-1`, its own; v029 was appended with no query string at all,
+  so a browser kept it forever. v029 is gone into the merge below; v031's
+  buster is still its own.
 * **`tests/e2e/test_mobile_online_flow.py` is red** — it waits for
   `p8-can-ready` after sitting down and never gets it. It fails the same way
   at `07848bd`, so it predates the 2026-08-29 work.
@@ -173,3 +188,5 @@ python -m pytest tests -q --ignore=tests/e2e --ignore=tests/load
 |---|---|---|
 | 2026-08-29 | Stage 0: the net above | 9 cases green; two faults re-introduced and caught |
 | 2026-08-29 | v015's `wagerPointForPlayer` removed — v031 replaces it later without delegating, so it could never run | static suite + the net + the live page |
+| 2026-08-29 | v022 guarded off the network table — its "+" posted to the trainer's route, which production does not mount | static suite; the online funds dialog is untouched |
+| 2026-08-29 | v028 + v029 + v030 merged into `v028-ready-phase.js` (3 files → 1, 3 requests → 1) | 321 static + 13 browser cases |

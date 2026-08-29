@@ -150,3 +150,16 @@ def test_a_folded_player_dims_without_disappearing_and_loses_their_cards():
     mobile_fold = re.search(r"\.felt \.seat \.seat-card:is\(\.folded,\.v032-folded\)\{([^}]*)\}", v038)
     assert mobile_fold and "opacity:.45!important" in mobile_fold.group(1)
     assert "grayscale" not in mobile_fold.group(1)
+
+
+def test_the_trainers_top_up_stays_off_the_network_table():
+    """The "+" on your own stack posts to /api/profiles/{id}/top-up, which is
+    app/legacy.py's -- the trainer, which production mounts nowhere. Online
+    the route is play-top-up, and that one is deliberately off on a
+    deployment: money there arrives through a payment, not a grant. So the
+    seat offers nothing rather than a 404."""
+    v022 = Path("static/v022-balance-topup.js").read_text(encoding="utf-8")
+    head = v022[:v022.index("function viewerProfileId")]
+    assert "if (window.Poker8OnlineTable) return;" in head
+    assert "/api/profiles/${encodeURIComponent(profileId)}/top-up" in v022, (
+        "if this ever points somewhere else, the guard above needs rereading")

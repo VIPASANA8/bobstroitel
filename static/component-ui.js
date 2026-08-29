@@ -109,7 +109,7 @@
 
     if (!document.querySelector('script[data-v020-fixes]')) {
       const v020 = document.createElement("script");
-      v020.src = "/static/v020-fixes.js?v=desktop-oval-20";
+      v020.src = "/static/v020-fixes.js?v=desktop-oval-21";
       v020.dataset.v020Fixes = "1";
       document.body.appendChild(v020);
     }
@@ -130,61 +130,47 @@
 
     if (!document.querySelector('script[data-v024-ready-phase]')) {
       const v024 = document.createElement("script");
-      v024.src = "/static/v024-ready-phase.js?v=desktop-oval-20";
+      v024.src = "/static/v024-ready-phase.js?v=desktop-oval-21";
       v024.dataset.v024ReadyPhase = "1";
       document.body.appendChild(v024);
     }
 
     if (!document.querySelector('script[data-v025-showdown-compare]')) {
       const v025 = document.createElement("script");
-      v025.src = "/static/v025-showdown-compare.js?v=desktop-oval-20";
+      v025.src = "/static/v025-showdown-compare.js?v=desktop-oval-21";
       v025.dataset.v025ShowdownCompare = "1";
       document.body.appendChild(v025);
     }
 
     if (!document.querySelector('script[data-v026-seat-status-layout]')) {
       const v026 = document.createElement("script");
-      v026.src = "/static/v026-seat-status-layout.js?v=desktop-oval-20";
+      v026.src = "/static/v026-seat-status-layout.js?v=desktop-oval-21";
       v026.dataset.v026SeatStatusLayout = "1";
       document.body.appendChild(v026);
     }
 
     if (!document.querySelector('script[data-v027-compact-seats-controls]')) {
       const v027 = document.createElement("script");
-      v027.src = "/static/v027-compact-seats-controls.js?v=desktop-oval-20";
+      v027.src = "/static/v027-compact-seats-controls.js?v=desktop-oval-21";
       v027.dataset.v027CompactSeatsControls = "1";
       document.body.appendChild(v027);
     }
 
-    if (!document.querySelector('script[data-v028-center-ready]')) {
-      const v028 = document.createElement("script");
-      v028.src = "/static/v028-center-ready.js?v=desktop-oval-20";
-      v028.dataset.v028CenterReady = "1";
-      document.body.appendChild(v028);
-    }
-
-    if (!document.querySelector('script[data-v029-ready-style]')) {
-      const v029 = document.createElement("script");
-      v029.src = "/static/v029-ready-style.js";
-      v029.dataset.v029ReadyStyle = "1";
-      document.body.appendChild(v029);
-    }
-
-    if (!document.querySelector('script[data-v030-seat-ready-fix]')) {
-      const v030 = document.createElement("script");
-      v030.src = "/static/v030-seat-ready-fix.js?v=desktop-oval-20";
-      v030.dataset.v030SeatReadyFix = "1";
-      document.body.appendChild(v030);
+    if (!document.querySelector('script[data-v028-ready-phase]')) {
+      const readyPhase = document.createElement("script");
+      readyPhase.src = "/static/v028-ready-phase.js?v=desktop-oval-21";
+      readyPhase.dataset.v028ReadyPhase = "1";
+      document.body.appendChild(readyPhase);
     }
 
     if (!document.querySelector('script[data-v032-poker8-v2-sixmax]')) {
       const v032 = document.createElement("script");
-      v032.src = "/static/v032-poker8-v2-mobile-sixmax.js?v=desktop-oval-20";
+      v032.src = "/static/v032-poker8-v2-mobile-sixmax.js?v=desktop-oval-21";
       v032.dataset.v032Poker8V2Sixmax = "1";
       v032.addEventListener("load", () => {
         if (!document.querySelector('script[data-v037-poker8-v2-reference-table]')) {
           const finalMobile = document.createElement("script");
-          finalMobile.src = "/static/v037-poker8-v2-reference-table.js?v=desktop-oval-20";
+          finalMobile.src = "/static/v037-poker8-v2-reference-table.js?v=desktop-oval-21";
           finalMobile.dataset.v037Poker8V2ReferenceTable = "1";
           document.body.appendChild(finalMobile);
         }
@@ -192,7 +178,7 @@
       document.body.appendChild(v032);
     } else if (!document.querySelector('script[data-v037-poker8-v2-reference-table]')) {
       const finalMobile = document.createElement("script");
-      finalMobile.src = "/static/v037-poker8-v2-reference-table.js?v=desktop-oval-20";
+      finalMobile.src = "/static/v037-poker8-v2-reference-table.js?v=desktop-oval-21";
       finalMobile.dataset.v037Poker8V2ReferenceTable = "1";
       document.body.appendChild(finalMobile);
     }

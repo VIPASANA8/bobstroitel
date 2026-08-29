@@ -1,6 +1,21 @@
 (() => {
   "use strict";
 
+  // The trainer's own top-up, end to end: click your stack, grant yourself
+  // play money. It has no place on a network table, and online it was worse
+  // than useless -- the "+" it prints on your seat posts to
+  // /api/profiles/{id}/top-up, which lives in app/legacy.py and production
+  // does not mount. A live button with a 404 behind it.
+  //
+  // Wiring it to the online route instead would be wrong on purpose: that
+  // one (POST /api/profiles/play-top-up) is gated on self_top_up_enabled and
+  // stays off on a deployment, because money there has to arrive through a
+  // payment. Online already has the dialog for that, with the seam a payment
+  // flow plugs into (window.Poker8TopUp, online-table.js) -- and until
+  // somebody plugs one in, a seat that offers nothing is more honest than a
+  // seat that offers a 404.
+  if (window.Poker8OnlineTable) return;
+
   function viewerProfileId() {
     const viewer = typeof localViewerPlayer === "function" ? localViewerPlayer() : null;
     return viewer?.profile_id || tableData?.profile?.id || tableData?.active_profile_id || null;

@@ -36,7 +36,7 @@ def test_layers_hook_in_instead():
         "v024-ready-phase.js": ["renderSeatReadiness", "publishReadySnapshot", "renderReadyControls"],
         "v026-seat-status-layout.js": ["normalizeSeatStatuses"],
         "v027-compact-seats-controls.js": ["decorateSeats"],
-        "v028-center-ready.js": ["syncCenterReadyUi"],
+        "v028-ready-phase.js": ["syncCenterReadyUi", "syncAllReadyBadges"],
     }
     for name, expected in hooks.items():
         source = (Path("static") / name).read_text(encoding="utf-8")
