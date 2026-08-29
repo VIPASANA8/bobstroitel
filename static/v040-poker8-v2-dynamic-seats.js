@@ -252,7 +252,10 @@
          it binds on a short felt and does nothing on a tall one, so the
          hexagon keeps its spread wherever there is room for it. */
       body.v014.poker8-desktop-v2 .seat.v040-dynamic-seat{
-        left:var(--v040-seat-x)!important;top:max(var(--v040-seat-y),100px)!important;
+        /* Scaled with the box it was measured for: 100px was half of a 154px
+           seat plus the ~20px the cards overhang, and the box is painted
+           --p8-ui-scale bigger now. */
+        left:var(--v040-seat-x)!important;top:max(var(--v040-seat-y),calc(100px * var(--p8-ui-scale,1)))!important;
         /* scale after the translate, so it grows about the seat's own centre
            and the percentage that places it on the felt still lands where it
            did. v039 measures the factor; the fallback is the size these boxes

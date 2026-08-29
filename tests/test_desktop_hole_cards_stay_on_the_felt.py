@@ -34,7 +34,14 @@ def _card_overhang():
 
 
 def _seat_top_floor():
-    match = re.search(r"top:max\(var\(--v040-seat-y\),(\d+)px\)", V040)
+    """The floor at --p8-ui-scale:1. It is written as a multiple of the scale,
+    and so are the box and the felt it is checked against -- every number in
+    these two tests grows by the same factor, so comparing them unscaled is
+    comparing them at every scale."""
+    match = re.search(
+        r"top:max\(var\(--v040-seat-y\),(?:calc\()?(\d+)px(?: \* var\(--p8-ui-scale,1\)\))?\)",
+        V040,
+    )
     assert match, "the desktop seat top no longer has a pixel floor"
     return int(match.group(1))
 
