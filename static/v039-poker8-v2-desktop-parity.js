@@ -268,30 +268,42 @@
         grid-area:table!important;min-height:0!important;height:100%!important;
         display:flex!important;flex-direction:column!important;justify-content:center!important;
       }
-      /* A table, not a square. Width was pinned at 940px while the height
-         followed the viewport, so a bigger screen made the felt taller
-         rather than wider: 928x906 at 1080p, an aspect of 1.02. The width is
-         now the smallest of what the column offers, a 1240px cap, and what
-         the free height allows at 16:10 -- so the ratio holds at every size
-         and the height can never overflow the row. */
-      /* What is left for the table once the page's own furniture is out of
-         the way. Two values, because a seated player has the action panel
-         under the felt and a watcher does not: measured at 1440x900, the
-         seated row is 557px tall against a 900px viewport. Getting this
-         wrong is what squashed the table to 2.21 -- max-height stepped in
-         and the ratio broke. */
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2{--p8-stage-h:calc(100dvh - 344px);}
+      /* The biggest table this row can hold, inside a band of felt shapes.
+
+         Before: the width was min(column, 1240px, free height * 1.6). The
+         1240 cap is what bound on any real desktop -- 1235x778 in a 1486x805
+         row on the window from the report -- so dragging the window wider
+         changed nothing at all. A single fixed ratio has the same fault in
+         the other direction: the width would then follow the height alone,
+         and widening the window would still do nothing.
+
+         So each side takes what it can up to the shape the other allows: the
+         width may stretch the felt to 1.9, and the height may square it back
+         to 1.6, whichever runs out first. Inside that band both drags move
+         the table; outside it the extra space stays black, which is the
+         right answer -- a felt at 2.4 is a corridor, not a table.
+
+         The -50px is the felt's own vertical inset inside the frame (the
+         .felt rule above), so the numbers here are the shape of the green,
+         not of the wood around it. */
+      /* The room the table actually has. The CSS values are a first-paint
+         fallback -- 344/150 are the page's furniture at the time this was
+         written, and .table-frame is hidden until p8-boot-ready anyway --
+         and syncStage() below replaces them with the row's measured box, so
+         a change to the topbar or the action panel cannot silently shrink
+         the table again. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2{
+        --p8-felt-widest:1.9;
+        --p8-felt-squarest:1.6;
+        --p8-stage-h:calc(100dvh - 344px);
+        --p8-stage-w:calc(100vw - 40px);
+      }
       body.v014.poker8-v2-sixmax.poker8-desktop-v2.p8-observer-mode{--p8-stage-h:calc(100dvh - 150px);}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .table-frame{
-        /* The smallest of: the column, a cap so it stops growing on a very
-           wide screen, and what the free height allows at 16:10. Height then
-           follows the ratio and can never exceed that allowance. */
-        width:min(100%,1240px,calc(var(--p8-stage-h) * 1.6))!important;
-        aspect-ratio:16 / 10!important;
-        height:auto!important;min-height:0!important;
-        /* A last resort only. If it ever engages the ratio is already wrong;
-           an overflowing table would be worse. */
-        max-height:100%!important;
+        width:min(100%,var(--p8-stage-w),calc((var(--p8-stage-h) - 50px) * var(--p8-felt-widest)))!important;
+        height:min(100%,var(--p8-stage-h),calc(var(--p8-stage-w) / var(--p8-felt-squarest) + 50px))!important;
+        aspect-ratio:auto!important;
+        min-height:0!important;max-height:100%!important;
         margin-inline:auto!important;
       }
 
@@ -389,7 +401,24 @@
       }
   `;
 
+  /* The table row's own box, handed to the CSS above. Reading it beats
+     subtracting a list of remembered heights from the viewport: the topbar,
+     the gap and the action panel are already in it, and so is whatever
+     replaces them later. No feedback loop -- the row is a 1fr grid track, so
+     its size does not depend on the frame it sizes. */
+  function syncStage() {
+    const column = document.querySelector(".left-column");
+    if (!column) return;
+    const box = column.getBoundingClientRect();
+    if (box.height < 1 || box.width < 1) return;
+    document.body.style.setProperty("--p8-stage-h", `${Math.round(box.height)}px`);
+    document.body.style.setProperty("--p8-stage-w", `${Math.round(box.width)}px`);
+  }
+
   document.head.appendChild(style);
   syncDesktopMode();
-  window.addEventListener("resize", syncDesktopMode, { passive: true });
+  syncStage();
+  const column = document.querySelector(".left-column");
+  if (column && window.ResizeObserver) new ResizeObserver(syncStage).observe(column);
+  window.addEventListener("resize", () => { syncDesktopMode(); syncStage(); }, { passive: true });
 })();

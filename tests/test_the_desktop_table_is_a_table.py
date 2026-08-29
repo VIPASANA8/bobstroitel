@@ -34,21 +34,35 @@ def _first_rule(source, selector):
     return source[start:source.index("}", start)]
 
 
-def test_the_table_holds_its_shape_at_every_size():
+def test_both_drags_move_the_table():
+    """Each side takes what it can up to the shape the other allows: the
+    width may stretch the felt to its widest, the height may square it back.
+    A hard width cap (1240px) meant dragging the window wider changed
+    nothing; one fixed ratio would have the same fault, with the width
+    following the height alone."""
     rule = _rule(V039, f"{DESKTOP} .table-frame")
-    assert "aspect-ratio:16 / 10!important" in rule
-    # The smallest of the column, a cap, and what the free height allows --
-    # so the height derives from the ratio and can never overflow the row.
-    assert "width:min(100%,1240px,calc(var(--p8-stage-h) * 1.6))!important" in rule
+    assert ("width:min(100%,var(--p8-stage-w),"
+            "calc((var(--p8-stage-h) - 50px) * var(--p8-felt-widest)))!important") in rule
+    assert ("height:min(100%,var(--p8-stage-h),"
+            "calc(var(--p8-stage-w) / var(--p8-felt-squarest) + 50px))!important") in rule
     assert "width:min(100%,940px)" not in rule, "the fixed width is what made it square"
+    assert "1240px" not in rule, "the cap is what left 230px of black either side"
+    # A poker table reads as one at roughly 1.6-1.9.
+    band = [float(re.search(rf"--p8-felt-{name}:([\d.]+);", V039).group(1))
+            for name in ("squarest", "widest")]
+    assert band[0] < band[1], band
+    assert 1.6 <= band[0] and band[1] <= 1.9, band
 
 
-def test_each_state_gets_its_own_height_allowance():
-    """A seated player has the action panel under the felt and a watcher does
-    not. One shared number squashed the seated table to 2.21: max-height
-    stepped in and the ratio broke."""
+def test_the_table_is_measured_rather_than_remembered():
+    """The row already contains the topbar, the gap and the action panel --
+    and whatever replaces them later. The CSS numbers are only what the
+    first paint uses before the measurement lands."""
     assert "--p8-stage-h:calc(100dvh - 344px)" in V039
     assert f"{DESKTOP}.p8-observer-mode{{--p8-stage-h:calc(100dvh - 150px);}}" in V039
+    assert 'document.body.style.setProperty("--p8-stage-h"' in V039
+    assert 'document.body.style.setProperty("--p8-stage-w"' in V039
+    assert "new ResizeObserver(syncStage).observe(column)" in V039
 
 
 def test_the_chat_no_longer_holds_the_width_the_table_needs():
