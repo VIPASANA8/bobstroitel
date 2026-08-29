@@ -207,6 +207,33 @@ Careful with the two-class rules that are *not* geometry — the topbar, the
 brand mark, `.panel`/`.history-card`/`.online-chat-panel` — those win today
 and are the only thing styling some of it.
 
+## Where this stands, and what is left
+
+After one day: **19 layer files where there were 23**, 19 scripts on the
+page where there were 21, and about 460 lines gone. Every step was run
+against the static suite and the browser net before it shipped -- except
+one, which is why the net exists and why the log above has a revert in it.
+
+What is left, in the order it should be done:
+
+1. **The rest of v039's two-class geometry.** The felt's size and inset and
+   the frame's border, radius and background all win today. They cannot be
+   deleted; they have to be *moved* -- into the three-class block, where
+   they already belong -- one declaration at a time, net on each. Only when
+   the two-class block holds nothing the table needs is the move below safe.
+2. **Then the move**: v039 into the appended chain, last. That is what ends
+   the three-class arms race for good.
+3. **v038 is 1855 lines serving two platforms.** Splitting it by surface is
+   the biggest remaining reduction, and the one most likely to need its own
+   safety net first.
+4. **Even out the cache busters** so a version in a URL means something.
+   Nothing is stranded (statics are `no-cache` with an ETag), it is only
+   confusing.
+5. **The trainer.** Half this stack was written for `app/legacy.py`, which
+   production mounts nowhere. Deciding whether that app is coming back would
+   settle the fate of v015, v020, v022, v024 and v025 in one go, rather than
+   one careful measurement at a time.
+
 ## Bugs found while auditing, not bloat
 
 * **The "+" on your own stack cannot work online.** v022 posts to
@@ -260,6 +287,7 @@ python -m pytest tests -q --ignore=tests/e2e --ignore=tests/load
 | 2026-08-29 | v015's `wagerPointForPlayer` removed — v031 replaces it later without delegating, so it could never run | static suite + the net + the live page |
 | 2026-08-29 | v022 guarded off the network table — its "+" posted to the trainer's route, which production does not mount | static suite; the online funds dialog is untouched |
 | 2026-08-29 | v028 + v029 + v030 merged into `v028-ready-phase.js` (3 files → 1, 3 requests → 1) | 321 static + 13 browser cases |
+| 2026-08-29 | v039's dead frame properties removed (padding, overflow, box-shadow) — absolute values, all three losing to v038, all three would wake on a load-order change | 321 static + 9 browser cases, before the commit |
 | 2026-08-29 | v039's dead felt paint removed (gradient, neon border, inset shadow). Its width/height/inset stay: the height is load-bearing, see the percentages warning above | 321 static + 9 browser cases, run **before** the commit this time |
 | 2026-08-29 | **Reverted the same day (9f88bc5):** a first attempt also deleted the felt's height and the frame's padding/overflow/box-shadow. The net caught it at 6 of 9 -- "the felt ends 23px below the bottom edge" -- but the commit had already shipped, because the deploy was chained after a `pytest ... | tail` whose exit code is the tail's. Test, read the result, *then* commit | the net, on the way back |
 | 2026-08-29 | v039's seven-point seat ring removed — the first of its dead two-class geometry; v040 has placed every seat for far longer, and holding the ring meant any load-order change moved the table | 321 static + 13 browser cases; the invariant moved to a test that reads v040 |

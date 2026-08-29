@@ -145,13 +145,19 @@
 
       body.v014.poker8-desktop-v2 .table-frame{
         height:clamp(620px,calc(100dvh - 156px),860px)!important;
-        min-height:620px!important;padding:8px!important;overflow:hidden!important;
+        /* padding, overflow and box-shadow used to be here too. All three are
+           absolute values, so declared and computed can be compared honestly
+           -- and all three lose to v038 on the live table (padding is
+           0 5px 1px, overflow is visible). Losing is the only thing making
+           them harmless: they would wake up the moment this file's place in
+           the load order changed. The border and the radius below win, so
+           they stay. */
+        min-height:620px!important;
         border:1px solid rgba(44,255,172,.13)!important;border-radius:28px!important;
         background:
           linear-gradient(90deg,rgba(0,0,0,.58),transparent 17%,transparent 83%,rgba(0,0,0,.58)),
           url("/static/assets/poker8-v2-table-mobile.webp") center/cover no-repeat,
           repeating-linear-gradient(96deg,#000000 0 8px,#180b05 9px 17px,#0c0503 18px 27px)!important;
-        box-shadow:0 24px 54px rgba(0,0,0,.55),inset 0 0 0 1px rgba(255,194,114,.05)!important;
       }
       /* The paint this file used to put on the felt -- its own green
          gradient, neon border and inset shadow -- is v037/v038's now, and
