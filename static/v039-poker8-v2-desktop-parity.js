@@ -305,8 +305,25 @@
         aspect-ratio:auto!important;
         min-height:0!important;max-height:100%!important;
         margin-inline:auto!important;
-      }
+        /* The table photo is the table -- .felt carries no background of its
+           own here, it only positions the seats -- and v038 paints it at
+           "100vw by the stage height, pushed up 50px". Both are true on a
+           phone, where the frame is the full width of the window. On desktop
+           the frame is narrower than the window, so the picture was drawn
+           wider than the box that clips it and both ends of the table were
+           cut clean off at the frame's edge -- 32px a side on the window from
+           the report, and more the wider the window got, because the picture
+           follows the window while the table follows its row. Same story
+           above: -50px took the top rail with it.
 
+           Fit it to the frame, which is the box it is a picture of. Nothing
+           is cut at any size. It is still a portrait photo stretched to a
+           landscape frame -- the asset is 720x1080. A landscape one belongs
+           here, and swapping it in is the url in the .table-frame rule near
+           the top of this file, nothing else. */
+        background-size:100% 100%!important;
+        background-position:center!important;
+      }
       /* Over the felt rather than beside it, and only once asked for. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 #chatPanel{
         display:none!important;

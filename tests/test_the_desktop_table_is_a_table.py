@@ -16,6 +16,7 @@ from pathlib import Path
 
 V039 = Path("static/v039-poker8-v2-desktop-parity.js").read_text(encoding="utf-8")
 V040 = Path("static/v040-poker8-v2-dynamic-seats.js").read_text(encoding="utf-8")
+V038 = Path("static/v038-poker8-v2-cinematic-table.js").read_text(encoding="utf-8")
 
 DESKTOP = "body.v014.poker8-v2-sixmax.poker8-desktop-v2"
 
@@ -160,3 +161,13 @@ def test_desktop_buttons_take_the_same_arrangement_as_the_phone():
     for cls, order in (("all-in", 1), ("fold", 3), ("raise", 4)):
         assert f"#actionButtons .action-slot.{cls}{{order:{order}!important;}}" in V039, cls
     assert f"{DESKTOP} #actionButtons .action-slot.call{{order:2!important;}}" in V039
+
+def test_the_table_photo_is_fitted_to_the_frame_not_the_window():
+    """v038 paints it at 100vw, which is the frame's width on a phone and
+    wider than the frame on a desktop -- so the frame clipped both ends of
+    the table off, more of them the wider the window got."""
+    rule = _rule(V039, f"{DESKTOP} .table-frame")
+    assert "background-size:100% 100%!important" in rule
+    assert "background-position:center!important" in rule
+    # v038's rule carries two classes; this one has to outrank it.
+    assert "100vw" in V038, "the phone rule this is written against"
