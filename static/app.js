@@ -1909,6 +1909,13 @@ window.Poker8LegacyView = {
       // Same reason as ready_seats below: needed to know which seat is "you"
       // before a hand exists to identify it via game.viewer_player_id.
       viewer_player_id: viewer?.id || null,
+      // And the seat number beside it, because the id is not always enough:
+      // sit down between hands and you hold a seat the current roster has
+      // never heard of, so viewer_player_id is null while the server says
+      // "seated". The layout then drew the watching ring over your own
+      // chair, offered it to you as an empty one, and the header hid the
+      // seat buttons because you were, correctly, already seated.
+      viewer_seat_no: state?.viewer_seat_no ?? null,
       // Ready-up is a pre-hand affordance, so it has to survive on tableData
       // (set every phase) rather than on `game`, which is null exactly then.
       ready_seats: state?.ready_seats || [],

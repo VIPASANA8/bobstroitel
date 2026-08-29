@@ -277,6 +277,14 @@ def test_watching_a_table_never_promotes_somebody_else_to_hero():
     # null === null was the first half: between hands the derived player has
     # no id, and neither does a viewer who is not seated.
     assert "const viewerId = gameState?.viewer_player_id || tableState?.viewer_player_id || null;" in V040
+    # And the seat number, which is the answer that exists between hands: sit
+    # down and you hold a seat no roster has heard of yet, so the id is null
+    # while the server says seated. Without this the watching ring was drawn
+    # over your own chair and offered it to you as an empty one, while the
+    # header hid the seat buttons because you were -- correctly -- seated.
+    assert "tableState?.viewer_seat_no ?? gameState?.viewer_seat_no" in V040
+    app = Path("static/app.js").read_text(encoding="utf-8")
+    assert "viewer_seat_no: state?.viewer_seat_no ?? null," in app, "tableData has to carry it"
     assert "let viewer = viewerId" in V040
     # And the marker that fed it back: v023 stamps .viewer-seat on chair 0.
     v023 = Path("static/v023-brand-balance-fix.js").read_text(encoding="utf-8")

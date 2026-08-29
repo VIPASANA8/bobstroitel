@@ -322,6 +322,14 @@
     let viewer = viewerId
       ? active.find(seat => playerForSeat(gameState, seat)?.id === viewerId) || null
       : null;
+    // The id is not the only answer the server gives, and between hands it is
+    // not the one that exists: sit down, and until a hand is dealt you are in
+    // no roster, so viewer_player_id is null while viewer_state says seated.
+    // The seat number is the other half, and it is true the whole time.
+    const viewerSeatNo = tableState?.viewer_seat_no ?? gameState?.viewer_seat_no ?? null;
+    if (!viewer && viewerSeatNo != null) {
+      viewer = active.find(seat => Number(seat.dataset.seat) === Number(viewerSeatNo)) || null;
+    }
     // .viewer-seat is app.js's own marker -- but v023 stamps it on whatever
     // seat is in chair 0 so the balance stays clickable between hands, which
     // online means stamping it on a stranger and then reading it back as
