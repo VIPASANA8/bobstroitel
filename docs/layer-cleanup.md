@@ -128,6 +128,19 @@ its own, and none of them is proof by itself.
    So: nominate with the dry run, convict with the net, and never judge a
    percentage by its computed value.
 
+5. **Anything with a `transition` reads at its start value in the browser
+   pane.** The pane's tab reports `document.visibilityState === "hidden"`
+   even when fronted, so CSS transitions never advance: a seat carrying
+   `transition:transform 320ms` shows `matrix(1, …)` for as long as you care
+   to wait, whatever the rule says. Half an hour went into "the avatars do
+   not scale" before that was the answer -- they scale fine.
+
+   Finish them before measuring:
+
+   ```js
+   el.getAnimations().forEach(a => a.finish());
+   ```
+
 For JavaScript there is no probe. Read the file.
 
 ### Snapshot, taken 2026-08-29 on the live table
@@ -255,6 +268,29 @@ What is left, in the order it should be done:
    production mounts nowhere. Deciding whether that app is coming back would
    settle the fate of v015, v020, v022, v024 and v025 in one go, rather than
    one careful measurement at a time.
+
+## The centre cluster does not fit a short felt (open, 2026-08-29)
+
+The ui scale has a floor now (0.82), and on the window this came from --
+1067x632, a 964x458 felt -- it took the avatars from 88px to 72, the seat
+boxes from 134 to 110, and the pot's chips off the board entirely (65px of
+clearance where they used to sit across it). The pot label and the board are
+no longer overlapped by anybody's name plate.
+
+What is left is arithmetic that scaling cannot solve. On that felt the top
+seats' plates end at 273 and the bottom seats' begin at 448: a free band of
+175px. The centre cluster -- chips, amount, board, stacked -- is 201px tall
+at that scale. It does not fit, so the chips run 33px into the top-centre
+seat's plate.
+
+Options, none of them taken yet:
+
+* a tighter factor for the cluster alone on short felts (needs its unscaled
+  height, or the feedback loop is obvious);
+* dropping the chips below the amount, which reverses a deliberate reading
+  order (chips, amount, board -- the phone's);
+* letting the board overlap the felt's lower band instead, which is where
+  the bottom seats live.
 
 ## Bugs found while auditing, not bloat
 
