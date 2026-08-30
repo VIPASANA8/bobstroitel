@@ -78,7 +78,8 @@ def test_the_deck_has_one_back():
     back = V038[V038.index(".player-cards .card.back{"):]
     back = back[:back.index("}")]
     assert "--seat-accent" not in back and "--avatar-hue" not in back
-    assert back.count("hsla(263,") == 4
+    assert "linear-gradient(150deg,#0B2020,#071A1A)" in back
+    assert "rgba(22,207,160,.22)" in back
     assert ".player-cards .card.back{" not in V039
 
 

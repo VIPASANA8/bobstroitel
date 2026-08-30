@@ -152,13 +152,7 @@
         z-index:-2;
         top:-23px;
         width:39px;height:52px;
-        border:1px solid hsla(var(--seat-accent),95%,72%,.78);
         border-radius:5px;
-        background:
-          radial-gradient(circle at 50% 48%,transparent 0 5px,hsla(var(--seat-accent),85%,72%,.35) 5px 6px,transparent 6px),
-          repeating-linear-gradient(45deg,hsla(var(--seat-accent),65%,36%,.74) 0 3px,hsla(var(--seat-accent),65%,15%,.96) 3px 6px),
-          #000000;
-        box-shadow:inset 0 0 0 2px rgba(0,0,0,.54),0 0 13px hsla(var(--seat-accent),95%,56%,.34),0 6px 10px rgba(0,0,0,.58);
       }
       body.v014.poker8-v2-sixmax .avatar-wrap::before{left:-8px;transform:rotate(-12deg);transform-origin:bottom right;}
       body.v014.poker8-v2-sixmax .avatar-wrap::after{right:-8px;transform:rotate(12deg);transform-origin:bottom left;}
@@ -393,24 +387,21 @@
       }
       body.v014.poker8-v2-sixmax.v038-room-resetting .player-cards{opacity:0!important;transform:translateX(-50%) translateY(-12px) scale(.92)!important;}
       body.v014.poker8-v2-sixmax.v038-hand-complete .player-cards{opacity:0!important;transform:translateX(-50%) translateY(-12px) scale(.92)!important;}
-      /* One card back, both platforms, one colour.
-
-         It used to take --seat-accent, so the back changed hue with whatever
-         the seat was doing -- green at rest, amber all-in -- and desktop drew
-         its own variant off --avatar-hue on top of that, without the centre
-         ring. A face-down card carries no information about the seat holding
-         it, so it has no business being a status light: it is the deck, and a
-         deck has one back. 263 is the hue of the violet the header already
-         uses for chat, hint and observe (#c9a8ff), which is the only accent
-         on this table that belongs to the furniture rather than to a state.
-         Sizes stay per-platform -- v039 sets those from --p8-card-w. */
+      /* One quiet graphite/turquoise deck on both platforms, including idle
+         decoration. Keep the phone's ring and diagonal pattern, not seat hues.
+         Desktop dimensions still come from v039's --p8-card-w. */
+      body.v014.poker8-v2-sixmax .avatar-wrap::before,
+      body.v014.poker8-v2-sixmax .avatar-wrap::after,
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat] .player-cards .card.back{
+        border:1px solid rgba(53,240,192,.55)!important;
+        background:
+          radial-gradient(circle at center,transparent 0 6px,rgba(22,207,160,.30) 6px 7px,transparent 7px),
+          repeating-linear-gradient(45deg,rgba(22,207,160,.22) 0 3px,transparent 3px 6px),
+          linear-gradient(150deg,#0B2020,#071A1A)!important;
+        box-shadow:inset 0 0 0 2px rgba(0,0,0,.48),0 0 6px rgba(53,240,192,.18),0 4px 9px rgba(0,0,0,.46)!important;
+      }
       body.v014.poker8-v2-sixmax .player-cards .card.back{
         width:34px!important;height:48px!important;border-radius:5px!important;
-        border:1px solid hsla(263,95%,75%,.80)!important;
-        background:
-          radial-gradient(circle at center,transparent 0 6px,hsla(263,90%,74%,.42) 6px 7px,transparent 7px),
-          repeating-linear-gradient(45deg,hsla(263,62%,38%,.74) 0 3px,hsla(263,62%,16%,.96) 3px 6px)!important;
-        box-shadow:inset 0 0 0 2px rgba(0,0,0,.48),0 4px 9px rgba(0,0,0,.46)!important;
       }
       body.v014.poker8-v2-sixmax .player-cards .card.back:first-child{transform:rotate(-8deg) translateX(2px)!important;}
       body.v014.poker8-v2-sixmax .player-cards .card.back:last-child{transform:rotate(8deg) translateX(-2px)!important;}
@@ -418,6 +409,8 @@
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .player-cards{top:-47px!important;z-index:9!important;gap:4px!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .player-cards .card{
         width:43px!important;height:61px!important;border-radius:6px!important;
+      }
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .player-cards .card:where(:not(.back)){
         background:linear-gradient(150deg,#07100f,#000000)!important;
         color:#eafff6!important;border:1px solid #56c8ff!important;
         box-shadow:0 0 12px rgba(47,184,255,.54),0 5px 10px rgba(0,0,0,.50),inset 0 0 10px rgba(47,207,255,.08)!important;

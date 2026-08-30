@@ -300,9 +300,10 @@
         z-index:3!important;top:-26px!important;
       }
 
-      /* The hero keeps its own accent, not a different card size. */
+      /* The hero keeps its own accent, not a different card size. :where
+         excludes backs without outranking the red-suit or best-hand accent. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat[data-visual-seat="0"] .player-cards{top:-22px!important;z-index:12!important;gap:0!important;}
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat[data-visual-seat="0"] .player-cards .card{border-color:#56c8ff!important;box-shadow:0 0 12px rgba(47,184,255,.46),0 5px 9px rgba(0,0,0,.54)!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat[data-visual-seat="0"] .player-cards .card:where(:not(.back)){border-color:#56c8ff!important;box-shadow:0 0 12px rgba(47,184,255,.46),0 5px 9px rgba(0,0,0,.54)!important;}
       /* Beside the avatar on its left, the way the phone places it -- it sat
          bottom-right of the whole seat box here, which on a 146x154 box reads
          as floating off the seat rather than belonging to it. The avatar is
