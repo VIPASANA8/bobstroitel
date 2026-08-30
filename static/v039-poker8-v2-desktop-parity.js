@@ -561,16 +561,77 @@
       body.v014.poker8-desktop-v2 .felt > #readyPanel span{grid-column:1!important;color:#c3d7cc!important;font-size:12px!important;line-height:1.3!important;}
       body.v014.poker8-desktop-v2 .felt > #readyPanel button{grid-column:2!important;grid-row:1 / span 2!important;align-self:center!important;min-height:42px!important;padding:9px 14px!important;white-space:nowrap!important;}
 
-      /* Over the felt rather than beside it, and only once asked for. */
+      /* One floating desktop window. Geometry variables are deliberately
+         confined to this media query: the phone still owns its full page. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 #chatPanel{
-        display:none!important;
-        position:fixed!important;top:96px!important;right:20px!important;bottom:20px!important;
-        left:auto!important;width:380px!important;height:auto!important;z-index:140!important;
-        margin:0!important;border-radius:18px!important;
+        display:none!important;flex-direction:column!important;grid-area:auto!important;
+        position:fixed!important;top:var(--chat-y,96px)!important;left:var(--chat-x,calc(100vw - 424px))!important;
+        right:auto!important;bottom:auto!important;width:var(--chat-width,400px)!important;height:var(--chat-height,520px)!important;
+        min-height:0!important;min-width:0!important;max-width:calc(100vw - 24px)!important;max-height:calc(100dvh - 24px)!important;
+        z-index:710!important;margin:0!important;padding:0!important;box-sizing:border-box!important;
+        overflow:hidden!important;border:1px solid rgba(100,214,184,.28)!important;border-radius:16px!important;
+        background:linear-gradient(155deg,#031b13,#07100f 60%)!important;
+        box-shadow:0 24px 70px #0009,0 4px 16px #0008,inset 0 1px #c3ffe70a!important;
       }
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #chatPanel.is-open{
-        display:flex!important;flex-direction:column!important;
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #chatPanel.is-open{display:flex!important;}
+      body.poker8-desktop-v2 #chatPanel > h2{
+        flex:0 0 64px;box-sizing:border-box;margin:0;padding:15px 128px 12px 18px;
+        border-bottom:1px solid #c4ffe712;color:#d6f7e9;font-size:16px;line-height:20px;
+        font-weight:800;letter-spacing:-.3px;cursor:grab;touch-action:none;user-select:none;
       }
+      body.poker8-desktop-v2 #chatPanel > h2::after{content:'Перетащите окно';display:block;margin-top:2px;color:#668579;font-size:10px;line-height:13px;font-weight:500;letter-spacing:.1px;}
+      body.poker8-desktop-v2 #chatPanel > h2:active{cursor:grabbing;}
+      body.poker8-desktop-v2 #chatPanel .chat-window-tools{display:flex;position:absolute;top:15px;right:50px;gap:4px;}
+      body.poker8-desktop-v2 #chatPanel :is(.chat-window-tools button,.chat-close){
+        display:grid;place-items:center;width:32px;height:32px;padding:0;border:1px solid #86c3ab22;
+        border-radius:8px;background:#b7ffe807;color:#aec9be;font:400 20px/1 system-ui;cursor:pointer;
+      }
+      body.poker8-desktop-v2 #chatPanel .chat-close{position:absolute;top:15px;right:14px;}
+      body.poker8-desktop-v2 #chatPanel :is(.chat-window-tools button,.chat-close):hover{color:#eafff6;background:#a6ffd31a;border-color:#a6ffd355;}
+      body.poker8-desktop-v2 #chatPanel :is(button,textarea,h2):focus-visible{outline:2px solid #91e8ba;outline-offset:-3px;}
+      body.poker8-desktop-v2 #chatPanel .chat-turn-banner{display:none;}
+      body.poker8-desktop-v2 #chatPanel .chat-turn-banner.is-live{
+        display:flex;flex:none;align-items:center;justify-content:space-between;gap:8px;
+        margin:10px 14px 0;padding:10px 12px;border:1px solid #e6b34d66;border-radius:9px;
+        background:#483919;color:#ffdc92;font-size:12px;cursor:pointer;
+      }
+      body.poker8-desktop-v2 #chatPanel .chat-turn-banner.is-urgent{border-color:#ffb657;color:#ffcf7b;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #chatMessages{
+        flex:1 1 auto!important;min-height:0!important;max-height:none!important;overflow-y:auto!important;
+        padding:8px 18px 14px;color:#d3dfd9;font-size:13px;line-height:1.55;overscroll-behavior:contain;
+        scrollbar-width:thin;scrollbar-color:#41695b transparent;overflow-wrap:anywhere;
+      }
+      body.poker8-desktop-v2 #chatMessages:empty::before{content:'Пока тихо за столом. Начните разговор.';display:block;padding:40px 12px;text-align:center;color:#78968a;font-size:13px;}
+      body.poker8-desktop-v2 #chatPanel .p8-chat-row{padding:11px 0;border-bottom:1px solid #b9f3d80a;}
+      body.poker8-desktop-v2 #chatPanel .p8-chat-meta{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:4px;}
+      body.poker8-desktop-v2 #chatPanel .p8-chat-meta b{min-width:0;color:#91e8ba;font-size:12px;font-weight:700;overflow-wrap:anywhere;}
+      body.poker8-desktop-v2 #chatPanel .p8-chat-time{display:block;flex:none;color:#668579;font-size:10px;font-variant-numeric:tabular-nums;}
+      body.poker8-desktop-v2 #chatPanel .p8-chat-text{display:block;overflow-wrap:anywhere;}
+      body.poker8-desktop-v2 #chatPanel .p8-chat-block{max-width:100%;box-sizing:border-box;}
+      body.poker8-desktop-v2 #chatPanel #chatFormat{flex:none;padding:10px 16px 6px;gap:6px;border-top:1px solid #b9f3d814;}
+      body.poker8-desktop-v2 #chatPanel #chatFormat button{height:27px;min-width:30px;border-color:transparent;background:transparent;color:#6f9481;font-size:12px;}
+      body.poker8-desktop-v2 #chatPanel #chatFormat button:hover{background:#a6ffd312;color:#dbffeb;}
+      body.poker8-desktop-v2 #chatPanel #chatForm{flex:none;margin:0;padding:0 16px;gap:8px;align-items:stretch;}
+      body.poker8-desktop-v2 #chatPanel #chatInput{display:none;}
+      body.poker8-desktop-v2 #chatPanel #chatDesktopInput{
+        display:block;flex:1;min-width:0;box-sizing:border-box;height:66px;resize:none;padding:10px 12px;
+        border:1px solid #3d6e5c;border-radius:10px;background:#07100f;color:#e5f6ed;
+        font:400 13px/1.5 system-ui;scrollbar-width:thin;
+      }
+      body.poker8-desktop-v2 #chatPanel #chatDesktopInput::placeholder{color:#6e8d7f;}
+      body.poker8-desktop-v2 #chatPanel #chatForm button{flex:none;padding:0 12px;background:#97e7c3;color:#062219;font-size:12px;border:1px solid #b9f9d7;cursor:pointer;}
+      body.poker8-desktop-v2 #chatPanel #chatForm button:hover{background:#b4f7d9;}
+      body.poker8-desktop-v2 #chatPanel #chatForm button:disabled{opacity:.45;cursor:wait;}
+      body.poker8-desktop-v2 #chatPanel .chat-compose-hint{display:block;flex:none;padding:8px 30px 12px 17px;color:#5d7f70;font-size:10px;line-height:14px;}
+      body.poker8-desktop-v2 #chatPanel .chat-send-status:not(:empty){display:block;flex:none;padding:8px 16px 0;color:#ffc18f;font-size:12px;}
+      body.poker8-desktop-v2 #chatPanel .chat-latest{display:none;}
+      body.poker8-desktop-v2 #chatPanel.has-new-messages .chat-latest{display:block;flex:none;align-self:center;margin:0 0 8px;padding:6px 12px;border:1px solid #71c79c55;border-radius:20px;background:hsl(158 74% 10%);color:#b9f9d7;font-size:12px;cursor:pointer;}
+      body.poker8-desktop-v2 #chatPanel .chat-resize{display:block;position:absolute;right:1px;bottom:1px;width:22px;height:22px;border:0;background:transparent;cursor:nwse-resize;touch-action:none;}
+      body.poker8-desktop-v2 #chatPanel .chat-resize::after{content:'';position:absolute;right:5px;bottom:5px;width:8px;height:8px;border-right:2px solid #789a88;border-bottom:2px solid #789a88;border-radius:0 0 2px 0;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #chatPanel.is-collapsed{height:64px!important;}
+      body.poker8-desktop-v2 #chatPanel.is-collapsed > :not(h2):not(.chat-window-tools):not(.chat-close){display:none!important;}
+      body.poker8-desktop-v2 #chatPanel.is-collapsed.has-new-messages > h2::after{content:'Новое сообщение';color:#97e7c3;}
+      body.poker8-desktop-v2 #chatPanel.is-collapsed:has(.chat-turn-banner.is-live) > h2::after{content:'Ваш ход — вернитесь за стол';color:#ffcf7b;}
       /* The felt sat 66px inside the frame on the left and 12px past it on the
          right -- a twelve-pixel border counted outside the box, plus whatever
          centred it against something else. Pin it to the frame's own box. */
@@ -587,15 +648,6 @@
          of the desktop .sidebar rule above, it kept its grid box. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2.p8-observer-mode .sidebar{display:none!important}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .history-card{display:none!important;}
-      /* Was a docked column in the grid's "chat" area. It is an overlay now
-         (see the rule further up): the permanent 330px card was holding the
-         width that kept the table square. */
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #chatPanel{
-        grid-area:auto!important;min-height:0!important;
-        display:none!important;flex-direction:column!important;
-      }
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #chatPanel.is-open{display:flex!important;}
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #chatMessages{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;}
       /* The old 214px action row was the page jump: observer/seated state
          changed that row and therefore the table's own height. The real panel
          is reparented into .table-frame above; the leftover sidebar has no

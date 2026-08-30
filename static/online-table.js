@@ -32,6 +32,8 @@
     @media (prefers-reduced-motion:reduce){.poker8-online .p8-chat-spoiler{transition:none}}
     .poker8-online #chatInput{min-width:0;flex:1;padding:11px;border:1px solid #294d3e;border-radius:10px;background:#07100f;color:#f4f5ee}
     .poker8-online #chatForm button{padding:0 15px;border:0;border-radius:10px;background:#91e8ba;color:#041f14;font-weight:900}
+    .poker8-online :is(.chat-window-tools,.chat-resize,.chat-latest,.chat-send-status,.chat-compose-hint,#chatDesktopInput,.p8-chat-time){display:none}
+    .poker8-online :is(.p8-chat-meta,.p8-chat-text){display:contents}
     .poker8-online .local-only-control,.poker8-online .solver-panel,.poker8-online .stats-panel,.poker8-online .saved-tables-panel,.poker8-online .format-panel{display:none!important}
     /* Local-trainer controls that are wrong on ANY online table, at ANY
        width. They were only ever hidden by viewport -- .seat-edit solely in
@@ -759,6 +761,53 @@
   //: Refreshed every second while the chat covers the table, so the count is
   //: the player's real remaining time and not whatever the last snapshot said.
   let chatTurnTicker = null;
+  const desktopChat = window.matchMedia("(min-width:781px)");
+  let chatGeometry = null;
+  let chatPointer = null;
+  let chatSending = false;
+
+  const chatEditor = () => $(desktopChat.matches ? "chatDesktopInput" : "chatInput");
+
+  function placeChatWindow() {
+    const chat = $("chatPanel");
+    if (!chat || !desktopChat.matches) return;
+    const width = Math.min(chatGeometry?.width || 400, innerWidth - 24);
+    const height = Math.min(chatGeometry?.height || 520, innerHeight - 24);
+    const visibleHeight = chat.classList.contains("is-collapsed") ? 64 : height;
+    chatGeometry = {
+      width, height,
+      x: Math.max(12, Math.min(chatGeometry?.x ?? innerWidth - width - 24, innerWidth - width - 12)),
+      y: Math.max(12, Math.min(chatGeometry?.y ?? 96, innerHeight - visibleHeight - 12)),
+    };
+    for (const [key, value] of Object.entries(chatGeometry)) chat.style.setProperty(`--chat-${key}`, `${value}px`);
+  }
+
+  function scrollChatToLatest() {
+    const feed = $("chatMessages");
+    if (feed) feed.scrollTop = feed.scrollHeight;
+    $("chatPanel")?.classList.remove("has-new-messages");
+  }
+
+  function syncChatBreakpoint() {
+    const chat = $("chatPanel");
+    const heading = chat?.querySelector("h2");
+    if (!heading) return;
+    heading.tabIndex = desktopChat.matches ? 0 : -1;
+    heading.title = desktopChat.matches ? "Перетащите окно · стрелки на клавиатуре перемещают его" : "";
+    if (!desktopChat.matches) setChatCollapsed(false);
+    placeChatWindow();
+  }
+
+  function setChatCollapsed(collapsed) {
+    const chat = $("chatPanel");
+    chat.classList.toggle("is-collapsed", collapsed);
+    const button = chat.querySelector(".chat-minimize");
+    button.setAttribute("aria-label", collapsed ? "Развернуть чат" : "Свернуть чат");
+    button.title = button.getAttribute("aria-label");
+    button.setAttribute("aria-expanded", String(!collapsed));
+    button.textContent = collapsed ? "+" : "−";
+    placeChatWindow();
+  }
 
   function ensureChatFurniture() {
     const chat = $("chatPanel");
@@ -777,6 +826,89 @@
     close.setAttribute("aria-label", "Закрыть чат");
     close.textContent = "×";
     chat.appendChild(close);
+
+    const controls = document.createElement("div");
+    controls.className = "chat-window-tools";
+    controls.innerHTML = '<button type="button" class="chat-reset" aria-label="Вернуть положение чата" title="Вернуть положение чата">↺</button><button type="button" class="chat-minimize" aria-label="Свернуть чат" aria-expanded="true" title="Свернуть чат">−</button>';
+    chat.appendChild(controls);
+    const resize = document.createElement("button");
+    resize.type = "button";
+    resize.className = "chat-resize";
+    resize.setAttribute("aria-label", "Изменить размер чата");
+    resize.title = "Перетащите угол · стрелки меняют размер";
+    chat.appendChild(resize);
+    const latest = document.createElement("button");
+    latest.type = "button";
+    latest.className = "chat-latest";
+    latest.textContent = "Новые сообщения ↓";
+    chat.insertBefore(latest, $("chatFormat"));
+    const status = document.createElement("div");
+    status.className = "chat-send-status";
+    status.setAttribute("role", "status");
+    chat.appendChild(status);
+    const hint = document.createElement("div");
+    hint.className = "chat-compose-hint";
+    hint.textContent = "Enter — отправить · Shift + Enter — новая строка";
+    chat.appendChild(hint);
+    const editor = document.createElement("textarea");
+    editor.id = "chatDesktopInput";
+    editor.rows = 2;
+    editor.maxLength = 1000;
+    editor.placeholder = "Напишите за стол…";
+    editor.setAttribute("aria-label", "Сообщение");
+    $("chatInput").after(editor);
+    // Each layout retains its native editor. Only editing copies the draft,
+    // so a round trip through the phone width doesn't strip desktop newlines.
+    for (const input of [editor, $("chatInput")]) input.addEventListener("input", () => {
+      (input === editor ? $("chatInput") : editor).value = input.value;
+      status.textContent = "";
+    });
+    editor.addEventListener("keydown", event => {
+      if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+        event.preventDefault();
+        $("chatForm").requestSubmit();
+      }
+    });
+    controls.querySelector(".chat-minimize").addEventListener("click", () => setChatCollapsed(!chat.classList.contains("is-collapsed")));
+    controls.querySelector(".chat-reset").addEventListener("click", () => { chatGeometry = null; placeChatWindow(); });
+    latest.addEventListener("click", scrollChatToLatest);
+    $("chatMessages").addEventListener("scroll", () => {
+      const feed = $("chatMessages");
+      if (feed.scrollHeight - feed.scrollTop - feed.clientHeight < 32) chat.classList.remove("has-new-messages");
+    });
+    const heading = chat.querySelector("h2");
+    for (const handle of [heading, resize]) {
+      handle.addEventListener("pointerdown", event => {
+        if (!desktopChat.matches || event.button !== 0) return;
+        placeChatWindow();
+        chatPointer = { id: event.pointerId, x: event.clientX, y: event.clientY, geometry: { ...chatGeometry } };
+        handle.setPointerCapture(event.pointerId);
+        event.preventDefault();
+      });
+      handle.addEventListener("pointermove", event => {
+        if (!desktopChat.matches || chatPointer?.id !== event.pointerId) return;
+        const dx = event.clientX - chatPointer.x, dy = event.clientY - chatPointer.y;
+        const start = chatPointer.geometry;
+        chatGeometry = handle === resize
+          ? { ...start, width: Math.max(320, Math.min(start.width + dx, innerWidth - start.x - 12)), height: Math.max(300, Math.min(start.height + dy, innerHeight - start.y - 12)) }
+          : { ...start, x: start.x + dx, y: start.y + dy };
+        placeChatWindow();
+      });
+      handle.addEventListener("lostpointercapture", () => { chatPointer = null; });
+      handle.addEventListener("keydown", event => {
+        if (!desktopChat.matches || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+        event.preventDefault();
+        placeChatWindow();
+        const horizontal = ["ArrowLeft", "ArrowRight"].includes(event.key);
+        const key = handle === resize ? (horizontal ? "width" : "height") : (horizontal ? "x" : "y");
+        chatGeometry[key] += ["ArrowLeft", "ArrowUp"].includes(event.key) ? -10 : 10;
+        if (handle === resize) chatGeometry[key] = Math.max(horizontal ? 320 : 300, chatGeometry[key]);
+        placeChatWindow();
+      });
+    }
+    desktopChat.addEventListener("change", syncChatBreakpoint);
+    window.addEventListener("resize", placeChatWindow);
+    syncChatBreakpoint();
   }
 
   function closeChat() {
@@ -785,6 +917,7 @@
     chat.classList.remove("is-open");
     chat.hidden = true;
     $("mobileChatButton")?.setAttribute("aria-expanded", "false");
+    if (desktopChat.matches) $("mobileChatButton")?.focus();
     syncChatTurnBanner();
   }
 
@@ -1153,17 +1286,41 @@
   const chatText = text => window.Poker8ChatFormat
     ? window.Poker8ChatFormat.render(text || "")
     : escapeHtml(text || "");
-  const chatRow = row => `<div class="p8-chat-row"><b>${escapeHtml(row.display_name || "Игрок")}</b> ${chatText(row.text)}</div>`;
+  const chatRow = row => {
+    const rawDate = String(row.created_at || "");
+    // SQLite history may serialize UTC without an offset; live websocket rows
+    // include +00:00. Treat both representations as UTC, not browser-local.
+    const date = new Date(rawDate && /(?:Z|[+-]\d\d:?\d\d)$/i.test(rawDate) ? rawDate : `${rawDate}Z`);
+    const time = Number.isFinite(date.getTime())
+      ? `<time class="p8-chat-time" datetime="${date.toISOString()}" title="${escapeHtml(date.toLocaleString("ru-RU"))}">${date.toLocaleTimeString("ru-RU", {hour: "2-digit", minute: "2-digit"})}</time>` : "";
+    return `<div class="p8-chat-row" data-chat-id="${escapeHtml(row.id || "")}"><div class="p8-chat-meta"><b>${escapeHtml(row.display_name || "Игрок")}</b>${time}</div> <div class="p8-chat-text">${chatText(row.text)}</div></div>`;
+  };
 
   function appendChat(row) {
-    $("chatMessages")?.insertAdjacentHTML("beforeend", chatRow(row));
+    const feed = $("chatMessages");
+    if (!feed) return;
+    if (row.id && Array.from(feed.children).some(child => child.dataset.chatId === row.id)) return;
+    const follow = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 32;
+    feed.insertAdjacentHTML("beforeend", chatRow(row));
+    if (desktopChat.matches) {
+      const chat = $("chatPanel");
+      if (follow && chat.classList.contains("is-open") && !chat.classList.contains("is-collapsed")) scrollChatToLatest();
+      else chat.classList.add("has-new-messages");
+    }
   }
 
   async function loadChat() {
     const payload = await window.Poker8Transport.loadChat().catch(() => ({ messages: [] }));
     const target = $("chatMessages");
     if (!target) return;
-    target.innerHTML = (payload.messages || []).map(chatRow).join("");
+    // A socket message can arrive while history is loading. Keep it and
+    // deduplicate by id instead of replacing the entire feed with older data.
+    const live = Array.from(target.children);
+    const rows = payload.messages || [];
+    const ids = new Set(rows.map(row => row.id));
+    target.innerHTML = rows.map(chatRow).join("");
+    for (const node of live) if (!ids.has(node.dataset.chatId)) target.appendChild(node);
+    if (desktopChat.matches && $("chatPanel")?.classList.contains("is-open")) scrollChatToLatest();
   }
 
   function showRejection(reason) {
@@ -1280,6 +1437,14 @@
       chat.classList.toggle("is-open", open);
       chat.hidden = !open;
       button.setAttribute("aria-expanded", String(open));
+      if (open && desktopChat.matches) {
+        setChatCollapsed(false);
+        if (!chat.dataset.p8Opened) {
+          chat.dataset.p8Opened = "1";
+          scrollChatToLatest();
+        }
+        chatEditor()?.focus();
+      }
       syncChatTurnBanner();
     });
     // The banner and the cross both put the table back in front of you.
@@ -1316,7 +1481,7 @@
       const button = event.target?.closest?.("[data-chat-format]");
       if (!button) return;
       const kind = button.dataset.chatFormat;
-      const input = $("chatInput");
+      const input = chatEditor();
       if (kind === "link") {
         window.Poker8ChatFormat?.wrapSelection(input, "[", "](https://)");
         return;
@@ -1332,11 +1497,35 @@
     });
     $("chatForm")?.addEventListener("submit", async event => {
       event.preventDefault();
-      const input = $("chatInput");
+      const input = chatEditor();
       const text = input?.value.trim();
-      if (!text) return;
-      await window.Poker8Transport.sendChat(text);
-      input.value = "";
+      const status = $("chatPanel").querySelector(".chat-send-status");
+      if (!text || chatSending) return;
+      if (text.length > 1000) {
+        status.textContent = `Слишком длинное сообщение (${text.length}/1000). Черновик сохранён.`;
+        return;
+      }
+      const draft = input.value;
+      const button = $("chatForm").querySelector('button[type="submit"]');
+      chatSending = true;
+      button.disabled = true;
+      status.textContent = "";
+      try {
+        const row = await window.Poker8Transport.sendChat(text);
+        appendChat(row);
+        if (input.value === draft) {
+          input.value = "";
+          $("chatInput").value = "";
+          $("chatDesktopInput").value = "";
+        }
+        if (desktopChat.matches) scrollChatToLatest();
+      } catch (error) {
+        status.textContent = "Не удалось отправить. Черновик сохранён — попробуйте ещё раз.";
+        if (!desktopChat.matches) alert(status.textContent);
+      } finally {
+        chatSending = false;
+        button.disabled = false;
+      }
     });
   }
 
