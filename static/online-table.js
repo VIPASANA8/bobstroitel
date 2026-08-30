@@ -324,15 +324,15 @@
   function placeReadyPanel() {
     const panel = $("readyPanel");
     const felt = document.querySelector(".felt");
-    const layout = document.querySelector(".layout");
-    if (!panel || !felt || !layout) return;
-    // The felt at every width now. On desktop this used to be prepended to
-    // .layout, where it was hidden outright once the header carried the seat
-    // buttons -- and the confirmation that a seat request had landed went
-    // with it, so pressing "Занять место" there was answered by nothing at
-    // all. It reads over the felt on both, and v039 styles the desktop one.
-    if (panel.parentElement !== felt) felt.append(panel);
-    void layout;
+    if (!panel || !felt) return;
+    // Only the desktop reservation moves off the players and into the gap
+    // between table identity and header actions. Keep the same live region.
+    const topbar = document.querySelector(".topbar");
+    const host = !mobileQuery?.matches && panel.classList.contains("is-pending")
+      ? topbar || felt : felt;
+    if (panel.parentElement !== host) {
+      host.insertBefore(panel, host === topbar ? topbar.querySelector(".top-actions") : null);
+    }
   }
   placeReadyPanel();
   mobileQuery?.addEventListener?.("change", placeReadyPanel);
@@ -888,6 +888,7 @@
       }
       // Pending has nothing to click, so the full card only blocks the table.
       ready.classList.toggle("is-pending", viewerState === "waiting");
+      placeReadyPanel();
     }
     const chat = $("chatPanel");
     if (chat) {

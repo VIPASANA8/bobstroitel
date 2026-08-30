@@ -73,6 +73,7 @@
          because the table was underneath, which is no longer true. */
       body.v014.poker8-desktop-v2 .topbar{
         position:relative!important;inset:auto!important;
+        flex-direction:row!important;align-items:center!important;
         /* The same min(1500px,100%) style.css:2589 gives .layout one line
            above the rule this is undoing -- so the bar and the content it
            heads share an edge instead of the bar overhanging it by ~92px
@@ -108,6 +109,7 @@
          here instead of inherited. */
       body.v014.poker8-desktop-v2 .top-actions{
         display:flex!important;align-items:center!important;gap:8px!important;
+        min-width:0!important;flex:0 1 auto!important;
       }
       body.v014.poker8-desktop-v2 .mobile-header-utility{display:flex!important;gap:8px!important;align-items:center!important;}
       /* Room to breathe that a 374px phone could not spare: the labels stop
@@ -476,20 +478,8 @@
         display:grid!important;
       }
 
-      /* The answer to pressing "Занять место".
-
-         The offer card is hidden on desktop because the header already
-         carries the same pair of buttons -- but hiding it hid the state it
-         also reports: the seat is reserved, the table is full, the queue
-         takes you in at the next boundary. On a phone that comes back as a
-         slim strip on the rail (online-table.js, .is-pending). Same strip
-         here, on the felt's own rail, at desktop's scale.
-
-         Confirmations arrive whenever the table gets to them, which is the
-         whole reason this has to be visible: the wait is the message. */
-      /* Geometry for both states; which of them is on screen is decided
-         below, because the header already carries "Занять место" and a
-         second one of those on the felt is one too many. */
+      /* The offer card is only a fallback if the header buttons are missing.
+         Reservation status uses the header's free space instead (below). */
       body.v014.poker8-desktop-v2 .felt > #readyPanel{
         position:absolute!important;z-index:76!important;
         left:50%!important;right:auto!important;bottom:auto!important;
@@ -511,25 +501,22 @@
       body.v014.poker8-desktop-v2:not(.p8-desktop-header-actions) .felt > #readyPanel{
         display:grid!important;
       }
-      /* The reserved strip has no twin in the header -- nothing else on
-         desktop says the seat is held for the next hand -- so it comes
-         through the hide. */
-      body.v014.poker8-desktop-v2 .felt > #readyPanel.is-pending{
-        display:grid!important;
-      }
-      /* Reserved: nothing to press, so it collapses to a strip on the rail
-         and hands the middle back to the game. */
-      body.v014.poker8-desktop-v2 .felt > #readyPanel.is-pending{
-        top:12px!important;width:min(42%,340px)!important;padding:7px 13px!important;
+      /* Reservation status belongs beside the table name, not over a seat.
+         The actions can wrap in a narrow desktop window; this stays between
+         them and the identity instead of floating across either one. */
+      body.v014.poker8-desktop-v2 .topbar > #readyPanel.is-pending:not([hidden]){
+        display:grid!important;position:static!important;transform:none!important;
+        flex:0 1 300px!important;min-width:140px!important;max-width:300px!important;
+        margin:0 auto!important;padding:7px 12px!important;gap:2px!important;
         grid-template-columns:minmax(0,1fr)!important;text-align:center!important;
-        box-shadow:0 8px 18px rgba(0,0,0,.38)!important;
+        box-sizing:border-box!important;
       }
       body.v014.poker8-desktop-v2 .felt > #readyPanel strong{grid-column:1!important;color:#a8ffd4!important;font-size:16px!important;line-height:1.1!important;}
       body.v014.poker8-desktop-v2 .felt > #readyPanel span{grid-column:1!important;color:#c3d7cc!important;font-size:12px!important;line-height:1.3!important;}
       body.v014.poker8-desktop-v2 .felt > #readyPanel button{grid-column:2!important;grid-row:1 / span 2!important;align-self:center!important;min-height:42px!important;padding:9px 14px!important;white-space:nowrap!important;}
-      body.v014.poker8-desktop-v2 .felt > #readyPanel.is-pending strong{font-size:12px!important;}
-      body.v014.poker8-desktop-v2 .felt > #readyPanel.is-pending span{font-size:12px!important;}
-      body.v014.poker8-desktop-v2 .felt > #readyPanel.is-pending button{display:none!important;}
+      body.v014.poker8-desktop-v2 .topbar > #readyPanel strong{font-size:12px!important;line-height:1.2!important;}
+      body.v014.poker8-desktop-v2 .topbar > #readyPanel span{font-size:12px!important;line-height:1.3!important;}
+      body.v014.poker8-desktop-v2 .topbar > #readyPanel button{display:none!important;}
 
       /* Over the felt rather than beside it, and only once asked for. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 #chatPanel{
