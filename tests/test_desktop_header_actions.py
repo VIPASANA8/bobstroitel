@@ -91,18 +91,17 @@ def test_the_readypanel_fallback_is_gated_on_that_same_marker():
     assert ".poker8-online.p8-desktop-header-actions #readyPanel{display:none!important}" in SOURCE
 
 
-def test_the_reserved_strip_survives_that_hide():
-    """Hiding the offer card on desktop also hid the state it reports -- the
-    seat is reserved, the queue takes you in at the next boundary -- so
-    pressing the header's button was answered by nothing at all. The panel
-    lives between the desktop header's identity and buttons; on a phone it
-    stays on the felt. v039 lets the pending state through the hide."""
+def test_the_reserved_strip_does_not_repeat_the_header_button():
+    """It spent a version in the desktop topbar, reporting that a seat request
+    had landed -- beside the header's own "В очереди" button, which says the
+    same thing in the place the request was made from. Two sources for one fact,
+    and it cost the bar the 300px that pushed its controls onto a second row."""
     v039 = Path("static/v039-poker8-v2-desktop-parity.js").read_text(encoding="utf-8")
-    assert "body.v014.poker8-desktop-v2 .topbar > #readyPanel.is-pending:not([hidden]){" in v039
-    # And the offer card stays hidden: the header carries that button.
+    assert ".topbar > #readyPanel" not in v039
+    # The offer card stays hidden on desktop too: the header carries that button.
     assert "body.v014.poker8-desktop-v2:not(.p8-desktop-header-actions) .felt > #readyPanel{" in v039
-    assert 'const host = !mobileQuery?.matches && panel.classList.contains("is-pending")' in SOURCE
-    assert 'host.insertBefore(panel, host === topbar ? topbar.querySelector(".top-actions") : null);' in SOURCE
+    # Which leaves the panel with one home, the felt, for the phone.
+    assert "if (panel.parentElement !== felt) felt.append(panel);" in SOURCE
     assert "layout.prepend(panel)" not in SOURCE, "the desktop panel used to land outside the felt"
 
 

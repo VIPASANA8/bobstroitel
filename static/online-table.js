@@ -325,14 +325,13 @@
     const panel = $("readyPanel");
     const felt = document.querySelector(".felt");
     if (!panel || !felt) return;
-    // Only the desktop reservation moves off the players and into the gap
-    // between table identity and header actions. Keep the same live region.
-    const topbar = document.querySelector(".topbar");
-    const host = !mobileQuery?.matches && panel.classList.contains("is-pending")
-      ? topbar || felt : felt;
-    if (panel.parentElement !== host) {
-      host.insertBefore(panel, host === topbar ? topbar.querySelector(".top-actions") : null);
-    }
+    // The felt at every width. The pending strip spent a version in the desktop
+    // topbar as well, to report that a seat request had landed -- but the
+    // header's own "В очереди" button already says exactly that, in the place
+    // the request was made from, so the strip was the same news twice and it
+    // cost the bar a second row. On desktop it is now simply hidden (v039);
+    // this only has to put it somewhere for the phone.
+    if (panel.parentElement !== felt) felt.append(panel);
   }
   placeReadyPanel();
   mobileQuery?.addEventListener?.("change", placeReadyPanel);
@@ -429,19 +428,6 @@
     // Every other phase reads in Russian; "COUNTDOWN" was the one word of
     // English in the pill, and the line under it already counts the seconds.
     return { waiting: "ОЖИДАНИЕ", countdown: "ПЕРЕРЫВ", active: "РАЗДАЧА", result: "ВСКРЫТИЕ", paused: "ПАУЗА" }[phase] || phase.toUpperCase();
-  }
-
-  function countdownText(state) {
-    const phase = state?.phase;
-    if (phase !== "result" && phase !== "countdown") return "";
-    // Both phases count to the same moment. The result phase used to count to
-    // result_clear_at -- three seconds earlier -- while promising the next
-    // hand, so the number ran down to one, then jumped back up and started
-    // again the instant the phase changed.
-    const target = state.next_hand_at || (phase === "result" ? state.result_clear_at : null);
-    if (!target) return "";
-    const seconds = Math.max(0, Math.ceil((Date.parse(target) - Date.now()) / 1000));
-    return `Следующая раздача через ${seconds} сек.`;
   }
 
   // Fills the space Phase 1 emptied: the topbar (desktop-only -- mobile.css
@@ -828,9 +814,6 @@
 
   function renderOnlineChrome(state) {
     setText("mobileStreetLabel", phaseLabel(state));
-    setText("newHandCountdown", countdownText(state));
-    const countdown = $("newHandCountdown");
-    if (countdown) countdown.hidden = !countdownText(state);
 
     const observerMode = ["spectator", "waiting"].includes(viewerState);
     document.body.classList.toggle("p8-observer-mode", observerMode);
@@ -888,7 +871,6 @@
       }
       // Pending has nothing to click, so the full card only blocks the table.
       ready.classList.toggle("is-pending", viewerState === "waiting");
-      placeReadyPanel();
     }
     const chat = $("chatPanel");
     if (chat) {

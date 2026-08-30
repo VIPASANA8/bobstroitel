@@ -70,7 +70,9 @@ def test_mobile_online_flow(online_server: str):
         page.wait_for_function("document.body.classList.contains('p8-can-ready')", timeout=12000)
         page.locator('.seat[data-visual-seat="0"] .avatar-wrap').click()
         page.wait_for_function("document.querySelector('#mobileStreetLabel')?.textContent === 'ПЕРЕРЫВ'", timeout=15000)
-        assert "Следующая раздача" in page.locator("#newHandCountdown").inner_text()
+        # The "next hand in N sec" line is gone -- the ring on the hero's own
+        # avatar counts the same seconds, on the seat it belongs to.
+        assert page.locator("#newHandCountdown").count() == 0
         page.wait_for_function("document.querySelector('#mobileStreetLabel')?.textContent === 'РАЗДАЧА'", timeout=15000)
 
         page.goto(f"{online_server}/static/profile.html", wait_until="domcontentloaded")

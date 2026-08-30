@@ -90,3 +90,22 @@ def test_the_desktop_header_stays_one_row():
     rule = rule[:rule.index("}")]
     assert "flex-wrap:nowrap!important" in rule
     assert "body.v014.poker8-desktop-v2 .top-actions > *{flex:0 0 auto!important;}" in V039
+
+
+def test_desktop_colours_the_seats_by_what_they_did():
+    """The v038-action-* colours were never width-gated; desktop just had
+    nothing putting the classes on, so every seat stayed resting green whether
+    it had folded, called or shoved."""
+    desktop = V038[V038.index('if (document.body.classList.contains("poker8-desktop-v2")) {'):]
+    desktop = desktop[:desktop.index("      return;")]
+    assert "runSyncStep(syncSeatActionStates);" in desktop
+    head = V038[:V038.index("      @media (max-width:780px){")]
+    assert ".seat-card.v038-action-fold .player-avatar{" in head
+
+
+def test_the_phone_ring_has_one_source():
+    """Two seats were pulled off v038's arc here in percentages, so the ring's
+    right half sat 9% below its left -- and which half won came down to the
+    order the stylesheets happened to land in."""
+    assert 'seat[data-visual-seat="5"]{left:' not in V039
+    assert 'seat[data-visual-seat="4"]{left:' not in V039

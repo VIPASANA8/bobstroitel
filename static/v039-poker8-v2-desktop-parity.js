@@ -20,11 +20,16 @@
   const style = document.createElement("style");
   style.id = "v039-poker8-v2-desktop-parity-style";
   style.textContent = `
-    /* Keep the right-hand mobile clusters inside the felt safe area. */
-    @media (max-width:780px){
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="4"]{left:86.5%!important;top:24%!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="5"]{left:84.5%!important;top:59%!important;}
-    }
+    /* The phone ring is v038's arc, and only v038's arc.
+
+       Two seats used to be pulled off it here, in percentages, to keep the
+       right-hand pair "inside the felt safe area" -- which is what
+       --p8-seat-safe-inset already buys, on both sides. The result was a ring
+       whose right half was 9% lower than its left, and worse, which half won
+       was decided by stylesheet order: these rules and v040's tie on
+       specificity, this file re-appends itself to the end of <head> on load,
+       and v038's own sheet is created whenever its script happens to finish
+       loading. So the same table could come up on the arc or off it. */
 
     /* Desktop inherits the same dark wood, green felt and neon-seat language as mobile. */
     @media (min-width:781px){
@@ -503,8 +508,7 @@
         display:grid!important;
       }
 
-      /* The offer card is only a fallback if the header buttons are missing.
-         Reservation status uses the header's free space instead (below). */
+      /* The offer card is only a fallback if the header buttons are missing. */
       body.v014.poker8-desktop-v2 .felt > #readyPanel{
         position:absolute!important;z-index:76!important;
         left:50%!important;right:auto!important;bottom:auto!important;
@@ -526,22 +530,12 @@
       body.v014.poker8-desktop-v2:not(.p8-desktop-header-actions) .felt > #readyPanel{
         display:grid!important;
       }
-      /* Reservation status belongs beside the table name, not over a seat.
-         The actions can wrap in a narrow desktop window; this stays between
-         them and the identity instead of floating across either one. */
-      body.v014.poker8-desktop-v2 .topbar > #readyPanel.is-pending:not([hidden]){
-        display:grid!important;position:static!important;transform:none!important;
-        flex:0 1 300px!important;min-width:140px!important;max-width:300px!important;
-        margin:0 auto!important;padding:7px 12px!important;gap:2px!important;
-        grid-template-columns:minmax(0,1fr)!important;text-align:center!important;
-        box-sizing:border-box!important;
-      }
+      /* No reservation strip in the bar. It said what the header's own
+         "В очереди" button says, beside that button, and cost the bar the
+         300px that pushed its controls onto a second row. */
       body.v014.poker8-desktop-v2 .felt > #readyPanel strong{grid-column:1!important;color:#a8ffd4!important;font-size:16px!important;line-height:1.1!important;}
       body.v014.poker8-desktop-v2 .felt > #readyPanel span{grid-column:1!important;color:#c3d7cc!important;font-size:12px!important;line-height:1.3!important;}
       body.v014.poker8-desktop-v2 .felt > #readyPanel button{grid-column:2!important;grid-row:1 / span 2!important;align-self:center!important;min-height:42px!important;padding:9px 14px!important;white-space:nowrap!important;}
-      body.v014.poker8-desktop-v2 .topbar > #readyPanel strong{font-size:12px!important;line-height:1.2!important;}
-      body.v014.poker8-desktop-v2 .topbar > #readyPanel span{font-size:12px!important;line-height:1.3!important;}
-      body.v014.poker8-desktop-v2 .topbar > #readyPanel button{display:none!important;}
 
       /* Over the felt rather than beside it, and only once asked for. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 #chatPanel{

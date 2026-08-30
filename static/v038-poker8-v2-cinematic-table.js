@@ -1754,6 +1754,11 @@
         // showed that it had confirmed. v039 already forces the mark visible
         // here; the class it keys on was simply never applied.
         runSyncStep(syncAllSeatReadyMarks);
+        // And what each seat just did. The colours themselves (v038-action-*,
+        // ~line 346) were never width-gated -- desktop simply had nothing
+        // putting the classes on, so every seat there stayed the resting
+        // green whether it had folded, called or shoved.
+        runSyncStep(syncSeatActionStates);
       }
       return;
     }
