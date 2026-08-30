@@ -116,14 +116,16 @@ class GameState:
         """Public state for one local viewer.
 
         During a hand only the currently controlled human receives their private
-        cards. At showdown all non-folded hands are revealed.
+        cards. At showdown all non-folded hands are revealed. Winning because
+        everyone else folded does not reveal the winner's private cards.
         """
+        showdown = self.terminal and len(self.live_ids()) >= 2
         players = {}
         for pid in self.seat_order:
             player = self.players[pid]
             reveal = False
             if self.terminal:
-                reveal = not player.folded
+                reveal = not player.folded and (showdown or viewer_player_id == pid)
             elif viewer_player_id == pid:
                 reveal = True
             elif reveal_bots and player.is_bot:

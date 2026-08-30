@@ -572,6 +572,7 @@ async function revealRemainingBoard(previousState, nextState) {
 async function animateShowdownReveal(previousState, nextState) {
   if (!nextState?.terminal) return;
   const live = (nextState.seat_order || []).filter(pid => !nextState.players?.[pid]?.folded);
+  if (live.length < 2) return;
   const bots = live.filter(pid => nextState.players?.[pid]?.is_bot);
   if (!bots.length) return;
 

@@ -278,6 +278,9 @@
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .player-cards .card{
         transform-origin:50% 100%!important;
       }
+      /* Revealed opponents use the same readable rank/suit scale as the hero. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat[data-visual-seat] .player-cards .card-rank{left:5px!important;top:3px!important;font-size:15px!important;font-weight:950!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat[data-visual-seat] .player-cards .card-suit{font-size:27px!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .player-cards .card:first-child:not(:last-child){
         transform:rotate(-6deg)!important;
       }

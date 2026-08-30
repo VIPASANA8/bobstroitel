@@ -261,22 +261,11 @@
     }
     @media (min-width:781px){
       body.v014.poker8-desktop-v2 .seat.v040-empty-seat{display:none!important;}
-      /* A percentage alone cannot keep the top row on the felt. The seat box
-         is a fixed 148px here, so its centre needs at least half of that plus
-         the ~20px the hole cards overhang above it; the tallest box here is 154px
-         (two players), so the floor is 100px. The top pole sits
-         at 9% of the felt, which is only 70px on a 780px felt and 74px on the
-         shorter seated one, so the box already started 4px above the felt and
-         the cards were clipped away entirely (reported live: "карты
-         улетают"). The floor is in pixels because the shortfall is in pixels:
-         it binds on a short felt and does nothing on a tall one, so the
-         hexagon keeps its spread wherever there is room for it. */
+      /* Percentage positions need a pixel floor: half the tallest seat plus
+         the full-size face-up pair's overhang and fan. Reserve that room in
+         both card states so revealing a hand cannot move the seat. */
       body.v014.poker8-desktop-v2 .seat.v040-dynamic-seat{
-        /* Half of the tallest box (154px) plus the deepest overhang above it,
-           scaled with the box. The deepest is the face-down pair's 20px: it
-           sits behind the avatar and has to show a strip above it, where a
-           face-up pair is in front and only needs 14. */
-        left:var(--v040-seat-x)!important;top:max(var(--v040-seat-y),calc(100px * var(--p8-ui-scale,1)))!important;
+        left:var(--v040-seat-x)!important;top:max(var(--v040-seat-y),calc(140px * var(--p8-ui-scale,1)))!important;
         /* scale after the translate, so it grows about the seat's own centre
            and the percentage that places it on the felt still lands where it
            did. v039 measures the factor; the fallback is the size these boxes
@@ -292,7 +281,9 @@
       body.v014.poker8-desktop-v2.p8-player-count-5 .seat.v040-dynamic-seat,
       body.v014.poker8-desktop-v2.p8-player-count-6 .seat.v040-dynamic-seat{width:134px!important;height:148px!important;}
       body.v014.poker8-desktop-v2:not(.p8-spectator-layout) .seat.v040-dynamic-seat[data-visual-seat="0"]{width:144px!important;height:150px!important;z-index:28!important;}
-      body.v014.poker8-desktop-v2:not(.p8-spectator-layout) .seat.v040-dynamic-seat[data-visual-seat="0"] .player-cards{top:calc(var(--p8-avatar) / 2 - 5px - var(--p8-card-h) * var(--p8-center-scale))!important;}
+      /* Every revealed pair shares the hero's avatar anchor. Hidden cards
+         retain their behind-the-head placement from v039. Desktop only. */
+      body.v014.poker8-desktop-v2 .seat.v040-dynamic-seat[data-visual-seat] .player-cards:has(.card:not(.back)){top:calc(var(--p8-avatar) / 2 - 5px - var(--p8-card-h) * var(--p8-center-scale))!important;}
     }
   `;
   document.head.appendChild(style);
