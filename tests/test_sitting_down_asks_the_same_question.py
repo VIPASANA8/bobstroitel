@@ -92,14 +92,14 @@ def test_the_trainer_controls_are_gone_from_an_online_drawer():
     assert 'id="mobileDrawerInfinite"' in markup, "the trainer still needs them"
 
 
-def test_the_instruction_sits_under_the_seat_count_and_holds_all_three_parts():
-    """"2 из 6 мест" is where somebody looking for help is already looking.
-    It opens the same panel the header's "?" does, so there is one place
-    holding what beats what, how a hand runs, and what each button does."""
-    assert 'id="p8TableGuide"' in ONLINE
-    assert '"#mobileHintButton, #p8TableGuide"' in ONLINE
+def test_one_door_to_the_guide_and_it_holds_all_three_parts():
+    """A second "Инструкция" button sat under the seat count for a while,
+    opening the panel the header's "?" already opens -- the same door twice,
+    two controls apart in the same bar. The identity is name and blinds."""
+    assert "p8TableGuide" not in ONLINE
+    assert '"#mobileHintButton"' in ONLINE
     identity = ONLINE[ONLINE.index("box.innerHTML = '<b data-name>"):]
-    assert "p8TableGuide" in identity[:identity.index(";")], "not under the count"
+    assert "button" not in identity[:identity.index(";")]
 
     v037 = Path("static/table-guide.js").read_text(encoding="utf-8")
     for section in ("Комбинации", "Правила", "Кнопки"):

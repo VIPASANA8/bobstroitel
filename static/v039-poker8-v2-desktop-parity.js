@@ -126,6 +126,13 @@
       /* ...and the controls themselves keep their width while it does. */
       body.v014.poker8-desktop-v2 .top-actions > *{flex:0 0 auto!important;}
       body.v014.poker8-desktop-v2 .mobile-header-utility{display:flex!important;gap:8px!important;align-items:center!important;}
+      /* placeHeaderActions parks the seat pair here, as a sibling of the
+         identity and the control cluster. The auto margin is what keeps it
+         next to the identity: .topbar is space-between, and an auto margin
+         takes the free space before the cluster rather than around it. */
+      body.v014.poker8-desktop-v2 .topbar > .mobile-header-seat-actions{
+        margin-right:auto!important;flex:0 0 auto!important;
+      }
       /* Room to breathe that a 374px phone could not spare: the labels stop
          being clipped to an ellipsis and the hit target grows to match the
          42px chat/hint squares beside them. */
@@ -352,6 +359,19 @@
         box-shadow:0 4px 10px rgba(0,0,0,.42)!important;
       }
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .board-cards .card{border-color:rgba(98,255,170,.82)!important;background:linear-gradient(150deg,#07100f,#000000)!important;box-shadow:0 0 12px rgba(35,255,159,.32),0 6px 11px rgba(0,0,0,.58)!important;}
+      /* The board card the viewer's hand is actually made of.
+
+         v038 paints it amber, but that rule and the mint one directly above
+         tie on specificity -- five classes each -- and this file re-appends
+         itself to the end of <head>, so on desktop the mint won and the card
+         went back to looking like every other one. The hero's own two cards
+         never had the problem: v038 reaches them through .viewer-seat as well,
+         which is one class more than anything here. Same amber, restated after
+         the rule that was overwriting it. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .board-cards .card.hand-combo{
+        border-color:#f1c867!important;
+        box-shadow:0 0 0 2px rgba(238,180,65,.42),0 0 16px rgba(238,180,65,.62),inset 0 0 10px rgba(238,180,65,.16)!important;
+      }
       /* Same reading order as the phone -- chips, then the amount, then the
          board -- which desktop had upside down: the board sat at 42% of the
          felt with the pot below it at 63%. Placed against this oval rather

@@ -134,3 +134,22 @@ def test_the_win_loss_card_is_not_phone_only():
     assert ".v025-showdown-modal" not in phone
     assert "v025-showdown-layout" in phone, "the seat lane really is phone-only"
     assert "\n    .v025-showdown-modal{" in V025
+
+
+def test_the_made_hands_board_card_survives_the_desktop_repaint():
+    """v038's amber and v039's mint tie on specificity -- five classes each --
+    and v039 re-appends itself to the end of <head>, so on desktop the mint won
+    and the card the hand is made of looked like every other one."""
+    mint = V039.index("poker8-desktop-v2 .board-cards .card{border-color:rgba(98,255,170")
+    amber = V039.index("poker8-desktop-v2 .board-cards .card.hand-combo{")
+    assert amber > mint, "the highlight has to be restated after what overwrote it"
+    assert "border-color:#f1c867!important" in V039
+
+
+def test_the_seat_pair_sits_with_the_room_on_desktop():
+    """At the far end of a wide bar, "Нажмите на аватар" was a caption with
+    nothing near it."""
+    online = Path("static/online-table.js").read_text(encoding="utf-8")
+    assert "bar.insertBefore(seatGroup, topActions);" in online
+    rule = V039[V039.index(".topbar > .mobile-header-seat-actions{"):]
+    assert "margin-right:auto!important" in rule[:rule.index("}")]

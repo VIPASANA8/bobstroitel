@@ -43,12 +43,6 @@
        these must stay above the @media(max-width:780px) block below, and
        they must stay scoped to .poker8-online so local mode keeps them. */
     .poker8-online .seat-edit,.poker8-online .table-count{display:none!important}
-    .poker8-online .p8-table-guide{
-      display:block;margin-top:5px;padding:4px 9px;border:1px solid rgba(64,237,167,.42);
-      border-radius:8px;background:rgba(4,31,20,.86);color:#91e8ba;
-      font:800 10px/1 Inter,ui-sans-serif,system-ui;letter-spacing:.06em;cursor:pointer;
-    }
-    .poker8-online .p8-table-guide:hover{border-color:rgba(64,237,167,.7);color:#eafff6}
     /* The drawer's three trainer controls: online the server deals, runs the
        next hand and never pauses, so all three did nothing here. Hidden by
        mode rather than deleted -- the local trainer still needs them -- and
@@ -355,6 +349,17 @@
     for (const group of groups) {
       if (group.parentElement !== host) host.append(group);
     }
+    // ...except that on desktop the seat pair moves one level up, to sit
+    // straight after the room's name and blinds rather than at the far end of
+    // the right-hand cluster. "Нажмите на аватар" is an instruction about the
+    // table being looked at, not one more control to reach for, and at the end
+    // of a wide bar it was a caption with nothing near it. v039 gives it the
+    // auto margin that leaves the rest of the bar exactly where it was.
+    const seatGroup = $("mobileHeaderSeatActions");
+    const bar = topActions?.parentElement;
+    if (!phone && seatGroup && topActions && bar && seatGroup.parentElement !== bar) {
+      bar.insertBefore(seatGroup, topActions);
+    }
     // The way back to the lobby lives in the drawer, and v039 hides the
     // drawer on desktop -- so a desktop table was a room with no door: the
     // only exits were the browser's back button and closing the tab. Moved
@@ -442,12 +447,10 @@
       box = document.createElement("div");
       box.id = "p8TableIdentity";
       box.className = "p8-table-identity";
-      // The instruction sits under the seat count, where somebody reading
-      // "2 из 6 мест" is already looking. It opens the same panel the header's
-      // "?" does -- one place that holds the combinations, the rules and what
-      // each action button does.
-      box.innerHTML = '<b data-name></b><small data-meta></small>'
-        + '<button id="p8TableGuide" class="p8-table-guide" type="button">Инструкция</button>';
+      // Name and blinds only. A second "Инструкция" button lived here for a
+      // while, opening the panel the header's "?" already opens, two controls
+      // apart in the same bar -- the same door twice.
+      box.innerHTML = '<b data-name></b><small data-meta></small>';
       host.appendChild(box);
     }
     // Same units-to-money convention the lobby prints blinds with.
@@ -1291,7 +1294,7 @@
     // Same reason as the chat button above: v037 creates it, and v037 runs
     // after boot.
     document.addEventListener("click", event => {
-      if (event.target?.closest?.("#mobileHintButton, #p8TableGuide")) {
+      if (event.target?.closest?.("#mobileHintButton")) {
         const modal = $("handRankingsModal");
         if (modal) modal.hidden = !modal.hidden;
         return;
