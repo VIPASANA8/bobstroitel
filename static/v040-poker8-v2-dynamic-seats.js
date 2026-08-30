@@ -327,7 +327,11 @@
     // not the one that exists: sit down, and until a hand is dealt you are in
     // no roster, so viewer_player_id is null while viewer_state says seated.
     // The seat number is the other half, and it is true the whole time.
-    const viewerSeatNo = tableState?.viewer_seat_no ?? gameState?.viewer_seat_no ?? null;
+    // REST adds viewer_seat_no, but socket snapshots carry only the id.
+    // While game is null, tableData.seats still maps that id to its chair.
+    // Never match a null id or retain the previous snapshot's seat number.
+    const viewerSeatNo = tableState?.viewer_seat_no ?? gameState?.viewer_seat_no
+      ?? (viewerId ? tableState?.seats?.find(seat => seat.id === viewerId)?.seat : null);
     if (!viewer && viewerSeatNo != null) {
       viewer = active.find(seat => Number(seat.dataset.seat) === Number(viewerSeatNo)) || null;
     }

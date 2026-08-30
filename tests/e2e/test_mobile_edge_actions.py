@@ -63,6 +63,50 @@ def _center(page: Page, selector: str) -> tuple[float, float]:
     )
 
 
+@pytest.mark.parametrize("width,height", [(390, 844), (1192, 877)])
+@pytest.mark.parametrize("played_last_hand", [True, False])
+def test_idle_viewer_keeps_the_hero_chair_after_a_socket_snapshot(
+    online_server: str, width: int, height: int, played_last_hand: bool,
+):
+    """REST adds viewer_seat_no; socket snapshots identify the player by id
+    only. Neither may rotate a seated viewer into the watching ring."""
+    state = _state(player_count=1)
+    state.update({
+        "phase": "waiting", "viewer_player_id": "hero", "viewer_seat_no": 0,
+        "current_seats": {"0": {"id": "hero", "name": "SweetGirl", "stack": 55,
+                                  "is_bot": False, "state": "seated"}},
+    })
+    if not played_last_hand:
+        state["players"] = {}
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(device_scale_factor=1)
+            _open_table(page, online_server, width, height, state)
+            page.evaluate("window.Poker8OnlineTable = true")
+            render = "payload => window.Poker8LegacyView.renderSnapshot({table:{id:'micro-a',name:'Micro A'},state:payload,viewerState:'seated'})"
+            page.evaluate(render, state)
+            assert not page.locator("body").evaluate("el => el.classList.contains('p8-spectator-layout')")
+
+            del state["viewer_seat_no"]
+            page.evaluate(render, state)
+            page.wait_for_timeout(500)
+            assert not page.locator("body").evaluate("el => el.classList.contains('p8-spectator-layout')")
+            assert page.locator('.seat[data-seat="0"]').get_attribute("data-visual-seat") == "0"
+            assert page.locator('.seat[data-seat="0"] .viewer-seat').count() == 1
+
+            # No cached seat number or card marker may promote a real
+            # spectator to hero after the server stops identifying them.
+            state["viewer_player_id"] = None
+            page.evaluate(
+                "payload => window.Poker8LegacyView.renderSnapshot({table:{id:'micro-a'},state:payload,viewerState:'spectator'})",
+                state,
+            )
+            assert page.locator("body").evaluate("el => el.classList.contains('p8-spectator-layout')")
+        finally:
+            browser.close()
+
+
 def test_the_sit_button_occupies_the_hero_avatars_exact_place(online_server: str):
     """Changing from spectator to seated must replace the invitation in
     place, rather than making the avatar jump inside the same outer chair."""
