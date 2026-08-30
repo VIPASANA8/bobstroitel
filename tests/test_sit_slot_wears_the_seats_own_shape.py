@@ -105,7 +105,6 @@ def test_a_claimed_seat_stops_offering_itself():
 
     reserved = V040[V040.index(".p8-seat-reserved .seat.v040-sit-slot"):]
     reserved = reserved[:reserved.index("`")]
-    assert "pointer-events:none!important" in reserved, "a held seat must not take another click"
     # Measured in the browser at the 10px/0.6px the plate is set in:
     # ЗАБРОНИРОВАНО renders 96px wide inside a 90px plate and spills out of
     # it. Whatever the word is, it has to fit the plate it sits on.
@@ -199,3 +198,18 @@ def test_the_turn_ring_only_runs_while_the_server_keeps_a_clock():
     assert "const timed = !Number.isNaN(deadline);" in body
     assert 'setText(timer.querySelector("b"), "");' in body
     assert "TURN_VISUAL_MS - (Date.now() - turnVisualStartedAt)" not in body
+
+
+def test_pressing_your_own_held_seat_gives_it_back():
+    """The chair was pointer-events:none once held, so the only way out of the
+    queue was a button in the header -- not where anyone looks. It is the same
+    call the header's "Отменить" makes, and like it, it does not ask twice."""
+    reserved = V040[V040.index(".p8-seat-reserved .seat.v040-sit-slot"):]
+    reserved = reserved[:reserved.index("`")]
+    assert "pointer-events:none" not in reserved
+
+    online = (STATIC / "online-table.js").read_text(encoding="utf-8")
+    handler = online[online.index('const button = event.target?.closest?.("[data-add-seat]");'):]
+    handler = handler[:handler.index("showBuyInDialog(Number(button.dataset.addSeat));")]
+    assert 'if (viewerState === "waiting") {' in handler
+    assert "cancelQueue()" in handler

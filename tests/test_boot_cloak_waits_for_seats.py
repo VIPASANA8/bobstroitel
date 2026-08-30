@@ -60,7 +60,7 @@ def test_it_waits_for_real_data_not_just_for_the_call():
     # before the opening snapshot -- so the retries were gone by the time the
     # seat cards appeared, and the table stayed crooked anyway.
     assert "if (!isRetry) placementRetries = 0;" in wrapper
-    assert "window.tableData, true)" in wrapper, "the retry must mark itself as one"
+    assert "liveState(), true)" in wrapper, "the retry must mark itself as one"
 
     # The inner pass has to actually report whether it placed anything, or
     # the guard above is reading a value nobody sets.
@@ -81,7 +81,19 @@ def test_it_lays_the_table_out_on_load_too():
     calls it even once.
     """
     tail = V040[V040.index('window.addEventListener("resize"'):]
-    assert "applyDynamicLayout(window.game, window.tableData);" in tail
+    assert "applyDynamicLayout(...liveState());" in tail
+
+
+def test_the_off_render_passes_read_the_real_state():
+    """`let game` at a script's top level is a global lexical binding, not a
+    property of window -- so window.game was undefined in all three passes
+    that are not handed the state as arguments. The layout then found no
+    viewer and laid the table out as a spectator's, which is why any resize
+    on desktop threw the hero out of the near chair."""
+    # The prose above this rule in v040 names window.game to explain itself,
+    # so this checks the call sites rather than the file.
+    assert "applyDynamicLayout(window." not in V040
+    assert "try { return [game, tableData]; } catch { return [null, null]; }" in V040
 
 
 def test_the_failsafe_survives():
