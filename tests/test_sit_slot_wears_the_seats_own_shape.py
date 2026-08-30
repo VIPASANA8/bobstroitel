@@ -72,7 +72,11 @@ def test_the_phone_label_sits_where_the_name_plate_sits():
     sit = _last_rule_text(V040, "body.v014.poker8-v2-sixmax .seat.v040-sit-slot", "--p8-sit-label-top")
     hero = _last_rule_text(V038, 'body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"]', "--p8-hero-label-top")
     plate = _last_rule_text(V038, 'body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-identity', "top")
-    assert "--p8-sit-label-top:var(--p8-hero-label-top,40px)" in sit
+    # The label used to take the name plate's own offset. A plate may overlap
+    # the avatar's bottom edge -- it is a solid box and the name sits inside it
+    # -- but the invitation lost its box, so that number put the bare word on
+    # the ring. It is worked out from the circle now, and keeps the width.
+    assert "--p8-sit-label-top:calc(var(--p8-sit-top) + var(--p8-sit-size) + 6px)" in sit
     assert "--p8-sit-label-w:var(--p8-hero-label-w,90px)" in sit
     assert "--p8-hero-label-top:54px" in hero and "--p8-hero-label-w:108px" in hero
     assert "top:var(--p8-hero-label-top)" in plate
@@ -87,7 +91,9 @@ def test_the_desktop_invitation_matches_the_desktop_avatar_and_plate():
     block = V040[V040.index("body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat.v040-sit-slot{"):]
     block = block[:block.index("}")]
     assert "--p8-sit-size:var(--p8-avatar,88px)" in block
-    assert "--p8-sit-label-top:calc(var(--p8-avatar,88px) - 6px)" in block
+    # Desktop no longer restates the offset at all: the shared rule derives it
+    # from --p8-sit-size, which desktop already points at --p8-avatar.
+    assert "--p8-sit-label-top" not in block
     avatar = "body.v014.poker8-v2-sixmax.poker8-desktop-v2 .avatar-wrap"
     plate = "body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat-identity"
     assert "var(--p8-avatar)" in _last_rule_text(V039, avatar, "width")

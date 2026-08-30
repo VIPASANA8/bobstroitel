@@ -97,6 +97,9 @@
            everything the viewport has. dvh, so the browser's own collapsing
            chrome does not take a slice of it. */
         position:absolute;left:50%;top:8px;transform:translateX(-50%);
+        /* 380 is a phone's panel, and desktop was handed the same one: a
+           narrow column down the middle of a 1200px window, with the rules
+           and the button glossary wrapping every second word. */
         width:min(92vw,380px);max-height:calc(100dvh - 16px);overflow-y:auto;
         background:linear-gradient(180deg,#0a1512,#07100f);border:1px solid rgba(64,237,167,.28);
         border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.6),0 0 30px rgba(64,237,167,.1);
@@ -134,16 +137,35 @@
       .hand-rankings-modal .hr-card.red{color:#d0271c;}
       .hand-rankings-modal .hr-card b{font-size:10px;}
       .hand-rankings-modal .hr-text{display:flex;flex-direction:column;gap:1px;min-width:0;}
+      /* Three sections ran together: the heading was 10px of grey caps with
+         18px above it, and the rows on either side carry the same hairline as
+         each other, so "ПРАВИЛА" read as one more row of the combinations
+         list rather than the start of something else. A rule across the panel
+         and real air above it is the break. */
       .hand-rankings-modal .hr-section{
-        margin:18px 0 2px;color:#6f8b81;font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+        margin:22px 0 8px;padding-top:18px;border-top:1px solid rgba(120,150,140,.28);
+        color:#8ff2c0;font-size:11px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;
       }
-      .hand-rankings-modal .hr-section:first-child{margin-top:2px;}
+      .hand-rankings-modal .hr-section:first-child{margin-top:2px;padding-top:0;border-top:0;}
       .hand-rankings-modal .hr-defs{display:flex;flex-direction:column;}
       .hand-rankings-modal .hr-def{
         display:grid;grid-template-columns:var(--hr-cards-w) 1fr;gap:10px;align-items:baseline;
         padding:8px 4px;border-top:1px solid rgba(120,150,140,.14);
       }
       .hand-rankings-modal .hr-def strong{color:#eafff6;font-size:12px;}
+      @media (min-width:781px){
+        .hand-rankings-modal .hr-panel{width:min(92vw,720px);top:24px;padding:20px 22px;}
+        .hand-rankings-modal .hr-head{font-size:18px;margin-bottom:14px;}
+        /* The card column stays the width it was measured at -- every hand
+           still centres on one axis -- so all of the extra goes to the names
+           and the explanations, which is what was wrapping. */
+        .hand-rankings-modal .hr-row,
+        .hand-rankings-modal .hr-def{padding:11px 6px;}
+        .hand-rankings-modal .hr-text strong,
+        .hand-rankings-modal .hr-def strong{font-size:14px;}
+        .hand-rankings-modal .hr-text span,
+        .hand-rankings-modal .hr-def span{font-size:12px;}
+      }
       /* Each action wears its own button's colour. --act-* live in style.css,
          which the lobby does not load, so each carries the same literal. */
       .hand-rankings-modal .hr-act-fold strong{color:var(--act-fold,#ff4d42);}

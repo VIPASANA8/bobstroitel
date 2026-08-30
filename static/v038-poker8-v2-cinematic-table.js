@@ -461,8 +461,8 @@
          board -- renderPotChips now splits the count into a left and a right
          .chip-cluster.pot-wing, laid out with the same flex row every other
          cluster on the felt already uses (see .chip-cluster in style.css). */
-      body.v014.poker8-v2-sixmax .pot-chips .chip-cluster.pot-wing{height:52px!important;min-width:0!important;filter:drop-shadow(0 8px 6px rgba(0,0,0,.54))!important;}
-      body.v014.poker8-v2-sixmax .pot-chips .chip-column{width:22px!important;height:48px!important;margin:0 -5px!important;}
+      body.v014.poker8-v2-sixmax .pot-chips .chip-cluster.pot-wing{height:68px!important;min-width:0!important;filter:drop-shadow(0 8px 6px rgba(0,0,0,.54))!important;}
+      body.v014.poker8-v2-sixmax .pot-chips .chip-column{width:29px!important;height:63px!important;margin:0 -6px!important;}
       body.v014.poker8-v2-sixmax .pot-chips .poker-chip{
         width:22px!important;height:9px!important;border-width:1px!important;
         transform:translateX(-50%) translateY(calc(var(--i) * -3.6px))!important;
@@ -812,14 +812,14 @@
       body.v014.poker8-v2-sixmax .seat-identity{
         top:40px!important;width:90px!important;min-height:44px!important;padding:5px 6px 4px!important;border-radius:9px!important;
       }
-      body.v014.poker8-v2-sixmax .seat-name{max-width:100%!important;font-size:12px!important;line-height:1.05!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;}
+      body.v014.poker8-v2-sixmax .seat-name{max-width:100%!important;font-size:15px!important;line-height:1.05!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;}
       body.v014.poker8-v2-sixmax .seat-stack{font-size:16px!important;line-height:1!important;white-space:nowrap!important;}
       body.v014.poker8-v2-sixmax .player-cards{top:-31px!important;}
       body.v014.poker8-v2-sixmax .player-cards .card{width:32px!important;height:44px!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .avatar-wrap{top:var(--p8-hero-avatar-top)!important;width:var(--p8-hero-avatar-size)!important;height:var(--p8-hero-avatar-size)!important;transform:translateX(-50%)!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .player-avatar{width:var(--p8-hero-avatar-size)!important;height:var(--p8-hero-avatar-size)!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-identity{top:var(--p8-hero-label-top)!important;width:var(--p8-hero-label-w)!important;min-height:47px!important;}
-      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-name{max-width:100%!important;font-size:13px!important;}
+      body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-name{max-width:100%!important;font-size:16px!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .seat-stack{font-size:18px!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .player-cards{top:-52px!important;gap:4px!important;}
       body.v014.poker8-v2-sixmax .seat[data-visual-seat="0"] .viewer-seat .player-cards .card{width:50px!important;height:70px!important;}
@@ -1673,6 +1673,12 @@
     document.body.classList.remove("v038-sizing-open", "v038-room-awaiting");
     document.getElementById("sizingWrap")?.setAttribute("aria-hidden", "true");
     document.getElementById("mobileBetRail")?.setAttribute("aria-hidden", "true");
+    // syncPotChipStack pins #potChips with an inline top in px, at !important,
+    // which outranks even v039's `top:auto!important` -- so a desktop window
+    // that had ever been narrow kept the phone's measurement and dropped the
+    // pile onto the board, under the plate it is supposed to sit above.
+    // Desktop orders the centre column with flex; it only needs this cleared.
+    document.getElementById("potChips")?.style.removeProperty("top");
     document.querySelector(".v038-turn-timer")?.remove();
     document.querySelector(".v038-turn-context")?.remove();
     document.querySelector(".v038-room-prompt")?.remove();

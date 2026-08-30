@@ -166,3 +166,34 @@ def test_the_lobby_balance_is_a_number_with_the_profile_chip_after_it():
     assert lobby.index('id="wallet"') < lobby.index('class="profile-chip"'), "chip goes last"
     assert "PLAY" not in js
     assert ".profile-chip{" in css and "border-radius:50%" in css
+
+
+V040 = Path("static/v040-poker8-v2-dynamic-seats.js").read_text(encoding="utf-8")
+GUIDE = Path("static/table-guide.js").read_text(encoding="utf-8")
+CHAT = Path("online/chat.py").read_text(encoding="utf-8")
+
+
+def test_the_pot_pile_does_not_outlive_the_width_it_was_measured_at():
+    """syncPotChipStack pins #potChips with an inline top in px at !important,
+    which outranks even v039's `top:auto!important` -- so a desktop window that
+    had ever been narrow kept the phone's measurement and dropped the pile onto
+    the board, under the plate it is supposed to sit above."""
+    teardown = V038[V038.index("function teardownFinalReference()"):]
+    teardown = teardown[:teardown.index("\n  function ")]
+    assert 'getElementById("potChips")?.style.removeProperty("top")' in teardown
+
+
+def test_the_guide_gets_a_desktop_width_and_sections_that_divide():
+    assert "width:min(92vw,720px)" in GUIDE, "380px is a phone's panel"
+    section = GUIDE[GUIDE.index(".hand-rankings-modal .hr-section{"):]
+    section = section[:section.index("}")]
+    assert "border-top:" in section and "padding-top:" in section
+
+
+def test_chat_forgets_an_hour_old_line():
+    assert "CHAT_TTL = timedelta(minutes=60)" in CHAT
+    # Hidden on read, so the cutoff holds whether or not anything swept it...
+    assert "chat_messages.c.created_at >= self._datetime(None) - CHAT_TTL" in CHAT
+    # ...and removed on write, so the table does not keep what nobody can read.
+    assert "chat_messages.delete().where(" in CHAT
+    assert "chat_messages.c.created_at < current - CHAT_TTL," in CHAT

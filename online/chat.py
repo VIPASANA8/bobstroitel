@@ -13,6 +13,11 @@ from online.schema import chat_messages, users
 #: Kept with the column width in online/schema.py and the router's Field.
 CHAT_TEXT_MAX = 1000
 
+#: How long a line stays in the room. Table chat is about the hand being
+#: played, and an hour is already several sessions of them -- anything older is
+#: read by nobody and kept forever by everybody.
+CHAT_TTL = timedelta(minutes=60)
+
 
 class ChatError(ValueError):
     pass
@@ -79,6 +84,18 @@ class ChatService:
                 await session.execute(chat_messages.insert().values(
                     id=message.id, table_id=table_id, user_id=user_id, text=text, created_at=current,
                 ))
+                # ponytail: swept on write, in the transaction that is already
+                # open, rather than on a schedule. A table nobody writes to
+                # keeps its expired rows -- `recent` hides them either way, so
+                # this is storage, not behaviour. Move it to a periodic job in
+                # online/coordinator.py if idle tables ever hold enough to
+                # matter.
+                await session.execute(
+                    chat_messages.delete().where(
+                        chat_messages.c.table_id == table_id,
+                        chat_messages.c.created_at < current - CHAT_TTL,
+                    )
+                )
                 return message
 
     async def recent(self, table_id: str, limit: int = 50) -> list[ChatMessage]:
@@ -89,7 +106,10 @@ class ChatService:
                     .select_from(
                         chat_messages.join(users, users.c.id == chat_messages.c.user_id, isouter=True)
                     )
-                    .where(chat_messages.c.table_id == table_id)
+                    .where(
+                        chat_messages.c.table_id == table_id,
+                        chat_messages.c.created_at >= self._datetime(None) - CHAT_TTL,
+                    )
                     .order_by(desc(chat_messages.c.created_at), desc(chat_messages.c.id))
                     .limit(max(1, min(limit, 50)))
                 )

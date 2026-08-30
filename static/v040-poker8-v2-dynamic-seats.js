@@ -185,14 +185,20 @@
          copies of every rule. */
       body.v014.poker8-v2-sixmax .seat.v040-sit-slot{
         --p8-sit-size:var(--p8-hero-avatar-size,44px);--p8-sit-top:var(--p8-hero-avatar-top,0px);
-        --p8-sit-label-top:var(--p8-hero-label-top,40px);--p8-sit-label-w:var(--p8-hero-label-w,90px);--p8-sit-glyph:20px;
+        /* Under the circle with air between them, worked out from the circle
+           rather than copied from the name plate's own offset. A real seat's
+           plate is allowed to overlap the avatar's bottom edge -- it is a
+           solid box and the name sits inside it -- but the invitation lost
+           that box, so the same number left the bare word sitting on the
+           ring. 6px is the gap; the rest is where the circle actually ends. */
+        --p8-sit-label-top:calc(var(--p8-sit-top) + var(--p8-sit-size) + 6px);
+        --p8-sit-label-w:var(--p8-hero-label-w,90px);--p8-sit-glyph:20px;
       }
       /* The head has a ceiling on desktop (v039's --p8-avatar), and an empty
          chair the size of a taken one is the whole point of this block -- so
          the size and the label's place come from that same value. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat.v040-sit-slot{
         --p8-sit-size:var(--p8-avatar,88px);--p8-sit-top:2px;
-        --p8-sit-label-top:calc(var(--p8-avatar,88px) - 6px);
         --p8-sit-label-w:116px;--p8-sit-glyph:27px;
       }
       body.v014.poker8-v2-sixmax .seat.v040-sit-slot .seat-empty{
