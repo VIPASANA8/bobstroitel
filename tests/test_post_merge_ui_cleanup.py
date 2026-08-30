@@ -69,3 +69,24 @@ def test_desktop_draws_everyone_elses_readiness_too():
     desktop = V038[V038.index('if (document.body.classList.contains("poker8-desktop-v2")) {'):]
     desktop = desktop[:desktop.index("      return;")]
     assert "runSyncStep(syncAllSeatReadyMarks);" in desktop
+
+
+def test_the_deck_has_one_back():
+    """It took --seat-accent, so a face-down card changed hue with what the
+    seat was doing, and desktop drew a second variant off --avatar-hue. A back
+    carries nothing about the seat holding it -- it is the deck."""
+    back = V038[V038.index(".player-cards .card.back{"):]
+    back = back[:back.index("}")]
+    assert "--seat-accent" not in back and "--avatar-hue" not in back
+    assert back.count("hsla(263,") == 4
+    assert ".player-cards .card.back{" not in V039
+
+
+def test_the_desktop_header_stays_one_row():
+    """style.css:502 lets .top-actions wrap. Free until the reservation strip
+    took 300px out of the same line; then the controls spilled onto a second
+    row and the bar stood twice as tall."""
+    rule = V039[V039.index("body.v014.poker8-desktop-v2 .top-actions{"):]
+    rule = rule[:rule.index("}")]
+    assert "flex-wrap:nowrap!important" in rule
+    assert "body.v014.poker8-desktop-v2 .top-actions > *{flex:0 0 auto!important;}" in V039

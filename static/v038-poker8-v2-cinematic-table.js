@@ -393,12 +393,23 @@
       }
       body.v014.poker8-v2-sixmax.v038-room-resetting .player-cards{opacity:0!important;transform:translateX(-50%) translateY(-12px) scale(.92)!important;}
       body.v014.poker8-v2-sixmax.v038-hand-complete .player-cards{opacity:0!important;transform:translateX(-50%) translateY(-12px) scale(.92)!important;}
+      /* One card back, both platforms, one colour.
+
+         It used to take --seat-accent, so the back changed hue with whatever
+         the seat was doing -- green at rest, amber all-in -- and desktop drew
+         its own variant off --avatar-hue on top of that, without the centre
+         ring. A face-down card carries no information about the seat holding
+         it, so it has no business being a status light: it is the deck, and a
+         deck has one back. 263 is the hue of the violet the header already
+         uses for chat, hint and observe (#c9a8ff), which is the only accent
+         on this table that belongs to the furniture rather than to a state.
+         Sizes stay per-platform -- v039 sets those from --p8-card-w. */
       body.v014.poker8-v2-sixmax .player-cards .card.back{
         width:34px!important;height:48px!important;border-radius:5px!important;
-        border:1px solid hsla(var(--seat-accent),95%,75%,.80)!important;
+        border:1px solid hsla(263,95%,75%,.80)!important;
         background:
-          radial-gradient(circle at center,transparent 0 6px,hsla(var(--seat-accent),90%,74%,.42) 6px 7px,transparent 7px),
-          repeating-linear-gradient(45deg,hsla(var(--seat-accent),62%,38%,.74) 0 3px,hsla(var(--seat-accent),62%,16%,.96) 3px 6px)!important;
+          radial-gradient(circle at center,transparent 0 6px,hsla(263,90%,74%,.42) 6px 7px,transparent 7px),
+          repeating-linear-gradient(45deg,hsla(263,62%,38%,.74) 0 3px,hsla(263,62%,16%,.96) 3px 6px)!important;
         box-shadow:inset 0 0 0 2px rgba(0,0,0,.48),0 4px 9px rgba(0,0,0,.46)!important;
       }
       body.v014.poker8-v2-sixmax .player-cards .card.back:first-child{transform:rotate(-8deg) translateX(2px)!important;}
@@ -732,8 +743,17 @@
         --p8-arc-wide:calc(var(--p8-arc-radius) * .8660254);
         /* The old 38px pin compressed all five opponents against the header.
            At 78px the top pole lands at the former upper-wing level, while
-           both wing pairs move down by the same 40px. */
-        --p8-arc-top:78px;
+           both wing pairs move down by the same 40px.
+
+           78 was still short by the height of a card. The pin is the seat's
+           *centre*, so the seat box starts 52px above it (half of the 104px
+           box), and .player-cards hangs another 31px above that. The felt's
+           top edge is exactly the fixed header's bottom edge, so at 78 the
+           pole seat's cards began 5px above the felt and slid under the
+           header -- reported as cards going under the header. 52 + 31 + 9 of
+           margin is 92, and the two wing pairs sit below the pole on the same
+           circle, so clearing the pole clears all five. */
+        --p8-arc-top:92px;
         --p8-arc-center-y:calc(var(--p8-arc-top) + var(--p8-arc-radius));
         --p8-seat-angles:"180 135 90 45 0";
         --table-stage-h:calc(100dvh - var(--p8-header-h))!important;

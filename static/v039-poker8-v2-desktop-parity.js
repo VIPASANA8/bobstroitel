@@ -110,7 +110,16 @@
       body.v014.poker8-desktop-v2 .top-actions{
         display:flex!important;align-items:center!important;gap:8px!important;
         min-width:0!important;flex:0 1 auto!important;
+        /* style.css:502 lets this group wrap. That was free while the bar held
+           only the brand and these controls; once the reservation strip took
+           its 300px out of the same line the controls spilled onto a second
+           row and the header stood twice as tall. Nowrap makes the strip the
+           thing that gives -- it is the one flexible item in the bar -- rather
+           than the header growing to swallow the overflow. */
+        flex-wrap:nowrap!important;
       }
+      /* ...and the controls themselves keep their width while it does. */
+      body.v014.poker8-desktop-v2 .top-actions > *{flex:0 0 auto!important;}
       body.v014.poker8-desktop-v2 .mobile-header-utility{display:flex!important;gap:8px!important;align-items:center!important;}
       /* Room to breathe that a 374px phone could not spare: the labels stop
          being clipped to an ellipsis and the hit target grows to match the
@@ -263,7 +272,10 @@
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .player-cards .card:last-child:not(:first-child){
         transform:rotate(6deg)!important;margin-left:-7px!important;
       }
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .player-cards .card.back{border-color:hsl(var(--avatar-hue) 95% 72% / .82)!important;background:repeating-linear-gradient(45deg,hsl(var(--avatar-hue) 62% 38% / .76) 0 3px,hsl(var(--avatar-hue) 62% 16% / .98) 3px 6px)!important;box-shadow:inset 0 0 0 2px rgba(0,0,0,.50),0 0 10px hsl(var(--avatar-hue) 94% 58% / .30)!important;}
+      /* The desktop card back is v038's card back. This drew a second one off
+         --avatar-hue -- per-player colour, no centre ring -- so the same deck
+         had two faces depending on the window width. Sizes still come from
+         the --p8-card-w rule above; only the picture is shared. */
       /* Same avatar size and plate as every other seat -- the hero used to be
          smaller than everyone else here, which read as a rendering bug. Only
          the "this is you" border colour stays hero-specific. */
