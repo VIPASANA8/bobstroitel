@@ -346,25 +346,25 @@ layout shift. The phone keeps its full-page chat and existing controls.
 Use the current `online-table.js` controller/formatter/transport and v039's
 desktop CSS; no new library, duplicated feed or second socket.
 
-- [ ] Add `tests/e2e/test_desktop_floating_chat.py`: drag/resize/minimize,
+- [x] Add `tests/e2e/test_desktop_floating_chat.py`: drag/resize/minimize,
   viewport clamping, unchanged felt bounds, phone breakpoint, turn-banner
   visibility, long messages, scroll preservation and failed-send draft.
   Run this file first and confirm the missing behavior fails.
-- [ ] Replace the two competing desktop `#chatPanel` blocks in v039 with
+- [x] Replace the two competing desktop `#chatPanel` blocks in v039 with
   one window layout. Add desktop-only window controls in `ensureChatFurniture`;
   use pointer capture and CSS variables for coordinates, bounded to the
   viewport. Keep h2 and the phone DOM layout intact.
-- [ ] Add desktop message metadata and spacing, a jump-to-latest control,
+- [x] Add desktop message metadata and spacing, a jump-to-latest control,
   and a desktop multiline composer (Enter sends, Shift+Enter starts a line).
   Keep the phone input; preserve the draft when switching breakpoints or
   when a send fails. Reuse the existing safe chat formatter.
-- [ ] Run the new browser file, existing chat tests and viewport safety net;
+- [x] Run the new browser file, existing chat tests and viewport safety net;
   inspect a desktop screenshot. Update cache keys and this log, then commit,
   push and verify the deployed assets and health endpoint.
 
 | date | change | verified by |
 |---|---|---|
-| 2026-08-30 | Desktop chat became a floating, bounded window with drag/resize/reset, collapse, keyboard controls, readable message metadata and wrapping, unread jump control, and a desktop multiline composer. Failed sends keep drafts; phone chat markup, input and full-page geometry stay unchanged. Cache: desktop-oval-44 | 37 focused browser/static tests passed; desktop screenshot checked; full verification follows before deploy |
+| 2026-08-30 | Desktop chat became a floating, bounded window with drag/resize/reset, collapse, keyboard controls, readable message metadata and wrapping, unread jump control, and a desktop multiline composer. Failed sends keep drafts; phone chat markup, input and full-page geometry stay unchanged. Cache: desktop-oval-44 | 43 focused browser/static tests + 624 non-browser tests passed, 1 skipped, 1 known upstream countdown test excluded; screenshot checked; deployed and public health/cache/JS verified |
 | 2026-08-29 | Stage 0: the net above | 9 cases green; two faults re-introduced and caught |
 | 2026-08-29 | v015's `wagerPointForPlayer` removed — v031 replaces it later without delegating, so it could never run | static suite + the net + the live page |
 | 2026-08-29 | v022 guarded off the network table — its "+" posted to the trainer's route, which production does not mount | static suite; the online funds dialog is untouched |
