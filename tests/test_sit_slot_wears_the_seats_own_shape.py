@@ -123,21 +123,19 @@ def test_the_css_escapes_survive_the_template_literal():
         assert escape not in block, "write the character, not a numeric escape"
 
 
-def test_the_label_sits_on_a_plate_like_a_name_does():
-    """Bare text under the circle was the half of this that still did not
-    look like a seat. It takes .seat-identity's own box: same padding,
-    radius and ground, with the empty seat's mint edge in place of the
-    accent hue a taken seat carries."""
+def test_the_label_keeps_the_plates_place_but_not_its_plate():
+    """It wore .seat-identity's whole box for a while -- mint edge, black
+    ground -- and an empty chair carrying that read as a seventh occupied seat
+    from any distance, which is the one thing it must not look like. It keeps
+    where the name goes and how wide the name is; the dashed ring above it is
+    what says "a place at the table"."""
     block = V040[V040.index(".v040-sit-slot .seat-empty strong{"):]
     block = block[:block.index("}")]
-    plate = _last_rule_text(V038, "body.v014.poker8-v2-sixmax .seat-identity", "border-radius")
-    for prop in ("padding", "border-radius", "background"):
-        assert prop in block, f"the label has no {prop}, so it is not a plate"
-    # Read off the plate rather than repeated, so a restyled name plate takes
-    # the label with it instead of leaving the two subtly different.
-    for prop in ("border-radius", "padding"):
-        value = re.search(prop + r":([^;!]+)", plate).group(1).strip()
-        assert prop + ":" + value in block, f"label {prop} is {block!r}, plate wants {value}"
+    assert "border:0!important" in block
+    assert "background:none!important" in block
+    # Still where a name would be, and as wide.
+    assert "top:var(--p8-sit-label-top)!important" in block
+    assert "width:var(--p8-sit-label-w)!important" in block
 
 
 def test_a_held_seat_is_not_read_as_a_seated_one():

@@ -1212,8 +1212,19 @@
   }
 
   function setReadyCountdown(endsAt) {
-    readyCountdownEndsAt = Number(endsAt || 0);
-    readyCountdownDuration = Math.max(1, readyCountdownEndsAt - Date.now());
+    const next = Number(endsAt || 0);
+    // The ring fills to left/duration. Both were measured from now on every
+    // call -- and online-table dispatches poker8:ready-countdown on every
+    // snapshot -- so numerator and denominator shrank in step and the ring
+    // stood at 100% for the whole count, draining a few percent between
+    // snapshots and snapping back to full at the next one. The number beside
+    // it counted correctly the whole time, which is what made it read as the
+    // ring being broken rather than missing. The denominator is the length of
+    // *this* countdown, so it is taken once, when the deadline changes.
+    if (next !== readyCountdownEndsAt) {
+      readyCountdownEndsAt = next;
+      readyCountdownDuration = Math.max(1, next - Date.now());
+    }
     window.clearInterval(readyCountdownTicker);
     readyCountdownTicker = 0;
     syncAvatarReadyControl();

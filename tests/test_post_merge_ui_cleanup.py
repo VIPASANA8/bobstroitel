@@ -110,3 +110,27 @@ def test_the_phone_ring_has_one_source():
     order the stylesheets happened to land in."""
     assert 'seat[data-visual-seat="5"]{left:' not in V039
     assert 'seat[data-visual-seat="4"]{left:' not in V039
+
+
+V025 = Path("static/v025-showdown-compare.js").read_text(encoding="utf-8")
+
+
+def test_the_ring_measures_against_the_whole_countdown():
+    """Both halves of the fraction were measured from now on every call, and
+    the event fires on every snapshot -- so the ring stood at 100% for the
+    whole count while the number beside it counted down correctly."""
+    body = V038[V038.index("function setReadyCountdown(endsAt) {"):]
+    body = body[:body.index("let referenceActive")]
+    assert "if (next !== readyCountdownEndsAt) {" in body
+    assert body.count("readyCountdownDuration = Math.max(1,") == 1
+
+
+def test_the_win_loss_card_is_not_phone_only():
+    """The JS that builds it always ran at every width; the rules for it sat
+    inside @media (max-width:780px), so on desktop it was an unstyled div
+    appended to <body>."""
+    phone = V025[V025.index("@media (max-width:780px){"):]
+    phone = phone[:phone.index("\n    }\n")]
+    assert ".v025-showdown-modal" not in phone
+    assert "v025-showdown-layout" in phone, "the seat lane really is phone-only"
+    assert "\n    .v025-showdown-modal{" in V025

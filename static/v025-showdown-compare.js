@@ -298,8 +298,14 @@
         height:43px !important;
         font-size:12px !important;
       }
+    }
 
-      .v025-showdown-modal{
+    /* Everything below was inside that phone block too, so on desktop the card
+       was appended to <body> with no rules at all -- the win/loss readout
+       simply did not exist there, while the JS that builds it ran at every
+       width. Only the two seat rules above are about the phone's ring; this is
+       a fixed card over the page. */
+    .v025-showdown-modal{
         position:fixed;
         top:58px;
         left:50%;
@@ -385,8 +391,13 @@
         color:#9db3d0;
         font-size:10px;
         font-weight:800;
-        text-align:center;
-      }
+      text-align:center;
+    }
+
+    /* Clear of the desktop bar, which is in normal flow and taller than the
+       phone's 52px fixed header -- same 96px v039 gives the chat panel. */
+    @media (min-width:781px){
+      .v025-showdown-modal{top:96px;}
     }
   `;
   document.head.appendChild(style);
