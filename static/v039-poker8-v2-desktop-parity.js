@@ -241,7 +241,15 @@
          pixel floor come down -- the overhang it has to clear is 14px now,
          not 20. The bottom edge stops 5px short of the avatar's centre,
          where the stake is printed. */
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .player-cards{position:absolute!important;z-index:8!important;left:50%!important;top:-14px!important;bottom:auto!important;transform:translateX(-50%)!important;min-height:0!important;gap:0!important;pointer-events:none!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .player-cards{--p8-card-factor:var(--p8-center-scale);position:absolute!important;z-index:8!important;left:50%!important;top:-14px!important;bottom:auto!important;transform:translateX(-50%)!important;min-height:0!important;gap:0!important;pointer-events:none!important;}
+      /* The board's parent is scaled down; seats are not. Compensate once
+         so every card has the same painted size, including hidden backs. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .board-cards .card,
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat[data-visual-seat] .player-cards .card{
+        width:calc(var(--p8-card-w) * var(--p8-card-factor,1))!important;
+        height:calc(var(--p8-card-h) * var(--p8-card-factor,1))!important;
+        flex:0 0 auto!important;box-sizing:border-box!important;
+      }
       /* The fan. Rotated about the bottom edge, which is where a held pair
          pivots, and overlapped so the two read as one hand rather than two
          cards standing side by side. :not(:last-child) so a lone card -- a
@@ -255,7 +263,7 @@
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .player-cards .card:last-child:not(:first-child){
         transform:rotate(6deg)!important;margin-left:-7px!important;
       }
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .player-cards .card.back{width:40px!important;height:55px!important;border-color:hsl(var(--avatar-hue) 95% 72% / .82)!important;background:repeating-linear-gradient(45deg,hsl(var(--avatar-hue) 62% 38% / .76) 0 3px,hsl(var(--avatar-hue) 62% 16% / .98) 3px 6px)!important;box-shadow:inset 0 0 0 2px rgba(0,0,0,.50),0 0 10px hsl(var(--avatar-hue) 94% 58% / .30)!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .player-cards .card.back{border-color:hsl(var(--avatar-hue) 95% 72% / .82)!important;background:repeating-linear-gradient(45deg,hsl(var(--avatar-hue) 62% 38% / .76) 0 3px,hsl(var(--avatar-hue) 62% 16% / .98) 3px 6px)!important;box-shadow:inset 0 0 0 2px rgba(0,0,0,.50),0 0 10px hsl(var(--avatar-hue) 94% 58% / .30)!important;}
       /* Same avatar size and plate as every other seat -- the hero used to be
          smaller than everyone else here, which read as a rendering bug. Only
          the "this is you" border colour stays hero-specific. */
@@ -275,10 +283,9 @@
         z-index:3!important;top:-26px!important;
       }
 
-      /* The hero's own pair is bigger (47x65), so it sits a little higher to
-         keep the same 5px clear of the stake. */
+      /* The hero keeps its own accent, not a different card size. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat[data-visual-seat="0"] .player-cards{top:-22px!important;z-index:12!important;gap:0!important;}
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat[data-visual-seat="0"] .player-cards .card{width:47px!important;height:65px!important;border-color:#56c8ff!important;box-shadow:0 0 12px rgba(47,184,255,.46),0 5px 9px rgba(0,0,0,.54)!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat[data-visual-seat="0"] .player-cards .card{border-color:#56c8ff!important;box-shadow:0 0 12px rgba(47,184,255,.46),0 5px 9px rgba(0,0,0,.54)!important;}
       /* Beside the avatar on its left, the way the phone places it -- it sat
          bottom-right of the whole seat box here, which on a 146x154 box reads
          as floating off the seat rather than belonging to it. The avatar is
@@ -289,7 +296,7 @@
         width:30px!important;height:30px!important;z-index:12!important;
       }
 
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .table-center{transform:translate(-50%,-50%) scale(calc(.94 * var(--p8-ui-scale)))!important;z-index:12!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .table-center{transform:translate(-50%,-50%) scale(calc(var(--p8-center-scale) * var(--p8-ui-scale)))!important;z-index:12!important;}
       /* The rest of what the felt itself draws. The seats and the centre
          cluster take the factor where they are defined; these four are laid
          out against the felt directly, so they take it here.
@@ -326,7 +333,7 @@
         font-size:10px!important;line-height:1!important;letter-spacing:.06em!important;
         box-shadow:0 4px 10px rgba(0,0,0,.42)!important;
       }
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .board-cards .card{width:66px!important;height:92px!important;border-color:rgba(98,255,170,.82)!important;background:linear-gradient(150deg,#07100f,#000000)!important;box-shadow:0 0 12px rgba(35,255,159,.32),0 6px 11px rgba(0,0,0,.58)!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .board-cards .card{border-color:rgba(98,255,170,.82)!important;background:linear-gradient(150deg,#07100f,#000000)!important;box-shadow:0 0 12px rgba(35,255,159,.32),0 6px 11px rgba(0,0,0,.58)!important;}
       /* Same reading order as the phone -- chips, then the amount, then the
          board -- which desktop had upside down: the board sat at 42% of the
          felt with the pot below it at 63%. Placed against this oval rather
@@ -438,6 +445,9 @@
            plate does not grow with it. syncStage() measures the knob; 1 is
            the size everything was drawn at. */
         --p8-ui-scale:1;
+        --p8-center-scale:.94;
+        --p8-card-w:66px;
+        --p8-card-h:92px;
       }
       body.v014.poker8-v2-sixmax.poker8-desktop-v2.p8-observer-mode{--p8-stage-h:calc(100dvh - 150px);}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .table-frame{

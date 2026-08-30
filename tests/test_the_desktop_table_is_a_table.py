@@ -189,7 +189,7 @@ def test_what_the_table_draws_grows_with_the_table():
     assert "--p8-ui-scale:1;" in V039
     assert "scale(var(--p8-ui-scale,1))" in V040, "the seat transform is v040's"
     centre = _first_rule(V039, f"{DESKTOP} .table-center")
-    assert "scale(calc(.94 * var(--p8-ui-scale)))" in centre
+    assert "scale(calc(var(--p8-center-scale) * var(--p8-ui-scale)))" in centre
     actions = _rule(V039, f"{DESKTOP} #actionButtons .action-slot")
     assert "width:clamp(128px,18%,176px)!important" in actions
     # No action row is reserved in any state.

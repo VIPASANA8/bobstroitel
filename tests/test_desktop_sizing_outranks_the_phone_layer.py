@@ -54,11 +54,8 @@ def test_the_avatar_is_desktop_sized_not_phone_sized():
 
 
 def test_the_board_cards_are_desktop_sized():
-    match = re.search(
-        r"body\.v014\.poker8-v2-sixmax\.poker8-desktop-v2 \.board-cards \.card\{width:(\d+)px!important;height:(\d+)px",
-        V039,
-    )
-    assert match, "desktop board-card rule missing"
-    width, height = int(match.group(1)), int(match.group(2))
+    width = int(re.search(r"--p8-card-w:(\d+)px", V039).group(1))
+    height = int(re.search(r"--p8-card-h:(\d+)px", V039).group(1))
+    assert "width:calc(var(--p8-card-w) * var(--p8-card-factor,1))!important" in V039
     # v038's phone card is 45x63; anything at or under that is the bug.
     assert width > 45 and height > 63
