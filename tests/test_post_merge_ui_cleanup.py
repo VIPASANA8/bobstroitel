@@ -153,3 +153,16 @@ def test_the_seat_pair_sits_with_the_room_on_desktop():
     assert "bar.insertBefore(seatGroup, topActions);" in online
     rule = V039[V039.index(".topbar > .mobile-header-seat-actions{"):]
     assert "margin-right:auto!important" in rule[:rule.index("}")]
+
+
+def test_the_lobby_balance_is_a_number_with_the_profile_chip_after_it():
+    """"PLAY" is the only currency there is, so printing it beside the number
+    said nothing -- and the balance was the last thing in the bar, pinned to
+    the edge. The chip takes that end and pushes the number in."""
+    lobby = Path("static/lobby.html").read_text(encoding="utf-8")
+    css = Path("static/network.css").read_text(encoding="utf-8")
+    js = Path("static/lobby.js").read_text(encoding="utf-8")
+    assert 'class="profile-chip"' in lobby
+    assert lobby.index('id="wallet"') < lobby.index('class="profile-chip"'), "chip goes last"
+    assert "PLAY" not in js
+    assert ".profile-chip{" in css and "border-radius:50%" in css

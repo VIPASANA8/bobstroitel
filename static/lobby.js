@@ -144,7 +144,7 @@
 
   async function load() {
     const profile = await window.Poker8Auth.ensureSession();
-    $("wallet").textContent = `${format(profile.available_units)} PLAY`;
+    $("wallet").textContent = format(profile.available_units);
     const [tablesResponse, sessionResponse, roomResponse] = await Promise.all([
       fetch("/api/lobby/tables?page=1&per_page=12"),
       fetch("/api/lobby/session"),

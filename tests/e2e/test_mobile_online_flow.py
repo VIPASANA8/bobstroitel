@@ -1,3 +1,4 @@
+import re
 import time
 
 from playwright.sync_api import Page, sync_playwright
@@ -13,7 +14,10 @@ def test_mobile_online_flow(online_server: str):
         page: Page = browser.new_page(viewport={"width": 360, "height": 800}, device_scale_factor=1)
         page.goto(online_server, wait_until="networkidle")
         assert page.locator("#tableGrid .table-card").count() == 6
-        assert page.locator("#wallet").inner_text().endswith("PLAY")
+        # The balance is a number now -- PLAY is the only currency there is,
+        # so naming it in the header said nothing. The profile chip took its place.
+        assert re.fullmatch(r"[\d\s.,]+", page.locator("#wallet").inner_text())
+        assert page.locator(".profile-chip").is_visible()
         assert page.locator("#tableGrid .table-card .seats").first.get_attribute("aria-label").endswith("из 6 мест")
 
         page.locator("#quickPlay").click()
