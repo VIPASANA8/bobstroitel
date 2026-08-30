@@ -261,6 +261,27 @@
       }
       body.v014.poker8-v2-sixmax .v038-ready-countdown.visible{display:grid;}
 
+      /* The ring on the avatar, rather than the 62px disc the rules above
+         draw. It was written inside the phone's @media (max-width:780px), so
+         desktop never got it and fell back to that disc: a fixed circle
+         centred on the avatar, smaller than the avatar itself once the seat's
+         own scale was applied to it, with the number in the middle instead of
+         on the rim. Nothing in it is width-specific -- it sizes off the
+         avatar-wrap it hangs on, which every layout already scales -- so it
+         belongs out here with the rest of the seat furniture. */
+      body.v014.poker8-v2-sixmax .avatar-wrap>:is(.v038-turn-timer,.v038-ready-countdown){
+        position:absolute;z-index:14;left:50%;top:50%;bottom:auto;width:calc(100% + 10px);height:calc(100% + 10px);transform:translate(-50%,-50%);place-items:center;border:0!important;border-radius:50%;
+        background:none!important;box-shadow:none!important;filter:drop-shadow(0 0 8px rgba(87,255,208,.72));pointer-events:none;
+      }
+      body.v014.poker8-v2-sixmax .avatar-wrap>:is(.v038-turn-timer,.v038-ready-countdown)::before{
+        content:"";position:absolute;inset:0;border:0;border-radius:50%;background:conic-gradient(#57ffd0 var(--timer-progress,100%),rgba(87,255,208,.10) 0);
+        -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 0);mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 0);
+      }
+      body.v014.poker8-v2-sixmax .avatar-wrap>:is(.v038-turn-timer,.v038-ready-countdown) b{
+        position:absolute;left:calc(100% - 4px);top:50%;min-width:29px;padding:4px 5px;transform:translateY(-50%);border-radius:8px;background:#061611;color:#fff;font-size:13px;line-height:1;text-align:center;text-shadow:0 0 7px #55ffe0;box-shadow:0 0 10px rgba(85,255,224,.35);
+      }
+      body.v014.poker8-v2-sixmax .avatar-wrap>:is(.v038-turn-timer,.v038-ready-countdown) small{display:none;}
+
       body.v014.poker8-v2-sixmax .v038-turn-timer,
       body.v014.poker8-v2-sixmax .v038-turn-context{
         position:absolute;z-index:73;bottom:18px;display:none;pointer-events:none;
@@ -863,18 +884,6 @@
       body.v014.poker8-v2-sixmax .felt .seat .seat-card:is(.folded,.v032-folded) .avatar-wrap::before,
       body.v014.poker8-v2-sixmax .felt .seat .seat-card:is(.folded,.v032-folded) .avatar-wrap::after{opacity:0!important;}
       body.v014.poker8-v2-sixmax .seat-card.v038-disconnected{opacity:.58!important;filter:saturate(.15) brightness(.72)!important;}
-      body.v014.poker8-v2-sixmax .avatar-wrap>:is(.v038-turn-timer,.v038-ready-countdown){
-        position:absolute;z-index:14;left:50%;top:50%;bottom:auto;width:calc(100% + 10px);height:calc(100% + 10px);transform:translate(-50%,-50%);place-items:center;border:0!important;border-radius:50%;
-        background:none!important;box-shadow:none!important;filter:drop-shadow(0 0 8px rgba(87,255,208,.72));pointer-events:none;
-      }
-      body.v014.poker8-v2-sixmax .avatar-wrap>:is(.v038-turn-timer,.v038-ready-countdown)::before{
-        content:"";position:absolute;inset:0;border:0;border-radius:50%;background:conic-gradient(#57ffd0 var(--timer-progress,100%),rgba(87,255,208,.10) 0);
-        -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 0);mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 0);
-      }
-      body.v014.poker8-v2-sixmax .avatar-wrap>:is(.v038-turn-timer,.v038-ready-countdown) b{
-        position:absolute;left:calc(100% - 4px);top:50%;min-width:29px;padding:4px 5px;transform:translateY(-50%);border-radius:8px;background:#061611;color:#fff;font-size:13px;line-height:1;text-align:center;text-shadow:0 0 7px #55ffe0;box-shadow:0 0 10px rgba(85,255,224,.35);
-      }
-      body.v014.poker8-v2-sixmax .avatar-wrap>:is(.v038-turn-timer,.v038-ready-countdown) small{display:none;}
       /* Was bottom:2px -- down at the plate, where it read as decoration on
          the name rather than as this player's button. Beside the avatar
          instead, mirroring the turn timer that the rule above hangs on the
@@ -1719,6 +1728,12 @@
         runSyncStep(ensurePresetButtons);
         runSyncStep(configureReferenceActions);
         runSyncStep(syncSizingModeText);
+        // Everyone else's tick. The hero's own reaches desktop by accident --
+        // setReadyCountdown calls syncAvatarReadyControl on every snapshot --
+        // but nothing called this one, so on desktop no seat but yours ever
+        // showed that it had confirmed. v039 already forces the mark visible
+        // here; the class it keys on was simply never applied.
+        runSyncStep(syncAllSeatReadyMarks);
       }
       return;
     }

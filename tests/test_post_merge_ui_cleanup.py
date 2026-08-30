@@ -45,3 +45,27 @@ def test_the_header_icons_are_all_one_size():
         "        width:42px!important;height:42px!important;"
         "min-width:42px!important;min-height:42px!important;border-radius:12px!important;"
     ) in V038
+
+
+V039 = Path("static/v039-poker8-v2-desktop-parity.js").read_text(encoding="utf-8")
+
+
+def test_the_ring_on_the_avatar_is_not_a_phone_only_idea():
+    """It was written inside @media (max-width:780px), so desktop fell back to
+    the fixed 62px disc: smaller than the avatar once the seat's scale reached
+    it, with the number in the middle rather than on the rim."""
+    # The first mention is prose in the file header; the block itself is
+    # the indented one that opens a brace.
+    head = V038[:V038.index("      @media (max-width:780px){")]
+    assert ".avatar-wrap>:is(.v038-turn-timer,.v038-ready-countdown){" in head
+    # And no second helping of the seat's own scale on top of it.
+    assert "poker8-desktop-v2 .v038-ready-countdown" not in V039
+
+
+def test_desktop_draws_everyone_elses_readiness_too():
+    """The hero's tick reaches desktop only because setReadyCountdown calls
+    syncAvatarReadyControl; nothing called the pass that marks the other
+    seats, so only your own confirmation was ever visible there."""
+    desktop = V038[V038.index('if (document.body.classList.contains("poker8-desktop-v2")) {'):]
+    desktop = desktop[:desktop.index("      return;")]
+    assert "runSyncStep(syncAllSeatReadyMarks);" in desktop

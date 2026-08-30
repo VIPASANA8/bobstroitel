@@ -301,9 +301,12 @@
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .street-splash{
         transform:translate(-50%,-50%) scale(calc(.86 * var(--p8-ui-scale)))!important;
       }
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .v038-ready-countdown{
-        transform:translate(-50%,-50%) scale(var(--p8-ui-scale))!important;
-      }
+      /* The ready ring used to be able to land on .felt, which is not scaled,
+         so it needed the factor applied by hand. It now only ever hangs on the
+         hero's avatar-wrap, inside a seat that already carries the same scale,
+         and it sizes itself off that avatar -- so this rule was applying the
+         factor a second time and drawing the ring smaller than the head it is
+         supposed to ring. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .v038-turn-timer,
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .v038-turn-context{
         transform:translateX(-50%) scale(var(--p8-ui-scale))!important;

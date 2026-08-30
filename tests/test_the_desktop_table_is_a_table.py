@@ -215,9 +215,12 @@ def test_the_felt_draws_nothing_that_stayed_behind():
     seat -- so there is nothing there to scale."""
     for selector, transform in (
         (".street-splash", "translate(-50%,-50%) scale(calc(.86 * var(--p8-ui-scale)))"),
-        (".v038-ready-countdown", "translate(-50%,-50%) scale(var(--p8-ui-scale))"),
     ):
         assert f"transform:{transform}!important" in _rule(V039, f"{DESKTOP} {selector}"), selector
+    # .v038-ready-countdown was on this list while it could still land on the
+    # felt. It now only hangs on the hero's avatar-wrap, inside a seat that
+    # already carries the factor, so scaling it here applied it twice.
+    assert f"{DESKTOP} .v038-ready-countdown" not in V039
     # Both sit on the felt's bottom edge and have to grow away from it.
     bottom = _rule(V039, f"{DESKTOP} .v038-turn-context")
     assert "transform:translateX(-50%) scale(var(--p8-ui-scale))!important" in bottom
