@@ -108,7 +108,6 @@
     .p8-buyin-actions [data-cancel]{background:rgba(4,31,20,.84);border:1px solid rgba(95,237,170,.34);color:#c9ffe3}
     .p8-buyin-actions [data-confirm]{background:linear-gradient(120deg,#3defb0,#2aa87c);color:#04211c}
     .poker8-online.p8-action-pending #actionButtons{opacity:.62;pointer-events:none;filter:saturate(.72)}
-    .poker8-online.p8-action-pending #actionButtons::after{content:'Отправляем действие…';display:block;grid-column:1 / -1;text-align:center;color:#a8ffd4;font-size:10px;font-weight:800;padding:5px}
     @media(max-width:780px){
       .poker8-online .felt > .online-state-panel{position:absolute;left:50%;top:59%;right:auto;bottom:auto;z-index:76;width:min(84vw,348px);margin:0;padding:10px 12px;transform:translate(-50%,-50%);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 12px;border-color:rgba(64,237,167,.48);background:linear-gradient(135deg,rgba(4,31,20,.94),rgba(7,16,15,.96));box-shadow:0 12px 28px rgba(0,0,0,.42),0 0 20px rgba(44,247,169,.10);transition:width 180ms ease,padding 180ms ease,top 180ms ease}
       .poker8-online .felt > .online-state-panel strong{grid-column:1;color:#a8ffd4;font-size:15px;line-height:1.1}
@@ -1005,6 +1004,19 @@
   }
 
   function renderSnapshot(state) {
+    // Only the REST route stamps viewer_seat_no; the websocket snapshot -- which
+    // is what actually drives a live table -- has never carried it. Between
+    // hands `game` is null, so the seat id is the only thing tying a chair to
+    // the viewer, and without it v040 found no hero: it rotated the table into
+    // spectator layout, drew the "Сесть" offer over the seat the viewer was
+    // already sitting in, and left the ready countdown with no avatar to ring,
+    // so it fell back to the middle of the felt on top of the board.
+    // viewerSeatedSeat is the REST route's last answer, so it is only trusted
+    // while the server still calls this viewer a player -- once they stand up
+    // it names a seat that is somebody else's now.
+    if (state && state.viewer_seat_no == null && state.viewer_player_id) {
+      state.viewer_seat_no = viewerSeatNo(state) ?? viewerSeatedSeat;
+    }
     latestState = state;
     noticeBustOut(state);
     reconcileViewerState(state);

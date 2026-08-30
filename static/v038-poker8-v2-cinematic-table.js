@@ -723,8 +723,11 @@
         padding:2px 8px!important;background:linear-gradient(180deg,rgba(0,8,5,.98),rgba(0,8,5,.92))!important;
         border-bottom:1px solid rgba(75,255,181,.18)!important;box-shadow:0 8px 22px rgba(0,0,0,.34)!important;
       }
+      /* 42x42/12px is v037's .mobile-hint-button, the third icon in this same
+         row. These two were 48x48/14px, so the header read as two big buttons
+         and one small one rather than one set of controls. */
       body.v014.poker8-v2-sixmax :is(.mobile-menu-button,.mobile-chat-button){
-        width:48px!important;height:48px!important;min-width:48px!important;min-height:48px!important;border-radius:14px!important;
+        width:42px!important;height:42px!important;min-width:42px!important;min-height:42px!important;border-radius:12px!important;
       }
       body.v014.poker8-v2-sixmax .mobile-header-utility{margin-left:auto!important;}
       /* Out of the header and into the bottom-right corner: beside the
@@ -1164,11 +1167,18 @@
   }
 
   function ensureReadyCountdown() {
-    const felt = document.querySelector(".felt");
-    if (!felt) return null;
-    const hero = document.querySelector('.seat[data-visual-seat="0"] .avatar-wrap');
-    const host = hero || felt;
+    // The ring belongs on the hero's avatar -- it is that player's clock. The
+    // felt used to stand in when there was no hero avatar (a spectator, or a
+    // seat offer, which is a bare button with no avatar-wrap in it), which put
+    // a 62px countdown in the dead centre of the table, on top of the board.
+    // Nobody it was counting for was there to read it, so there is nothing to
+    // fall back to: no hero, no ring.
+    const host = document.querySelector('.seat[data-visual-seat="0"] .avatar-wrap');
     let countdown = document.querySelector(".v038-ready-countdown");
+    if (!host) {
+      countdown?.remove();
+      return null;
+    }
     if (!countdown) {
       countdown = document.createElement("div");
       countdown.className = "v038-ready-countdown";
