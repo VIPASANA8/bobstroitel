@@ -6,6 +6,22 @@
   const isMobile = () => window.matchMedia?.(MOBILE_QUERY)?.matches ?? false;
   const isDesktop = () => window.matchMedia?.(DESKTOP_QUERY)?.matches ?? false;
 
+  // app.js declares `game` and `tableData` with `let` at the top level of a
+  // classic script. That creates a *global lexical* binding -- every later
+  // script can read it by name, but it is never a property of window. So the
+  // three call sites below, which reached for window.game/window.tableData,
+  // have always been passing undefined: the layout then found no viewer,
+  // decided nobody was seated and laid the table out as a spectator's, so any
+  // resize on desktop threw the hero out of the near chair and into the
+  // watching ring. The render path never had this fault -- it is handed the
+  // real objects as arguments.
+  //
+  // try/catch rather than `typeof`: for a `let` still in its temporal dead
+  // zone, `typeof` throws too, and this file can load before app.js has run.
+  const liveState = () => {
+    try { return [game, tableData]; } catch { return [null, null]; }
+  };
+
   // Pot/board/chips sit in a fixed proportional band regardless of felt
   // height (they're positioned in %, top:25/38/47 -- see v038/v019): roughly
   // y 22%-56%, x 14%-86%. Every seat point below keeps its centre outside
@@ -216,11 +232,10 @@
       /* Held for you. Claiming a seat during a hand always worked -- the
          queue seats you at the boundary -- but the chair carried on offering
          itself, so the only sign anything had happened was in the header.
-         The ring closes and fills, and the word changes; pressing it again
-         does nothing, since cancelling lives in the header. */
-      body.v014.poker8-v2-sixmax.p8-seat-reserved .seat.v040-sit-slot .seat-empty{
-        pointer-events:none!important;
-      }
+         The ring closes and fills, and the word changes -- and pressing it
+         again gives the seat back (see the [data-add-seat] handler), which is
+         where anyone looks first. It used to be pointer-events:none, so the
+         only way out was a button in the header. */
       body.v014.poker8-v2-sixmax.p8-seat-reserved .seat.v040-sit-slot .empty-avatar{
         border-style:solid!important;background:rgba(75,255,181,.18)!important;
         font-size:0!important;
@@ -435,7 +450,7 @@
         // time. Without this the table stays unpositioned for good, which is
         // exactly what a one-bot table showed.
         placementRetries += 1;
-        requestAnimationFrame(() => applyDynamicLayout(window.game, window.tableData, true));
+        requestAnimationFrame(() => applyDynamicLayout(...liveState(), true));
       }
     }
   }
@@ -550,7 +565,7 @@
     applyDynamicLayout(gameState, tableState);
   };
 
-  window.addEventListener("resize", () => applyDynamicLayout(window.game, window.tableData), { passive: true });
+  window.addEventListener("resize", () => applyDynamicLayout(...liveState()), { passive: true });
 
   // Lay the table out once on load, rather than only waiting to be called.
   // This layer is appended late in the chain, so on a table that renders once
@@ -560,5 +575,5 @@
   // Nothing then positions a seat, and the table stays on style.css's
   // seven-seat defaults for good. The retry inside carries this until the
   // seat cards exist.
-  applyDynamicLayout(window.game, window.tableData);
+  applyDynamicLayout(...liveState());
 })();

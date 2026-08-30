@@ -1251,6 +1251,14 @@
       const button = event.target?.closest?.("[data-add-seat]");
       if (!button) return;
       event.preventDefault();
+      // Once the request is in, this same chair reads "ВАШЕ МЕСТО" (v040), so
+      // pressing it is a press on your own reservation -- it gives the seat
+      // back. No confirm: the header's "Отменить" does not ask either, and
+      // this is the same action in the place people look for it first.
+      if (viewerState === "waiting") {
+        cancelQueue().catch(error => alert(error.message));
+        return;
+      }
       // The same dialog the header's "Занять место" opens. Sitting down from
       // the felt used to skip it and buy in for a flat 40 ББ, so the two ways
       // into the same seat bought different stacks.
