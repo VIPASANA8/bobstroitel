@@ -364,7 +364,7 @@ desktop CSS; no new library, duplicated feed or second socket.
 
 | date | change | verified by |
 |---|---|---|
-| 2026-08-30 | Desktop chat became a floating, bounded window with drag/resize/reset, collapse, keyboard controls, readable message metadata and wrapping, unread jump control, and a desktop multiline composer. Failed sends keep drafts; phone chat markup, input and full-page geometry stay unchanged. Cache: desktop-oval-44 | 43 focused browser/static tests + 624 non-browser tests passed, 1 skipped, 1 known upstream countdown test excluded; screenshot checked; deployed and public health/cache/JS verified |
+| 2026-08-30 | Desktop chat became a floating, bounded window with drag/resize/reset, collapse, keyboard controls, readable message metadata and wrapping, unread jump control, and a desktop multiline composer. Failed sends keep drafts; phone chat markup, input and full-page geometry stay unchanged. Cache: desktop-oval-44 | 43 focused browser/static + 626 non-browser tests passed, 1 skipped, 1 known upstream countdown test excluded; screenshot checked; deployed and public health/cache/JS verified |
 | 2026-08-29 | Stage 0: the net above | 9 cases green; two faults re-introduced and caught |
 | 2026-08-29 | v015's `wagerPointForPlayer` removed — v031 replaces it later without delegating, so it could never run | static suite + the net + the live page |
 | 2026-08-29 | v022 guarded off the network table — its "+" posted to the trainer's route, which production does not mount | static suite; the online funds dialog is untouched |
