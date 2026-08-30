@@ -114,3 +114,55 @@ button,input,select,textarea{font:inherit}small{font-size:12px}body{font-size:15
 .card-action{color:var(--violet)}
 .table-state{color:var(--violet)}
 .seats i.on{background:var(--violet)}
+
+/* ---------------------------------------------------------------------------
+   The profile page. Its markup shipped with the page and its stylesheet never
+   did: .profile-hero, .profile-metrics, .profile-level, .profile-section,
+   .history-list, .history-row, .return-link and .profile-shell were all
+   unstyled, so everything below the shared header rendered as bare HTML.
+   Same tokens as the lobby, so the two read as one product.
+   --------------------------------------------------------------------------- */
+.profile-hero{padding:26px 0 22px;border-bottom:1px solid var(--line)}
+.profile-hero h1{margin:0;font-size:clamp(31px,4.4vw,48px);line-height:1;letter-spacing:-.06em}
+.profile-hero .dialog-muted{margin:8px 0 0;font:700 10px/1 monospace;letter-spacing:.12em}
+.profile-error{margin:14px 0 0;color:var(--danger);font-size:12px;font-weight:800}
+.profile-level{display:flex;align-items:center;gap:13px;margin-top:19px}
+.profile-level>span{display:grid;place-items:center;padding:8px 12px;border-radius:11px;background:var(--mint-deep);color:var(--mint);font:800 10px/1 monospace;letter-spacing:.14em;white-space:nowrap}
+.profile-level strong{display:block;font-size:15px}
+.profile-level small{display:block;margin-top:3px;color:var(--muted);font-size:10px}
+.profile-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px;padding:22px 0;border-bottom:1px solid var(--line)}
+.profile-metrics>*{display:block;padding:14px;border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(145deg,var(--panel-2),var(--panel))}
+.profile-metrics span{display:block;color:var(--muted);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
+.profile-metrics strong{display:block;margin-top:7px;font-size:24px;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.metric-link{color:inherit;text-decoration:none;transition:border-color .18s,transform .18s}
+.metric-link:hover{border-color:var(--mint);transform:translateY(-2px)}
+.metric-link em{display:block;margin-top:6px;color:var(--mint);font-style:normal;font-size:10px;font-weight:800;letter-spacing:.08em}
+.profile-section{padding:22px 0}
+.history-list{display:grid;gap:8px}
+.history-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:linear-gradient(145deg,var(--panel-2),var(--panel))}
+.history-what strong{display:block;font-size:13px}
+.history-what small{display:block;margin-top:3px;color:var(--muted);font-size:10px}
+.history-amount{color:var(--muted);font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+.history-row.win .history-amount{color:var(--mint)}
+.history-row.loss .history-amount{color:var(--danger)}
+.history-empty{margin:0;color:var(--muted);font-size:12px}
+.topup-card{display:grid;gap:12px;padding:17px;border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(145deg,var(--panel-2),var(--panel))}
+.topup-presets{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.topup-presets button{min-height:44px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--ink);font:800 15px/1 Inter,ui-sans-serif,system-ui;cursor:pointer;transition:border-color .18s,color .18s}
+.topup-presets button:hover:not(:disabled){border-color:var(--mint);color:var(--mint)}
+.topup-field{display:block;color:var(--muted);font-size:12px}
+.topup-field input{width:100%;margin-top:7px;padding:13px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--ink);font-size:18px}
+.topup-field input:focus{outline:none;border-color:var(--mint)}
+.topup-submit{justify-content:center;min-height:52px}
+.topup-note{margin:0;color:var(--mint);font-size:12px;font-weight:800}
+.topup-note.is-off{color:var(--muted)}
+.topup-card :disabled{opacity:.5;cursor:default}
+.return-link{display:inline-block;margin-top:8px;padding:14px 18px;border-radius:13px;background:var(--mint);color:#041f14;font-weight:800;text-decoration:none}
+.return-link[hidden]{display:none!important}
+@media(max-width:760px){
+.profile-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+.profile-metrics strong{font-size:20px}
+.profile-level{flex-wrap:wrap;gap:10px}
+.topup-presets{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.topup-presets button{font-size:13px}
+}

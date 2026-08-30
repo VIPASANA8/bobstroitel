@@ -22,6 +22,17 @@ def level_for_wins(wins: int) -> int:
     return max(level for level, threshold in enumerate(LEVEL_THRESHOLDS) if wins >= threshold)
 
 
+def wins_to_next_level(wins: int) -> int | None:
+    """Wins still owed for the next level, or None at the top of the ladder.
+
+    The thresholds live here, so the page could only print the total wins it
+    already had under a label reading "до следующего уровня" -- two unrelated
+    numbers stacked on each other.
+    """
+    remaining = [threshold - wins for threshold in LEVEL_THRESHOLDS if threshold > wins]
+    return min(remaining) if remaining else None
+
+
 async def _profile(request: Request, user: AuthenticatedUser) -> dict[str, object]:
     async with request.app.state.session_factory() as session:
         row = (
@@ -50,6 +61,7 @@ async def _profile(request: Request, user: AuthenticatedUser) -> dict[str, objec
         "wins": row["wins"],
         "hands_played": row["hands_played"],
         "level": level_for_wins(row["wins"]),
+        "wins_to_next_level": wins_to_next_level(row["wins"]),
         "available_units": await request.app.state.ledger.available_units(user.user_id),
         "active_table_stack_units": sum(stack_units),
         "avatar_asset_key": f"level-{level_for_wins(row['wins'])}",

@@ -13,6 +13,11 @@ async def public_config(request: Request):
     return {
         "network_brand": "Poker8",
         "open_access": settings.open_access,
+        # Off on a deployment by design -- money there has to arrive through a
+        # payment, not through /api/profile/play-top-up. The profile page reads
+        # this so it can say so, instead of offering a button with a 404 behind
+        # it (the exact trap v022-balance-topup.js was written to avoid).
+        "self_top_up_enabled": settings.self_top_up_enabled,
         "tenant": {
             "slug": tenant_slug,
             "name": branding.get("name", "Poker8"),

@@ -130,8 +130,14 @@ class HistoryService:
                 ).mappings().all()
                 players = []
                 for row in rows:
-                    visible = row["user_id"] == user_id or bool(row["shown"])
+                    you = row["user_id"] == user_id
+                    visible = you or bool(row["shown"])
                     players.append({
+                        # A shown opponent's cards are visible too, so "has
+                        # hole_cards" never identified the viewer -- which left
+                        # the history unable to say whose result it was, and it
+                        # printed a hand id and a player count instead.
+                        "you": you,
                         "participant_id": row["participant_id"],
                         "seat_no": row["seat_no"],
                         "net_units": row["net_units"],
