@@ -673,8 +673,9 @@
         min-height:46px!important;height:46px!important;padding:7px 10px!important;
         border-radius:11px!important;font-size:12px!important;pointer-events:auto!important;
       }
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons .action-slot[data-edge="left"]{left:16px!important;right:auto!important;}
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons .action-slot[data-edge="right"]{right:16px!important;left:auto!important;}
+      /* Flank the scaled hero seat, leaving 16px between it and each pair. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons .action-slot[data-edge="left"]{left:auto!important;right:calc(50% + 72px * var(--p8-ui-scale) + 16px)!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons .action-slot[data-edge="right"]{right:auto!important;left:calc(50% + 72px * var(--p8-ui-scale) + 16px)!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons .action-slot[data-slot="top"]{top:auto!important;bottom:70px!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons .action-slot[data-slot="bottom"]{top:auto!important;bottom:16px!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .v038-action-amount{font-size:12px!important;}
