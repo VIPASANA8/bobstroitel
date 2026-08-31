@@ -8,13 +8,14 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import delete, insert, select, update
+from sqlalchemy import delete, func, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bots.multiway import MultiwayBot
 from bots.persona import persona_for
 from online.events import append_integrity_event
 from online.ledger import PlayLedger
+from online.progression import record_hand
 from online.schema import (
     game_commands,
     hand_actions,
@@ -745,6 +746,16 @@ class TableRuntimeManager:
                     ).mappings().all()
                     by_participant = {self._participant_id(seat): seat for seat in seats}
                     recorded = self._worth_recording(loaded.state)
+                    # completed_at is written at the end of this transaction and
+                    # nowhere else, so it is exactly the mark of "this hand has
+                    # already been settled once". A replayed settlement returns
+                    # the same transaction (see the ledger's idempotency key) and
+                    # must likewise grant no second helping of XP.
+                    settled_before = recorded and (
+                        await session.execute(
+                            select(hands.c.completed_at).where(hands.c.id == loaded.state.hand_id)
+                        )
+                    ).scalar_one_or_none() is not None
                     starts, ends = self._settlement_units(loaded.state, table["big_blind_units"])
                     # A seat can empty while its hand is still running -- the
                     # coordinator's AFK eviction does exactly that -- and
@@ -765,6 +776,18 @@ class TableRuntimeManager:
                             )
                         ).mappings().all()
                     } if recorded else {}
+                    # The engine zeroes state.pot the moment it pays out, so
+                    # the pot a player won is read back from the actions that
+                    # built it -- the same source the session report uses.
+                    pot_units = (
+                        await session.execute(
+                            select(func.max(hand_actions.c.pot_after_units))
+                            .where(hand_actions.c.hand_id == loaded.state.hand_id)
+                        )
+                    ).scalar() or 0 if recorded else 0
+                    human_ids = frozenset(
+                        row["user_id"] for row in hand_rows.values() if row["user_id"]
+                    )
                     transfers: dict[tuple[str, str, str], int] = {}
                     user_net_total = 0
                     for participant_id, player in loaded.state.players.items():
@@ -834,6 +857,23 @@ class TableRuntimeManager:
                                     wins=profile_table.c.wins + (1 if end_units > start_units else 0),
                                 )
                             ) if profile_id else None
+                            if profile_id and not settled_before:
+                                await record_hand(
+                                    session,
+                                    owner_kind="user" if is_user else "system",
+                                    owner_id=profile_id,
+                                    hand_id=loaded.state.hand_id,
+                                    net_units=end_units - start_units,
+                                    big_blind_units=table["big_blind_units"],
+                                    # A room a player opened is not where a
+                                    # result in big blinds may be earned (§3).
+                                    counts_results=table["created_by"] is None,
+                                    now=self._now(),
+                                    hole_cards=list(player.hole_cards),
+                                    board=list(loaded.state.board),
+                                    pot_bb=pot_units / table["big_blind_units"],
+                                    opponent_ids=human_ids,
+                                )
                     transfers[("table", table_id, "escrow")] = user_net_total
                     # What the escrow has to pay out, against what it holds.
                     # They can disagree by exactly the chips of a seat that
