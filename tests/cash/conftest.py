@@ -29,10 +29,11 @@ async def cash_db(request, anyio_backend):
         url.drivername == "postgresql+psycopg"
         and url.host in {"localhost", "127.0.0.1", "::1"}
         and url.port == 5433 and url.database == "poker8_test"
+        and not url.query  # libpq query parameters can override host/port.
     ):
         pytest.fail("Refusing a database outside the local postgres_test target")
     schema = "cash_test_" + uuid4().hex
-    historical = getattr(request, "param", "current") == "historical"
+    schema_state = getattr(request, "param", "current")
     engine = create_async_engine(
         url, poolclass=NullPool,
         connect_args={"options": f"-csearch_path={schema}"},
@@ -41,7 +42,11 @@ async def cash_db(request, anyio_backend):
     try:
         async with engine.begin() as conn:
             await conn.execute(text(f'CREATE SCHEMA "{schema}"'))
-            selected = [tenants, users, play_accounts] if historical else None
+        if schema_state == "empty":
+            yield factory
+            return
+        async with engine.begin() as conn:
+            selected = [tenants, users, play_accounts] if schema_state == "historical" else None
             await conn.run_sync(lambda sync: metadata.create_all(sync, tables=selected))
             await conn.execute(tenants.insert().values(id="tenant", slug="cash-test", name="Test"))
             await conn.execute(users.insert(), [
@@ -52,7 +57,7 @@ async def cash_db(request, anyio_backend):
                 id="play-sentinel", owner_kind="user", owner_id="alice",
                 account_kind="wallet", balance_units=12345,
             ))
-            if not historical:
+            if schema_state == "current":
                 await conn.execute(cash_accounts.insert(), [
                     {"id": "external", "kind": "clearing", "user_id": None, "reference_id": "mock"},
                     {"id": "alice-wallet", "kind": "available", "user_id": "alice", "reference_id": "alice"},

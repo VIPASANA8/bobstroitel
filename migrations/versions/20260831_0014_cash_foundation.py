@@ -53,7 +53,15 @@ def upgrade():
 
 
 def downgrade():
-    tables = set(sa.inspect(op.get_bind()).get_table_names())
+    bind = op.get_bind()
+    tables = set(sa.inspect(bind).get_table_names())
+    # Keep the emptiness check and drops atomic against concurrent first writes.
+    # Follow posting order: claim transaction, lock accounts, insert entries.
+    lock_order = ("cash_transactions", "cash_accounts", "cash_entries")
+    existing = [name for name in lock_order if name in tables]
+    if bind.dialect.name == "postgresql" and existing:
+        targets = ", ".join(f'"{name}"' for name in existing)
+        bind.execute(sa.text(f"LOCK TABLE {targets} IN ACCESS EXCLUSIVE MODE"))
     names = ("cash_entries", "cash_transactions", "cash_accounts")
     for name in names:
         if name in tables and op.get_bind().execute(sa.text(f'SELECT 1 FROM "{name}" LIMIT 1')).first():

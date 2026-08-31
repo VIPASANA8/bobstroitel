@@ -39,7 +39,13 @@ class CashLedger:
         self, session: AsyncSession, *, scope: str, key: str, kind: str,
         reference_id: str, actor: str, postings: Mapping[str, int],
     ) -> CashReceipt:
-        """Post inside the caller's transaction; never authenticate an external event."""
+        """Post inside the caller's READ COMMITTED transaction.
+
+        The caller authenticates the reason and owns commit/rollback. A receipt
+        is provisional until that commit; external effects must wait for it.
+        Pass all affected accounts in one call where possible. If an outer
+        workflow deadlocks, retry that entire transaction with the same key.
+        """
         if session.get_bind().dialect.name != "postgresql":
             raise ValueError("cash posting requires PostgreSQL row locks")
         if not session.in_transaction():

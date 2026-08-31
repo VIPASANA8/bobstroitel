@@ -2,6 +2,7 @@ import asyncio
 
 import pytest
 from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from cash.amounts import MAX_MICROS, micros_to_units
 from cash.ledger import CashLedger, IdempotencyConflict, InsufficientCash
@@ -191,4 +192,63 @@ async def test_balance_overflow_rolls_back_the_whole_operation(cash_db):
         await fund(cash_db, 1, key="overflow")
     assert (await balances(cash_db))["alice-wallet"] == MAX_MICROS
     assert await transaction_count(cash_db) == 1
+    await assert_reconciled(cash_db)
+
+
+async def test_post_requires_caller_transaction(cash_db):
+    async with cash_db() as session:
+        with pytest.raises(ValueError, match="caller's transaction"):
+            await ledger.post(
+                session, scope="test", key="no-transaction", kind="deposit",
+                reference_id="mock", actor="system:test",
+                postings={"external": -100, "alice-wallet": 100},
+            )
+    assert await transaction_count(cash_db) == 0
+
+
+async def test_post_refuses_sqlite_even_inside_transaction():
+    engine = create_async_engine("sqlite+aiosqlite://")
+    try:
+        async with async_sessionmaker(engine)() as session:
+            async with session.begin():
+                with pytest.raises(ValueError, match="PostgreSQL row locks"):
+                    await ledger.post(
+                        session, scope="test", key="sqlite", kind="deposit",
+                        reference_id="mock", actor="system:test",
+                        postings={"external": -100, "alice-wallet": 100},
+                    )
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.parametrize("changed", [
+    {"kind": "adjustment"}, {"reference_id": "different-event"},
+])
+async def test_retry_is_bound_to_operation_kind_and_reference(cash_db, changed):
+    command = dict(
+        scope="test", key="event", kind="deposit", reference_id="mock",
+        actor="system:test", postings={"external": -100, "alice-wallet": 100},
+    )
+    async with cash_db() as session:
+        async with session.begin():
+            await ledger.post(session, **command)
+            with pytest.raises(IdempotencyConflict):
+                await ledger.post(session, **(command | changed))
+    assert await transaction_count(cash_db) == 1
+    assert (await balances(cash_db))["alice-wallet"] == 100
+    await assert_reconciled(cash_db)
+
+
+async def test_same_key_in_distinct_scopes_is_independent(cash_db):
+    async with cash_db() as session:
+        async with session.begin():
+            for scope in ("provider-a", "provider-b"):
+                receipt = await ledger.post(
+                    session, scope=scope, key="event", kind="deposit",
+                    reference_id="mock", actor="system:test",
+                    postings={"external": -100, "alice-wallet": 100},
+                )
+                assert receipt.created
+    assert await transaction_count(cash_db) == 2
+    assert (await balances(cash_db))["alice-wallet"] == 200
     await assert_reconciled(cash_db)
