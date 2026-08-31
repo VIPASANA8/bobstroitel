@@ -1,290 +1,302 @@
 (() => {
   const $ = id => document.getElementById(id);
-  const units = value => (Number(value || 0) / 100).toFixed(2);
-  const signed = value => `${Number(value) > 0 ? "+" : ""}${units(value)}`;
-  const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, char => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  const number = (value, digits = 0) => Number(value || 0).toLocaleString('ru-RU', {
+    minimumFractionDigits: digits, maximumFractionDigits: digits,
+  });
+  const units = value => number(Number(value || 0) / 100, 2);
+  const signed = value => `${Number(value) > 0 ? '+' : ''}${units(value)}`;
+  const bb = value => `${Number(value) > 0 ? '+' : ''}${number(value, 1)} BB`;
+  const plural = new Intl.PluralRules('ru-RU');
+  const noun = (value, one, few, many) => ({one, few, many})[plural.select(Number(value))] || many;
+  const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
   }[char]));
-
-  // The ledger stores what the engine calls things. Nobody outside the code
-  // knows what "add_on" or "faucet_grant" is, and the journal printed them raw.
-  const LEDGER_KINDS = {
-    buy_in: "Бай-ин",
-    add_on: "Докупка",
-    return: "Возврат со стола",
-    settlement: "Расчёт раздачи",
-    faucet_grant: "Начисление",
-  };
-
   const dateText = value => {
     const stamp = value ? new Date(value) : null;
-    if (!stamp || Number.isNaN(stamp.getTime())) return "";
-    return stamp.toLocaleString("ru-RU", {
-      day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
+    return !stamp || Number.isNaN(stamp.getTime()) ? '' : stamp.toLocaleString('ru-RU', {
+      day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
     });
   };
-
-  function handRow(hand) {
-    // last_hands marks the viewer's own row; without it the only things a row
-    // could say were the hand id and how many people were in it.
-    const mine = (hand.players || []).find(player => player.you);
-    const net = Number(mine?.net_units || 0);
-    const outcome = net > 0 ? "win" : net < 0 ? "loss" : "flat";
-    const verdict = net > 0 ? "Выигрыш" : net < 0 ? "Проигрыш" : "Без изменений";
-    const when = dateText(hand.completed_at || hand.started_at);
-    return `<article class="history-row ${outcome}">
-      <div class="history-what"><strong>${verdict}</strong><small>${escapeHtml(when)} · ${(hand.players || []).length} игроков</small></div>
-      <span class="history-amount">${signed(net)}</span>
-    </article>`;
-  }
-
-  function ledgerRow(row) {
-    const amount = Number(row.amount_units || 0);
-    const outcome = amount > 0 ? "win" : amount < 0 ? "loss" : "flat";
-    return `<article class="history-row ${outcome}">
-      <div class="history-what"><strong>${escapeHtml(LEDGER_KINDS[row.kind] || row.kind)}</strong><small>${escapeHtml(dateText(row.created_at))}</small></div>
-      <span class="history-amount">${signed(amount)}</span>
-    </article>`;
-  }
-
-  // A failed fetch used to reach console.error and nothing else, so the page
-  // sat there as a column of em dashes with no way to tell it apart from a
-  // player who had never played a hand.
-  const fill = (id, rows, empty) => {
-    const host = $(id);
-    if (host) host.innerHTML = rows.length ? rows.join("") : `<p class="history-empty">${empty}</p>`;
+  const LEDGER_KINDS = {
+    buy_in: 'Бай-ин', add_on: 'Докупка', return: 'Возврат со стола',
+    settlement: 'Расчёт раздачи', faucet_grant: 'Начисление',
   };
+  const RANKS = {ROOKIE: 'Новичок', PLAYER: 'Игрок', REGULAR: 'Регуляр', GRINDER: 'Гриндер', SHARK: 'Акула', ELITE: 'Элита', VETERAN: 'Ветеран'};
+  const ACHIEVEMENTS = {
+    grind: ['Дистанция', '♠'], big_pot: ['Большой банк', '◆'], social: ['Знакомые лица', '♣'],
+    straight: ['Стрит', '↗'], flush: ['Флеш', '♥'], full_house: ['Фулл-хаус', '▰'],
+    quads: ['Каре', '♦'], straight_flush: ['Стрит-флеш', '♠'], royal_flush: ['Роял-флеш', '♛'],
+    seven_deuce: ['Семь-два', '7'], still_alive: ['Всё ещё в игре', '↟'], back_from_the_dead: ['Возвращение', '↺'],
+  };
+  const RARITY = {common: 'Обычное', rare: 'Редкое', epic: 'Эпическое', legendary: 'Легендарное'};
 
-  async function json(url) {
-    const response = await fetch(url);
+  async function json(url, options = {}) {
+    const response = await fetch(url, {signal: AbortSignal.timeout(15000), ...options});
     if (!response.ok) throw new Error(`${url} → ${response.status}`);
     return response.json();
   }
 
-  // /api/profile/play-top-up is 404 on a deployment on purpose -- money there
-  // has to arrive through a payment. Asking the config first is the difference
-  // between a panel that says so and a button that fails when pressed.
+  function showError(id, message) {
+    $(id).textContent = message;
+    $(id).hidden = !message;
+  }
+
+  function fill(id, rows, empty) {
+    $(id).innerHTML = rows.length ? rows.join('') : `<p class="history-empty">${escapeHtml(empty)}</p>`;
+  }
+
+  // Each block settles on its own; a failed history request must not erase
+  // the balance, achievements, or a successfully loaded journal.
+  async function loadBlock(url, id, render, message, errorId) {
+    try {
+      render(await json(url));
+    } catch (error) {
+      console.error(error);
+      if (errorId) {
+        $(id).querySelectorAll('.profile-message').forEach(node => node.remove());
+        showError(errorId, message);
+      } else fill(id, [], message);
+    } finally {
+      $(id).closest('[aria-busy]')?.setAttribute('aria-busy', 'false');
+    }
+  }
+
+  function renderProfile(profile) {
+    const name = profile.display_name || 'Игрок';
+    $('profileName').textContent = name;
+    $('avatarInitials').textContent = name.trim().split(/\s+/).slice(0, 2).map(part => Array.from(part)[0]).join('').toUpperCase();
+    $('levelBadge').textContent = profile.level;
+    $('rankBadge').textContent = RANKS[profile.rank] || profile.rank;
+    $('xp').textContent = number(profile.xp);
+    $('wins').textContent = number(profile.wins);
+    $('hands').textContent = number(profile.hands_played);
+    $('handsLabel').textContent = noun(profile.hands_played, 'раздача', 'раздачи', 'раздач');
+    $('winsLabel').textContent = noun(profile.wins, 'победа', 'победы', 'побед');
+    $('walletBalance').textContent = units(profile.available_units);
+    $('tableStack').textContent = units(profile.active_table_stack_units);
+    const left = profile.xp_to_next_level;
+    $('levelProgress').textContent = left == null ? 'Максимальный уровень' : `Ещё ${number(left)} XP до ${profile.level + 1} уровня`;
+    $('returnToTable').hidden = !profile.active_table_id;
+    if (profile.active_table_id) $('returnToTable').href = `/table?table=${encodeURIComponent(profile.active_table_id)}`;
+    $('profileLoading').hidden = true;
+    document.querySelector('.profile-hero').setAttribute('aria-busy', 'false');
+  }
+
+  function setSigned(element, value, format) {
+    element.textContent = value == null ? '—' : format(value);
+    element.classList.toggle('up', Number(value) > 0);
+    element.classList.toggle('down', Number(value) < 0);
+  }
+
+  function renderDay(element, day) {
+    setSigned(element, day?.net_bb, value => `${bb(value)} · ${day.day.slice(8)}.${day.day.slice(5, 7)}`);
+  }
+
+  function renderStats(stats) {
+    $('statsSample').textContent = `Выборка: ${number(stats.result_hands)} ${noun(stats.result_hands, 'зачётная раздача', 'зачётные раздачи', 'зачётных раздач')}`;
+    $('statsAccounting').textContent = `С начала учёта — ${number(stats.hands)} ${noun(stats.hands, 'раздача', 'раздачи', 'раздач')}, выиграно ${number(stats.hands_won)}. Результат и BB / 100 считаются только за сетевыми столами. Сессия учитывается от 10 раздач. Общий счёт у имени включает и игру до запуска статистики.`;
+    $('statsConfidence').textContent = {low: 'Небольшая выборка', medium: 'Средняя выборка', high: 'Большая выборка'}[stats.confidence] || '';
+    $('statSessions').textContent = number(stats.sessions);
+    $('statDays').textContent = number(stats.days_played);
+    $('sessionsLabel').textContent = noun(stats.sessions, 'сессия', 'сессии', 'сессий');
+    $('daysLabel').textContent = noun(stats.days_played, 'день', 'дня', 'дней');
+    setSigned($('statBbPer100'), stats.bb_per_100, value => number(value, 1));
+    setSigned($('statNetBb'), stats.result_hands ? stats.net_bb : null, bb);
+    $('statBiggestPot').textContent = stats.biggest_pot_bb ? `${number(stats.biggest_pot_bb, 1)} BB` : '—';
+    $('statLongest').textContent = stats.longest_session_minutes ? `${number(stats.longest_session_minutes)} мин` : '—';
+    renderDay($('statBestDay'), stats.best_day);
+    renderDay($('statWorstDay'), stats.worst_day);
+    $('statsEmpty').hidden = stats.result_hands > 0;
+  }
+
+  function renderMissions(payload) {
+    $('missionsCount').textContent = `${payload.completed} / ${payload.missions.length}`;
+    $('missionsBonus').textContent = `+${payload.completion_xp} XP`;
+    $('missionsBonusLabel').textContent = payload.completed === payload.missions.length ? 'Бонус получен' : 'Бонус за все три';
+    $('missionsNote').textContent = payload.completed === payload.missions.length
+      ? 'На сегодня всё. Новые задания — завтра.'
+      : payload.reroll_available ? '↻ Одно задание в день можно заменить.' : 'Замена на сегодня использована.';
+    $('missionList').innerHTML = payload.missions.map(item => `
+      <div class="mission ${item.done ? 'done' : ''}">
+        <div class="mission-copy">
+          <b>${escapeHtml(item.title)}</b>
+          <div class="mission-meta"><span class="at">${item.done ? 'Выполнено' : `${number(item.progress)} / ${number(item.target)}`}</span><span class="gain">+${item.xp} XP</span></div>
+          <progress class="mission-bar" value="${Math.min(item.progress, item.target)}" max="${item.target}" aria-label="${escapeHtml(item.title)}"></progress>
+        </div>
+        ${item.done ? '<span class="mission-check" aria-hidden="true">✓</span>' : payload.reroll_available
+          ? `<button class="mission-reroll" type="button" data-reroll="${escapeHtml(item.slot)}" aria-label="Заменить: ${escapeHtml(item.title)}" title="Заменить задание">↻</button>` : ''}
+      </div>`).join('');
+  }
+
+  let rerolling = false;
+  async function rerollMission(slot) {
+    if (rerolling) return;
+    rerolling = true;
+    showError('missionsError', '');
+    document.querySelectorAll('[data-reroll]').forEach(button => { button.disabled = true; });
+    try {
+      await json(`/api/profile/missions/${encodeURIComponent(slot)}/reroll`, {method: 'POST'});
+      renderMissions(await json('/api/profile/missions'));
+    } catch (error) {
+      showError('missionsError', 'Не удалось заменить задание. Обновите страницу, чтобы проверить его состояние.');
+      // A concurrent request can spend the quota. Refresh rather than leaving
+      // another apparently available swap on the screen.
+      try { renderMissions(await json('/api/profile/missions')); } catch (_) { /* Keep the visible error. */ }
+    } finally {
+      rerolling = false;
+      document.querySelectorAll('[data-reroll]').forEach(button => { button.disabled = false; });
+    }
+  }
+
+  function renderAchievements(payload) {
+    $('achievementPoints').textContent = `${number(payload.achievement_points)} AP`;
+    $('achievementsCount').textContent = `${payload.completed} / ${payload.total}`;
+    const items = [...payload.achievements].sort((a, b) => Number(b.tier > 0) - Number(a.tier > 0));
+    $('achievementList').innerHTML = items.map(item => {
+      const secret = item.secret && !item.tier;
+      // Do not localize by code before checking secrecy: the API deliberately
+      // conceals the title while still returning a stable achievement code.
+      const [title, symbol] = secret ? ['Секретное', '?'] : ACHIEVEMENTS[item.code] || [item.title, '◇'];
+      const done = item.tier === item.tiers;
+      const status = item.tiers > 1
+        ? `Ступень ${item.tier} / ${item.tiers}` : done ? 'Получено' : 'Не открыто';
+      return `<article class="achievement ${item.tier ? 'earned' : 'locked'}">
+        <span class="achievement-medal" aria-hidden="true">${symbol}</span>
+        <b>${escapeHtml(title)}</b><span class="at">${status}</span><span class="achievement-rarity">${escapeHtml(RARITY[item.rarity])}</span>
+        ${item.tiers > 1 && !done ? `<span class="at">${number(item.progress)} / ${number(item.next_threshold)}</span>` : ''}
+        ${item.tiers > 1 && !done ? `<progress class="achievement-bar" value="${Math.min(item.progress, item.next_threshold)}" max="${item.next_threshold}" aria-label="${escapeHtml(title)}"></progress>` : ''}
+      </article>`;
+    }).join('');
+    $('showAchievements').hidden = items.length <= 6;
+  }
+
+  function historyRow(title, detail, amount) {
+    const outcome = amount > 0 ? 'win' : amount < 0 ? 'loss' : 'flat';
+    return `<article class="history-row ${outcome}">
+      <div class="history-what"><span class="history-sign" aria-hidden="true">${amount > 0 ? '↗' : amount < 0 ? '↙' : '–'}</span><div><strong>${escapeHtml(title)}</strong><small>${escapeHtml(detail)}</small></div></div>
+      <span class="history-amount">${signed(amount)}</span>
+    </article>`;
+  }
+
+  function handRow(hand) {
+    const mine = (hand.players || []).find(player => player.you);
+    const net = Number(mine?.net_units || 0);
+    return historyRow(net > 0 ? 'Выигрыш' : net < 0 ? 'Проигрыш' : 'Без изменений',
+      `${dateText(hand.completed_at || hand.started_at)} · ${(hand.players || []).length} ${noun((hand.players || []).length, 'игрок', 'игрока', 'игроков')}`, net);
+  }
+
+  function ledgerRow(row) {
+    return historyRow(LEDGER_KINDS[row.kind] || row.kind, dateText(row.created_at), Number(row.amount_units || 0));
+  }
+
+  function renderHistory(payload) {
+    const rows = (payload.hands || []).map(handRow);
+    fill('handHistory', rows, 'Здесь будут ваши последние раздачи. Сыграйте первую за любым столом.');
+    $('showHands').hidden = rows.length <= 5;
+  }
+
+  function renderLedger(payload) {
+    const rows = (payload.entries || []).map(ledgerRow);
+    fill('ledger', rows, 'Операций пока нет. Здесь будут движения игровых фишек.');
+    $('showLedger').hidden = rows.length <= 5;
+  }
+
+  let topupEnabled = false;
+  let toppingUp = false;
   function renderTopUp(enabled) {
-    const note = $("topupNote");
-    const submit = $("topupSubmit");
-    const amount = $("topupAmount");
-    const presets = [...($("topupPresets")?.querySelectorAll("button") || [])];
-    for (const control of [submit, amount, ...presets]) {
-      if (control) control.disabled = !enabled;
-    }
-    if (note) {
-      note.textContent = enabled
-        ? "Игровые фишки, без реальных денег."
-        : "Оплата в USDT скоро будет доступна.";
-      note.classList.toggle("is-off", !enabled);
-    }
+    topupEnabled = enabled;
+    $('topupDetails').hidden = !enabled;
+    $('topupForm').querySelectorAll('input, button').forEach(control => { control.disabled = !enabled; });
+    $('topupNote').textContent = enabled ? 'Только виртуальные фишки.' : 'Пополнение пока недоступно.';
+    if (enabled && location.hash === '#topup') $('topupDetails').open = true;
   }
 
   async function topUp(displayAmount) {
     const value = Number(displayAmount);
-    if (!Number.isFinite(value) || value <= 0) return;
-    const note = $("topupNote");
-    const submit = $("topupSubmit");
-    if (submit) submit.disabled = true;
+    if (!topupEnabled || toppingUp || !Number.isFinite(value) || value < 1 || value > 1000000) return;
+    toppingUp = true;
+    $('topupForm').querySelectorAll('input, button').forEach(control => { control.disabled = true; });
     try {
-      const response = await fetch("/api/profile/play-top-up", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        // The input is in the same currency the page prints; the endpoint
-        // counts in units, which are hundredths of it.
-        body: JSON.stringify({
-          amount_units: Math.round(value * 100),
-          // The caller picks this, and the ledger dedups on it -- a fresh one
-          // per press, or a double-click would be swallowed as a repeat.
-          request_id: `profile-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        }),
+      const result = await json('/api/profile/play-top-up', {
+        method: 'POST', headers: {'content-type': 'application/json'},
+        body: JSON.stringify({amount_units: Math.round(value * 100), request_id: crypto.randomUUID?.() || `profile-${Date.now()}-${Math.random().toString(36).slice(2)}`}),
       });
-      if (!response.ok) throw new Error(String(response.status));
-      const result = await response.json();
-      $("walletBalance").textContent = units(result.available_units);
-      if (note) {
-        note.textContent = `Зачислено ${units(Math.round(value * 100))}.`;
-        note.classList.remove("is-off");
-      }
-      const ledger = await json("/api/profile/play-journal?limit=20");
-      fill("ledger", (ledger.entries || []).map(ledgerRow), "Операций пока нет.");
+      $('walletBalance').textContent = units(result.available_units);
+      $('topupNote').textContent = `Зачислено ${units(Math.round(value * 100))} фишек.`;
+      await loadBlock('/api/profile/play-journal?limit=20', 'ledger', renderLedger, 'Не удалось загрузить журнал.');
     } catch (error) {
-      console.error(error);
-      if (note) {
-        note.textContent = "Пополнение не прошло. Попробуйте ещё раз.";
-        note.classList.add("is-off");
-      }
+      $('topupNote').textContent = 'Пополнение не прошло. Попробуйте ещё раз.';
     } finally {
-      if (submit) submit.disabled = false;
+      toppingUp = false;
+      $('topupForm').querySelectorAll('input, button').forEach(control => { control.disabled = !topupEnabled; });
     }
   }
 
-  function bindTopUp() {
-    $("topupPresets")?.addEventListener("click", event => {
-      const button = event.target.closest("button[data-amount]");
-      if (!button) return;
-      topUp(Number(button.dataset.amount) / 100);
+  function bindControls() {
+    $('missionList').addEventListener('click', event => {
+      const button = event.target.closest('[data-reroll]');
+      if (button) rerollMission(button.dataset.reroll);
     });
-    $("topupSubmit")?.addEventListener("click", () => topUp($("topupAmount")?.value));
-    $("topupAmount")?.addEventListener("keydown", event => {
-      if (event.key === "Enter") topUp($("topupAmount").value);
+    $('topupPresets').addEventListener('click', event => {
+      const button = event.target.closest('[data-amount]');
+      if (button) topUp(Number(button.dataset.amount) / 100);
     });
-  }
-
-  const CONFIDENCE = { low: "МАЛАЯ ВЫБОРКА", medium: "СРЕДНЯЯ ВЫБОРКА", high: "БОЛЬШАЯ ВЫБОРКА" };
-  const bb = value => `${Number(value) > 0 ? "+" : ""}${Number(value).toFixed(1)} BB`;
-
-  function renderStats(stats) {
-    if (!stats) return;
-    $("statsConfidence").textContent = CONFIDENCE[stats.confidence] || "—";
-    $("statHands").textContent = stats.hands;
-    $("statHandsWon").textContent = stats.hands_won;
-    $("statSessions").textContent = stats.sessions;
-    $("statDays").textContent = stats.days_played;
-    // Null until a single hand has counted for a result -- a rate over no
-    // hands is not zero, it is unknown, and printing 0.0 says the wrong thing.
-    setSigned($("statBbPer100"), stats.bb_per_100, value => value.toFixed(1));
-    setSigned($("statNetBb"), stats.net_bb, bb);
-    $("statBiggestPot").textContent = `${Number(stats.biggest_pot_bb).toFixed(1)} BB`;
-    $("statLongest").textContent = `${stats.longest_session_minutes} мин`;
-    renderDay($("statBestDay"), stats.best_day);
-    renderDay($("statWorstDay"), stats.worst_day);
-  }
-
-  function setSigned(element, value, format) {
-    element.textContent = value == null ? "—" : format(value);
-    // Break-even is not a win. Painting a flat zero green was the page
-    // congratulating somebody for having played to a standstill.
-    element.className = !value ? "" : value > 0 ? "up" : "down";
-  }
-
-  function renderDay(element, day) {
-    if (!day) return void (element.textContent = "—");
-    element.textContent = `${bb(day.net_bb)} · ${day.day.slice(5)}`;
-    element.className = !day.net_bb ? "" : day.net_bb > 0 ? "up" : "down";
-  }
-
-  const countdown = seconds => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-  };
-
-  function renderMissions(payload) {
-    if (!payload) return;
-    const total = payload.missions.length;
-    $("missionsHeading").textContent = `Сегодня ${payload.completed} / ${total}`;
-    // A daily nobody can see the end of is a daily people forget exists.
-    $("missionsReset").textContent = `ЧЕРЕЗ ${countdown(payload.resets_in_seconds)}`;
-    $("missionsNote").textContent = payload.completed === total
-      ? `Все задания выполнены · +${payload.completion_xp} XP`
-      : payload.reroll_available
-        ? "Одно задание в день можно заменить."
-        : "Замена на сегодня использована.";
-    $("missionList").innerHTML = payload.missions.map(item => {
-      const share = Math.min(100, (item.progress / item.target) * 100);
-      const swap = !item.done && payload.reroll_available
-        ? `<button class="mission-reroll" type="button" data-reroll="${escapeHtml(item.slot)}">Заменить</button>`
-        : "";
-      return `
-      <div class="mission ${item.done ? "done" : ""}">
-        <div class="mission-copy">
-          <b>${escapeHtml(item.title)}</b>
-          <div class="mission-bar"><i style="width:${share}%"></i></div>
-        </div>
-        <span class="at">${item.done ? "✓" : `${item.progress} / ${item.target}`}</span>
-        <span class="gain">+${item.xp} XP</span>
-        ${swap}
-      </div>`;
-    }).join("");
-    document.querySelectorAll("[data-reroll]").forEach(button => {
-      button.addEventListener("click", () => rerollMission(button.dataset.reroll));
+    $('topupForm').addEventListener('submit', event => { event.preventDefault(); topUp($('topupAmount').value); });
+    for (const [buttonId, listId, label] of [
+      ['showAchievements', 'achievementList', 'Все достижения'], ['showHands', 'handHistory', 'Все раздачи'], ['showLedger', 'ledger', 'Все операции'],
+    ]) {
+      $(buttonId).addEventListener('click', () => {
+        const expanded = $(listId).classList.toggle('expanded');
+        $(buttonId).setAttribute('aria-expanded', String(expanded));
+        $(buttonId).innerHTML = `${expanded ? 'Свернуть' : label} <span aria-hidden="true">${expanded ? '↑' : '↓'}</span>`;
+      });
+    }
+    const tabs = [...document.querySelectorAll('[role="tab"]')];
+    const selectTab = selected => tabs.forEach(tab => {
+      const active = tab === selected;
+      tab.setAttribute('aria-selected', String(active));
+      tab.tabIndex = active ? 0 : -1;
+      $(tab.getAttribute('aria-controls')).hidden = !active;
     });
-  }
-
-  async function rerollMission(slot) {
-    const response = await fetch(`/api/profile/missions/${slot}/reroll`, { method: "POST" });
-    if (!response.ok) return alert("Замена сейчас недоступна.");
-    renderMissions(await json("/api/profile/missions").catch(() => null));
-  }
-
-  const RARITY = { common: "COMMON", rare: "RARE", epic: "EPIC", legendary: "LEGENDARY" };
-
-  function renderAchievements(payload) {
-    if (!payload) return;
-    $("achievementPoints").textContent = `${payload.achievement_points} AP`;
-    $("achievementsHeading").textContent = `Коллекция ${payload.completed} / ${payload.total}`;
-    $("achievementList").innerHTML = payload.achievements.map(item => {
-      const done = item.tier === item.tiers;
-      // A tiered achievement shows the climb; a one-shot has nothing to show
-      // but whether it happened.
-      const share = item.next_threshold ? Math.min(100, (item.progress / item.next_threshold) * 100) : 100;
-      const at = done
-        ? "✓"
-        : item.tiers > 1
-          ? `${item.progress} / ${item.next_threshold}`
-          : "—";
-      return `
-      <div class="achievement ${done ? "done" : "locked"}">
-        <div class="achievement-copy">
-          <b>${escapeHtml(item.title)}${item.tiers > 1 && item.tier ? ` · тир ${item.tier}` : ""}</b>
-          ${item.tiers > 1 ? `<div class="achievement-bar"><i style="width:${share}%"></i></div>` : ""}
-        </div>
-        <span class="rarity">${RARITY[item.rarity] || ""}</span>
-        <span class="at">${at}</span>
-      </div>`;
-    }).join("");
+    tabs.forEach((tab, index) => {
+      tab.addEventListener('click', () => selectTab(tab));
+      tab.addEventListener('keydown', event => {
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        event.preventDefault();
+        const next = event.key === 'Home' ? tabs[0] : event.key === 'End' ? tabs.at(-1) : tabs[1 - index];
+        selectTab(next);
+        next.focus();
+      });
+    });
   }
 
   async function load() {
-    const profile = await window.Poker8Auth.ensureSession();
-    $("profileName").textContent = profile.display_name;
-    $("telegramId").textContent = `Telegram ID · ${profile.telegram_user_id}`;
-    $("levelBadge").textContent = `LEVEL ${profile.level}`;
-    $("rankBadge").textContent = profile.rank;
-    $("xp").textContent = profile.xp;
-    $("wins").textContent = profile.wins;
-    $("hands").textContent = profile.hands_played;
-    $("walletBalance").textContent = units(profile.available_units);
-    $("tableStack").textContent = units(profile.active_table_stack_units);
-    // The label under this reads "до следующего уровня", and the number used
-    // to be the total wins so far -- which is not that number.
-    const left = profile.xp_to_next_level;
-    $("levelProgress").textContent = left == null ? "Максимальный уровень" : `Ещё ${left} XP`;
-    $("levelProgress").nextElementSibling?.toggleAttribute("hidden", left == null);
-
-    const returnLink = $("returnToTable");
-    if (profile.active_table_id && returnLink) {
-      returnLink.href = `/table?table=${encodeURIComponent(profile.active_table_id)}`;
-      returnLink.hidden = false;
-    }
-
-    renderMissions(await json("/api/profile/missions").catch(() => null));
-    renderStats(await json("/api/profile/stats").catch(() => null));
-    renderAchievements(await json("/api/profile/achievements").catch(() => null));
-
-    const [history, ledger, config] = await Promise.all([
-      json("/api/profile/hands?limit=20"),
-      json("/api/profile/play-journal?limit=20"),
-      json("/api/config"),
+    await window.Poker8Auth.ensureSession();
+    // First login returns an auth receipt, not XP/level/balance-at-table.
+    renderProfile(await json('/api/profile'));
+    await Promise.all([
+      loadBlock('/api/profile/missions', 'missionList', renderMissions, 'Не удалось загрузить задания. Обновите страницу.', 'missionsError'),
+      loadBlock('/api/profile/stats', 'statsGrid', renderStats, 'Не удалось загрузить статистику. Обновите страницу.', 'statsError'),
+      loadBlock('/api/profile/achievements', 'achievementList', renderAchievements, 'Не удалось загрузить достижения. Обновите страницу.', 'achievementsError'),
+      loadBlock('/api/profile/hands?limit=20', 'handHistory', renderHistory, 'Не удалось загрузить историю.'),
+      loadBlock('/api/profile/play-journal?limit=20', 'ledger', renderLedger, 'Не удалось загрузить журнал.'),
+      json('/api/config').then(config => renderTopUp(Boolean(config.self_top_up_enabled))).catch(() => renderTopUp(false)),
     ]);
-    fill("handHistory", (history.hands || []).map(handRow), "История появится после первой раздачи.");
-    fill("ledger", (ledger.entries || []).map(ledgerRow), "Операций пока нет.");
-    renderTopUp(Boolean(config.self_top_up_enabled));
-    bindTopUp();
   }
 
+  bindControls();
   load().catch(error => {
     console.error(error);
-    fill("handHistory", [], "Не удалось загрузить историю.");
-    fill("ledger", [], "Не удалось загрузить журнал.");
+    $('profileLoading').hidden = true;
+    showError('profileError', 'Профиль не загрузился. Откройте его через Telegram или обновите страницу.');
+    showError('missionsError', 'Задания появятся после входа.');
+    showError('statsError', 'Статистика появится после входа.');
+    showError('achievementsError', 'Коллекция появится после входа.');
+    $('missionList').replaceChildren();
+    $('achievementList').replaceChildren();
+    fill('handHistory', [], 'Не удалось загрузить историю.');
+    fill('ledger', [], 'Не удалось загрузить журнал.');
     renderTopUp(false);
-    const hero = document.querySelector(".profile-hero");
-    if (hero && !hero.querySelector(".profile-error")) {
-      const note = document.createElement("p");
-      note.className = "profile-error";
-      note.textContent = "Профиль не загрузился. Обновите страницу.";
-      hero.appendChild(note);
-    }
+    document.querySelectorAll('[aria-busy]').forEach(node => node.setAttribute('aria-busy', 'false'));
   });
 })();

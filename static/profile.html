@@ -1,126 +1,112 @@
 <!doctype html>
 <html lang="ru">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Poker8 · Profile</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Manrope:wght@400;600;700;800&display=swap" />
-<link rel="stylesheet" href="/static/network.css?v=progression-release-1" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#101115" />
+  <title>Poker8 · Профиль</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Manrope:wght@400;600;700;800&display=swap" />
+  <link rel="stylesheet" href="/static/network.css?v=profile-refined-1" />
+  <link rel="stylesheet" href="/static/profile.css?v=profile-refined-1" />
 </head>
-<body>
-<div class="network-shell profile-shell">
-  <header class="network-header">
-    <a class="network-brand" href="/"><span class="brand-chip">P8</span><span><b>Poker8</b><small>PLAYER PROFILE</small></span></a>
-    <!-- The text link this replaces is display:none below 760px, which is every
-         phone -- so on the width this product is actually played at, the profile
-         page had no way back to the lobby at all. -->
-    <a class="profile-chip" href="/" aria-label="Лобби" title="Лобби">🏠</a>
-  </header>
-  <main>
-    <section class="profile-hero">
-      <p class="eyebrow">YOUR RECORD</p>
-      <h1 id="profileName">Игрок</h1>
-      <p id="telegramId" class="dialog-muted"></p>
-      <div class="profile-level">
-        <span id="levelBadge">LEVEL 1</span>
-        <span id="rankBadge" class="profile-rank">ROOKIE</span>
-        <div><strong id="levelProgress">—</strong><small>до следующего уровня</small></div>
-      </div>
-    </section>
-
-    <section class="profile-metrics">
-      <div><span>Опыт</span><strong id="xp">—</strong></div>
-      <div><span>Победы</span><strong id="wins">—</strong></div>
-      <div><span>Раздачи</span><strong id="hands">—</strong></div>
-      <!-- A link, not a tile with a click handler: pressing the balance is how
-           people expect to reach a top-up, and an anchor gets that with focus
-           and keyboard behaviour for free. -->
-      <a class="metric-link" href="#topup"><span>Wallet</span><strong id="walletBalance">—</strong><em>пополнить</em></a>
-      <div><span>За столом</span><strong id="tableStack">—</strong></div>
-    </section>
-
-    <section class="profile-section">
-      <div class="section-heading">
-        <div><p class="eyebrow">ЗАДАНИЯ ДНЯ</p><h2 id="missionsHeading">Сегодня</h2></div>
-        <span id="missionsReset" class="stats-confidence">—</span>
-      </div>
-      <div class="mission-list" id="missionList"></div>
-      <p class="stats-note" id="missionsNote"></p>
-    </section>
-
-    <section class="profile-section">
-      <div class="section-heading">
-        <div><p class="eyebrow">СТАТИСТИКА</p><h2>Как я играю</h2></div>
-        <span id="statsConfidence" class="stats-confidence">—</span>
-      </div>
-      <div class="stats-grid" id="statsGrid">
-        <div><span>Раздач</span><strong id="statHands">—</strong></div>
-        <div><span>BB/100</span><strong id="statBbPer100">—</strong></div>
-        <div><span>Итого</span><strong id="statNetBb">—</strong></div>
-        <div><span>Выиграно раздач</span><strong id="statHandsWon">—</strong></div>
-        <div><span>Сессий</span><strong id="statSessions">—</strong></div>
-        <div><span>Дней за игрой</span><strong id="statDays">—</strong></div>
-      </div>
-      <div class="stats-records">
-        <div><span>Крупнейший банк</span><strong id="statBiggestPot">—</strong></div>
-        <div><span>Самая долгая сессия</span><strong id="statLongest">—</strong></div>
-        <div><span>Лучший день</span><strong id="statBestDay">—</strong></div>
-        <div><span>Худший день</span><strong id="statWorstDay">—</strong></div>
-      </div>
-      <p class="stats-note">Результат считается только за сетевыми столами.</p>
-    </section>
-
-    <section class="profile-section">
-      <div class="section-heading">
-        <div><p class="eyebrow">ДОСТИЖЕНИЯ</p><h2 id="achievementsHeading">Коллекция</h2></div>
-        <span id="achievementPoints" class="stats-confidence">—</span>
-      </div>
-      <div class="achievement-list" id="achievementList"></div>
-    </section>
-
-    <section id="topup" class="profile-section topup-section">
-      <div class="section-heading">
-        <div><p class="eyebrow">WALLET</p><h2>Пополнение</h2></div>
-      </div>
-      <div class="topup-card">
-        <div class="topup-presets" id="topupPresets">
-          <button type="button" data-amount="10000">+100</button>
-          <button type="button" data-amount="50000">+500</button>
-          <button type="button" data-amount="100000">+1000</button>
+<body class="profile-page">
+  <a class="skip-link" href="#profileMain">К профилю</a>
+  <div class="profile-shell">
+    <header class="profile-header">
+      <a class="profile-back" href="/" aria-label="Вернуться в лобби"><span aria-hidden="true">←</span> В лобби</a>
+      <a class="profile-brand" href="/" aria-label="Poker8, лобби">poker<span>8</span><i aria-hidden="true">♠</i></a>
+    </header>
+    <main id="profileMain">
+      <section class="profile-hero" aria-labelledby="profileName" aria-busy="true">
+        <div class="player-identity">
+          <div class="player-avatar" aria-hidden="true"><span id="avatarInitials">P8</span><i>♠</i></div>
+          <div class="player-copy">
+            <p class="profile-kicker">ПРОФИЛЬ ИГРОКА</p>
+            <h1 id="profileName">Ваш профиль</h1>
+            <div class="profile-level"><span class="level-badge"><b id="levelBadge">—</b> уровень</span><span id="rankBadge">—</span></div>
+          </div>
         </div>
-        <label class="topup-field">
-          <span>Своя сумма</span>
-          <input id="topupAmount" type="number" min="1" step="1" inputmode="numeric" placeholder="250" />
-        </label>
-        <button id="topupSubmit" class="primary-action topup-submit" type="button"><strong>Пополнить</strong></button>
-        <p id="topupNote" class="topup-note">Проверяем доступность…</p>
+        <div class="player-progress">
+          <div class="xp-line"><strong><span id="xp">—</span> <small>XP</small></strong><span id="levelProgress">—</span></div>
+          <p class="profile-lifetime"><span><b id="hands">—</b> <span id="handsLabel">раздач</span></span><span><b id="wins">—</b> <span id="winsLabel">побед</span></span><span>за всё время</span></p>
+        </div>
+        <aside id="topup" class="profile-wallet" aria-label="Игровой баланс">
+          <span class="profile-kicker">ДОСТУПНО ФИШЕК</span>
+          <strong id="walletBalance">—</strong>
+          <p class="wallet-table"><span>За столом</span><b id="tableStack">—</b></p>
+          <a id="returnToTable" class="return-link" href="/table" hidden>Продолжить игру <span aria-hidden="true">↗</span></a>
+          <details id="topupDetails" hidden>
+            <summary>Пополнить баланс <span aria-hidden="true">+</span></summary>
+            <form id="topupForm" class="topup-card">
+              <div class="topup-presets" id="topupPresets">
+                <button type="button" data-amount="10000" disabled>+100</button>
+                <button type="button" data-amount="50000" disabled>+500</button>
+                <button type="button" data-amount="100000" disabled>+1000</button>
+              </div>
+              <label class="topup-field">Своя сумма<input id="topupAmount" type="number" min="1" max="1000000" step="1" inputmode="numeric" placeholder="250" required disabled /></label>
+              <button id="topupSubmit" class="profile-button" type="submit" disabled>Пополнить</button>
+            </form>
+          </details>
+          <p id="topupNote" class="topup-note" role="status">Проверяем доступность…</p>
+        </aside>
+        <p id="profileLoading" class="profile-message" role="status">Загружаем профиль…</p>
+        <p id="profileError" class="profile-error" role="alert" hidden></p>
+      </section>
+      <div class="profile-dashboard">
+        <section class="profile-section missions-section" aria-labelledby="missionsHeading" aria-busy="true">
+          <div class="profile-section-heading"><h2 id="missionsHeading">Задания дня</h2><span id="missionsCount" class="section-count">— / 3</span></div>
+          <p class="section-caption" id="missionsReset">Обновляются в 00:00 МСК</p>
+          <div class="mission-list" id="missionList"><p class="profile-message">Загружаем задания…</p></div>
+          <div class="mission-bonus"><span id="missionsBonusLabel">Бонус за все три</span><strong id="missionsBonus">— XP</strong></div>
+          <p class="section-caption" id="missionsNote"></p>
+          <p id="missionsError" class="profile-error" role="status" hidden></p>
+        </section>
+        <section class="profile-section stats-section" aria-labelledby="statsHeading" aria-busy="true">
+          <div class="profile-section-heading"><h2 id="statsHeading">За игровым столом</h2></div>
+          <p class="section-caption" id="statsSample">Результат за сетевыми столами</p>
+          <div class="stats-grid" id="statsGrid">
+            <div class="stat-result"><span>Общий результат</span><strong id="statNetBb">—</strong></div>
+            <div class="stat-rate"><span>BB / 100</span><strong id="statBbPer100">—</strong></div>
+          </div>
+          <p id="statsEmpty" class="section-caption" hidden>Сыграйте первые раздачи — здесь появится ваш результат.</p>
+          <div class="stats-activity"><span><b id="statSessions">—</b> <span id="sessionsLabel">сессий</span></span><span><b id="statDays">—</b> <span id="daysLabel">дней</span> игры</span><span id="statsConfidence">—</span></div>
+          <dl class="stats-records">
+            <div><dt>Крупнейший банк</dt><dd id="statBiggestPot">—</dd></div>
+            <div><dt>Самая долгая сессия</dt><dd id="statLongest">—</dd></div>
+            <div><dt>Лучший день</dt><dd id="statBestDay">—</dd></div>
+            <div><dt>Худший день</dt><dd id="statWorstDay">—</dd></div>
+          </dl>
+          <details class="stats-details"><summary>Как считается результат</summary><p id="statsAccounting">Результат считается только за сетевыми столами.</p></details>
+          <p id="statsError" class="profile-error" role="status" hidden></p>
+        </section>
+        <section class="profile-section collection-section" aria-labelledby="achievementsHeading" aria-busy="true">
+          <div class="profile-section-heading"><div class="heading-with-count"><h2 id="achievementsHeading">Достижения</h2><span id="achievementsCount" class="section-count">— / 12</span></div><span id="achievementPoints" class="achievement-points" title="Очки достижений">— AP</span></div>
+          <div class="achievement-list" id="achievementList"><p class="profile-message">Загружаем коллекцию…</p></div>
+          <button id="showAchievements" class="disclosure-button" type="button" aria-expanded="false" aria-controls="achievementList" hidden>Все достижения <span aria-hidden="true">↓</span></button>
+          <p id="achievementsError" class="profile-error" role="status" hidden></p>
+        </section>
+        <section class="profile-section activity-section" aria-labelledby="activityHeading">
+          <div class="profile-section-heading"><h2 id="activityHeading">История</h2><span class="section-caption">Последние события</span></div>
+          <div class="history-tabs" role="tablist" aria-label="Тип истории">
+            <button id="handsTab" type="button" role="tab" aria-selected="true" aria-controls="handsPanel">Раздачи</button>
+            <button id="ledgerTab" type="button" role="tab" aria-selected="false" aria-controls="ledgerPanel" tabindex="-1">Операции</button>
+          </div>
+          <div id="handsPanel" role="tabpanel" aria-labelledby="handsTab" tabindex="0" aria-busy="true">
+            <div id="handHistory" class="history-list"><p class="profile-message">Загружаем раздачи…</p></div>
+            <button id="showHands" class="disclosure-button" type="button" aria-expanded="false" aria-controls="handHistory" hidden>Все раздачи <span aria-hidden="true">↓</span></button>
+          </div>
+          <div id="ledgerPanel" role="tabpanel" aria-labelledby="ledgerTab" tabindex="0" aria-busy="true" hidden>
+            <div id="ledger" class="history-list"><p class="profile-message">Загружаем операции…</p></div>
+            <button id="showLedger" class="disclosure-button" type="button" aria-expanded="false" aria-controls="ledger" hidden>Все операции <span aria-hidden="true">↓</span></button>
+          </div>
+        </section>
       </div>
-    </section>
-
-    <section class="profile-section">
-      <div class="section-heading">
-        <div><p class="eyebrow">LAST 20</p><h2>История раздач</h2></div>
-      </div>
-      <div id="handHistory" class="history-list"></div>
-    </section>
-
-    <section class="profile-section">
-      <div class="section-heading">
-        <div><p class="eyebrow">LEDGER</p><h2>Журнал фишек</h2></div>
-      </div>
-      <div id="ledger" class="history-list"></div>
-    </section>
-
-    <a id="returnToTable" class="quick-play return-link" href="/table" hidden>Вернуться к столу →</a>
-  </main>
-  <footer class="network-footer">
-    <span>Виртуальные фишки · без real-money API</span>
-    <span>Powered by Poker8</span>
-  </footer>
-</div>
-<script src="/static/auth-client.js?v=progression-release-1"></script>
-<script src="/static/profile.js?v=progression-release-1"></script>
+    </main>
+    <footer class="profile-footer"><span>Poker8</span><span>Игра на виртуальные фишки</span></footer>
+  </div>
+  <script src="/static/auth-client.js?v=profile-refined-1"></script>
+  <script src="/static/profile.js?v=profile-refined-1"></script>
 </body>
 </html>

@@ -2,7 +2,7 @@ from pathlib import Path
 
 HTML = Path("static/profile.html").read_text(encoding="utf-8")
 JS = Path("static/profile.js").read_text(encoding="utf-8")
-CSS = Path("static/network.css").read_text(encoding="utf-8")
+CSS = Path("static/profile.css").read_text(encoding="utf-8")
 
 
 def test_profile_page_has_wallet_history_and_return_slot():
@@ -15,20 +15,21 @@ def test_the_page_actually_has_a_stylesheet():
     written, network.css never got the rules, so the whole page rendered as
     bare HTML."""
     for selector in (
-        ".profile-hero", ".profile-level", ".profile-metrics", ".profile-section",
+        ".profile-hero", ".profile-level", ".profile-dashboard", ".profile-section",
         ".history-list", ".history-row", ".return-link", ".topup-card",
-        ".stats-grid", ".stats-records", ".stats-confidence",
+        ".stats-grid", ".stats-records", ".profile-wallet",
         ".achievement-list", ".achievement", ".achievement-bar",
-        ".mission-list", ".mission", ".mission-bar", ".mission-reroll",
+        ".mission-list", ".mission",
     ):
         assert selector + "{" in CSS, selector
+    assert 'href="/static/profile.css?v=' in HTML
 
 
 def test_there_is_a_way_back_to_the_lobby_on_a_phone():
     """The text link it replaces is display:none below 760px -- which is every
     phone, i.e. the width this is played at."""
-    assert 'class="profile-chip" href="/"' in HTML
-    assert ".text-link{display:none}" in CSS, "the rule that made this necessary"
+    assert 'class="profile-back" href="/"' in HTML
+    assert 'class="text-link"' not in HTML
 
 
 def test_the_rows_say_something():
@@ -49,7 +50,7 @@ def test_the_next_level_line_is_about_the_next_level():
     """
     assert "wins_to_next_level" not in JS, "wins stopped being what a level costs"
     assert "profile.xp_to_next_level" in JS
-    assert "Ещё ${left} XP" in JS
+    assert "Ещё ${number(left)} XP" in JS
     router = Path("app/routers/profiles.py").read_text(encoding="utf-8")
     assert '"xp_to_next_level": xp_to_next_level(xp)' in router
     assert '"level": level' in router and '"rank": rank_for_level(level)' in router
@@ -66,13 +67,13 @@ def test_top_up_asks_before_it_offers():
 def test_pressing_a_balance_reaches_the_top_up():
     lobby = Path("static/lobby.html").read_text(encoding="utf-8")
     assert 'href="/static/profile.html#topup"' in lobby
-    assert 'class="metric-link" href="#topup"' in HTML
-    assert 'id="topup"' in HTML
+    assert 'id="topup" class="profile-wallet"' in HTML
+    assert 'id="topupDetails" hidden' in HTML
 
 
 def test_a_failed_load_says_so_instead_of_a_column_of_dashes():
     assert "Не удалось загрузить историю." in JS
-    assert "profile-error" in JS and ".profile-error{" in CSS
+    assert 'class="profile-error"' in HTML and ".profile-error{" in CSS
 
 
 def test_every_page_shares_one_cache_token():
