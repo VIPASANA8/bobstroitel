@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Manrope:wght@400;600;700;800&display=swap" />
-  <link rel="stylesheet" href="/static/network.css?v=desktop-oval-46" />
+  <link rel="stylesheet" href="/static/network.css?v=progression-xp-3" />
 </head>
 <body>
   <a class="skip-link" href="#tableGrid">К столам</a>
@@ -42,6 +42,16 @@
               <button id="leaveTable" class="leave-action" type="button">Покинуть стол</button>
             </div>
           </section>
+
+          <section id="sessionReport" class="session-report" hidden aria-live="polite">
+            <div class="report-head"><span class="session-label">СЕССИЯ ЗАВЕРШЕНА</span><button id="dismissReport" class="report-close" type="button" aria-label="Закрыть отчёт">×</button></div>
+            <p id="reportSummary" class="report-summary">—</p>
+            <div class="report-grid">
+              <div><span>Результат</span><strong id="reportNet">—</strong></div>
+              <div><span>Крупнейший банк</span><strong id="reportPot">—</strong></div>
+              <div><span>Опыт</span><strong id="reportXp">—</strong></div>
+            </div>
+          </section>
         </div>
       </section>
 
@@ -60,7 +70,7 @@
   <dialog id="buyInDialog" class="buyin-dialog"><form method="dialog" id="buyInForm"><button class="dialog-close" type="button" aria-label="Закрыть">×</button><p class="eyebrow">ПОСАДКА ЗА СТОЛ</p><h2>Выберите бай-ин</h2><p id="buyInTable" class="dialog-muted"></p><label for="buyInUnits">Фишки</label><input id="buyInUnits" type="number" required /><p class="dialog-hint">Лимиты стола · виртуальный баланс</p><button id="confirmReady" class="primary-action" value="default" type="submit">Встать в очередь <strong>→</strong></button></form></dialog>
   <dialog id="roomDialog" class="buyin-dialog"><form method="dialog" id="roomForm"><button class="dialog-close" type="button" aria-label="Закрыть">×</button><p class="eyebrow">СВОЯ КОМНАТА</p><h2>Создать комнату</h2><label for="roomName">Название</label><input id="roomName" type="text" maxlength="40" required placeholder="Вечерний стол" /><label for="roomLevel">Ставки</label><select id="roomLevel"></select><label for="roomPassword">Пароль (необязательно)</label><input id="roomPassword" type="password" minlength="4" maxlength="32" autocomplete="new-password" placeholder="Оставьте пустым — комната открыта всем" /><p class="dialog-hint">Стол на шесть мест · закроется через 1,5 минуты без игроков</p><button id="confirmRoom" class="primary-action" value="default" type="submit">Создать <strong>→</strong></button></form></dialog>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="/static/auth-client.js?v=desktop-oval-46"></script><script src="/static/table-guide.js?v=desktop-oval-46"></script>
-  <script src="/static/lobby.js?v=desktop-oval-46"></script>
+  <script src="/static/auth-client.js?v=progression-xp-3"></script><script src="/static/table-guide.js?v=progression-xp-3"></script>
+  <script src="/static/lobby.js?v=progression-xp-3"></script>
 </body>
 </html>

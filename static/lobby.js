@@ -91,6 +91,30 @@
     leaveWatch = null;
   }
 
+  const bb = value => `${Number(value) > 0 ? "+" : ""}${Number(value).toFixed(1)} BB`;
+
+  function renderSessionReport(report) {
+    const panel = $("sessionReport");
+    panel.hidden = !report;
+    if (!report) return;
+    const minutes = Math.max(1, Math.round((new Date(report.ended_at) - new Date(report.started_at)) / 60000));
+    panel.hidden = false;
+    $("reportSummary").textContent = `${report.hands} ${plural(report.hands)} · ${minutes} мин`;
+    const net = $("reportNet");
+    net.textContent = bb(report.net_bb);
+    net.className = report.net_bb >= 0 ? "up" : "down";
+    $("reportPot").textContent = `${Number(report.biggest_pot_bb).toFixed(1)} BB`;
+    // A losing session still earned it, which is the whole point of showing
+    // the two numbers side by side.
+    $("reportXp").textContent = `+${report.xp_earned} XP`;
+  }
+
+  function plural(hands) {
+    const tail = hands % 100;
+    if (tail > 10 && tail < 20) return "раздач";
+    return ["раздач", "раздача", "раздачи", "раздачи", "раздачи"][Math.min(hands % 10, 4)] || "раздач";
+  }
+
   function renderTables() {
     $("tableGrid").innerHTML = tables.map((table, index) => {
       const tier = tierFor(table);
@@ -158,6 +182,11 @@
     renderTables();
     renderLiveStrip();
     renderActiveSession(sessionPayload.session);
+    // Fetched on every load, not only after a departure: a player who closed
+    // the tab on the way out, or who was evicted while away, has a report
+    // waiting the next time they open the lobby.
+    const reportResponse = await fetch("/api/profile/last-session").catch(() => null);
+    renderSessionReport(reportResponse?.ok ? (await reportResponse.json()).session : null);
     $("loadStatus").textContent = "● В СЕТИ";
   }
 
@@ -200,6 +229,13 @@
     const response = await fetch("/api/lobby/quick-play", { method: "POST" });
     if (!response.ok) return alert("Быстрый вход сейчас недоступен");
     openBuyIn((await response.json()).table);
+  });
+
+  $("dismissReport").addEventListener("click", async () => {
+    // Hide first, then tell the server: the card is gone either way, and a
+    // failed dismissal only means it waits for them again next visit.
+    $("sessionReport").hidden = true;
+    await fetch("/api/profile/last-session/seen", { method: "POST" }).catch(() => {});
   });
 
   $("returnTable").addEventListener("click", () => {

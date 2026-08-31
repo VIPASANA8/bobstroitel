@@ -17,6 +17,8 @@ def test_the_page_actually_has_a_stylesheet():
     for selector in (
         ".profile-hero", ".profile-level", ".profile-metrics", ".profile-section",
         ".history-list", ".history-row", ".return-link", ".topup-card",
+        ".stats-grid", ".stats-records", ".stats-confidence",
+        ".achievement-list", ".achievement", ".achievement-bar",
     ):
         assert selector + "{" in CSS, selector
 
@@ -39,11 +41,17 @@ def test_the_rows_say_something():
 
 def test_the_next_level_line_is_about_the_next_level():
     """It printed the total wins so far under a label reading
-    "до следующего уровня" -- two unrelated numbers stacked on each other."""
-    assert "wins_to_next_level" in JS
+    "до следующего уровня" -- two unrelated numbers stacked on each other.
+
+    The ladder is XP now, so the line has to be the XP still owed; wins are a
+    tally of their own and buy no levels at all.
+    """
+    assert "wins_to_next_level" not in JS, "wins stopped being what a level costs"
+    assert "profile.xp_to_next_level" in JS
+    assert "Ещё ${left} XP" in JS
     router = Path("app/routers/profiles.py").read_text(encoding="utf-8")
-    assert "def wins_to_next_level" in router
-    assert '"wins_to_next_level": wins_to_next_level(row["wins"])' in router
+    assert '"xp_to_next_level": xp_to_next_level(xp)' in router
+    assert '"level": level' in router and '"rank": rank_for_level(level)' in router
 
 
 def test_top_up_asks_before_it_offers():

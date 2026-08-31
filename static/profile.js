@@ -131,19 +131,82 @@
     });
   }
 
+  const CONFIDENCE = { low: "МАЛАЯ ВЫБОРКА", medium: "СРЕДНЯЯ ВЫБОРКА", high: "БОЛЬШАЯ ВЫБОРКА" };
+  const bb = value => `${Number(value) > 0 ? "+" : ""}${Number(value).toFixed(1)} BB`;
+
+  function renderStats(stats) {
+    if (!stats) return;
+    $("statsConfidence").textContent = CONFIDENCE[stats.confidence] || "—";
+    $("statHands").textContent = stats.hands;
+    $("statHandsWon").textContent = stats.hands_won;
+    $("statSessions").textContent = stats.sessions;
+    $("statDays").textContent = stats.days_played;
+    // Null until a single hand has counted for a result -- a rate over no
+    // hands is not zero, it is unknown, and printing 0.0 says the wrong thing.
+    setSigned($("statBbPer100"), stats.bb_per_100, value => value.toFixed(1));
+    setSigned($("statNetBb"), stats.net_bb, bb);
+    $("statBiggestPot").textContent = `${Number(stats.biggest_pot_bb).toFixed(1)} BB`;
+    $("statLongest").textContent = `${stats.longest_session_minutes} мин`;
+    renderDay($("statBestDay"), stats.best_day);
+    renderDay($("statWorstDay"), stats.worst_day);
+  }
+
+  function setSigned(element, value, format) {
+    element.textContent = value == null ? "—" : format(value);
+    // Break-even is not a win. Painting a flat zero green was the page
+    // congratulating somebody for having played to a standstill.
+    element.className = !value ? "" : value > 0 ? "up" : "down";
+  }
+
+  function renderDay(element, day) {
+    if (!day) return void (element.textContent = "—");
+    element.textContent = `${bb(day.net_bb)} · ${day.day.slice(5)}`;
+    element.className = !day.net_bb ? "" : day.net_bb > 0 ? "up" : "down";
+  }
+
+  const RARITY = { common: "COMMON", rare: "RARE", epic: "EPIC", legendary: "LEGENDARY" };
+
+  function renderAchievements(payload) {
+    if (!payload) return;
+    $("achievementPoints").textContent = `${payload.achievement_points} AP`;
+    $("achievementsHeading").textContent = `Коллекция ${payload.completed} / ${payload.total}`;
+    $("achievementList").innerHTML = payload.achievements.map(item => {
+      const done = item.tier === item.tiers;
+      // A tiered achievement shows the climb; a one-shot has nothing to show
+      // but whether it happened.
+      const share = item.next_threshold ? Math.min(100, (item.progress / item.next_threshold) * 100) : 100;
+      const at = done
+        ? "✓"
+        : item.tiers > 1
+          ? `${item.progress} / ${item.next_threshold}`
+          : "—";
+      return `
+      <div class="achievement ${done ? "done" : "locked"}">
+        <div class="achievement-copy">
+          <b>${escapeHtml(item.title)}${item.tiers > 1 && item.tier ? ` · тир ${item.tier}` : ""}</b>
+          ${item.tiers > 1 ? `<div class="achievement-bar"><i style="width:${share}%"></i></div>` : ""}
+        </div>
+        <span class="rarity">${RARITY[item.rarity] || ""}</span>
+        <span class="at">${at}</span>
+      </div>`;
+    }).join("");
+  }
+
   async function load() {
     const profile = await window.Poker8Auth.ensureSession();
     $("profileName").textContent = profile.display_name;
     $("telegramId").textContent = `Telegram ID · ${profile.telegram_user_id}`;
     $("levelBadge").textContent = `LEVEL ${profile.level}`;
+    $("rankBadge").textContent = profile.rank;
+    $("xp").textContent = profile.xp;
     $("wins").textContent = profile.wins;
     $("hands").textContent = profile.hands_played;
     $("walletBalance").textContent = units(profile.available_units);
     $("tableStack").textContent = units(profile.active_table_stack_units);
     // The label under this reads "до следующего уровня", and the number used
     // to be the total wins so far -- which is not that number.
-    const left = profile.wins_to_next_level;
-    $("levelProgress").textContent = left == null ? "Максимальный уровень" : `Ещё ${left} побед`;
+    const left = profile.xp_to_next_level;
+    $("levelProgress").textContent = left == null ? "Максимальный уровень" : `Ещё ${left} XP`;
     $("levelProgress").nextElementSibling?.toggleAttribute("hidden", left == null);
 
     const returnLink = $("returnToTable");
@@ -151,6 +214,9 @@
       returnLink.href = `/table?table=${encodeURIComponent(profile.active_table_id)}`;
       returnLink.hidden = false;
     }
+
+    renderStats(await json("/api/profile/stats").catch(() => null));
+    renderAchievements(await json("/api/profile/achievements").catch(() => null));
 
     const [history, ledger, config] = await Promise.all([
       json("/api/profile/hands?limit=20"),

@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Manrope:wght@400;600;700;800&display=swap" />
-<link rel="stylesheet" href="/static/network.css?v=desktop-oval-46" />
+<link rel="stylesheet" href="/static/network.css?v=progression-xp-3" />
 </head>
 <body>
 <div class="network-shell profile-shell">
@@ -24,12 +24,14 @@
       <h1 id="profileName">Игрок</h1>
       <p id="telegramId" class="dialog-muted"></p>
       <div class="profile-level">
-        <span id="levelBadge">LEVEL 0</span>
+        <span id="levelBadge">LEVEL 1</span>
+        <span id="rankBadge" class="profile-rank">ROOKIE</span>
         <div><strong id="levelProgress">—</strong><small>до следующего уровня</small></div>
       </div>
     </section>
 
     <section class="profile-metrics">
+      <div><span>Опыт</span><strong id="xp">—</strong></div>
       <div><span>Победы</span><strong id="wins">—</strong></div>
       <div><span>Раздачи</span><strong id="hands">—</strong></div>
       <!-- A link, not a tile with a click handler: pressing the balance is how
@@ -37,6 +39,36 @@
            and keyboard behaviour for free. -->
       <a class="metric-link" href="#topup"><span>Wallet</span><strong id="walletBalance">—</strong><em>пополнить</em></a>
       <div><span>За столом</span><strong id="tableStack">—</strong></div>
+    </section>
+
+    <section class="profile-section">
+      <div class="section-heading">
+        <div><p class="eyebrow">СТАТИСТИКА</p><h2>Как я играю</h2></div>
+        <span id="statsConfidence" class="stats-confidence">—</span>
+      </div>
+      <div class="stats-grid" id="statsGrid">
+        <div><span>Раздач</span><strong id="statHands">—</strong></div>
+        <div><span>BB/100</span><strong id="statBbPer100">—</strong></div>
+        <div><span>Итого</span><strong id="statNetBb">—</strong></div>
+        <div><span>Выиграно раздач</span><strong id="statHandsWon">—</strong></div>
+        <div><span>Сессий</span><strong id="statSessions">—</strong></div>
+        <div><span>Дней за игрой</span><strong id="statDays">—</strong></div>
+      </div>
+      <div class="stats-records">
+        <div><span>Крупнейший банк</span><strong id="statBiggestPot">—</strong></div>
+        <div><span>Самая долгая сессия</span><strong id="statLongest">—</strong></div>
+        <div><span>Лучший день</span><strong id="statBestDay">—</strong></div>
+        <div><span>Худший день</span><strong id="statWorstDay">—</strong></div>
+      </div>
+      <p class="stats-note">Результат считается только за сетевыми столами.</p>
+    </section>
+
+    <section class="profile-section">
+      <div class="section-heading">
+        <div><p class="eyebrow">ДОСТИЖЕНИЯ</p><h2 id="achievementsHeading">Коллекция</h2></div>
+        <span id="achievementPoints" class="stats-confidence">—</span>
+      </div>
+      <div class="achievement-list" id="achievementList"></div>
     </section>
 
     <section id="topup" class="profile-section topup-section">
@@ -79,7 +111,7 @@
     <span>Powered by Poker8</span>
   </footer>
 </div>
-<script src="/static/auth-client.js?v=desktop-oval-46"></script>
-<script src="/static/profile.js?v=desktop-oval-46"></script>
+<script src="/static/auth-client.js?v=progression-xp-3"></script>
+<script src="/static/profile.js?v=progression-xp-3"></script>
 </body>
 </html>
