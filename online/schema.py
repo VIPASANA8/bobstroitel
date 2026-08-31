@@ -427,3 +427,42 @@ Index(
 Index("ix_table_runtimes_action_deadline", table_runtimes.c.action_deadline)
 Index("ix_hands_table_terminal", hands.c.table_id, hands.c.terminal)
 Index("ix_integrity_events_user_time", integrity_events.c.user_id, integrity_events.c.created_at)
+
+
+cash_accounts = Table(
+    "cash_accounts", metadata,
+    Column("id", String(64), primary_key=True),
+    Column("kind", String(32), nullable=False),
+    Column("user_id", String(64), ForeignKey("users.id")),
+    Column("reference_id", String(100), nullable=False),
+    Column("balance_micros", BIGINT, nullable=False, server_default=text("0")),
+    Column("created_at", timestamp, **created_at),
+    UniqueConstraint("kind", "reference_id", name="uq_cash_account_reference"),
+    CheckConstraint("kind IN ('available', 'escrow', 'withdrawal', 'clearing')", name="ck_cash_account_kind"),
+    CheckConstraint("(kind = 'clearing' AND user_id IS NULL) OR (kind <> 'clearing' AND user_id IS NOT NULL)", name="ck_cash_account_owner"),
+    CheckConstraint("kind = 'clearing' OR balance_micros >= 0", name="ck_cash_nonnegative"),
+)
+
+cash_transactions = Table(
+    "cash_transactions", metadata,
+    Column("id", String(32), primary_key=True),
+    Column("scope", String(64), nullable=False),
+    Column("idempotency_key", String(200), nullable=False),
+    Column("request_hash", String(64), nullable=False),
+    Column("kind", String(32), nullable=False),
+    Column("reference_id", String(100), nullable=False),
+    Column("actor", String(100), nullable=False),
+    Column("created_at", timestamp, **created_at),
+    UniqueConstraint("scope", "idempotency_key", name="uq_cash_transaction_key"),
+    CheckConstraint("kind IN ('deposit', 'reserve', 'release', 'settlement', 'payout', 'adjustment')", name="ck_cash_transaction_kind"),
+)
+
+cash_entries = Table(
+    "cash_entries", metadata,
+    Column("transaction_id", String(32), ForeignKey("cash_transactions.id"), primary_key=True),
+    Column("account_id", String(64), ForeignKey("cash_accounts.id"), primary_key=True),
+    Column("amount_micros", BIGINT, nullable=False),
+    Column("created_at", timestamp, **created_at),
+    CheckConstraint("amount_micros <> 0", name="ck_cash_nonzero_entry"),
+)
+Index("ix_cash_entries_account", cash_entries.c.account_id)
