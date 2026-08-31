@@ -7,7 +7,6 @@ import tempfile
 from pathlib import Path
 
 APP = Path("static/app.js").read_text(encoding="utf-8")
-V025 = Path("static/v025-showdown-compare.js").read_text(encoding="utf-8")
 
 
 def _extract(start_marker, end_marker):

@@ -79,13 +79,6 @@
   // on the external telegram-web-app.js round trip -- every extra second
   // there is a second spent showing the old v0.11 table underneath.
   document.addEventListener("DOMContentLoaded", () => {
-    if (!document.querySelector('script[data-v015-fixes]')) {
-      const v015 = document.createElement("script");
-      v015.src = "/static/v015-fixes.js";
-      v015.dataset.v015Fixes = "1";
-      document.body.appendChild(v015);
-    }
-
     if (!document.querySelector('script[data-v016-fixes]')) {
       const v016 = document.createElement("script");
       v016.src = "/static/v016-fixes.js";
@@ -107,20 +100,6 @@
       document.body.appendChild(v019);
     }
 
-    if (!document.querySelector('script[data-v020-fixes]')) {
-      const v020 = document.createElement("script");
-      v020.src = "/static/v020-fixes.js?v=desktop-oval-46";
-      v020.dataset.v020Fixes = "1";
-      document.body.appendChild(v020);
-    }
-
-    if (!document.querySelector('script[data-v022-balance-topup]')) {
-      const v022 = document.createElement("script");
-      v022.src = "/static/v022-balance-topup.js";
-      v022.dataset.v022BalanceTopup = "1";
-      document.body.appendChild(v022);
-    }
-
     if (!document.querySelector('script[data-v023-brand-balance-fix]')) {
       const v023 = document.createElement("script");
       v023.src = "/static/v023-brand-balance-fix.js";
@@ -128,49 +107,35 @@
       document.body.appendChild(v023);
     }
 
-    if (!document.querySelector('script[data-v024-ready-phase]')) {
-      const v024 = document.createElement("script");
-      v024.src = "/static/v024-ready-phase.js?v=desktop-oval-46";
-      v024.dataset.v024ReadyPhase = "1";
-      document.body.appendChild(v024);
-    }
-
-    if (!document.querySelector('script[data-v025-showdown-compare]')) {
-      const v025 = document.createElement("script");
-      v025.src = "/static/v025-showdown-compare.js?v=desktop-oval-46";
-      v025.dataset.v025ShowdownCompare = "1";
-      document.body.appendChild(v025);
-    }
-
     if (!document.querySelector('script[data-v026-seat-status-layout]')) {
       const v026 = document.createElement("script");
-      v026.src = "/static/v026-seat-status-layout.js?v=desktop-oval-46";
+      v026.src = "/static/v026-seat-status-layout.js?v=trainer-cleanup-1";
       v026.dataset.v026SeatStatusLayout = "1";
       document.body.appendChild(v026);
     }
 
     if (!document.querySelector('script[data-v027-compact-seats-controls]')) {
       const v027 = document.createElement("script");
-      v027.src = "/static/v027-compact-seats-controls.js?v=desktop-oval-46";
+      v027.src = "/static/v027-compact-seats-controls.js?v=trainer-cleanup-1";
       v027.dataset.v027CompactSeatsControls = "1";
       document.body.appendChild(v027);
     }
 
     if (!document.querySelector('script[data-v028-ready-phase]')) {
       const readyPhase = document.createElement("script");
-      readyPhase.src = "/static/v028-ready-phase.js?v=desktop-oval-46";
+      readyPhase.src = "/static/v028-ready-phase.js?v=trainer-cleanup-1";
       readyPhase.dataset.v028ReadyPhase = "1";
       document.body.appendChild(readyPhase);
     }
 
     if (!document.querySelector('script[data-v032-poker8-v2-sixmax]')) {
       const v032 = document.createElement("script");
-      v032.src = "/static/v032-poker8-v2-mobile-sixmax.js?v=desktop-oval-46";
+      v032.src = "/static/v032-poker8-v2-mobile-sixmax.js?v=trainer-cleanup-1";
       v032.dataset.v032Poker8V2Sixmax = "1";
       v032.addEventListener("load", () => {
         if (!document.querySelector('script[data-v037-poker8-v2-reference-table]')) {
           const finalMobile = document.createElement("script");
-          finalMobile.src = "/static/v037-poker8-v2-reference-table.js?v=desktop-oval-46";
+          finalMobile.src = "/static/v037-poker8-v2-reference-table.js?v=trainer-cleanup-1";
           finalMobile.dataset.v037Poker8V2ReferenceTable = "1";
           document.body.appendChild(finalMobile);
         }
@@ -178,7 +143,7 @@
       document.body.appendChild(v032);
     } else if (!document.querySelector('script[data-v037-poker8-v2-reference-table]')) {
       const finalMobile = document.createElement("script");
-      finalMobile.src = "/static/v037-poker8-v2-reference-table.js?v=desktop-oval-46";
+      finalMobile.src = "/static/v037-poker8-v2-reference-table.js?v=trainer-cleanup-1";
       finalMobile.dataset.v037Poker8V2ReferenceTable = "1";
       document.body.appendChild(finalMobile);
     }

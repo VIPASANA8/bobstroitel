@@ -153,13 +153,13 @@ def test_a_folded_player_dims_without_disappearing_and_loses_their_cards():
 
 
 def test_the_trainers_top_up_stays_off_the_network_table():
-    """The "+" on your own stack posts to /api/profiles/{id}/top-up, which is
-    app/legacy.py's -- the trainer, which production mounts nowhere. Online
-    the route is play-top-up, and that one is deliberately off on a
-    deployment: money there arrives through a payment, not a grant. So the
-    seat offers nothing rather than a 404."""
-    v022 = Path("static/v022-balance-topup.js").read_text(encoding="utf-8")
-    head = v022[:v022.index("function viewerProfileId")]
-    assert "if (window.Poker8OnlineTable) return;" in head
-    assert "/api/profiles/${encodeURIComponent(profileId)}/top-up" in v022, (
-        "if this ever points somewhere else, the guard above needs rereading")
+    """The retired trainer grant UI must not return on an online seat."""
+    index = Path("static/index.html").read_text(encoding="utf-8")
+    loader = Path("static/component-ui.js").read_text(encoding="utf-8")
+    app = Path("static/app.js").read_text(encoding="utf-8")
+    assert not Path("static/v022-balance-topup.js").exists()
+    assert "v022-balance-topup.js" not in index + loader
+    assert "v022TopupBackdrop" not in app + index + loader
+    assert "/api/profiles/${encodeURIComponent(profileId)}/top-up" not in app
+    online = Path("static/online-table.js").read_text(encoding="utf-8")
+    assert "window.Poker8TopUp" in online

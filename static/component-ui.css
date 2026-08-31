@@ -366,3 +366,116 @@ body.component-ui .mobile-selected-card{right:var(--hud-edge)!important}
   body.v014 .seat[data-visual-seat="0"]{width:126px!important}
   body.v014 .mobile-hud-card{width:88px!important}
 }
+
+/* Showdown comparison; only the seat lane is phone-specific. */
+    @media (max-width:780px){
+      /* Keep the five-card board as a protected center lane during showdown. */
+      body.v014.v025-showdown-layout .seat[data-visual-seat="2"]{left:4.5% !important;}
+      body.v014.v025-showdown-layout .seat[data-visual-seat="5"]{left:95.5% !important;}
+      body.v014.v025-showdown-layout .seat[data-visual-seat="2"] .player-cards .card,
+      body.v014.v025-showdown-layout .seat[data-visual-seat="5"] .player-cards .card{
+        width:31px !important;
+        height:43px !important;
+        font-size:12px !important;
+      }
+    }
+
+    /* Everything below was inside that phone block too, so on desktop the card
+       was appended to <body> with no rules at all -- the win/loss readout
+       simply did not exist there, while the JS that builds it ran at every
+       width. Only the two seat rules above are about the phone's ring; this is
+       a fixed card over the page. */
+    .v025-showdown-modal{
+        position:fixed;
+        top:58px;
+        left:50%;
+        z-index:4600;
+        width:min(400px,calc(100vw - 16px));
+        transform:translateX(-50%);
+        pointer-events:none;
+      }
+      .v025-showdown-modal[hidden]{display:none !important;}
+      .v025-showdown-modal>section{
+        position:relative;
+        pointer-events:auto;
+        padding:13px 13px 14px;
+        border:1px solid rgba(79,182,255,.48);
+        border-radius:17px;
+        background:linear-gradient(180deg,rgba(4,12,31,.985),rgba(2,6,18,.995));
+        box-shadow:0 16px 42px rgba(0,0,0,.52),0 0 22px rgba(70,164,255,.12),inset 0 0 22px rgba(82,143,255,.04);
+        backdrop-filter:blur(10px);
+      }
+      .v025-close{
+        position:absolute;
+        top:7px;
+        right:8px;
+        width:27px;
+        height:27px;
+        border:0;
+        border-radius:9px;
+        background:rgba(255,255,255,.055);
+        color:#9db0c9;
+        font-size:20px;
+        line-height:1;
+      }
+      .v025-head{padding:0 36px 10px 1px;border-bottom:1px solid rgba(96,133,190,.28);}
+      .v025-head strong{display:block;font-size:20px;line-height:1;font-weight:950;letter-spacing:.08em;}
+      .v025-head span{display:block;margin-top:5px;color:#c4d3e7;font-size:12px;font-weight:800;}
+      .v025-head.win strong{color:#72f0bd;}
+      .v025-head.loss strong{color:#ff91a8;}
+      .v025-head.tie strong{color:#ffd37c;}
+
+      .v025-compare-row{
+        display:grid;
+        grid-template-columns:84px 75px minmax(0,1fr);
+        align-items:center;
+        gap:9px;
+        min-height:56px;
+        padding:9px 1px;
+      }
+      .v025-who small{display:block;color:#8ba2c3;font-size:10px;font-weight:900;letter-spacing:.11em;}
+      .v025-who b{display:block;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#e9f6ff;font-size:12px;font-weight:900;}
+      .v025-cards{display:flex;gap:5px;}
+      .v025-mini-card{
+        width:34px;
+        height:46px;
+        display:grid;
+        place-items:center;
+        align-content:center;
+        border-radius:5px;
+        border:1px solid rgba(0,0,0,.17);
+        background:linear-gradient(160deg,#ffffff,#eef4f8);
+        color:#0d131c;
+        box-shadow:0 3px 8px rgba(0,0,0,.28);
+        line-height:.8;
+      }
+      .v025-mini-card.red{color:#ce3245;}
+      .v025-mini-card b{font-size:15px;}
+      .v025-mini-card i{font-size:15px;font-style:normal;}
+      .v025-hand{color:#d8e6f3;font-size:12px;font-weight:850;line-height:1.28;}
+      .v025-versus{
+        height:1px;
+        position:relative;
+        background:linear-gradient(90deg,transparent,rgba(96,133,190,.26),transparent);
+        color:#66809f;
+        font-size:10px;
+        font-weight:950;
+        text-align:center;
+      }
+      .v025-versus::after{content:"VS";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:0 6px;background:#040c1f;}
+      .v025-reason{
+        margin-top:5px;
+        padding:8px 10px;
+        border-radius:8px;
+        background:rgba(62,94,145,.10);
+        color:#9db3d0;
+        font-size:10px;
+        font-weight:800;
+      text-align:center;
+    }
+
+    /* Clear of the desktop bar, which is in normal flow and taller than the
+       phone's 52px fixed header -- same 96px v039 gives the chat panel. */
+    @media (min-width:781px){
+      .v025-showdown-modal{top:96px;}
+    }

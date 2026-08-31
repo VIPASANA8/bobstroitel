@@ -1,54 +1,96 @@
-# The layer stack: what is in it, and how to take it apart safely
+# Стек слоёв: что в нём находится и как безопасно его разобрать
 
-Twenty-eight files inject styles into the table page, and several of them
-also reassign app.js's own functions. The last one to speak wins, and which
-one that is depends on load order and selector length together — neither of
-which was written down anywhere. Four bugs in a single day came out of that,
-all with the same shape: a rule meant for one surface reached the other.
+## Отказ от тренажёра: выполненный этап от 2026-08-31
 
-This is the working file for taking layers out. It records what was measured,
-what each measurement can and cannot prove, and what has actually been
-removed so far. Add to it as you go; a number here beats a memory of one.
+Тренажёр не возвращается. По [плану удаления клиентских слоёв](superpowers/plans/2026-08-31-remove-trainer-layers.md)
+удалены пять файлов и их загрузчики: v015, v020, v022, v024 и v025.
+Файлов `static/v0*.js` стало **14 вместо 19**, на странице выполняется
+на **5 запросов скриптов меньше**. Чистое сокращение файлов в `static/` —
+**879 строк** с учётом перенесённого кода и стилей.
 
-## Load order (this is not the order of the names)
+| слой | что с ним произошло |
+|---|---|
+| v015 | Повторный выбор авто-действия перенесён в `togglePendingAction` в app.js; мобильные стили — в mobile.css. |
+| v020 | Подпись своего/чужого хода встроена в `renderMobileHud`, без обёртки; нужные стили перенесены в mobile.css. |
+| v022 | Удалён целиком: пополнение тренажёра уже было отключено онлайн. Онлайн-диалог средств не изменён. |
+| v024 | Удалён целиком: готовностью онлайн управляет online-table.js. Запрет локального запуска раздачи сохранён непосредственно в `newHand`. |
+| v025 | Окно сравнения на вскрытии перенесено в app.js и component-ui.css; переопределения `renderGame` и `animateShowdownReveal` убраны. Копия оценщика комбинаций удалена: используются существующие функции app.js. |
+
+Сохранены результат между раздачами, закрытие окна пользователем, скрытие
+недоступных карт, победа/поражение/делёж и оформление на телефоне/компьютере.
+Общий ключ кеша обновлён до `trainer-cleanup-1` по существующему контракту проекта.
+Серверный `app/legacy.py` и оставшиеся локальные ветки других клиентских
+слоёв в этот этап не входили; публикация на сервере не выполнялась.
+
+Проверки: **677 небраузерных тестов прошли**, 3 пропущены, 1 исключён
+по маркеру; два сбоя совпадают с исходным состоянием —
+`test_chat_returns_only_last_fifty_messages` и
+`test_the_countdown_runs_out_instead_of_starting_over`.
+**27 браузерных сценариев прошли**, включая 13 новых проверок удаления
+загрузчиков и сохранности поведения. Дополнительный
+`test_a_seat_claimed_during_a_hand_is_held_and_says_so` падает на
+`pointer-events: auto` вместо `none`; это отдельно воспроизведено на
+исходном коде из HEAD во временной копии. Окно вскрытия проверено на
+скриншотах при ширине 390 и 1192px. Оба оценщика дали одинаковые результаты
+на 1000 проверочных семикарточных руках.
+
+## Исторические измерения и ход очистки
+
+Ниже сохранены наблюдения и решения предыдущих этапов. Числа, порядок
+загрузки и пометки «оставить» в этих снимках относятся к датам измерений;
+текущее состояние пяти удалённых слоёв описано выше.
+
+Двадцать восемь файлов добавляют стили на страницу стола, а несколько из них
+ещё и переопределяют функции самого app.js. Побеждает тот, кто сработал
+последним, а это зависит одновременно от порядка загрузки и длины селектора —
+ни то ни другое нигде не было задокументировано. За один день из-за этого
+возникли четыре ошибки одного типа: правило, предназначенное для одного
+варианта интерфейса, затронуло другой.
+
+Это рабочий документ по удалению слоёв. Здесь записано, что было измерено,
+что каждое измерение может и не может доказать и что уже удалось удалить.
+Дополняйте его по ходу работы: записанное число надёжнее воспоминания о нём.
+
+## Порядок загрузки (он не совпадает с порядком имён)
 
 ```
-index.html static tags:  auth-client → online-transport → component-ui →
-                         app → table-guide → chat-format → online-table → v039
-component-ui.js appends: v015 v016 v018 v019 v020 v022 v023 v024 v025 v026
-                         v027 v028-ready-phase v032 v037
-v028-ready-phase appends: v031           (with its own stale buster, see below)
-v037 appends:            v038 → v040 → v041   (v041 on v040's load event)
+Статические теги index.html: auth-client → online-transport → component-ui →
+                            app → table-guide → chat-format → online-table → v039
+component-ui.js добавляет:  v015 v016 v018 v019 v020 v022 v023 v024 v025 v026
+                            v027 v028-ready-phase v032 v037
+v028-ready-phase добавляет: v031           (со своим устаревшим параметром сброса кеша, см. ниже)
+v037 добавляет:             v038 → v040 → v041   (v041 по событию load у v040)
 ```
 
-Two consequences worth keeping in mind:
+Отсюда следуют два вывода, которые нужно учитывать:
 
-* **v039 executes before every appended layer.** It is a static tag, so at
-  equal specificity v038 beats it on source order. That is why the desktop
-  layer needs three-class selectors where two would look sufficient — it has
-  been the direct cause of two fixes (the table picture sized to the window,
-  the page's floor).
-* **The busters differ per file** — v031 carries `?v=pot-wings-1` and six
-  layers carry none. Static is served `no-cache` with an ETag, so this does
-  not strand anybody (see below); it just makes the version in a URL a poor
-  guide to what is loaded.
+* **v039 выполняется раньше всех динамически добавленных слоёв.** Он подключён
+  статическим тегом, поэтому при одинаковой специфичности v038 побеждает его
+  за счёт порядка в исходнике. Именно поэтому настольному слою нужны селекторы
+  с тремя классами там, где двух, казалось бы, достаточно. Это стало
+  непосредственной причиной двух исправлений: изображения стола,
+  растягивавшегося до размера окна, и нижней границы страницы.
+* **Параметры сброса кеша различаются от файла к файлу** — v031 использует
+  `?v=pot-wings-1`, а у шести слоёв параметров нет вообще. Статика отдаётся
+  с `no-cache` и ETag, поэтому пользователи не застревают на старой версии
+  (см. ниже); просто версия в URL плохо отражает то, что действительно загружено.
 
-## What collides
+## Где возникают конфликты
 
-Measured by (element, property), because same-selector duplication is rare
-here — what is everywhere is the same element reached by selectors of
-different lengths from different files.
+Измерения проводились по парам «элемент, свойство», потому что повторение
+одинаковых селекторов здесь встречается редко. Зато повсюду один и тот же
+элемент затрагивают селекторы разной длины из разных файлов.
 
-| element | layers claiming it |
+| элемент | сколько слоёв задают ему свойства |
 |---|---|
 | `.card {width}`, `.card {height}` | 9 |
 | `.seat-stack {font-size}`, `.seat-name {font-size}`, `.action-grid {gap}` | 8 |
 | `.table-frame {height/padding/min-height}`, `.seat {width}`, `.player-avatar {width}`, `.felt {inset}`, `.pot-total {top}` | 7 |
 
-Geometry properties claimed by 4+ layers: **137**. By 3+: **213**.
+Геометрических свойств, которые задают 4 и более слоя: **137**. Три и более: **213**.
 
-`!important` density — the share of declarations that can only win by
-shouting. 100% means the file has no other tool:
+Доля `!important` — доля объявлений, которые могут победить только повышением
+приоритета. 100% означает, что других средств у файла нет:
 
 ```
 v016 100%   v018 100%   v019 100%   v020 100%   v026 100%   v028 100%
@@ -56,11 +98,11 @@ v031 100%   v032  99%   v039  98%   v035  97%   component-ui.css 93%
 v027  92%   v023  86%   v036  81%   mobile.css 64%   v038  63%
 ```
 
-## Who reassigns app.js's functions
+## Кто переопределяет функции app.js
 
-Seven layers wrap `window.syncComponentUi`, and **all seven chain** — each
-captures the previous and calls it. Not dead code, but a seven-deep decorator
-that runs on every snapshot:
+Семь слоёв оборачивают `window.syncComponentUi`, и **все семь образуют цепочку**:
+каждый сохраняет предыдущую функцию и вызывает её. Это не мёртвый код,
+а цепочка из семи декораторов, которая выполняется при каждом снимке состояния:
 
 ```
 component-ui → v026 → v027 → v028 → v032 → v035 → v038 → v040
@@ -68,320 +110,349 @@ component-ui → v026 → v027 → v028 → v032 → v035 → v038 → v040
 
 `window.syncComponentSeatLayout`: component-ui → v032 → v040.
 
-The ones that **replace** rather than chain are where dead code hides:
+Мёртвый код скрывается там, где функции **заменяют**, а не включают в цепочку:
 
-| function | assigned by | outcome |
+| функция | кто присваивает | результат |
 |---|---|---|
-| `wagerPointForPlayer` | v015, then v031 | v031 does not delegate and loads later — **v015's version is unreachable** |
-| `togglePendingAction` | v015 only | live |
-| `renderMobileHud` | v020 only | live (app.js calls it) |
-| `renderGame` | v025 only | live |
-| `renderMobileSelectedCard`, `renderPersistentActionButtons` | v016 only | live |
+| `wagerPointForPlayer` | v015, затем v031 | v031 не вызывает предыдущую версию и загружается позже — **версия из v015 недостижима** |
+| `togglePendingAction` | только v015 | используется |
+| `renderMobileHud` | только v020 | используется (её вызывает app.js) |
+| `renderGame` | только v025 | используется |
+| `renderMobileSelectedCard`, `renderPersistentActionButtons` | только v016 | используются |
 
-## Measuring: what each method proves, and what it does not
+## Измерения: что каждый метод доказывает и чего не доказывает
 
-Three methods were tried on the live table. Only the third is worth much on
-its own, and none of them is proof by itself.
+На работающем столе опробовали три метода. Только третий сам по себе даёт
+достаточно пользы, но ни один из них сам по себе ничего не доказывает.
 
-1. **Same selector declared later** — found almost nothing (`fully answered
-   by later layers: none`). Layers do not repeat each other's selectors; they
-   reach the same elements by different ones.
-2. **Does the selector match anything on a live table** — cheap, and
-   misleading. Five layers matched zero elements (v015, v020, v022, v023,
-   v024) and *not one of them was dead*: two replace live functions, two
-   build their DOM on demand, one carries the branding. **Do not delete on
-   this signal.**
-3. **Does the declaration survive into the computed style** — the useful one.
-   Blind to custom properties, and to any state not on screen when it ran
-   (showdown modal, ready phase, a seated player's controls). **Not** blind
-   to pseudo-elements, which is what this file said for most of the day and
-   was wrong about: `getComputedStyle(el, '::before')` reads them fine. Two
-   dead rules sat in v039 an extra half-day on the strength of that.
+1. **Тот же селектор объявлен позже** — почти ничего не найдено
+   (`fully answered by later layers: none`). Слои не повторяют селекторы
+   друг друга: они обращаются к тем же элементам через другие селекторы.
+2. **Соответствует ли селектор хоть чему-нибудь на работающем столе** —
+   дёшево, но вводит в заблуждение. Пять слоёв не совпали ни с одним элементом
+   (v015, v020, v022, v023, v024), и *ни один из них не оказался мёртвым*:
+   два заменяют используемые функции, два создают DOM по требованию,
+   один отвечает за брендинг. **Не удаляйте код на основании этого признака.**
+3. **Попадает ли объявление в вычисленный стиль** — полезный метод.
+   Он не видит пользовательские CSS-свойства и состояния, которых не было
+   на экране во время проверки: модальное окно вскрытия, фазу готовности,
+   элементы управления сидящего игрока. Псевдоэлементы он **видит** —
+   большую часть дня в этом документе было написано обратное, и это было
+   ошибкой: `getComputedStyle(el, '::before')` нормально их читает.
+   Из-за этой ошибки два мёртвых правила оставались в v039 лишние полдня.
 
-   And it answers a subtly different question than it looks: the probe
-   *fetches* each file and matches its selectors, so it reports what a layer
-   would do **if it were loaded**. v035 and v036 scored 93/10 and 22/0 that
-   way while being loaded by nobody at all. Check the page's own script list
-   first — `[...document.querySelectorAll('script[src*="/static/v0"]')]` —
-   and only then ask what a layer's rules are doing.
+   Кроме того, метод отвечает на немного иной вопрос, чем кажется:
+   проверочный скрипт *скачивает* каждый файл и сопоставляет его селекторы,
+   то есть показывает, что слой сделал бы, **если бы был загружен**.
+   Так v035 и v036 получили результаты 93/10 и 22/0, хотя их вообще никто
+   не загружал. Сначала проверьте список скриптов самой страницы —
+   `[...document.querySelectorAll('script[src*="/static/v0"]')]` —
+   и только потом выясняйте, что делают правила слоя.
 
-4. **Move a layer's `<style>` to the end of `<head>` on a live page and diff
-   the computed styles.** The dry run for "what if this loaded last", and
-   the only way to see what a layer is *holding back* rather than what it
-   contributes. It is how the v039 move below was called off before it
-   shipped.
+4. **Переместить `<style>` слоя в конец `<head>` на работающей странице
+   и сравнить вычисленные стили.** Это пробный прогон сценария «что будет,
+   если этот слой загрузится последним» и единственный способ увидеть,
+   что слой *сдерживает*, а не что он добавляет. Именно так описанный ниже
+   перенос v039 отменили до публикации.
 
-   Its diff **nominates candidates; it does not convict them.** Two ways it
-   misleads, both paid for on 2026-08-29:
+   Такой diff **указывает на кандидатов, но не доказывает их вину**.
+   Он вводит в заблуждение двумя способами; за оба пришлось заплатить 2026-08-29:
 
-   * *Consequence, not cause.* Move a layer, the felt changes size, and
-     everything positioned in percentages of the felt moves with it. Half
-     that diff's entries were things the layer never declares.
-   * *Percentages have no fixed computed value.* `.felt`'s
-     `height:calc(100% - 50px)` read as "loses" because moving the layer
-     changed the frame's padding, so 100% was 100% of a different box. It
-     was the winner all along -- `.felt` is `position:relative`, so the
-     `inset` beside it offsets the box without stretching it, and that
-     height is the only thing giving the felt a height. Deleting it put the
-     felt 23px through the bottom of the table on the live site.
+   * *Следствие, а не причина.* Переместили слой, сукно изменило размер,
+     а вместе с ним сдвинулось всё, чьё положение задано в процентах от сукна.
+     Половина записей в таком diff относилась к свойствам, которые слой
+     вообще не объявляет.
+   * *У процентов нет фиксированного вычисленного значения.* Свойство
+     `height:calc(100% - 50px)` у `.felt` выглядело «проигравшим», потому что
+     перемещение слоя изменило отступы рамки, и 100% стали означать 100%
+     другого блока. На самом деле оно всё время побеждало: у `.felt` задано
+     `position:relative`, поэтому соседний `inset` смещает блок, не растягивая
+     его, а это свойство высоты — единственное, что задаёт сукну высоту.
+     После его удаления на работающем сайте сукно выступило на 23px
+     за нижнюю границу стола.
 
-   So: nominate with the dry run, convict with the net, and never judge a
-   percentage by its computed value.
+   Поэтому кандидатов выбирайте пробным прогоном, подтверждайте выводы
+   страховочными тестами и никогда не судите о процентах по вычисленному значению.
 
-5. **Anything with a `transition` reads at its start value in the browser
-   pane.** The pane's tab reports `document.visibilityState === "hidden"`
-   even when fronted, so CSS transitions never advance: a seat carrying
-   `transition:transform 320ms` shows `matrix(1, …)` for as long as you care
-   to wait, whatever the rule says. Half an hour went into "the avatars do
-   not scale" before that was the answer -- they scale fine.
+5. **В панели браузера любое свойство с `transition` читается в начальном
+   значении.** Вкладка панели сообщает `document.visibilityState === "hidden"`,
+   даже когда открыта на переднем плане, поэтому CSS-переходы не продвигаются:
+   место с `transition:transform 320ms` показывает `matrix(1, …)` сколько
+   угодно долго, независимо от того, что написано в правиле. Полчаса ушло
+   на «аватары не масштабируются», прежде чем нашлось объяснение:
+   на самом деле они масштабируются нормально.
 
-   Finish them before measuring:
+   Перед измерением завершите переходы:
 
    ```js
    el.getAnimations().forEach(a => a.finish());
    ```
 
-For JavaScript there is no probe. Read the file.
+Для JavaScript такого проверочного скрипта нет. Читайте файл.
 
-### Snapshot, taken 2026-08-29 on the live table
+### Снимок состояния работающего стола от 2026-08-29
 
-`matched declarations / how many survive into the computed style`, from a
-real page — bots-only room, watching, mid-hand.
+`совпавшие объявления / сколько из них попало в вычисленный стиль`,
+на реальной странице: комната только с ботами, режим наблюдения, середина раздачи.
 
-| layer | lines | desktop 1526 | phone 390 | JS behaviour | verdict |
+| слой | строки | компьютер 1526 | телефон 390 | поведение JS | решение |
 |---|---|---|---|---|---|
-| v015-fixes | 75 | 0/0 | 0/0 | replaces `wagerPointForPlayer` (dead), `togglePendingAction` (live) | **partly dead** — the wager override went, 2026-08-29 |
-| v016-fixes | 265 | 4/0 | 2/0 | replaces two renderers (live) | keep, CSS worth re-checking in the action-panel state |
-| v018-fixes | 33 | 1/1 | 1/1 | style only | keep (one live rule) |
-| v019-center-polish | 79 | 24/7 | 19/10 | style only | keep |
-| v020-fixes | 110 | 4/1 | 0/0 | replaces `renderMobileHud` (live) | keep |
-| v022-balance-topup | 312 | 0/0 | 0/0 | builds a modal on demand | **broken online, see below** |
-| v023-brand-balance-fix | 83 | 0/0 | 0/0 | sets the page title and badge (live) | keep — the markup still says "Poker Trainer v0.14" |
-| v024-ready-phase | 353 | 0/0 | 0/0 | ready countdown, builds DOM | keep, re-measure in the ready phase |
-| v025-showdown-compare | 393 | 19/1 | 0/0 | replaces `renderGame`, builds a modal | keep, re-measure at showdown |
-| v026-seat-status-layout | 118 | 1/1 | 1/1 | chains `syncComponentUi` | keep |
-| v027-compact-seats-controls | 338 | 72/9 | 49/24 | chains `syncComponentUi` | keep |
-| v028-ready-phase | 444 | 48/1 | 48/19 | chains `syncComponentUi`, syncs badges, appends v031 | **merged** from v028+v029+v030, 2026-08-29 |
-| v031-pot-cluster-mobile-fix | 105 | 6/0 | 0/0 | replaces `wagerPointForPlayer` (live, wins) | keep; fix its cache buster |
-| v032-mobile-sixmax | 308 | 141/32 | 82/11 | chains both sync functions | keep — note 32 of its declarations win on **desktop** |
-| ~~v035-pixel-pass~~ | 264 | — | — | — | **deleted 2026-08-29 — nothing loaded it** |
-| ~~v036-prehand-pass~~ | 105 | — | — | — | **deleted 2026-08-29 — nothing loaded it** |
-| v037-reference-table | 158 | 41/19 | 37/17 | loader for v038/v040/v041 | keep |
-| v038-cinematic-table | 1855 | — | — | the table itself | split by platform, eventually |
-| v039-desktop-parity | 694 | — | — | desktop geometry | move into the chain so it loads last |
-| v040-dynamic-seats | 549 | — | — | the seat ring | keep |
-| v041-turn-clarity | 149 | 7/3 | 2/1 | style only | keep |
+| v015-fixes | 75 | 0/0 | 0/0 | заменяет `wagerPointForPlayer` (не используется), `togglePendingAction` (используется) | **частично мёртвый** — переопределение ставки удалено 2026-08-29 |
+| v016-fixes | 265 | 4/0 | 2/0 | заменяет две функции отрисовки (используются) | оставить, CSS стоит перепроверить при открытой панели действий |
+| v018-fixes | 33 | 1/1 | 1/1 | только стили | оставить (одно действующее правило) |
+| v019-center-polish | 79 | 24/7 | 19/10 | только стили | оставить |
+| v020-fixes | 110 | 4/1 | 0/0 | заменяет `renderMobileHud` (используется) | оставить |
+| v022-balance-topup | 312 | 0/0 | 0/0 | создаёт модальное окно по требованию | **не работает в онлайн-режиме, см. ниже** |
+| v023-brand-balance-fix | 83 | 0/0 | 0/0 | задаёт заголовок страницы и значок (используется) | оставить — в разметке всё ещё написано "Poker Trainer v0.14" |
+| v024-ready-phase | 353 | 0/0 | 0/0 | отсчёт готовности, создание DOM | оставить, повторить измерения в фазе готовности |
+| v025-showdown-compare | 393 | 19/1 | 0/0 | заменяет `renderGame`, создаёт модальное окно | оставить, повторить измерения при вскрытии |
+| v026-seat-status-layout | 118 | 1/1 | 1/1 | включается в цепочку `syncComponentUi` | оставить |
+| v027-compact-seats-controls | 338 | 72/9 | 49/24 | включается в цепочку `syncComponentUi` | оставить |
+| v028-ready-phase | 444 | 48/1 | 48/19 | включается в цепочку `syncComponentUi`, синхронизирует значки, добавляет v031 | **объединён** из v028+v029+v030, 2026-08-29 |
+| v031-pot-cluster-mobile-fix | 105 | 6/0 | 0/0 | заменяет `wagerPointForPlayer` (используется, побеждает) | оставить; исправить параметр сброса кеша |
+| v032-mobile-sixmax | 308 | 141/32 | 82/11 | включается в цепочки обеих функций синхронизации | оставить — обратите внимание: 32 его объявления побеждают на **компьютере** |
+| ~~v035-pixel-pass~~ | 264 | — | — | — | **удалён 2026-08-29 — его ничто не загружало** |
+| ~~v036-prehand-pass~~ | 105 | — | — | — | **удалён 2026-08-29 — его ничто не загружало** |
+| v037-reference-table | 158 | 41/19 | 37/17 | загрузчик v038/v040/v041 | оставить |
+| v038-cinematic-table | 1855 | — | — | сам стол | со временем разделить по платформам |
+| v039-desktop-parity | 694 | — | — | геометрия настольной версии | перенести в цепочку, чтобы загружался последним |
+| v040-dynamic-seats | 549 | — | — | кольцо мест | оставить |
+| v041-turn-clarity | 149 | 7/3 | 2/1 | только стили | оставить |
 
-### What the merge kept, on purpose
+### Что при объединении сохранили намеренно
 
-The three files became three IIFEs in one file, in the order they used to
-load, each still appending its own `<style>`. The cascade between them is
-decided by that order, so folding them into a single block by hand is
-exactly how such a merge changes what it says it does not.
+Три файла стали тремя IIFE в одном файле, в прежнем порядке загрузки;
+каждая по-прежнему добавляет собственный `<style>`. Каскад между ними
+определяется этим порядком, поэтому ручное сведение в один блок — как раз
+тот способ, которым такое объединение незаметно меняет поведение,
+хотя заявлено обратное.
 
-Two contracts inside are read from outside, and would be easy to lose if
-this is ever pulled apart again:
+Внутри есть два контракта, которыми пользуется внешний код. Их легко
+потерять, если этот файл когда-нибудь снова начнут разбирать:
 
-* the body class `v028-prehand-center-ready` — v038 styles the hero's avatar
-  and everybody's ready check off it;
-* the `<script>` tag at the very bottom, which is the only thing that loads
-  v031 — the wager geometry every chip flies by.
+* класс body `v028-prehand-center-ready` — по нему v038 оформляет аватар
+  текущего игрока и отметки готовности всех игроков;
+* тег `<script>` в самом низу — единственное место, откуда загружается v031,
+  задающий геометрию ставок, по которой летает каждая фишка.
 
-## v039 now loads last (done, 2026-08-29)
+## v039 теперь загружается последним (готово, 2026-08-29)
 
-The dry run below is what called this off the first time, at 50 changed
-properties. After the dead two-class geometry came out -- the seat ring, the
-felt's paint, the frame's padding/overflow/shadow, `.felt::before`,
-`.table-glow` -- the same dry run measured **3**, all of them this file's
-`.panel` rule claiming `.action-panel`, which v036 and v038 actually paint.
-Scoping that rule with `:not(.action-panel)` took it to **0**.
+Описанный ниже пробный прогон в первый раз заставил отказаться от переноса:
+изменились 50 свойств. После удаления мёртвой геометрии из правил с двумя
+классами — кольца мест, оформления сукна, отступов/переполнения/тени рамки,
+`.felt::before`, `.table-glow` — тот же прогон показал **3** изменения.
+Все они относились к правилу `.panel` из этого файла, затрагивавшему
+`.action-panel`, оформлением которого на самом деле занимаются v036 и v038.
+Ограничение этого правила через `:not(.action-panel)` свело число изменений к **0**.
 
-The move itself is not a move of the script. v039 is a static tag, so its
-JavaScript has to keep running early: it is what puts `poker8-desktop-v2` on
-`<body>`, and every desktop rule in every other layer keys off that class.
-Only its `<style>` goes last, by re-appending the same element on `load` --
-same node, end of `<head>`, so desktop geometry is simply the last word.
+При этом сам скрипт не перемещается. v039 подключён статическим тегом,
+поэтому его JavaScript должен по-прежнему выполняться рано: именно он
+добавляет `poker8-desktop-v2` к `<body>`, а от этого класса зависят все
+настольные правила во всех остальных слоях. Последним становится только
+его `<style>`: по событию `load` тот же элемент повторно добавляется
+в конец `<head>`, и геометрия настольной версии получает последнее слово.
 
-What this buys: the three-class selectors this file needed to beat v038 on
-source order are no longer load-bearing. They can come down to two, one rule
-at a time, each verified the same way. Not done yet -- the arms race is over,
-the disarmament is a separate afternoon.
+Что это даёт: селекторы с тремя классами, которые этому файлу требовались
+для победы над v038 при таком порядке в исходнике, больше не критичны.
+Их можно сокращать до двух классов, по одному правилу за раз, проверяя
+каждое тем же способом. Это ещё не сделано: гонка вооружений закончилась,
+а разоружение — работа на отдельный день.
 
-## The dry run that called it off first (measured, 2026-08-29)
+## Пробный прогон, из-за которого перенос сначала отменили (измерено 2026-08-29)
 
-The plan was to load v039 last so the desktop layer stops needing
-three-class selectors to beat v038 on source order. Dry run first: on the
-live table, its `<style>` was moved to the end of `<head>` and every
-computed property compared before and after.
+План состоял в том, чтобы загружать v039 последним и избавить настольный
+слой от необходимости использовать селекторы с тремя классами ради победы
+над v038 при таком порядке в исходнике. Сначала — пробный прогон:
+на работающем столе его `<style>` переместили в конец `<head>` и сравнили
+каждое вычисленное свойство до и после.
 
-**50 properties changed across 79 elements.** Not paint — geometry. Seats
-jumped to mirrored positions (seat-1 from `left:1166px` to `left:98px`), the
-felt changed size and shape, the frame changed padding and overflow.
+**Изменились 50 свойств у 79 элементов.** Это было не оформление,
+а геометрия. Места перескочили в зеркальные позиции (seat-1 —
+с `left:1166px` на `left:98px`), сукно изменило размер и форму,
+у рамки изменились отступы и поведение переполнения.
 
-The reason is worth keeping: v039 still carries the *pre-v038* desktop
-table, and it has been losing that argument for as long as v038 has existed.
-Loading it last would resurrect it. What changed, by element:
+Причину стоит записать: v039 всё ещё содержит настольный стол *из времён
+до v038* и уступает ему с самого появления v038. Загрузка последним
+вернула бы старый вариант. Что изменилось, по элементам:
 
-| element | properties v039 declares and loses today |
+| элемент | свойства, которые v039 объявляет, но которые сейчас проигрывают |
 |---|---|
-| `.seat-0` … `.seat-5` | top, left, right, bottom (its own `--seat-N-x/y` ring; v040 owns the ring) |
+| `.seat-0` … `.seat-5` | top, left, right, bottom (собственное кольцо `--seat-N-x/y`; кольцом управляет v040) |
 | `.felt` | width, height, background-image, border-radius, box-shadow, border-color |
 | `.table-frame` | padding, box-shadow, overflow |
 | `.table-center` | width, top, left, right, bottom, transform |
 | `.street-splash` | top, left, right, bottom |
 | `.action-panel` | background-image, box-shadow, border-color |
 
-The split inside v039 is clean: its **two-class** rules
-(`body.v014.poker8-desktop-v2 …`) are the old table and are dead, because
-every table carries `poker8-v2-sixmax`; its **three-class** rules
-(`…poker8-v2-sixmax.poker8-desktop-v2 …`) are the live ones. So the order of
-work is the other way round from the plan: delete the dead two-class
-geometry first, and only then is the move a safe move.
+Внутри v039 разделение чёткое: правила с **двумя классами**
+(`body.v014.poker8-desktop-v2 …`) описывают старый стол и не действуют,
+потому что у каждого стола есть `poker8-v2-sixmax`; правила с **тремя классами**
+(`…poker8-v2-sixmax.poker8-desktop-v2 …`) действуют. Поэтому порядок работы
+обратный запланированному: сначала удалить мёртвую геометрию из правил
+с двумя классами, и только после этого перенос станет безопасным.
 
-Careful with the two-class rules that are *not* geometry — the topbar, the
-brand mark, `.panel`/`.history-card`/`.online-chat-panel` — those win today
-and are the only thing styling some of it.
+Осторожнее с правилами с двумя классами, которые задают *не* геометрию:
+верхняя панель, логотип, `.panel`/`.history-card`/`.online-chat-panel`.
+Они сейчас побеждают, а для некоторых элементов только они и задают оформление.
 
-## Where this stands, and what is left
+## Текущее состояние и оставшаяся работа
 
-After one day: **19 layer files where there were 23**, 19 scripts on the
-page where there were 21, and about 460 lines gone. Every step was run
-against the static suite and the browser net before it shipped -- except
-one, which is why the net exists and why the log above has a revert in it.
+Итог одного дня: **19 файлов слоёв вместо 23**, 19 скриптов на странице
+вместо 21 и примерно 460 удалённых строк. Каждый шаг перед публикацией
+проверялся статическим набором тестов и страховочными браузерными тестами —
+кроме одного. Именно поэтому нужны страховочные тесты и именно поэтому
+в журнале выше есть откат.
 
-What is left, in the order it should be done:
+**Решение от 2026-08-31: тренажёр не возвращается.** Вопрос о будущем
+`app/legacy.py` закрыт; разбор связанных с ним клиентских слоёв становится
+первым приоритетом. Это решение о продукте, а не отметка об уже удалённом коде.
 
-1. **The rest of v039's two-class geometry.** The felt's size and inset and
-   the frame's border, radius and background all win today. They cannot be
-   deleted; they have to be *moved* -- into the three-class block, where
-   they already belong -- one declaration at a time, net on each. Only when
-   the two-class block holds nothing the table needs is the move below safe.
-2. **Then the move**: v039 into the appended chain, last. That is what ends
-   the three-class arms race for good.
-3. **v038 is 1855 lines serving two platforms.** Splitting it by surface is
-   the biggest remaining reduction, and the one most likely to need its own
-   safety net first.
-4. **Even out the cache busters** so a version in a URL means something.
-   Nothing is stranded (statics are `no-cache` with an ETag), it is only
-   confusing.
-5. **The trainer.** Half this stack was written for `app/legacy.py`, which
-   production mounts nowhere. Deciding whether that app is coming back would
-   settle the fate of v015, v020, v022, v024 and v025 in one go, rather than
-   one careful measurement at a time.
+Что осталось, в порядке выполнения:
 
-## The centre cluster does not fit a short felt (open, 2026-08-29)
+1. **Убрать наследие тренажёра — первый этап выполнен 2026-08-31.**
+   v015, v020, v022, v024 и v025 удалены вместе с загрузчиками; используемое
+   онлайн-поведение перенесено и проверено. Остальные локальные ветки
+   общего клиента и серверный `app/legacy.py` требуют отдельного разбора;
+   их удаление не следует считать выполненным вместе с этими пятью слоями.
+2. **Остальная геометрия v039 в правилах с двумя классами.** Размеры и inset
+   сукна, а также граница, радиус скругления и фон рамки сейчас побеждают.
+   Их нельзя удалять; их нужно *перенести* в блок с тремя классами,
+   где им и место, по одному объявлению за раз, каждый раз прогоняя
+   страховочные тесты. Только когда в блоке с двумя классами не останется
+   ничего нужного столу, описанный ниже перенос будет безопасным.
+3. **Затем перенос**: v039 — в конец цепочки динамически добавляемых слоёв.
+   Это окончательно завершит гонку селекторов с тремя классами.
+4. **v038 — это 1855 строк для двух платформ.** Разделение по вариантам
+   интерфейса даст наибольшее из оставшихся сокращений и, скорее всего,
+   сначала потребует отдельного набора страховочных тестов.
+5. **Унифицировать параметры сброса кеша**, чтобы версия в URL что-то значила.
+   Пользователи не застревают на старых версиях (статика отдаётся
+   с `no-cache` и ETag), но нынешняя ситуация сбивает с толку.
 
-The ui scale has a floor now (0.82), and on the window this came from --
-1067x632, a 964x458 felt -- it took the avatars from 88px to 72, the seat
-boxes from 134 to 110, and the pot's chips off the board entirely (65px of
-clearance where they used to sit across it). The pot label and the board are
-no longer overlapped by anybody's name plate.
+## Центральная группа не помещается на низком сукне (не решено, 2026-08-29)
 
-What is left is arithmetic that scaling cannot solve. On that felt the top
-seats' plates end at 273 and the bottom seats' begin at 448: a free band of
-175px. The centre cluster -- chips, amount, board, stacked -- is 201px tall
-at that scale. It does not fit, so the chips run 33px into the top-centre
-seat's plate.
+Теперь у масштаба интерфейса есть нижняя граница (0.82). В окне, на котором
+обнаружилась проблема, — 1067x632, сукно 964x458 — она уменьшила аватары
+с 88px до 72, блоки мест со 134 до 110 и полностью убрала фишки банка
+с общих карт: там, где раньше было наложение, теперь зазор 65px.
+Таблички с именами больше не перекрывают ни подпись банка, ни общие карты.
 
-Options, none of them taken yet:
+Осталась арифметика, которую масштабирование не решает. На этом сукне
+таблички верхних мест заканчиваются на отметке 273, а нижних начинаются
+на 448: свободная полоса составляет 175px. Центральная группа — фишки,
+сумма и общие карты, расположенные друг под другом, — при таком масштабе
+имеет высоту 201px. Она не помещается, поэтому фишки заходят на 33px
+на табличку верхнего центрального места.
 
-* a tighter factor for the cluster alone on short felts (needs its unscaled
-  height, or the feedback loop is obvious);
-* dropping the chips below the amount, which reverses a deliberate reading
-  order (chips, amount, board -- the phone's);
-* letting the board overlap the felt's lower band instead, which is where
-  the bottom seats live.
+Варианты, пока ни один не выбран:
 
-## Bugs found while auditing, not bloat
+* сильнее уменьшать только центральную группу на низком сукне
+  (нужна её высота без масштабирования, иначе возникнет петля обратной связи);
+* опустить фишки ниже суммы, изменив намеренно выбранный порядок чтения
+  «фишки, сумма, общие карты», как на телефоне;
+* вместо этого разрешить общим картам заходить в нижнюю полосу сукна,
+  где расположены нижние места.
 
-* **The "+" on your own stack cannot work online.** v022 posts to
-  `/api/profiles/{profile_id}/top-up`, which exists in `app/legacy.py` — the
-  local trainer, which production never mounts. Online the route is
-  `POST /api/profiles/play-top-up`. Either point v022 at it or take the
-  affordance off the seat; today it is a live button with a 404 behind it.
-* **The cache busters are uneven, and it matters less than it looks.** v031
-  is appended with `?v=pot-wings-1`, its own; six more (v015, v016, v018,
-  v019, v022, v023) are appended with no query string at all. I first wrote
-  that down as "cached forever" and that was wrong: `RevalidatedStatics` in
-  app/online.py sends `Cache-Control: no-cache` with an ETag on everything
-  under /static, so a browser must revalidate each file on every load and a
-  changed file comes back changed. Measured on the live site. The busters
-  are belt to that braces -- worth evening out, not load-bearing.
-* **`tests/e2e/test_mobile_online_flow.py` is red** — it waits for
-  `p8-can-ready` after sitting down and never gets it. It fails the same way
-  at `07848bd`, so it predates the 2026-08-29 work.
-* Production serves only `/`, `/table`, `/monitor` (`app/online.py`).
-  `app/legacy.py` — the trainer — is mounted nowhere, yet the client still
-  ships and runs the layers written for it.
+## Ошибки, найденные при аудите, а не лишний код
 
-## The safety net
+* **«+» возле собственного стека не может работать в онлайн-режиме.** v022
+  отправляет POST на `/api/profiles/{profile_id}/top-up`, который существует
+  в `app/legacy.py` — локальном тренажёре, не подключённом в рабочем окружении.
+  Онлайн-маршрут — `POST /api/profiles/play-top-up`. Нужно либо направить
+  v022 туда, либо убрать элемент управления с места: сейчас за доступной
+  кнопкой скрывается ответ 404.
+* **Параметры сброса кеша различаются, но это менее критично, чем кажется.**
+  v031 добавляется со своим `?v=pot-wings-1`, ещё шесть слоёв (v015, v016,
+  v018, v019, v022, v023) — вообще без строки запроса. Сначала я записал это
+  как «кешируется навсегда», но ошибся: `RevalidatedStatics` в app/online.py
+  отправляет `Cache-Control: no-cache` с ETag для всего под /static.
+  Поэтому браузер обязан проверять актуальность каждого файла при каждой
+  загрузке и получает изменённый файл, если тот изменился. Это измерено
+  на работающем сайте. Параметры сброса кеша здесь — дополнительная страховка:
+  их стоит унифицировать, но работа от них не зависит.
+* **`tests/e2e/test_mobile_online_flow.py` падает** — после занятия места он
+  ждёт `p8-can-ready` и так и не получает его. На `07848bd` он падает точно
+  так же, поэтому ошибка появилась до работы от 2026-08-29.
+* В рабочем окружении доступны только `/`, `/table`, `/monitor`
+  (`app/online.py`). `app/legacy.py` — тренажёр — нигде не подключён,
+  но клиент по-прежнему поставляет и выполняет написанные для него слои.
+
+## Страховочные тесты
 
 ```bash
 python -m pytest tests/e2e/test_the_table_holds_together.py -m e2e
 ```
 
-Nine cases: three rooms × three viewports, ~30s. It asserts what a screenshot
-would have shown — no sideways overflow, the felt inside its frame, the
-picture painted the width of the frame, seats and their cards on the felt, a
-watching viewer getting the watching layout and an invitation, the pot and
-the action bar centred, and the phone never taking the desktop's scale.
+Девять сценариев: три комнаты × три размера области просмотра, около 30 с.
+Они проверяют то, что было бы видно на скриншоте: отсутствие горизонтального
+переполнения, сукно внутри рамки, изображение на всю ширину рамки, места
+и их карты на сукне, раскладку наблюдателя и приглашение для наблюдающего
+пользователя, центрирование банка и панели действий, а также то,
+что телефон никогда не использует масштаб настольной версии.
 
-It was checked by putting two of the day's faults back; both passed at first,
-and both assertions had to be sharpened before they failed. Do that with any
-assertion added here — an unproven check is worse than none, because it is
-believed.
+Тесты проверили, вернув две ошибки того дня. Сначала обе проходили,
+и обе проверки пришлось уточнить, прежде чем они стали падать. Так нужно
+проверять каждое добавляемое сюда утверждение: непроверенный тест хуже
+отсутствующего, потому что ему доверяют.
 
-Run alongside it, every time:
+Каждый раз запускайте вместе с ними:
 
 ```bash
 python -m pytest tests -q --ignore=tests/e2e --ignore=tests/load
 ```
 
-## Work log
+## Журнал работы
 
-### Desktop floating chat (2026-08-30, implementation plan)
+### Плавающий чат на компьютере (2026-08-30, план реализации)
 
-Goal: one readable, movable chat window over the desktop table, with no
-layout shift. The phone keeps its full-page chat and existing controls.
-Use the current `online-table.js` controller/formatter/transport and v039's
-desktop CSS; no new library, duplicated feed or second socket.
+Цель: одно читаемое, перемещаемое окно чата поверх настольного стола,
+без сдвига раскладки. На телефоне сохраняются полноэкранный чат
+и существующие элементы управления. Использовать текущие контроллер,
+форматирование и транспорт из `online-table.js`, а также настольный CSS
+из v039; без новой библиотеки, дублирования ленты и второго сокета.
 
-- [x] Add `tests/e2e/test_desktop_floating_chat.py`: drag/resize/minimize,
-  viewport clamping, unchanged felt bounds, phone breakpoint, turn-banner
-  visibility, long messages, scroll preservation and failed-send draft.
-  Run this file first and confirm the missing behavior fails.
-- [x] Replace the two competing desktop `#chatPanel` blocks in v039 with
-  one window layout. Add desktop-only window controls in `ensureChatFurniture`;
-  use pointer capture and CSS variables for coordinates, bounded to the
-  viewport. Keep h2 and the phone DOM layout intact.
-- [x] Add desktop message metadata and spacing, a jump-to-latest control,
-  and a desktop multiline composer (Enter sends, Shift+Enter starts a line).
-  Keep the phone input; preserve the draft when switching breakpoints or
-  when a send fails. Reuse the existing safe chat formatter.
-- [x] Run the new browser file, existing chat tests and viewport safety net;
-  inspect a desktop screenshot. Update cache keys and this log, then commit,
-  push and verify the deployed assets and health endpoint.
+- [x] Добавить `tests/e2e/test_desktop_floating_chat.py`: перетаскивание,
+  изменение размера и сворачивание, ограничение областью просмотра,
+  неизменность границ сукна, мобильная точка переключения раскладки,
+  видимость баннера хода, длинные сообщения, сохранение позиции прокрутки
+  и черновика при ошибке отправки. Сначала запустить этот файл
+  и убедиться, что тесты падают из-за отсутствующего поведения.
+- [x] Заменить два конкурирующих настольных блока `#chatPanel` в v039
+  одной раскладкой окна. Добавить в `ensureChatFurniture` элементы управления
+  окном только для компьютера; использовать захват указателя и CSS-переменные
+  для координат, ограниченных областью просмотра. Сохранить h2 и структуру
+  DOM на телефоне.
+- [x] Добавить метаданные сообщений и отступы на компьютере, кнопку перехода
+  к последним сообщениям и многострочное поле ввода для компьютера
+  (Enter отправляет, Shift+Enter начинает новую строку). Сохранить телефонное
+  поле ввода; сохранять черновик при переключении раскладки и при ошибке
+  отправки. Повторно использовать существующее безопасное форматирование чата.
+- [x] Запустить новый файл браузерных тестов, существующие тесты чата
+  и страховочные тесты областей просмотра; проверить скриншот настольной
+  версии. Обновить ключи кеша и этот журнал, затем создать коммит,
+  отправить изменения и проверить развёрнутые ресурсы и эндпоинт состояния.
 
-| date | change | verified by |
+| дата | изменение | чем проверено |
 |---|---|---|
-| 2026-08-30 | Desktop chat became a floating, bounded window with drag/resize/reset, collapse, keyboard controls, readable message metadata and wrapping, unread jump control, and a desktop multiline composer. Failed sends keep drafts; phone chat markup, input and full-page geometry stay unchanged. Cache: desktop-oval-44 | 43 focused browser/static + 626 non-browser tests passed, 1 skipped, 1 known upstream countdown test excluded; screenshot checked; deployed and public health/cache/JS verified |
-| 2026-08-29 | Stage 0: the net above | 9 cases green; two faults re-introduced and caught |
-| 2026-08-29 | v015's `wagerPointForPlayer` removed — v031 replaces it later without delegating, so it could never run | static suite + the net + the live page |
-| 2026-08-29 | v022 guarded off the network table — its "+" posted to the trainer's route, which production does not mount | static suite; the online funds dialog is untouched |
-| 2026-08-29 | v028 + v029 + v030 merged into `v028-ready-phase.js` (3 files → 1, 3 requests → 1) | 321 static + 13 browser cases |
-| 2026-08-29 | v039's `.felt::before` and `.table-glow` removed — the last two declarations in its two-class block that lost, and so the last that a load-order change could have woken | 321 static + 9 browser cases. Note: the first attempt replaced both rules as one string, which does not occur in the file (the `::after` line sits between them); the script reported success having changed nothing, and the green suites were green on an unchanged file. Read the diff, not the script's own word |
-| 2026-08-29 | v039's dead frame properties removed (padding, overflow, box-shadow) — absolute values, all three losing to v038, all three would wake on a load-order change | 321 static + 9 browser cases, before the commit |
-| 2026-08-29 | v039's dead felt paint removed (gradient, neon border, inset shadow). Its width/height/inset stay: the height is load-bearing, see the percentages warning above | 321 static + 9 browser cases, run **before** the commit this time |
-| 2026-08-29 | **Reverted the same day (9f88bc5):** a first attempt also deleted the felt's height and the frame's padding/overflow/box-shadow. The net caught it at 6 of 9 -- "the felt ends 23px below the bottom edge" -- but the commit had already shipped, because the deploy was chained after a `pytest ... | tail` whose exit code is the tail's. Test, read the result, *then* commit | the net, on the way back |
-| 2026-08-29 | v039's seven-point seat ring removed — the first of its dead two-class geometry; v040 has placed every seat for far longer, and holding the ring meant any load-order change moved the table | 321 static + 13 browser cases; the invariant moved to a test that reads v040 |
-| 2026-08-29 | v035 and v036 deleted — 369 lines nothing loaded; `test_v101_regressions` was asserting v036's loader for v037, which never ran, and now reads component-ui.js | 321 static |
-| 2026-08-30 | An idle snapshot no longer promotes a departed viewer from the last hand's stale roster. That split the UI exactly in two: the header hid "Занять место" as seated, while v040 followed `current_seats`, drew "Сесть", and its confirmation returned early on the same false seated state | 597 static + 9 browser-net cases + the mid-hand seat-claim browser case |
-| 2026-08-30 | The mobile "Сесть" chair now carries `data-visual-seat="0"`, so it inherits the exact final hero anchor (`100% - 86px`) instead of v040's generic `80%`. Its circle and label also share the hero avatar's CSS variables; spectator → seated replaces the control in place instead of jumping about 75px plus the old 11px inner offset | 597 static + 9 browser-net cases + browser transitions at 360×800 and 402×874 + the mid-hand seat-claim case |
-| 2026-08-30 | Removed the obsolete online centre card "МЕСТО ЗАНЯТО": the network table now keeps the local trainer's room prompt hidden in every online state, and online ready-up no longer binds that removed card as a click target | 597 static + online prompt regressions + 9 browser-net cases |
-| 2026-08-30 | The mobile "УРАВНЯТЬ / СТАВКА" strip now follows the pot's existing `p8-no-pot` state instead of remaining on the felt between hands; the shared hide rule is deliberately after the strip's `on-felt` display rule so the cascade cannot paint it back in | 599 static + 10 browser cases, including the active-to-idle transition |
-| 2026-08-30 | Desktop actions no longer own a separate 214px layout row. The existing panel is hosted by `.table-frame` and reuses the phone's four compact edge actions plus its transient sizing flow in the two free lower side zones; observer, acting-player and sizing transitions therefore leave the table box unchanged | 599 static + 11 action browser cases + 9 viewport safety-net cases; the two excluded mobile arc failures reproduce identically at `bf1f1f0` |
-| 2026-08-30 | Fixed the returning Micro A role split: REST adds `viewer_seat_no`, WebSocket does not, and between hands v040's `game` is null. The socket render therefore lost the hero despite a valid `tableData.viewer_player_id`. v040 now resolves that id against the existing `tableData.seats` before choosing the watching ring; it does not retain a stale seat or trust a null id. Preserved the parallel transport normalization from `5bcaa12` | New regression failed in all 4 combinations (phone/desktop, with/without a past-hand roster), then passed including genuine spectator transitions; merged version: 603 static + 24 browser cases, with the same known mobile arc cases excluded |
-| 2026-08-30 | Moved the desktop "Место забронировано" live region from the felt into the gap between table identity and header actions. The same node returns to the felt at phone width, where its existing hidden state remains unchanged. No duplicate status or queue controller | Browser regression failed with parent `felt`, then passed at 1485/1192/781px and on return to 390px; screenshot checked; 605 static + 29 browser cases passed, with the same 2 pre-existing mobile arc failures |
-| 2026-08-30 | Unified desktop hero, board and hidden card sizes using one 66×92 base. Seat cards compensate for the centre cluster's existing 0.94 scale, so painted edge lengths match instead of just CSS widths. Removed the competing hero/back dimensions, retained fans and back-card layering, and raised the hero pair to clear the avatar's stake | Regression failed at 781/1192/1920px, then passed for all 17 cards at each width; screenshot and 9 viewport cases checked; final run: 607 static + 28 selected browser cases passed (known mobile arc cases excluded) |
-| 2026-08-30 | Recoloured the shared phone/desktop back to graphite (#071A1A/#0B2020), muted turquoise pattern (#16CFA0 at 22%) and a thin #35F0C0 rim with 18% glow. Kept the mobile ring/diagonals and all card dimensions; idle decoration shares the same paint. Face-up exclusions use `:where` so hidden hero cards cannot inherit cyan paint and red/gold face-up accents retain their priority. Cache: desktop-oval-39 | Palette and face-up-priority regressions failed before their fixes, then passed at 390/1192px with visible/hidden hero cards; screenshots checked. Final: 35 browser cases and 610 non-browser tests passed, 1 skipped. The unchanged upstream `test_the_countdown_runs_out_instead_of_starting_over` fails because b80d782 removed `countdownText`; it was excluded from the final non-browser run. Independent review's specificity finding fixed and covered |
-| 2026-08-30 | Opponent cards are public at hand end only with at least two non-folded players; an uncontested winner keeps private cards, except in their own view. The shared serializer enforces this for both layouts and the reveal animation skips fold wins. Desktop revealed pairs now share the hero's avatar anchor and rank/suit sizes; existing equal card dimensions are preserved. A constant 140px scaled top floor reserves room before the reveal. Phone geometry is unchanged. Cache: desktop-oval-43 | Fold-win regressions failed on all four streets and both browser widths before the fix; normal/all-in 2/3/6-player showdowns and folded-card privacy verified. Desktop size/anchor/font/clipping checks at 781/1192/1920px and screenshot checked. Final: 45 browser + 626 non-browser tests passed, 1 skipped, same known upstream countdown test excluded. Independent review approved |
+| 2026-08-31 | Удалены пять клиентских слоёв тренажёра и их загрузчики. Используемые авто-действия, HUD и окно вскрытия перенесены в существующие JS/CSS; удалена копия оценщика комбинаций. 19 → 14 файлов слоёв, на 5 запросов меньше, чистое сокращение static — 879 строк. Кеш: trainer-cleanup-1. Без публикации на сервере | 92 целевых небраузерных теста; полный набор: 677 прошли, 3 пропущены, 2 прежних сбоя; 27 браузерных сценариев прошли. Сбой дополнительного теста занятия места воспроизведён на исходном HEAD. Скриншоты 390/1192px проверены; подробности выше |
+| 2026-08-30 | Настольный чат стал плавающим окном в пределах области просмотра с перетаскиванием, изменением и сбросом размера/положения, сворачиванием, управлением с клавиатуры, читаемыми метаданными и переносами сообщений, кнопкой перехода к непрочитанным и многострочным полем ввода. При ошибках отправки черновики сохраняются; разметка, поле ввода и полноэкранная геометрия чата на телефоне не изменены. Кеш: desktop-oval-44 | Прошли 43 целевых браузерных/статических и 626 небраузерных тестов, 1 пропущен, 1 известный тест отсчёта из исходной версии исключён; скриншот проверен; изменения развёрнуты, публичные состояние/кеш/JS проверены |
+| 2026-08-29 | Этап 0: описанные выше страховочные тесты | 9 сценариев прошли; две ошибки повторно внесены и обнаружены |
+| 2026-08-29 | Удалён `wagerPointForPlayer` из v015 — v031 позже заменяет его без вызова предыдущей версии, поэтому он никогда не мог выполниться | Статический набор + страховочные тесты + работающая страница |
+| 2026-08-29 | Добавлено условие, отключающее v022 на сетевом столе: его «+» отправлял запрос на маршрут тренажёра, не подключённый в рабочем окружении | Статический набор; онлайн-диалог средств не затронут |
+| 2026-08-29 | v028 + v029 + v030 объединены в `v028-ready-phase.js` (3 файла → 1, 3 запроса → 1) | 321 статический + 13 браузерных сценариев |
+| 2026-08-29 | Удалены `.felt::before` и `.table-glow` из v039 — последние два проигрывавших объявления в блоке с двумя классами, а значит, последние, которые могла бы оживить смена порядка загрузки | 321 статический + 9 браузерных сценариев. Примечание: первая попытка заменяла оба правила как одну строку, которой нет в файле (между ними находится строка `::after`); скрипт сообщил об успехе, ничего не изменив, а зелёные наборы тестов прошли на неизменённом файле. Читайте diff, не доверяйте одному лишь сообщению скрипта |
+| 2026-08-29 | Удалены мёртвые свойства рамки из v039 (padding, overflow, box-shadow): абсолютные значения, все три проигрывают v038, все три ожили бы при смене порядка загрузки | 321 статический + 9 браузерных сценариев, до коммита |
+| 2026-08-29 | Удалено мёртвое оформление сукна из v039 (градиент, неоновая граница, внутренняя тень). width/height/inset сохранены: высота критична, см. предупреждение о процентах выше | 321 статический + 9 браузерных сценариев, на этот раз запущены **до** коммита |
+| 2026-08-29 | **Отменено в тот же день (9f88bc5):** первая попытка также удаляла высоту сукна и padding/overflow/box-shadow рамки. Страховочные тесты поймали ошибку в 6 из 9 сценариев — «сукно заканчивается на 23px ниже нижнего края», — но коммит уже был опубликован: развёртывание стояло в цепочке после `pytest ... \| tail`, код завершения которой принадлежит tail. Запустите тесты, прочитайте результат и *только потом* создавайте коммит | Страховочные тесты, при откате |
+| 2026-08-29 | Удалено кольцо из семи позиций мест в v039 — первая часть его мёртвой геометрии в правилах с двумя классами; v040 уже давно размещает все места, а сохранённое кольцо означало, что любая смена порядка загрузки сдвигает стол | 321 статический + 13 браузерных сценариев; проверка инварианта перенесена в тест, читающий v040 |
+| 2026-08-29 | Удалены v035 и v036 — 369 строк, которые ничто не загружало; `test_v101_regressions` проверял загрузчик v037 из v036, который никогда не выполнялся, а теперь читает component-ui.js | 321 статический тест |
+| 2026-08-30 | Снимок состояния между раздачами больше не переводит ушедшего наблюдателя в игроки по устаревшему составу прошлой раздачи. Из-за этого интерфейс расходился в двух местах: заголовок скрывал «Занять место», считая пользователя сидящим, а v040 следовал `current_seats`, рисовал «Сесть», но обработчик подтверждения сразу завершался из-за того же ложного статуса сидящего игрока | 597 статических + 9 страховочных браузерных сценариев + браузерный сценарий занятия места во время раздачи |
+| 2026-08-30 | Мобильное кресло «Сесть» теперь имеет `data-visual-seat="0"`, поэтому наследует точную итоговую точку привязки текущего игрока (`100% - 86px`) вместо общего значения `80%` из v040. Круг и подпись также используют CSS-переменные аватара текущего игрока; переход от наблюдателя к сидящему игроку заменяет элемент управления на месте вместо скачка примерно на 75px плюс прежнее внутреннее смещение 11px | 597 статических + 9 страховочных браузерных сценариев + браузерные переходы при 360×800 и 402×874 + сценарий занятия места во время раздачи |
+| 2026-08-30 | Удалена устаревшая центральная онлайн-карточка «МЕСТО ЗАНЯТО»: сетевой стол теперь скрывает приглашение комнаты локального тренажёра во всех онлайн-состояниях, а онлайн-подтверждение готовности больше не привязывает обработчик клика к этой удалённой карточке | 597 статических + регрессионные проверки онлайн-приглашения + 9 страховочных браузерных сценариев |
+| 2026-08-30 | Мобильная полоса «УРАВНЯТЬ / СТАВКА» теперь следует существующему состоянию банка `p8-no-pot` и не остаётся на сукне между раздачами; общее правило скрытия намеренно расположено после правила отображения полосы `on-felt`, чтобы каскад не мог вернуть её на экран | 599 статических + 10 браузерных сценариев, включая переход от активной раздачи к ожиданию |
+| 2026-08-30 | Действия на компьютере больше не занимают отдельную строку раскладки высотой 214px. Существующая панель размещена в `.table-frame` и повторно использует четыре компактных краевых действия телефона вместе с его временным интерфейсом выбора размера ставки в двух свободных нижних боковых зонах; поэтому переходы между наблюдением, ходом игрока и выбором размера ставки оставляют границы стола неизменными | 599 статических + 11 браузерных сценариев действий + 9 страховочных сценариев областей просмотра; две исключённые ошибки мобильной дуги воспроизводятся точно так же на `bf1f1f0` |
+| 2026-08-30 | Исправлено расхождение ролей при возвращении в Micro A: REST добавляет `viewer_seat_no`, WebSocket — нет, а между раздачами `game` в v040 равен null. Поэтому отрисовка по сокету теряла текущего игрока, несмотря на корректный `tableData.viewer_player_id`. Теперь v040 сопоставляет этот id с существующим `tableData.seats`, прежде чем выбрать кольцо наблюдателя; он не сохраняет устаревшее место и не доверяет null вместо id. Сохранена параллельная нормализация транспорта из `5bcaa12` | Новая регрессионная проверка сначала упала во всех 4 сочетаниях (телефон/компьютер, с составом прошлой раздачи/без него), затем прошла, включая настоящие переходы в наблюдатели; объединённая версия: 603 статических + 24 браузерных сценария, с исключением тех же известных сценариев мобильной дуги |
+| 2026-08-30 | Настольная область оповещения «Место забронировано» перенесена с сукна в промежуток между сведениями о столе и действиями заголовка. Тот же узел возвращается на сукно при телефонной ширине, где его прежнее скрытое состояние не меняется. Без дублирования статуса и контроллера очереди | Браузерная регрессионная проверка сначала упала с родителем `felt`, затем прошла при 1485/1192/781px и при возврате к 390px; скриншот проверен; прошли 605 статических + 29 браузерных сценариев, с теми же 2 ранее существовавшими ошибками мобильной дуги |
+| 2026-08-30 | Размеры карт текущего игрока, общих и закрытых карт на компьютере приведены к общей базе 66×92. Карты на местах компенсируют существующий масштаб центральной группы 0.94, поэтому совпадают видимые длины сторон, а не только CSS-ширина. Удалены конкурирующие размеры карт текущего игрока и рубашек, сохранены веера и наложение закрытых карт, а пара текущего игрока поднята, чтобы не перекрывать ставку возле аватара | Регрессионная проверка сначала упала при 781/1192/1920px, затем прошла для всех 17 карт на каждой ширине; проверены скриншот и 9 сценариев областей просмотра; итоговый прогон: прошли 607 статических + 28 выбранных браузерных сценариев (известные сценарии мобильной дуги исключены) |
+| 2026-08-30 | Общая рубашка карт для телефона и компьютера перекрашена в графитовый цвет (#071A1A/#0B2020), с приглушённым бирюзовым узором (#16CFA0 при 22%) и тонкой каймой #35F0C0 со свечением 18%. Сохранены мобильные кольцо/диагонали и все размеры карт; декор в режиме ожидания использует то же оформление. Исключения для открытых карт используют `:where`, чтобы закрытые карты текущего игрока не наследовали голубую заливку, а красные/золотые акценты открытых карт сохраняли приоритет. Кеш: desktop-oval-39 | Регрессионные проверки палитры и приоритета открытых карт сначала упали, затем прошли после исправлений при 390/1192px с открытыми/закрытыми картами текущего игрока; скриншоты проверены. Итог: прошли 35 браузерных сценариев и 610 небраузерных тестов, 1 пропущен. Неизменённый тест исходной версии `test_the_countdown_runs_out_instead_of_starting_over` падает, потому что b80d782 удалил `countdownText`; он исключён из итогового небраузерного прогона. Замечание независимого ревью о специфичности исправлено и покрыто тестом |
+| 2026-08-30 | Карты соперников становятся общедоступными в конце раздачи только при наличии хотя бы двух игроков, не сбросивших карты; карты победителя без вскрытия остаются скрытыми для всех, кроме него самого. Общий сериализатор обеспечивает это для обеих раскладок, а анимация раскрытия пропускает победы после паса соперников. Раскрытые пары на компьютере теперь используют ту же привязку к аватару и размеры ранга/масти, что и карты текущего игрока; существующее равенство размеров карт сохранено. Постоянная нижняя граница верхнего отступа в 140px с учётом масштаба резервирует место до раскрытия. Геометрия телефона не изменена. Кеш: desktop-oval-43 | Регрессионные проверки победы после паса сначала упали на всех четырёх улицах и обеих браузерных ширинах; проверены обычные вскрытия и вскрытия при олл-ине для 2/3/6 игроков, а также скрытие сброшенных карт. Проверены размеры/привязка/шрифты/обрезка на компьютере при 781/1192/1920px и скриншот. Итог: прошли 45 браузерных + 626 небраузерных тестов, 1 пропущен, тот же известный тест отсчёта из исходной версии исключён. Независимое ревью одобрило изменения |

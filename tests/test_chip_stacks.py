@@ -4,7 +4,6 @@ import re
 from pathlib import Path
 
 APP = Path("static/app.js").read_text(encoding="utf-8")
-POT_LAYER = Path("static/v020-fixes.js").read_text(encoding="utf-8")
 
 
 def test_pot_chips_render_at_full_opacity_without_relying_on_a_transition():

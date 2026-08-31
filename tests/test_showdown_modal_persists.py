@@ -8,25 +8,23 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-V025 = Path("static/v025-showdown-compare.js").read_text(encoding="utf-8")
+APP = Path("static/app.js").read_text(encoding="utf-8")
 
 
 def test_the_anchor_still_exists_to_extract():
-    assert "let lastTerminalGame = null;" in V025
-    assert "renderGame = function renderGameV025() {" in V025
+    assert "let lastTerminalGame = null;" in APP
+    assert "function renderShowdownComparison() {" in APP
 
 
 def _run(game_sequence):
-    """Drives the real wrapped renderGame() once per entry in game_sequence,
+    """Drives the real renderShowdownComparison() once per game_sequence entry,
     setting the global `game` to each value first. Returns lastTerminalGame's
     value (by hand_id, or null) after every call."""
-    start = V025.index("let lastTerminalGame = null;")
-    end = V025.index("};\n", V025.index("renderGame = function renderGameV025()")) + 3
-    block = V025[start:end]
+    start = APP.index("function renderShowdownComparison() {")
+    end = APP.index("\n}", start) + 2
+    block = "let lastTerminalGame = null;\n" + APP[start:end]
     harness = r"""
     let game = null;
-    function originalRenderGameStub() {}
-    let renderGame = originalRenderGameStub;
     let syncCalls = 0, modalCalls = 0;
     function syncShowdownLayout() { syncCalls++; }
     function renderComparisonModal() { modalCalls++; }
@@ -37,7 +35,7 @@ def _run(game_sequence):
     const log = [];
     for (const g of sequence) {
       game = g;
-      renderGame();
+      renderShowdownComparison();
       log.push(lastTerminalGame ? lastTerminalGame.hand_id : null);
     }
     console.log(JSON.stringify({ log, syncCalls, modalCalls }));
@@ -58,6 +56,7 @@ def test_a_terminal_hand_is_cached_and_survives_game_going_null():
         None,
     ])
     assert out["log"] == ["h1", "h1", "h1"]
+    assert out["syncCalls"] == out["modalCalls"] == 3
 
 
 def test_a_genuinely_new_hand_going_live_clears_it():

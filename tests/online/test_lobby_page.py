@@ -116,11 +116,16 @@ def test_online_ready_handler_does_not_bind_the_removed_room_prompt():
     assert ".v038-room-prompt" not in bindings
 
 
-def test_online_mode_disables_legacy_ready_badges():
+def test_the_table_no_longer_loads_the_trainers_ready_badges():
     index = Path("static/index.html").read_text(encoding="utf-8")
-    source = Path("static/v024-ready-phase.js").read_text(encoding="utf-8")
+    loader = Path("static/component-ui.js").read_text(encoding="utf-8")
+    app = Path("static/app.js").read_text(encoding="utf-8")
     assert "window.Poker8OnlineTable" in index
-    assert "isOnlineTable() || !preHand()" in source
+    assert "v024-ready-phase.js" not in index + loader
+    assert not Path("static/v024-ready-phase.js").exists()
+    assert "v024-ready-badge" not in app + index + loader
+    new_hand = app[app.index("async function newHand("):]
+    assert "if (ONLINE_TABLE_ID || window.Poker8OnlineTable) return;" in new_hand[:new_hand.index("await fetch(")]
 
 
 def test_lobby_card_offers_a_way_to_watch_without_buying_in():

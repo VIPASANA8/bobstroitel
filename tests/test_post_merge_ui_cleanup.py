@@ -112,7 +112,7 @@ def test_the_phone_ring_has_one_source():
     assert 'seat[data-visual-seat="4"]{left:' not in V039
 
 
-V025 = Path("static/v025-showdown-compare.js").read_text(encoding="utf-8")
+COMPONENT_CSS = Path("static/component-ui.css").read_text(encoding="utf-8")
 
 
 def test_the_ring_measures_against_the_whole_countdown():
@@ -129,11 +129,12 @@ def test_the_win_loss_card_is_not_phone_only():
     """The JS that builds it always ran at every width; the rules for it sat
     inside @media (max-width:780px), so on desktop it was an unstyled div
     appended to <body>."""
-    phone = V025[V025.index("@media (max-width:780px){"):]
+    showdown = COMPONENT_CSS[COMPONENT_CSS.index("/* Showdown comparison;"):]
+    phone = showdown[showdown.index("@media (max-width:780px){"):]
     phone = phone[:phone.index("\n    }\n")]
     assert ".v025-showdown-modal" not in phone
     assert "v025-showdown-layout" in phone, "the seat lane really is phone-only"
-    assert "\n    .v025-showdown-modal{" in V025
+    assert "\n    .v025-showdown-modal{" in showdown
 
 
 def test_the_made_hands_board_card_survives_the_desktop_repaint():

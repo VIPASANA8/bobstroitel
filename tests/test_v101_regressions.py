@@ -102,7 +102,7 @@ def test_v038_uses_full_height_arc_and_viewport_edge_controls():
 
 def test_v025_showdown_modal_is_readable_on_mobile():
     root = Path(__file__).resolve().parents[1]
-    source = (root / 'static' / 'v025-showdown-compare.js').read_text(encoding='utf-8')
+    source = (root / 'static' / 'component-ui.css').read_text(encoding='utf-8')
 
     assert 'grid-template-columns:84px 75px minmax(0,1fr);' in source
     assert re.search(r'\.v025-who b\{display:block;margin-top:3px;overflow:hidden;'
@@ -130,7 +130,8 @@ def test_seat_config_carries_the_participant_id():
 def test_v038_preserves_gameplay_contracts_while_replacing_the_mobile_layout():
     root = Path(__file__).resolve().parents[1]
     source = (root / 'static' / 'v038-poker8-v2-cinematic-table.js').read_text(encoding='utf-8')
-    ready = (root / 'static' / 'v024-ready-phase.js').read_text(encoding='utf-8')
+    ready = (root / 'static' / 'online-table.js').read_text(encoding='utf-8')
+    transport = (root / 'static' / 'online-transport.js').read_text(encoding='utf-8')
     wager = (root / 'static' / 'v031-pot-cluster-mobile-fix.js').read_text(encoding='utf-8')
     app = (root / 'static' / 'app.js').read_text(encoding='utf-8')
 
@@ -145,8 +146,11 @@ def test_v038_preserves_gameplay_contracts_while_replacing_the_mobile_layout():
         'beginVerticalBetGesture',
     ):
         assert token in source
-    assert 'READY_COUNTDOWN_MS = 5000' in ready
-    assert 'poker8:ready-countdown' in ready and 'poker8:ready-snapshot' in ready
+    assert 'const countdownEndsAt = state?.hand_starts_at || state?.ready_deadline;' in ready
+    assert 'poker8:ready-countdown' in ready
+    assert 'detail: { endsAt: countdownEndsAt ? Date.parse(countdownEndsAt) : 0 }' in ready
+    assert 'await window.Poker8Transport.readyUp();' in ready
+    assert '/ready-up' in transport
     assert 'if (mobile && visualSeat === 0)' in wager
     assert 'x: from.x + 66' in wager and 'y: from.y - 30' in wager
     assert 'const arcLift = Math.min(18, Math.max(10, Math.abs(dx) * .08 + Math.abs(dy) * .04));' in app

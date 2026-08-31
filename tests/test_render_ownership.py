@@ -12,7 +12,11 @@ from pathlib import Path
 APP = Path("static/app.js").read_text(encoding="utf-8")
 LAYERS = sorted(Path("static").glob("v0*.js"))
 
-OWNED = ("renderSeats", "renderMobileHeader", "renderPotChips", "chipStackHtml")
+OWNED = (
+    "renderSeats", "renderMobileHeader", "renderPotChips", "chipStackHtml",
+    "togglePendingAction", "renderMobileHud", "renderGame",
+    "animateShowdownReveal", "newHand", "renderShowdownComparison",
+)
 
 
 def test_the_owned_functions_live_in_one_file():
@@ -33,7 +37,6 @@ def test_no_layer_takes_one_back():
 def test_layers_hook_in_instead():
     """The registrations that replaced those four wrappers."""
     hooks = {
-        "v024-ready-phase.js": ["renderSeatReadiness", "publishReadySnapshot", "renderReadyControls"],
         "v026-seat-status-layout.js": ["normalizeSeatStatuses"],
         "v027-compact-seats-controls.js": ["decorateSeats"],
         "v028-ready-phase.js": ["syncCenterReadyUi", "syncAllReadyBadges"],

@@ -1,5 +1,7 @@
 const ONLINE_TABLE_ID = new URLSearchParams(location.search).get("table");
 let game = null;
+let lastTerminalGame = null;
+let dismissedHand = null;
 let tableData = null;
 let solverPreview = null;
 let modalSeat = null;
@@ -105,11 +107,8 @@ function togglePendingAction(kind) {
   const localPlayer = localViewerPlayer();
   const estimateToCall = Math.max(0, Number(game.current_bet || 0) - Number(localPlayer?.street_invested || 0));
   const amount = Number($("amount")?.value || 0);
-  let next = null;
-  if (!pendingAction || pendingAction.kind !== kind) {
-    next = { kind, amount, estimateToCall, selectedAt: Date.now() };
-  }
-  pendingAction = next;
+  // Repeating the selection refreshes its amount; clearing is a separate action.
+  pendingAction = { kind, amount, estimateToCall, selectedAt: Date.now() };
   pendingInvalidReason = "";
   renderQueuedActionStatus();
 }
@@ -570,6 +569,7 @@ async function revealRemainingBoard(previousState, nextState) {
 }
 
 async function animateShowdownReveal(previousState, nextState) {
+  if (nextState?.terminal && nextState?.board?.length === 5) document.body.classList.add("v025-showdown-layout");
   if (!nextState?.terminal) return;
   const live = (nextState.seat_order || []).filter(pid => !nextState.players?.[pid]?.folded);
   if (live.length < 2) return;
@@ -864,10 +864,7 @@ function cardEl(code) {
   return el;
 }
 
-//: Same evaluator shape as v025-showdown-compare.js (that layer is optional
-//: and loads after this one, so it can't be reused directly) -- extended to
-//: keep the winning 5-card combo itself, not just its score, since this one
-//: highlights the actual cards on the felt rather than only comparing hands.
+// Shared by the made-hand highlights and the showdown comparison.
 const HAND_RANK_VALUE = { "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7, "8": 8, "9": 9, "T": 10, "J": 11, "Q": 12, "K": 13, "A": 14 };
 
 function handStraightHigh(ranks) {
@@ -935,6 +932,203 @@ function fiveCardCombinations(cards) {
         for (let d = c + 1; d < cards.length - 1; d++)
           for (let e = d + 1; e < cards.length; e++) out.push([cards[a], cards[b], cards[c], cards[d], cards[e]]);
   return out;
+}
+
+const CLASS_NAMES = ["старшая карта","пара","две пары","тройка","стрит","флеш","фулл-хаус","каре","стрит-флеш"];
+const RANK_GROUP = {14:"тузы",13:"короли",12:"дамы",11:"валеты",10:"десятки",9:"девятки",8:"восьмёрки",7:"семёрки",6:"шестёрки",5:"пятёрки",4:"четвёрки",3:"тройки",2:"двойки"};
+const RANK_SINGLE = {14:"туз",13:"король",12:"дама",11:"валет",10:"10",9:"9",8:"8",7:"7",6:"6",5:"5",4:"4",3:"3",2:"2"};
+const RANK_SHORT = {14:"A",13:"K",12:"Q",11:"J",10:"10",9:"9",8:"8",7:"7",6:"6",5:"5",4:"4",3:"3",2:"2"};
+
+function scoreHand(hole, board) {
+  const cards = [...(hole || []), ...(board || [])];
+  if (cards.length < 5 || cards.some(code => !code || code === "??")) return null;
+  let best = null;
+  for (const combo of fiveCardCombinations(cards)) {
+    const score = evaluateFiveScore(combo);
+    if (!best || compareHandScore(score,best) > 0) best = score;
+  }
+  return best;
+}
+
+function describeScore(score) {
+  if (!score) return "комбинация недоступна";
+  const category = score[0];
+  if (category === 8) return `стрит-флеш до ${RANK_SINGLE[score[1]] || score[1]}`;
+  if (category === 7) return `каре: ${RANK_GROUP[score[1]]}, кикер ${RANK_SINGLE[score[2]]}`;
+  if (category === 6) return `фулл-хаус: ${RANK_GROUP[score[1]]} + ${RANK_GROUP[score[2]]}`;
+  if (category === 5) return `флеш: ${score.slice(1).map(r => RANK_SHORT[r]).join("-")}`;
+  if (category === 4) return `стрит до ${RANK_SINGLE[score[1]] || score[1]}`;
+  if (category === 3) return `тройка: ${RANK_GROUP[score[1]]}, кикеры ${RANK_SINGLE[score[2]]} и ${RANK_SINGLE[score[3]]}`;
+  if (category === 2) return `две пары: ${RANK_GROUP[score[1]]} и ${RANK_GROUP[score[2]]}, кикер ${RANK_SINGLE[score[3]]}`;
+  if (category === 1) return `пара: ${RANK_GROUP[score[1]]}, кикеры ${score.slice(2).map(r => RANK_SINGLE[r]).join(", ")}`;
+  return `старшая карта: ${score.slice(1).map(r => RANK_SHORT[r]).join("-")}`;
+}
+
+function hasVisibleCards(player) {
+  return Array.isArray(player?.hole_cards) && player.hole_cards.length === 2 && player.hole_cards.every(code => code && code !== "??");
+}
+
+function primaryWinnerIds(activeGame) {
+  const firstPot = Array.isArray(activeGame?.result_details) ? activeGame.result_details.find(row => Array.isArray(row?.winners) && row.winners.length) : null;
+  return firstPot?.winners || activeGame?.winners || [];
+}
+
+function strongestPlayer(activeGame, ids) {
+  let best = null;
+  for (const id of ids) {
+    const player = activeGame?.players?.[id];
+    if (!player || !hasVisibleCards(player)) continue;
+    const score = scoreHand(player.hole_cards, activeGame.board);
+    if (!score) continue;
+    if (!best || compareHandScore(score,best.score) > 0) best = { player, score };
+  }
+  return best;
+}
+
+// Same lookup as localViewerPlayer(), which only ever reads
+// the live `game` -- and during the gap between "result" and the next hand
+// actually dealing, that is null, exactly while this modal still needs to
+// know who "you" were in the hand it is showing.
+function viewerInGame(activeGame) {
+  if (!activeGame) return null;
+  return Object.values(activeGame.players || {}).find(p =>
+    (activeGame.viewer_player_id && p.id === activeGame.viewer_player_id)
+    || (p.profile_id && p.profile_id === activeGame.active_profile_id)
+  ) || null;
+}
+
+function showdownComparison(activeGame) {
+  if (!activeGame?.terminal || !Array.isArray(activeGame.board) || activeGame.board.length !== 5) return null;
+  const viewer = viewerInGame(activeGame);
+  if (!viewer || viewer.folded || !hasVisibleCards(viewer)) return null;
+
+  const winners = primaryWinnerIds(activeGame);
+  if (!winners.length) return null;
+
+  const viewerScore = scoreHand(viewer.hole_cards, activeGame.board);
+  if (!viewerScore) return null;
+
+  const viewerWonPrimary = winners.includes(viewer.id);
+  let outcome = "loss";
+  let opponentInfo = null;
+
+  if (viewerWonPrimary) {
+    if (winners.length > 1) {
+      outcome = "tie";
+      opponentInfo = strongestPlayer(activeGame, winners.filter(id => id !== viewer.id));
+    } else {
+      outcome = "win";
+      const others = (activeGame.seat_order || []).filter(id => id !== viewer.id && !activeGame.players?.[id]?.folded);
+      opponentInfo = strongestPlayer(activeGame, others);
+    }
+  } else {
+    outcome = "loss";
+    opponentInfo = strongestPlayer(activeGame, winners);
+  }
+
+  if (!opponentInfo) return null;
+  return {
+    outcome,
+    viewer,
+    viewerScore,
+    opponent: opponentInfo.player,
+    opponentScore: opponentInfo.score,
+    amount: Number(activeGame.result_details?.[0]?.amount || 0),
+  };
+}
+
+function miniCards(cards) {
+  return (cards || []).map(code => {
+    const rank = code?.[0] === "T" ? "10" : (code?.[0] || "?");
+    const suit = code?.[1];
+    const symbol = {s:"♠",h:"♥",d:"♦",c:"♣"}[suit] || "";
+    const red = suit === "h" || suit === "d";
+    return `<span class="v025-mini-card${red ? " red" : ""}"><b>${rank}</b><i>${symbol}</i></span>`;
+  }).join("");
+}
+
+function reasonText(info) {
+  if (info.outcome === "tie") return "комбинации равны — банк делится";
+  const viewerClass = CLASS_NAMES[info.viewerScore[0]];
+  const opponentClass = CLASS_NAMES[info.opponentScore[0]];
+  if (info.viewerScore[0] !== info.opponentScore[0]) {
+    const stronger = info.outcome === "win" ? viewerClass : opponentClass;
+    const weaker = info.outcome === "win" ? opponentClass : viewerClass;
+    return `${stronger} старше, чем ${weaker}`;
+  }
+  return `одинаковый тип комбинации — решают старшие карты и кикеры`;
+}
+
+function modalNode() {
+  let modal = document.getElementById("v025ShowdownModal");
+  if (modal) return modal;
+  modal = document.createElement("div");
+  modal.id = "v025ShowdownModal";
+  modal.className = "v025-showdown-modal";
+  modal.hidden = true;
+  modal.innerHTML = `<section><button class="v025-close" type="button" aria-label="Закрыть">×</button><div class="v025-body"></div></section>`;
+  document.body.appendChild(modal);
+  modal.querySelector(".v025-close")?.addEventListener("click", () => {
+    dismissedHand = lastTerminalGame?.hand_id || dismissedHand;
+    modal.hidden = true;
+  });
+  return modal;
+}
+
+function renderComparisonModal() {
+  const modal = modalNode();
+  const activeGame = lastTerminalGame;
+  if (!activeGame?.terminal) {
+    modal.hidden = true;
+    return;
+  }
+  if (dismissedHand === activeGame.hand_id) return;
+
+  const info = showdownComparison(activeGame);
+  if (!info) {
+    modal.hidden = true;
+    return;
+  }
+
+  const title = info.outcome === "win" ? "ПОБЕДА" : info.outcome === "tie" ? "ДЕЛЁЖ" : "ПОРАЖЕНИЕ";
+  const subtitle = info.outcome === "win" ? "ваша комбинация сильнее" : info.outcome === "tie" ? "одинаковая сила руки" : `${info.opponent.name} выигрывает`;
+  const body = modal.querySelector(".v025-body");
+  body.innerHTML = `
+    <div class="v025-head ${info.outcome}">
+      <strong>${title}</strong>
+      <span>${escapeHtml(subtitle)}${info.amount > 0 ? ` · ${formatBB(info.amount)}` : ""}</span>
+    </div>
+    <div class="v025-compare-row winner">
+      <div class="v025-who"><small>${info.outcome === "win" ? "СОПЕРНИК" : "ПОБЕДИТЕЛЬ"}</small><b>${escapeHtml(info.opponent.name)}</b></div>
+      <div class="v025-cards">${miniCards(info.opponent.hole_cards)}</div>
+      <div class="v025-hand">${escapeHtml(describeScore(info.opponentScore))}</div>
+    </div>
+    <div class="v025-versus">VS</div>
+    <div class="v025-compare-row viewer">
+      <div class="v025-who"><small>ВЫ</small><b>${escapeHtml(info.viewer.name || "Вы")}</b></div>
+      <div class="v025-cards">${miniCards(info.viewer.hole_cards)}</div>
+      <div class="v025-hand">${escapeHtml(describeScore(info.viewerScore))}</div>
+    </div>
+    <div class="v025-reason">${escapeHtml(reasonText(info))}</div>
+  `;
+  modal.hidden = false;
+}
+
+function syncShowdownLayout() {
+  const active = Boolean(lastTerminalGame?.terminal && Array.isArray(lastTerminalGame.board) && lastTerminalGame.board.length === 5);
+  document.body.classList.toggle("v025-showdown-layout", active);
+  if (!active) {
+    const modal = document.getElementById("v025ShowdownModal");
+    if (modal) modal.hidden = true;
+  }
+}
+
+// Retain the result through online's null-game gap; only a live hand clears it.
+function renderShowdownComparison() {
+  if (game?.terminal) lastTerminalGame = game;
+  else if (game && !game.terminal) lastTerminalGame = null;
+  syncShowdownLayout();
+  renderComparisonModal();
 }
 
 //: Straight/flush/full-house/straight-flush use all 5 cards -- there is no
@@ -1697,6 +1891,36 @@ function renderMobileHud() {
   renderMobileHeader();
   renderMobileSelectedCard();
   refreshQuickSizeLabels();
+
+  const card = $("mobileTimerCard");
+  const label = card?.querySelector(":scope > span");
+  const timer = $("mobileActionTimer");
+  const track = card?.querySelector(".mobile-timer-track");
+  if (!card || !label) return;
+
+  const localTurn = Boolean(game && !game.terminal && isLocalHumanTurn());
+  const opponentTurn = Boolean(game && !game.terminal && !localTurn);
+
+  card.classList.toggle("opponent-turn", opponentTurn);
+
+  if (!opponentTurn) {
+    label.textContent = "ВАШ ХОД";
+    label.removeAttribute("title");
+    if (timer) timer.style.display = "";
+    if (track) track.style.display = "";
+    return;
+  }
+
+  const actorId = game.acting_player || game.acting_human_player_id;
+  const actor = game.players?.[actorId];
+  const name = actor?.name || game.acting_human_name || "ИГРОК";
+  label.textContent = `ХОД ${name}`;
+  label.title = `Ход: ${name}`;
+
+  // On somebody else's turn we keep only the actor label.
+  // The 01:00 countdown belongs exclusively to the local human turn.
+  if (timer) timer.style.display = "none";
+  if (track) track.style.display = "none";
 }
 
 
@@ -1745,6 +1969,7 @@ function renderGame() {
     renderSolverPanel();
     renderRunControls();
     renderMobileHud();
+    renderShowdownComparison();
     return;
   }
 
@@ -1822,6 +2047,7 @@ renderMobileHud();
   renderSolverPanel();
   renderRunControls();
   queueMicrotask(() => { maybeAutoFirePendingAction(); });
+  renderShowdownComparison();
 }
 
 window.Poker8LegacyView = {
@@ -2162,6 +2388,7 @@ async function loadTable(render = true) {
 }
 
 async function newHand(fromAutomation = false) {
+  if (ONLINE_TABLE_ID || window.Poker8OnlineTable) return;
   if (animationBusy) return;
   const button = $("newHand");
   button.disabled = true;

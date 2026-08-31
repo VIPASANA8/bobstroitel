@@ -175,3 +175,61 @@ body.v011::before { content:""; position:fixed; inset:0; z-index:-1; background:
   .v011 .action-grid .action-slot { font-size:10px !important; min-height:58px !important; }
   .v011 .quick-sizes button { min-height:46px !important; }
 }
+
+/* Wager markers and the local/opponent turn HUD. */
+@media (max-width:780px){
+  body.v014 .bet-marker{
+    gap:0 !important;
+    pointer-events:none !important;
+  }
+  body.v014 .bet-marker .chip-cluster{
+    transform:scale(.72) !important;
+    transform-origin:center bottom !important;
+  }
+  body.v014 .bet-marker span{
+    margin-top:0 !important;
+    padding:2px 5px !important;
+    font-size:10px !important;
+    line-height:1 !important;
+    border-radius:6px !important;
+  }
+}
+
+@media (max-width:780px){
+  body.v014 .mobile-timer-card > span{
+    display:block !important;
+    width:82px !important;
+    max-width:82px !important;
+    overflow:hidden !important;
+    text-overflow:ellipsis !important;
+    white-space:nowrap !important;
+    text-align:center !important;
+  }
+
+  /* Opponent turn: actor name only, no fake 01:00 and no progress bar. */
+  body.v014 .mobile-timer-card.opponent-turn{
+    min-height:42px !important;
+    height:42px !important;
+    padding:6px 5px !important;
+  }
+  body.v014 .mobile-timer-card.opponent-turn #mobileActionTimer,
+  body.v014 .mobile-timer-card.opponent-turn .mobile-timer-track{
+    display:none !important;
+  }
+
+  /* No permanent outline around the viewer seat when it is not the active turn. */
+  body.v014 .seat[data-visual-seat="0"] .seat-card.viewer-seat:not(.active-turn){
+    border-color:transparent !important;
+    outline:0 !important;
+    box-shadow:none !important;
+  }
+
+  /* Pot chips stay plate-less while the pile grows. */
+  body.v014 .pot-chips{
+    background:transparent !important;
+    border:0 !important;
+    outline:0 !important;
+    box-shadow:none !important;
+    filter:none !important;
+  }
+}
