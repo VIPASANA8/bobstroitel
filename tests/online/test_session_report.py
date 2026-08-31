@@ -6,6 +6,7 @@ from sqlalchemy import insert, select, update
 
 from online.ledger import PlayLedger
 from online.runtime import TableRuntimeManager
+from online.progression import advance_missions, msk_day
 from online.schema import play_sessions, poker_tables, system_players, table_seats, tenants, users
 from online.seating import SeatingService
 
@@ -116,3 +117,88 @@ async def test_a_second_sitting_does_not_inherit_the_first_ones_hands(seated_pla
     async with session_factory() as session:
         reports = (await session.execute(select(play_sessions.c.hands))).scalars().all()
         assert reports == [1], "the empty second sitting reported nothing of the first"
+
+
+@pytest.mark.anyio
+async def test_the_last_hand_is_in_the_report_when_leaving_ends_it(seated_player):
+    """Heads-up, the leaver's own fold ends the hand. The seat used to be
+    released before the settlement wrote the result, so a one-hand sitting
+    produced no report at all while its XP still landed on the account."""
+    runtime, seating, session_factory, _ = seated_player
+    await runtime.start_hand("t1")
+    snapshot = await runtime.public_snapshot("t1", "u1")
+    action = "fold" if "fold" in snapshot["legal_actions"] else "check"
+    await runtime.action("t1", "u1", "leaving", snapshot["revision"], action, 0)
+
+    # What the /leave endpoint does, in its order.
+    await runtime.fold_if_acting("t1", "u1")
+    in_hand = await runtime.mark_leaving("t1", "u1")
+    assert in_hand, "a terminal hand still holds the seat until it is settled"
+
+    while not runtime._tables["t1"].state.terminal:
+        await runtime.system_step("t1")
+    await runtime.finish_and_settle("t1")
+    await seating.request_leave("u1", "t1", immediate=True)
+
+    async with session_factory() as session:
+        report = (await session.execute(select(play_sessions))).mappings().one()
+        assert report["hands"] == 1
+        assert report["xp_earned"] == 1, "the hand that paid is the hand in the report"
+
+
+@pytest.mark.anyio
+async def test_daily_xp_earned_mid_session_reaches_the_report(seated_player):
+    """A mission finished on a hand in the middle of a sitting is as much that
+    sitting's as one finished on the way out. Reading only what closing the
+    session paid showed +1 XP on a session worth 51."""
+    runtime, seating, session_factory, _ = seated_player
+    async with session_factory() as session:
+        async with session.begin():
+            granted = await advance_missions(
+                session, "u1", msk_day(datetime.now(timezone.utc)),
+                {"hands": 500}, datetime.now(timezone.utc),
+            )
+    assert granted, "the volume mission is finishable from hands alone"
+
+    await _play_one_folded_hand(runtime)
+    await seating.request_leave("u1", "t1", immediate=True)
+
+    async with session_factory() as session:
+        report = (await session.execute(select(play_sessions))).mappings().one()
+    assert report["daily_xp"] == granted
+
+
+@pytest.mark.anyio
+async def test_a_one_hand_sitting_is_not_a_session_for_missions(seated_player):
+    """§4. Without the floor, sitting down and standing straight back up closed
+    'Завершите игровую сессию' -- which is the hit-and-run the daily pool was
+    written to avoid in the first place."""
+    from online.missions import POOLS, assigned, state_for
+    from online.schema import user_missions
+
+    runtime, seating, session_factory, _ = seated_player
+    day = msk_day(datetime.now(timezone.utc))
+    offset = next(
+        index for index in range(len(POOLS["session"]))
+        if assigned("u1", day, "session", offset=index).code == "finish_session"
+    )
+    async with session_factory() as session:
+        async with session.begin():
+            await session.execute(user_missions.insert().values(
+                user_id="u1", day=day, slot="session", reroll_offset=offset,
+                updated_at=datetime.now(timezone.utc),
+            ))
+
+    await _play_one_folded_hand(runtime)
+    await seating.request_leave("u1", "t1", immediate=True)
+
+    async with session_factory() as session:
+        state = await state_for(session, "u1", day)
+        report = (await session.execute(select(play_sessions))).mappings().one()
+
+    assert state["session"]["mission"].code == "finish_session"
+    assert state["session"]["completed_at"] is None
+    assert state["session"]["progress"] == 0
+    # The receipt is still written -- it is the player's record of the sitting,
+    # just not a session for anything that counts them.
+    assert report["hands"] == 1

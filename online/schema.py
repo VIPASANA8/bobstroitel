@@ -415,6 +415,15 @@ user_missions = Table(
     CheckConstraint("slot IN ('volume', 'session', 'variety')"),
 )
 
+# The day's one reroll, enforced where two requests cannot both win it. The
+# read-then-write in missions.reroll is not enough on its own: two calls both
+# saw an unused reroll and both kept theirs.
+Index(
+    "uq_user_missions_daily_reroll", user_missions.c.user_id, user_missions.c.day, unique=True,
+    postgresql_where=user_missions.c.reroll_offset != 0,
+    sqlite_where=user_missions.c.reroll_offset != 0,
+)
+
 Index("ix_table_runtimes_action_deadline", table_runtimes.c.action_deadline)
 Index("ix_hands_table_terminal", hands.c.table_id, hands.c.terminal)
 Index("ix_integrity_events_user_time", integrity_events.c.user_id, integrity_events.c.created_at)

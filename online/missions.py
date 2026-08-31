@@ -149,31 +149,37 @@ async def reroll(session: AsyncSession, user_id: str, day: str, slot: str, now: 
         return False
     row = (
         await session.execute(
-            select(user_missions).where(
+            select(user_missions.c.completed_at).where(
                 user_missions.c.user_id == user_id,
                 user_missions.c.day == day,
                 user_missions.c.slot == slot,
             )
         )
-    ).mappings().first()
-    if row and row["completed_at"]:
+    ).first()
+    if row and row[0]:
         return False
     values = dict(reroll_offset=1, progress=0, updated_at=now)
     if row is None:
+        # uq_user_missions_daily_reroll is what actually holds the one-a-day
+        # rule; the check above only spares the common case an IntegrityError.
         await session.execute(user_missions.insert().values(
             user_id=user_id, day=day, slot=slot, **values,
         ))
-    else:
-        await session.execute(
-            update(user_missions)
-            .where(
-                user_missions.c.user_id == user_id,
-                user_missions.c.day == day,
-                user_missions.c.slot == slot,
-            )
-            .values(**values)
+        return True
+    # Compare-and-swap on completed_at: a mission that finished between the
+    # read above and this write keeps its completion instead of being handed
+    # to a different mission with the progress reset under it.
+    result = await session.execute(
+        update(user_missions)
+        .where(
+            user_missions.c.user_id == user_id,
+            user_missions.c.day == day,
+            user_missions.c.slot == slot,
+            user_missions.c.completed_at.is_(None),
         )
-    return True
+        .values(**values)
+    )
+    return result.rowcount == 1
 
 
 async def advance(

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Sequence
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -97,22 +98,39 @@ def is_seven_deuce(hole_cards: list[str]) -> bool:
     return {first_rank, second_rank} == {"7", "2"} and first_suit != second_suit
 
 
-def comeback_codes(stacks_bb: list[float]) -> list[str]:
-    """Comebacks visible in one session's run of starting stacks.
+def comeback_codes(
+    hands: "Sequence[tuple[int, int]]", big_blind_units: int
+) -> list[str]:
+    """Comebacks visible in one session's run of stacks.
 
-    Order matters and is the whole achievement: the recovery has to come after
-    the low, not before it. A player who starts deep, is felted and rebuys has
-    not come back from anything.
+    `hands` is (start, end) in units, oldest first. Both ends of every hand are
+    read: a recovery that lands on the final hand of a sitting has no next
+    hand to start from, and reading only starting stacks lost it.
+
+    Order matters and is the whole achievement -- the recovery has to come
+    after the low. So does where the chips came from: a stack that begins a
+    hand above where the last one ended was topped up, not won, and an add-on
+    is not a comeback. A rebuy therefore clears the low it followed.
     """
     earned = []
-    for code, low, recovered in COMEBACKS:
+    for code, low_bb, recovered_bb in COMEBACKS:
+        low = low_bb * big_blind_units
+        recovered = recovered_bb * big_blind_units
         seen_low = False
-        for stack in stacks_bb:
-            if stack < low:
-                seen_low = True
-            elif seen_low and stack >= recovered:
-                earned.append(code)
-                break
+        previous_end = None
+        for start, end in hands:
+            if previous_end is not None and start > previous_end:
+                seen_low = False
+            for stack in (start, end):
+                if stack < low:
+                    seen_low = True
+                elif seen_low and stack >= recovered:
+                    earned.append(code)
+                    break
+            else:
+                previous_end = end
+                continue
+            break
     return earned
 
 

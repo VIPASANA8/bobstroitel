@@ -46,13 +46,37 @@ def test_seven_deuce_is_the_offsuit_one():
     assert not is_seven_deuce(["7h", "3c"])
 
 
+BB = 100
+
+
+def hands(*stacks_bb):
+    """(start, end) per hand, in units, from big blinds."""
+    return [(int(start * BB), int(end * BB)) for start, end in stacks_bb]
+
+
 def test_a_comeback_needs_the_recovery_to_follow_the_low():
-    assert comeback_codes([40, 8, 20, 55]) == ["still_alive"]
-    assert comeback_codes([40, 4, 20, 120]) == ["still_alive", "back_from_the_dead"]
-    # Deep, felted, rebought: nothing was come back from.
-    assert comeback_codes([120, 60, 3]) == []
-    assert comeback_codes([60, 9]) == []
-    assert comeback_codes([]) == []
+    assert comeback_codes(hands((40, 8), (8, 20), (20, 55)), BB) == ["still_alive"]
+    assert comeback_codes(hands((40, 4), (4, 120)), BB) == ["still_alive", "back_from_the_dead"]
+    assert comeback_codes([], BB) == []
+    assert comeback_codes(hands((60, 9)), BB) == [], "the low alone is not a comeback"
+
+
+def test_the_recovery_counts_on_the_hand_it_happens():
+    """Read from starting stacks alone, a double-up on the last hand of a
+    sitting has no next hand to show it and went unnoticed."""
+    assert comeback_codes(hands((40, 8), (8, 64)), BB) == ["still_alive"]
+
+
+def test_chips_bought_are_not_chips_won():
+    """A stack that starts a hand above where the last one ended was topped up.
+    Read as a recovery, an add-on handed out both comebacks for nothing."""
+    assert comeback_codes(hands((40, 4), (100, 100)), BB) == []
+    # Felted and rebought is not a comeback either.
+    assert comeback_codes(hands((120, 60), (60, 3), (100, 100)), BB) == []
+    # But a top-up earlier in the session does not spoil a later real one.
+    assert comeback_codes(hands((40, 30), (100, 4), (4, 120)), BB) == [
+        "still_alive", "back_from_the_dead",
+    ]
 
 
 @pytest.fixture

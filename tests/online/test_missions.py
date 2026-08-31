@@ -158,3 +158,47 @@ async def test_a_finished_mission_cannot_be_swapped_away(player):
 
     assert swapped is False
     assert row["completed_at"] is not None and row["reroll_offset"] == 0
+
+
+@pytest.mark.anyio
+async def test_the_day_gives_out_exactly_one_reroll_even_under_a_race(player):
+    """Two requests arriving together both read an unused reroll and both kept
+    theirs. The unique index is what actually holds the rule."""
+    from sqlalchemy.exc import IntegrityError
+
+    async with player() as session:
+        async with session.begin():
+            assert await reroll(session, "u1", DAY, "volume", NOW)
+        # What the losing request does when it skips the read and writes anyway.
+        with pytest.raises(IntegrityError):
+            async with session.begin():
+                await session.execute(user_missions.insert().values(
+                    user_id="u1", day=DAY, slot="variety", reroll_offset=1, updated_at=NOW,
+                ))
+
+    async with player() as session:
+        kept = (await session.execute(
+            select(user_missions.c.slot).where(user_missions.c.reroll_offset != 0)
+        )).scalars().all()
+    assert kept == ["volume"]
+
+
+@pytest.mark.anyio
+async def test_a_mission_finished_mid_reroll_keeps_its_completion(player):
+    """The read said unfinished, the mission landed, and the write reset the
+    progress underneath it -- leaving a different mission marked complete at
+    zero."""
+    volume = assigned("u1", DAY, "volume")
+    async with player() as session:
+        async with session.begin():
+            # Somebody else's transaction gets there first.
+            await advance(session, user_id="u1", day=DAY, facts={"hands": volume.target}, now=NOW)
+            swapped = await reroll(session, "u1", DAY, "volume", NOW)
+        row = (await session.execute(
+            select(user_missions).where(user_missions.c.slot == "volume")
+        )).mappings().one()
+
+    assert swapped is False
+    assert row["completed_at"] is not None
+    assert row["progress"] == volume.target, "the completion kept its progress"
+    assert row["reroll_offset"] == 0

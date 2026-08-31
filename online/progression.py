@@ -43,6 +43,11 @@ DAILY_HAND_XP_CAP = 150 + (300 - 150) // 2   # 225, what the two bands add up to
 #: What counts as a full table for the daily that asks for one (§8).
 FULL_TABLE_PLAYERS = 5
 
+#: Below this a sitting is not a session for missions or records (§4).
+#: Without it, sitting down and standing straight back up is a Winning
+#: Session by another name.
+MIN_SESSION_HANDS = 10
+
 # Published totals from §6. Every gap between two of them divides evenly by the
 # levels it spans, so the ladder below joins them with a constant step and the
 # anchors survive untouched -- no rounding, and the cost of a level never falls.
@@ -270,6 +275,10 @@ async def grant_xp(
         source=source,
         reference=reference,
         idempotency_key=key,
+        # Written here rather than left to CURRENT_TIMESTAMP: the session
+        # report asks which events fall inside a sitting, and a timestamp the
+        # server renders does not compare with one written from Python.
+        created_at=now,
     ))
     await add_progression(session, user_id, xp=amount, ap=points, now=now)
     return True
@@ -389,24 +398,21 @@ async def close_play_session(
     # is read here rather than at settlement -- and like every other result it
     # is only earned at a network table (§3).
     if created_by is None:
-        stacks_bb = [
-            stack / big_blind_units
-            for stack in (
-                await session.execute(
-                    select(hand_players.c.start_stack_units)
-                    .join(hands, hands.c.id == hand_players.c.hand_id)
-                    .where(
-                        hand_players.c.user_id == user_id,
-                        hands.c.table_id == table_id,
-                        hands.c.completed_at.is_not(None),
-                        hands.c.completed_at >= seated_at,
-                    )
-                    .order_by(hands.c.completed_at)
+        stacks = (
+            await session.execute(
+                select(hand_players.c.start_stack_units, hand_players.c.end_stack_units)
+                .join(hands, hands.c.id == hand_players.c.hand_id)
+                .where(
+                    hand_players.c.user_id == user_id,
+                    hands.c.table_id == table_id,
+                    hands.c.completed_at.is_not(None),
+                    hands.c.completed_at >= seated_at,
                 )
-            ).scalars().all()
-        ]
+                .order_by(hands.c.completed_at)
+            )
+        ).all()
         points = 0
-        for code in achievements.comeback_codes(stacks_bb):
+        for code in achievements.comeback_codes(stacks, big_blind_units):
             points += await achievements.advance(
                 session, user_id=user_id, code=code, high_water=1, now=now,
             )
@@ -433,14 +439,28 @@ async def close_play_session(
             .where(
                 play_sessions.c.user_id == user_id,
                 play_sessions.c.ended_at >= _day_start(now),
+                # §4: a sitting of a few hands is a receipt, not a session.
+                play_sessions.c.hands >= MIN_SESSION_HANDS,
             )
         )
     ).all()
-    daily_xp = await advance_missions(session, user_id, msk_day(now), {
+    await advance_missions(session, user_id, msk_day(now), {
         "sessions": len(today),
         "tables": len({table for table, _ in today}),
         "longest_session": max((hands for _, hands in today), default=0),
     }, now)
+    # Read from the events rather than from what closing the session happened
+    # to pay: a mission finished on a hand in the middle of this sitting is
+    # just as much this sitting's, and it used to be missing from the card.
+    daily_xp = (
+        await session.execute(
+            select(func.sum(xp_events.c.amount)).where(
+                xp_events.c.user_id == user_id,
+                xp_events.c.source == "daily",
+                xp_events.c.created_at >= seated_at,
+            )
+        )
+    ).scalar() or 0
     if daily_xp:
         await session.execute(
             update(play_sessions).where(play_sessions.c.id == report_id).values(daily_xp=daily_xp)

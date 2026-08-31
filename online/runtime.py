@@ -658,13 +658,22 @@ class TableRuntimeManager:
         settles, but is folded the instant the engine reaches them: waiting out
         the full thirty-second clock on every street they are still owed is
         what made walking out take the best part of a minute.
+
+        A hand that has already gone terminal counts as one they are in. They
+        owe it no more actions, but its result is not written until
+        finish_and_settle runs, and a seat released before that takes its
+        session report with it -- heads-up, where the leaver's own fold ends the
+        hand, this lost the whole report of a one-hand sitting.
         """
         loaded = self._tables.get(table_id)
-        if loaded is None or loaded.state.terminal:
+        if loaded is None:
             return False
         participant_id = await self._participant_for_user(table_id, user_id)
         if participant_id is None or participant_id not in loaded.state.players:
             return False
+        if loaded.state.terminal:
+            # Nothing left to fold, only a settlement to wait for.
+            return True
         loaded.leaving_participants.add(participant_id)
         return True
 

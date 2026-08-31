@@ -5,11 +5,18 @@ from pydantic import BaseModel, Field
 from datetime import datetime, timezone
 
 from sqlalchemy import func, select, update
+from sqlalchemy.exc import IntegrityError
 
 from app.dependencies import AuthenticatedUser, get_current_user
 from online import missions as missions_module
 from online.achievements import ACHIEVEMENTS
-from online.progression import level_for_xp, msk_day, rank_for_level, xp_to_next_level
+from online.progression import (
+    MIN_SESSION_HANDS,
+    level_for_xp,
+    msk_day,
+    rank_for_level,
+    xp_to_next_level,
+)
 from online.schema import (
     play_sessions,
     poker_tables,
@@ -217,6 +224,9 @@ async def stats(request: Request, user: AuthenticatedUser = Depends(get_current_
                 .where(
                     play_sessions.c.user_id == user.user_id,
                     poker_tables.c.created_by.is_(None),
+                    # §4: a handful of hands is a receipt, not a session, and
+                    # nothing that short sets a personal record.
+                    play_sessions.c.hands >= MIN_SESSION_HANDS,
                 )
             )
         ).all()
@@ -232,10 +242,15 @@ async def stats(request: Request, user: AuthenticatedUser = Depends(get_current_
         (pot / blind for _, _, pot, blind in sittings if blind),
         default=0,
     )
-    best = max(days, key=lambda day: day["net_bb_x100"], default=None)
+    # A day spent entirely in a room the player opened has a result of zero
+    # because none of it counted (§3) -- and a zero was beating a real losing
+    # day to "best day". Only days that actually put a result on the board are
+    # eligible for either record.
+    scored = [day for day in days if day["result_hands"]]
+    best = max(scored, key=lambda day: day["net_bb_x100"], default=None)
     # One day of play has a best and no worst. Printing the same day twice,
     # once in green and once under "худший день", reads as a broken page.
-    worst = min(days, key=lambda day: day["net_bb_x100"]) if len(days) > 1 else None
+    worst = min(scored, key=lambda day: day["net_bb_x100"]) if len(scored) > 1 else None
     return {
         "hands": hands,
         # The two are not the same number, and the gap is the point: hands in a
@@ -346,11 +361,18 @@ async def reroll_mission(
 ):
     """Swap one unfinished mission. One a day, and not for a finished one."""
     now = datetime.now(timezone.utc)
-    async with request.app.state.session_factory() as session:
-        async with session.begin():
-            swapped = await missions_module.reroll(
-                session, user.user_id, msk_day(now), slot, now
-            )
+    try:
+        async with request.app.state.session_factory() as session:
+            async with session.begin():
+                swapped = await missions_module.reroll(
+                    session, user.user_id, msk_day(now), slot, now
+                )
+    except IntegrityError:
+        # uq_user_missions_daily_reroll refused it, which means another request
+        # took the day's one swap between this one's read and its write. That
+        # is the same answer as asking for a second reroll, and it should read
+        # like one rather than like the server falling over.
+        swapped = False
     if not swapped:
         raise HTTPException(status_code=409, detail="reroll unavailable")
     return {"ok": True}
