@@ -19,6 +19,7 @@ def test_the_page_actually_has_a_stylesheet():
         ".history-list", ".history-row", ".return-link", ".topup-card",
         ".stats-grid", ".stats-records", ".stats-confidence",
         ".achievement-list", ".achievement", ".achievement-bar",
+        ".mission-list", ".mission", ".mission-bar", ".mission-reroll",
     ):
         assert selector + "{" in CSS, selector
 

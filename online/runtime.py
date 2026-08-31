@@ -873,6 +873,8 @@ class TableRuntimeManager:
                                     board=list(loaded.state.board),
                                     pot_bb=pot_units / table["big_blind_units"],
                                     opponent_ids=human_ids,
+                                    position=player.position,
+                                    players_in_hand=len(loaded.state.players),
                                 )
                     transfers[("table", table_id, "escrow")] = user_net_total
                     # What the escrow has to pay out, against what it holds.

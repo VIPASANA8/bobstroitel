@@ -7,8 +7,9 @@ from datetime import datetime, timezone
 from sqlalchemy import func, select, update
 
 from app.dependencies import AuthenticatedUser, get_current_user
+from online import missions as missions_module
 from online.achievements import ACHIEVEMENTS
-from online.progression import level_for_xp, rank_for_level, xp_to_next_level
+from online.progression import level_for_xp, msk_day, rank_for_level, xp_to_next_level
 from online.schema import (
     play_sessions,
     poker_tables,
@@ -152,6 +153,7 @@ async def last_session(request: Request, user: AuthenticatedUser = Depends(get_c
         "net_bb": round(row["net_units"] / big_blind, 1),
         "biggest_pot_bb": round(row["biggest_pot_units"] / big_blind, 1),
         "xp_earned": row["xp_earned"],
+        "daily_xp": row["daily_xp"],
     }}
 
 
@@ -301,3 +303,54 @@ async def achievements(request: Request, user: AuthenticatedUser = Depends(get_c
         "total": len(earned),
         "achievements": earned,
     }
+
+
+@router.get("/missions")
+async def missions(request: Request, user: AuthenticatedUser = Depends(get_current_user)):
+    """Today's three, with the time left on them.
+
+    Progress is read, never advanced: missions move when a hand is settled or
+    a session closes, both of which are events the server owns. A page opening
+    is not one.
+    """
+    now = datetime.now(timezone.utc)
+    day = msk_day(now)
+    async with request.app.state.session_factory() as session:
+        state = await missions_module.state_for(session, user.user_id, day)
+        reroll_used = await missions_module.rerolled_today(session, user.user_id, day)
+    return {
+        "day": day,
+        "resets_in_seconds": int((missions_module.next_reset(now) - now).total_seconds()),
+        "reroll_available": not reroll_used,
+        "completed": sum(1 for slot in state.values() if slot["completed_at"]),
+        "completion_xp": missions_module.COMPLETION_XP,
+        "missions": [
+            {
+                "slot": slot,
+                "code": item["mission"].code,
+                "title": item["mission"].title,
+                "target": item["mission"].target,
+                "xp": item["mission"].xp,
+                "progress": item["progress"],
+                "done": item["completed_at"] is not None,
+                "rerolled": item["rerolled"],
+            }
+            for slot, item in state.items()
+        ],
+    }
+
+
+@router.post("/missions/{slot}/reroll")
+async def reroll_mission(
+    slot: str, request: Request, user: AuthenticatedUser = Depends(get_current_user)
+):
+    """Swap one unfinished mission. One a day, and not for a finished one."""
+    now = datetime.now(timezone.utc)
+    async with request.app.state.session_factory() as session:
+        async with session.begin():
+            swapped = await missions_module.reroll(
+                session, user.user_id, msk_day(now), slot, now
+            )
+    if not swapped:
+        raise HTTPException(status_code=409, detail="reroll unavailable")
+    return {"ok": True}

@@ -164,6 +164,50 @@
     element.className = !day.net_bb ? "" : day.net_bb > 0 ? "up" : "down";
   }
 
+  const countdown = seconds => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  };
+
+  function renderMissions(payload) {
+    if (!payload) return;
+    const total = payload.missions.length;
+    $("missionsHeading").textContent = `Сегодня ${payload.completed} / ${total}`;
+    // A daily nobody can see the end of is a daily people forget exists.
+    $("missionsReset").textContent = `ЧЕРЕЗ ${countdown(payload.resets_in_seconds)}`;
+    $("missionsNote").textContent = payload.completed === total
+      ? `Все задания выполнены · +${payload.completion_xp} XP`
+      : payload.reroll_available
+        ? "Одно задание в день можно заменить."
+        : "Замена на сегодня использована.";
+    $("missionList").innerHTML = payload.missions.map(item => {
+      const share = Math.min(100, (item.progress / item.target) * 100);
+      const swap = !item.done && payload.reroll_available
+        ? `<button class="mission-reroll" type="button" data-reroll="${escapeHtml(item.slot)}">Заменить</button>`
+        : "";
+      return `
+      <div class="mission ${item.done ? "done" : ""}">
+        <div class="mission-copy">
+          <b>${escapeHtml(item.title)}</b>
+          <div class="mission-bar"><i style="width:${share}%"></i></div>
+        </div>
+        <span class="at">${item.done ? "✓" : `${item.progress} / ${item.target}`}</span>
+        <span class="gain">+${item.xp} XP</span>
+        ${swap}
+      </div>`;
+    }).join("");
+    document.querySelectorAll("[data-reroll]").forEach(button => {
+      button.addEventListener("click", () => rerollMission(button.dataset.reroll));
+    });
+  }
+
+  async function rerollMission(slot) {
+    const response = await fetch(`/api/profile/missions/${slot}/reroll`, { method: "POST" });
+    if (!response.ok) return alert("Замена сейчас недоступна.");
+    renderMissions(await json("/api/profile/missions").catch(() => null));
+  }
+
   const RARITY = { common: "COMMON", rare: "RARE", epic: "EPIC", legendary: "LEGENDARY" };
 
   function renderAchievements(payload) {
@@ -215,6 +259,7 @@
       returnLink.hidden = false;
     }
 
+    renderMissions(await json("/api/profile/missions").catch(() => null));
     renderStats(await json("/api/profile/stats").catch(() => null));
     renderAchievements(await json("/api/profile/achievements").catch(() => null));
 

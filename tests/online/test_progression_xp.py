@@ -14,6 +14,7 @@ from online.progression import (
     xp_for_hand,
     xp_to_next_level,
 )
+from online.missions import POOLS
 from online.runtime import TableRuntimeManager
 from online.schema import (
     poker_tables,
@@ -26,6 +27,10 @@ from online.schema import (
     xp_events,
 )
 from datetime import datetime, timedelta, timezone
+
+#: Every mission in the volume slot pays the same, which is what lets this
+#: file talk about the cap without caring which one was drawn.
+VOLUME_MISSION_XP = POOLS["volume"][0].xp
 
 
 def test_the_soft_cap_bands_add_up_to_the_published_ceiling():
@@ -74,13 +79,16 @@ async def test_the_soft_cap_stops_paying_and_the_next_day_starts_over(db_session
                     hand_id=f"hand-{hand}", net_units=0, big_blind_units=100,
                     counts_results=True, now=day,
                 )
+        day_row = (await session.execute(select(progress_days))).mappings().one()
+        assert day_row["xp"] == DAILY_HAND_XP_CAP, "the cap is on what hands pay"
+        assert day_row["hands"] == 400, "hands past the cap still count as played"
+        # The volume mission finished somewhere in there and pays on top: the
+        # cap holds down the grind, not the day.
         row = (await session.execute(
             select(user_progression).where(user_progression.c.user_id == "u1")
         )).mappings().one()
-        assert row["xp"] == DAILY_HAND_XP_CAP
-        assert row["level"] == level_for_xp(DAILY_HAND_XP_CAP)
-        counted = (await session.execute(select(progress_days.c.hands))).scalar_one()
-        assert counted == 400, "hands past the cap still count as played"
+        assert row["xp"] == DAILY_HAND_XP_CAP + VOLUME_MISSION_XP
+        assert row["level"] == level_for_xp(row["xp"])
 
     async with db_session_factory() as session:
         async with session.begin():
@@ -92,7 +100,7 @@ async def test_the_soft_cap_stops_paying_and_the_next_day_starts_over(db_session
         total = (await session.execute(
             select(user_progression.c.xp).where(user_progression.c.user_id == "u1")
         )).scalar_one()
-        assert total == DAILY_HAND_XP_CAP + 1
+        assert total == DAILY_HAND_XP_CAP + VOLUME_MISSION_XP + 1
 
 
 @pytest.fixture

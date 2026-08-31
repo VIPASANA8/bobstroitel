@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Manrope:wght@400;600;700;800&display=swap" />
-<link rel="stylesheet" href="/static/network.css?v=progression-xp-3" />
+<link rel="stylesheet" href="/static/network.css?v=daily-missions-1" />
 </head>
 <body>
 <div class="network-shell profile-shell">
@@ -39,6 +39,15 @@
            and keyboard behaviour for free. -->
       <a class="metric-link" href="#topup"><span>Wallet</span><strong id="walletBalance">—</strong><em>пополнить</em></a>
       <div><span>За столом</span><strong id="tableStack">—</strong></div>
+    </section>
+
+    <section class="profile-section">
+      <div class="section-heading">
+        <div><p class="eyebrow">ЗАДАНИЯ ДНЯ</p><h2 id="missionsHeading">Сегодня</h2></div>
+        <span id="missionsReset" class="stats-confidence">—</span>
+      </div>
+      <div class="mission-list" id="missionList"></div>
+      <p class="stats-note" id="missionsNote"></p>
     </section>
 
     <section class="profile-section">
@@ -111,7 +120,7 @@
     <span>Powered by Poker8</span>
   </footer>
 </div>
-<script src="/static/auth-client.js?v=progression-xp-3"></script>
-<script src="/static/profile.js?v=progression-xp-3"></script>
+<script src="/static/auth-client.js?v=daily-missions-1"></script>
+<script src="/static/profile.js?v=daily-missions-1"></script>
 </body>
 </html>

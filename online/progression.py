@@ -17,7 +17,7 @@ from typing import Sequence
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from online import achievements
+from online import achievements, missions
 from online.schema import (
     hand_actions,
     hand_players,
@@ -39,6 +39,9 @@ MSK = timezone(timedelta(hours=3))
 FULL_RATE_HANDS = 150   # hands 1..150 pay 1 XP
 HALF_RATE_HANDS = 300   # hands 151..300 pay 0.5 XP, see xp_for_hand
 DAILY_HAND_XP_CAP = 150 + (300 - 150) // 2   # 225, what the two bands add up to
+
+#: What counts as a full table for the daily that asks for one (§8).
+FULL_TABLE_PLAYERS = 5
 
 # Published totals from §6. Every gap between two of them divides evenly by the
 # levels it spans, so the ladder below joins them with a constant step and the
@@ -72,6 +75,12 @@ RANKS = (
 
 def msk_day(now: datetime) -> str:
     return now.astimezone(MSK).strftime("%Y-%m-%d")
+
+
+def _day_start(now: datetime) -> datetime:
+    """Midnight MSK of the day `now` falls in, as an aware UTC moment."""
+    local = now.astimezone(MSK)
+    return local.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc)
 
 
 def xp_for_hand(hand_number: int) -> int:
@@ -116,12 +125,14 @@ async def record_hand(
     board: Sequence[str] = (),
     pot_bb: float = 0.0,
     opponent_ids: frozenset[str] = frozenset(),
+    position: str = "",
+    players_in_hand: int = 0,
 ) -> int:
     """Count one eligible hand for this player and grant what it is worth.
 
     Returns the XP granted, which is 0 once the day's soft cap is spent -- the
-    hand itself is counted either way, and so are its achievements. Only the
-    XP stops.
+    hand itself is counted either way, and so are its achievements and its
+    missions. Only the XP stops.
 
     `counts_results` is the rule from §3: volume counts wherever it is played,
     but anything measured in big blinds counts only at a network table. Two
@@ -133,19 +144,28 @@ async def record_hand(
     that calls this commits -- a replayed settlement therefore counts nothing.
     """
     day = msk_day(now)
-    hands_today = await _count_hand(session, owner_kind, owner_id, day)
-    amount = xp_for_hand(hands_today)
-    tally: dict[str, object] = {}
-    if amount:
-        tally["xp"] = progress_days.c.xp + amount
-    if net_units > 0:
-        tally["hands_won"] = progress_days.c.hands_won + 1
-    if counts_results and owner_kind == "user":
-        tally["result_hands"] = progress_days.c.result_hands + 1
-        tally["net_bb_x100"] = progress_days.c.net_bb_x100 + round(
-            net_units * 100 / big_blind_units
-        )
-    if tally:
+    row = await _day_row(session, owner_kind, owner_id, day)
+    hands = (row["hands"] if row else 0) + 1
+    amount = xp_for_hand(hands)
+    counts_bb = counts_results and owner_kind == "user"
+    values = {
+        "hands": hands,
+        "hands_won": (row["hands_won"] if row else 0) + (1 if net_units > 0 else 0),
+        "xp": (row["xp"] if row else 0) + amount,
+        "result_hands": (row["result_hands"] if row else 0) + (1 if counts_bb else 0),
+        "net_bb_x100": (row["net_bb_x100"] if row else 0) + (
+            round(net_units * 100 / big_blind_units) if counts_bb else 0
+        ),
+        "full_table_hands": (row["full_table_hands"] if row else 0) + (
+            1 if players_in_hand >= FULL_TABLE_PLAYERS else 0
+        ),
+        "positions_mask": (row["positions_mask"] if row else 0) | missions.position_bit(position),
+    }
+    if row is None:
+        await session.execute(progress_days.insert().values(
+            owner_kind=owner_kind, owner_id=owner_id, day=day, **values,
+        ))
+    else:
         await session.execute(
             update(progress_days)
             .where(
@@ -153,12 +173,12 @@ async def record_hand(
                 progress_days.c.owner_id == owner_id,
                 progress_days.c.day == day,
             )
-            .values(**tally)
+            .values(**values)
         )
 
     if owner_kind != "user":
         # A bot has a level for one reason: so its seat reads like everyone
-        # else's (§5). No events, no achievements, nothing else to keep.
+        # else's (§5). No events, no achievements, no missions.
         if amount:
             await session.execute(
                 update(system_players)
@@ -179,44 +199,99 @@ async def record_hand(
         now=now,
     )
     if amount:
-        # The event row is the audit trail and the second lock: its unique key
-        # turns a double grant into an error instead of a silent extra level.
-        await session.execute(xp_events.insert().values(
-            id=uuid.uuid4().hex,
-            user_id=owner_id,
-            amount=amount,
-            source="hand",
-            reference=hand_id,
-            idempotency_key=f"hand:{hand_id}:{owner_id}",
-        ))
-    if amount or points:
-        await add_progression(session, owner_id, xp=amount, ap=points, now=now)
+        await grant_xp(
+            session, owner_id, amount=amount, source="hand", reference=hand_id,
+            key=f"hand:{hand_id}:{owner_id}", now=now, points=points,
+        )
+    elif points:
+        await add_progression(session, owner_id, xp=0, ap=points, now=now)
+
+    # Everything the day row knows, so the missions that read it settle on the
+    # hand that finishes them rather than waiting for the player to stand up.
+    await advance_missions(session, owner_id, day, {
+        "hands": values["hands"],
+        "full_table_hands": values["full_table_hands"],
+        "positions": missions.positions_played(values["positions_mask"]),
+    }, now)
     return amount
 
 
-async def _count_hand(session: AsyncSession, owner_kind: str, owner_id: str, day: str) -> int:
-    """This hand's ordinal in the owner's day, counting from 1.
+async def advance_missions(
+    session: AsyncSession, user_id: str, day: str, facts: dict[str, int], now: datetime
+) -> int:
+    """Move today's missions along and pay for the ones that just finished.
+
+    Returns the XP that landed here, which is what the session report shows on
+    its own line rather than folding into the hands' own XP.
+    """
+    granted = 0
+    finished = await missions.advance(session, user_id=user_id, day=day, facts=facts, now=now)
+    for mission in finished:
+        if await grant_xp(
+            session, user_id, amount=mission.xp, source="daily", reference=mission.code,
+            key=f"daily:{user_id}:{day}:{mission.slot}", now=now,
+        ):
+            granted += mission.xp
+    if finished and await missions.all_complete(session, user_id, day):
+        if await grant_xp(
+            session, user_id, amount=missions.COMPLETION_XP, source="daily",
+            reference="complete", key=f"daily:{user_id}:{day}:complete", now=now,
+        ):
+            granted += missions.COMPLETION_XP
+    return granted
+
+
+async def grant_xp(
+    session: AsyncSession,
+    user_id: str,
+    *,
+    amount: int,
+    source: str,
+    reference: str,
+    key: str,
+    now: datetime,
+    points: int = 0,
+) -> bool:
+    """Write one XP event and add it to the totals. Returns whether it landed.
+
+    The event row is the audit trail and the lock at once: its unique key is
+    what turns a double grant into nothing rather than a silent extra level.
+    Checked before the insert so a replay is quiet instead of an error.
+    """
+    already = (
+        await session.execute(select(xp_events.c.id).where(xp_events.c.idempotency_key == key))
+    ).first()
+    if already is not None:
+        return False
+    await session.execute(xp_events.insert().values(
+        id=uuid.uuid4().hex,
+        user_id=user_id,
+        amount=amount,
+        source=source,
+        reference=reference,
+        idempotency_key=key,
+    ))
+    await add_progression(session, user_id, xp=amount, ap=points, now=now)
+    return True
+
+
+async def _day_row(session: AsyncSession, owner_kind: str, owner_id: str, day: str):
+    """Today's counters for this owner, or None before their first hand.
 
     ponytail: read-then-write rather than an upsert. A user holds one active
     seat (uq_active_table_seat_user) and settlement runs under the table's own
     lock, so nothing else is counting this owner's hands at the same moment.
     A second writer outside settlement would need a real upsert here.
     """
-    where = (
-        progress_days.c.owner_kind == owner_kind,
-        progress_days.c.owner_id == owner_id,
-        progress_days.c.day == day,
-    )
-    played = (
-        await session.execute(select(progress_days.c.hands).where(*where))
-    ).scalar_one_or_none()
-    if played is None:
-        await session.execute(progress_days.insert().values(
-            owner_kind=owner_kind, owner_id=owner_id, day=day, hands=1,
-        ))
-        return 1
-    await session.execute(update(progress_days).where(*where).values(hands=played + 1))
-    return played + 1
+    return (
+        await session.execute(
+            select(progress_days).where(
+                progress_days.c.owner_kind == owner_kind,
+                progress_days.c.owner_id == owner_id,
+                progress_days.c.day == day,
+            )
+        )
+    ).mappings().first()
 
 
 async def add_progression(
@@ -350,4 +425,24 @@ async def close_play_session(
         biggest_pot_units=biggest_pot,
         xp_earned=xp_earned,
     ))
+    # Read after the insert on purpose: the session that just ended is one of
+    # the ones these missions count.
+    today = (
+        await session.execute(
+            select(play_sessions.c.table_id, play_sessions.c.hands)
+            .where(
+                play_sessions.c.user_id == user_id,
+                play_sessions.c.ended_at >= _day_start(now),
+            )
+        )
+    ).all()
+    daily_xp = await advance_missions(session, user_id, msk_day(now), {
+        "sessions": len(today),
+        "tables": len({table for table, _ in today}),
+        "longest_session": max((hands for _, hands in today), default=0),
+    }, now)
+    if daily_xp:
+        await session.execute(
+            update(play_sessions).where(play_sessions.c.id == report_id).values(daily_xp=daily_xp)
+        )
     return report_id

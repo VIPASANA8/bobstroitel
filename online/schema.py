@@ -342,6 +342,11 @@ progress_days = Table(
     # denominator of BB/100: counting room hands there would dilute the rate
     # with hands whose result was deliberately never added to it.
     Column("result_hands", Integer, nullable=False, server_default=text("0")),
+    # Hands dealt at a table with five or more players in them, and a six-bit
+    # mask of the positions played. Both are read by daily missions and both
+    # are a single write on the hand that is already being recorded.
+    Column("full_table_hands", Integer, nullable=False, server_default=text("0")),
+    Column("positions_mask", Integer, nullable=False, server_default=text("0")),
     Column("xp", Integer, nullable=False, server_default=text("0")),
     # Hundredths of a big blind, not units: units from a 1/2 table and a 5/10
     # table cannot be added together, and every comparison in §30 is in BB.
@@ -365,6 +370,10 @@ play_sessions = Table(
     Column("big_blind_units", BIGINT, nullable=False),
     Column("biggest_pot_units", BIGINT, nullable=False, server_default=text("0")),
     Column("xp_earned", Integer, nullable=False, server_default=text("0")),
+    # Daily XP that landed as this session closed, kept apart from the hands'
+    # own XP: the report says where each number came from, and a card claiming
+    # +1 XP for a session that paid 56 is worse than no card.
+    Column("daily_xp", Integer, nullable=False, server_default=text("0")),
     Column("seen_at", timestamp),
 )
 Index("ix_play_sessions_unseen", play_sessions.c.user_id, play_sessions.c.seen_at)
@@ -389,6 +398,21 @@ user_opponents = Table(
     Column("user_id", String(64), ForeignKey("users.id"), primary_key=True),
     Column("opponent_id", String(64), ForeignKey("users.id"), primary_key=True),
     Column("first_played_at", timestamp, **created_at),
+)
+
+# One row per slot per day, and only once there is something to remember about
+# it. Which mission a slot holds is derived from the player and the date (see
+# missions.py); reroll_offset is the one part of that a player can change.
+user_missions = Table(
+    "user_missions", metadata,
+    Column("user_id", String(64), ForeignKey("users.id"), primary_key=True),
+    Column("day", String(10), primary_key=True),
+    Column("slot", String(32), primary_key=True),
+    Column("reroll_offset", Integer, nullable=False, server_default=text("0")),
+    Column("progress", Integer, nullable=False, server_default=text("0")),
+    Column("completed_at", timestamp),
+    Column("updated_at", timestamp, **created_at),
+    CheckConstraint("slot IN ('volume', 'session', 'variety')"),
 )
 
 Index("ix_table_runtimes_action_deadline", table_runtimes.c.action_deadline)

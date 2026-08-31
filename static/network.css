@@ -128,6 +128,18 @@ button,input,select,textarea{font:inherit}small{font-size:12px}body{font-size:15
 .profile-error{margin:14px 0 0;color:var(--danger);font-size:12px;font-weight:800}
 .profile-level{display:flex;align-items:center;gap:13px;margin-top:19px}
 .profile-level>span{display:grid;place-items:center;padding:8px 12px;border-radius:11px;background:var(--mint-deep);color:var(--mint);font:800 10px/1 monospace;letter-spacing:.14em;white-space:nowrap}
+.mission-list{display:grid;gap:8px}
+.mission{display:flex;align-items:center;gap:10px;padding:10px 11px;border:1px solid var(--line);border-radius:11px}
+.mission.done{border-color:var(--mint)}
+.mission-copy{flex:1;min-width:0}
+.mission b{display:block;font-size:13px;font-weight:700}
+.mission.done b{color:var(--mint)}
+.mission .at{color:var(--muted);font-size:12px;white-space:nowrap}
+.mission .gain{color:var(--mint);font:700 10px/1 monospace;letter-spacing:.1em}
+.mission-bar{height:3px;margin-top:6px;border-radius:2px;background:var(--line)}
+.mission-bar i{display:block;height:100%;border-radius:2px;background:var(--mint)}
+.mission-reroll{padding:6px 9px;border:1px solid var(--line);border-radius:9px;background:none;color:var(--muted);font-size:12px;cursor:pointer}
+.mission-reroll:hover{border-color:var(--mint);color:var(--mint)}
 .achievement-list{display:grid;gap:8px}
 .achievement{display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--line);border-radius:11px}
 .achievement.done{border-color:var(--mint)}
@@ -153,6 +165,7 @@ button,input,select,textarea{font:inherit}small{font-size:12px}body{font-size:15
 .report-close:hover{color:var(--ink)}
 .report-summary{margin:8px 0 12px;color:var(--muted);font-size:13px}
 .report-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.report-grid-4:has(#reportDailyCell:not([hidden])){grid-template-columns:repeat(4,1fr)}
 .report-grid span{display:block;color:var(--muted);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
 .report-grid strong{display:block;margin-top:3px;font-size:16px}
 .report-grid .up{color:var(--mint)}

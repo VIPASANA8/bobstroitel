@@ -107,6 +107,10 @@
     // A losing session still earned it, which is the whole point of showing
     // the two numbers side by side.
     $("reportXp").textContent = `+${report.xp_earned} XP`;
+    // Kept on its own line rather than added to the hands' XP: the card that
+    // says +1 XP for a session that paid 56 is worse than no card at all.
+    $("reportDailyCell").hidden = !report.daily_xp;
+    $("reportDaily").textContent = `+${report.daily_xp} XP`;
   }
 
   function plural(hands) {
