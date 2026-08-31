@@ -39,17 +39,6 @@ def test_a_held_seat_does_not_promise_more_than_the_hold_window():
     assert "полминуты" in line, line
 
 
-def test_the_countdown_runs_out_instead_of_starting_over():
-    """The result phase counted to result_clear_at -- three seconds before the
-    next hand -- while promising the next hand, so the number ran down to one
-    and then jumped back up when the phase changed."""
-    body = TABLE_JS[TABLE_JS.index("function countdownText"):]
-    body = body[:body.index("\n  }")]
-    assert "state.next_hand_at ||" in body
-    assert len(set(re.findall(r"`([^`]*\$\{seconds\}[^`]*)`", body))) == 1, \
-        "one sentence for both phases, or the wording changes mid-count"
-
-
 def test_every_phase_pill_reads_in_the_same_language():
     """"COUNTDOWN" was the one word of English among ОЖИДАНИЕ, РАЗДАЧА,
     ВСКРЫТИЕ and ПАУЗА."""

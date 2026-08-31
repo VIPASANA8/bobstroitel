@@ -173,7 +173,8 @@ async def test_the_day_gives_out_exactly_one_reroll_even_under_a_race(player):
         with pytest.raises(IntegrityError):
             async with session.begin():
                 await session.execute(user_missions.insert().values(
-                    user_id="u1", day=DAY, slot="variety", reroll_offset=1, updated_at=NOW,
+                    user_id="u1", day=DAY, slot="variety", reroll_offset=1,
+                    reroll_claimed=True, updated_at=NOW,
                 ))
 
     async with player() as session:

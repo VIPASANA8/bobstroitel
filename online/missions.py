@@ -21,7 +21,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from online.schema import user_missions
+from online.schema import user_missions, users
 
 
 #: Positions the engine deals, in mask order. Heads-up labels the one seat
@@ -139,13 +139,29 @@ async def rerolled_today(session: AsyncSession, user_id: str, day: str) -> bool:
     ).first())
 
 
+async def _lock_player(session: AsyncSession, user_id: str) -> None:
+    """Serialize mission writers until commit, even before a mission row exists.
+
+    Lock the existing user rather than inserting an empty daily assignment.
+    SQLite has no row locks; a no-op write reserves its single writer instead.
+    PostgreSQL locks only this player. The caller's transaction also covers XP.
+    """
+    if session.get_bind().dialect.name == "sqlite":
+        await session.execute(update(users).where(users.c.id == user_id).values(id=users.c.id))
+    else:
+        await session.execute(select(users.c.id).where(users.c.id == user_id).with_for_update())
+
+
 async def reroll(session: AsyncSession, user_id: str, day: str, slot: str, now: datetime) -> bool:
     """Swap one unfinished mission for the next in its pool. One a day.
 
     Returns whether it happened: a finished mission is not swapped, and neither
     is anything once the day's one reroll is spent.
     """
-    if slot not in POOLS or await rerolled_today(session, user_id, day):
+    if slot not in POOLS:
+        return False
+    await _lock_player(session, user_id)
+    if await rerolled_today(session, user_id, day):
         return False
     row = (
         await session.execute(
@@ -158,10 +174,10 @@ async def reroll(session: AsyncSession, user_id: str, day: str, slot: str, now: 
     ).first()
     if row and row[0]:
         return False
-    values = dict(reroll_offset=1, progress=0, updated_at=now)
+    values = dict(reroll_offset=1, reroll_claimed=True, progress=0, updated_at=now)
     if row is None:
-        # uq_user_missions_daily_reroll is what actually holds the one-a-day
-        # rule; the check above only spares the common case an IntegrityError.
+        # The quota index is a backstop; choice and quota are separate so
+        # historical double rerolls can keep their missions and earned XP.
         await session.execute(user_missions.insert().values(
             user_id=user_id, day=day, slot=slot, **values,
         ))
@@ -190,6 +206,9 @@ async def advance(
     Only slots whose fact is in `facts` are looked at: settlement knows the day
     row and nothing about sessions, and the end of a session knows both.
     """
+    # The lock must precede state_for, not just the update: otherwise a reroll
+    # could replace the mission while we still calculate and pay its old goal.
+    await _lock_player(session, user_id)
     finished = []
     for slot, current in (await state_for(session, user_id, day)).items():
         mission = current["mission"]

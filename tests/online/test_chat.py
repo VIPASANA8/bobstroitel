@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy import insert
@@ -26,11 +27,12 @@ def chat(db_session_factory):
 
 @pytest.mark.anyio
 async def test_chat_returns_only_last_fifty_messages(chat):
+    # Distinct timestamps inside the retention window, in chronological order.
+    start = datetime.now(timezone.utc) - timedelta(seconds=55)
     for index in range(55):
-        await chat.post("t1", "u1", f"message {index}", now=index, enforce_rate_limit=False)
+        await chat.post("t1", "u1", f"message {index}", now=start + timedelta(seconds=index), enforce_rate_limit=False)
     rows = await chat.recent("t1")
-    assert len(rows) == 50
-    assert rows[0].text == "message 5"
+    assert [row.text for row in rows] == [f"message {index}" for index in range(5, 55)]
 
 
 @pytest.mark.anyio

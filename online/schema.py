@@ -409,19 +409,19 @@ user_missions = Table(
     Column("day", String(10), primary_key=True),
     Column("slot", String(32), primary_key=True),
     Column("reroll_offset", Integer, nullable=False, server_default=text("0")),
+    Column("reroll_claimed", Boolean, nullable=False, server_default=text("false")),
     Column("progress", Integer, nullable=False, server_default=text("0")),
     Column("completed_at", timestamp),
     Column("updated_at", timestamp, **created_at),
     CheckConstraint("slot IN ('volume', 'session', 'variety')"),
 )
 
-# The day's one reroll, enforced where two requests cannot both win it. The
-# read-then-write in missions.reroll is not enough on its own: two calls both
-# saw an unused reroll and both kept theirs.
+# The daily quota is separate from mission identity: legacy days can have
+# multiple replacement missions whose choices and progress must be preserved.
 Index(
     "uq_user_missions_daily_reroll", user_missions.c.user_id, user_missions.c.day, unique=True,
-    postgresql_where=user_missions.c.reroll_offset != 0,
-    sqlite_where=user_missions.c.reroll_offset != 0,
+    postgresql_where=user_missions.c.reroll_claimed.is_(True),
+    sqlite_where=user_missions.c.reroll_claimed.is_(True),
 )
 
 Index("ix_table_runtimes_action_deadline", table_runtimes.c.action_deadline)
