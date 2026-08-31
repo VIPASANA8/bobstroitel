@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from online.ledger import PlayLedger
 from online.bot_names import BOT_NAMES
+from online.progression import close_play_session
 from online.schema import play_accounts, poker_tables, seat_queue, system_players, table_runtimes, table_seats
 from online.catalogue import IDLE_BOT_COUNTS, ROOM_SEATS, hash_room_password
 
@@ -290,6 +291,7 @@ class SeatingService:
                             escrow_account_id=escrow_id,
                             stack_units=request["requested_buy_in_units"],
                             state="seated",
+                            seated_at=now,
                         ))
                     else:
                         await session.execute(
@@ -300,6 +302,7 @@ class SeatingService:
                                 escrow_account_id=escrow_id,
                                 stack_units=request["requested_buy_in_units"],
                                 state="seated",
+                                seated_at=now,
                                 disconnected_at=None,
                                 hold_until=None,
                             )
@@ -874,10 +877,21 @@ class SeatingService:
         ).scalar_one_or_none()
 
     @staticmethod
-    async def _clear_seat(session: AsyncSession, seat_id: str) -> None:
+    async def _clear_seat(session: AsyncSession, seat_id: str, now: datetime | None = None) -> None:
         seat = (
             await session.execute(select(table_seats).where(table_seats.c.id == seat_id))
         ).mappings().first()
+        # Every way out of a seat comes through here -- leaving, the AFK
+        # eviction, clearing the table -- so this is the one place a session
+        # can be closed, and the last one that still knows when it began.
+        if seat and seat["occupant_kind"] == "user" and seat["user_id"] and seat["seated_at"]:
+            await close_play_session(
+                session,
+                user_id=seat["user_id"],
+                table_id=seat["table_id"],
+                seated_at=seat["seated_at"],
+                now=now or datetime.now(timezone.utc),
+            )
         await session.execute(
             update(table_seats).where(table_seats.c.id == seat_id).values(
                 occupant_kind="empty",
@@ -886,6 +900,7 @@ class SeatingService:
                 escrow_account_id=None,
                 stack_units=0,
                 state="empty",
+                seated_at=None,
                 disconnected_at=None,
                 hold_until=None,
             )
