@@ -14,6 +14,9 @@ def test_all_user_cash_routes_use_cash_identity_gate():
         "/api/cash/wallet", "/api/cash/deposits", "/api/cash/deposits/{deposit_id}",
         "/api/cash/deposits/{deposit_id}/cancel", "/api/cash/deposits/{deposit_id}/paid",
         "/api/cash/deposits/{deposit_id}/simulate-transfer",
+        "/api/cash/fiat-orders", "/api/cash/fiat-orders/{order_id}",
+        "/api/cash/fiat-orders/{order_id}/paid", "/api/cash/fiat-orders/{order_id}/cancel",
+        "/api/cash/fiat-orders/{order_id}/simulate-trader-confirmation",
         "/api/cash/withdrawals", "/api/cash/withdrawals/{withdrawal_id}",
         "/api/cash/withdrawals/{withdrawal_id}/cancel",
     }

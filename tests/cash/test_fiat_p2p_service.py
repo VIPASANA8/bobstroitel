@@ -51,6 +51,8 @@ async def test_create_is_content_bound_and_persists_partner_requisites(fiat_db):
     assert first["fiat_amount"] == 1800
     assert first["currency"] == "RUB"
     assert first["requisites"].startswith("4276")
+    assert service.public(first)["requested_units"] == "200"
+    assert service.public(first)["requested_usdt"] == "20"
     with pytest.raises(IdempotencyConflict):
         await service.create(
             user_id="alice", tenant_id="tenant", amount_usdt="21", request_key="rub-1",

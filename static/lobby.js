@@ -429,8 +429,10 @@
     update();
   }
   bindConversion("depositUsdt", "depositCash");
+  bindConversion("fiatDepositUsdt", "fiatDepositCash");
   bindConversion("withdrawUsdt", "withdrawCash");
   $("cashDeposit").addEventListener("click", () => $("depositDialog").showModal());
+  $("cashFiatDeposit").addEventListener("click", () => $("fiatDepositDialog").showModal());
   $("cashWithdraw").addEventListener("click", () => $("withdrawDialog").showModal());
 
   $("depositForm").addEventListener("submit", async event => {
@@ -458,6 +460,41 @@
       }
       button.textContent = "Mock-перевод подтверждён";
       await load();
+    });
+  });
+
+  $("fiatDepositForm").addEventListener("submit", async event => {
+    event.preventDefault();
+    const response = await fetch("/api/cash/fiat-orders", {
+      method: "POST", headers: {"content-type": "application/json"},
+      body: JSON.stringify({amount_usdt: $("fiatDepositUsdt").value, request_id: requestId()}),
+    });
+    const payload = await response.json();
+    if (!response.ok) return alert(payload.detail || "Не удалось получить реквизиты");
+    const details = $("fiatDepositDetails");
+    details.hidden = false;
+    details.innerHTML = `
+      <strong>К оплате: ${escape(payload.fiat_amount)} ₽</strong><br>
+      Реквизиты: ${escape(payload.requisites)}<br>
+      Зачисление: ${escape(payload.requested_units)} CASH (${escape(payload.requested_usdt)} USDT)<br>
+      <button type="button" data-fiat-paid="${escape(payload.id)}">Я оплатил</button>`;
+    details.querySelector("[data-fiat-paid]").addEventListener("click", async paidEvent => {
+      const paid = paidEvent.currentTarget;
+      paid.disabled = true;
+      const notified = await fetch(`/api/cash/fiat-orders/${encodeURIComponent(paid.dataset.fiatPaid)}/paid`, {method: "POST"});
+      if (!notified.ok) { paid.disabled = false; return alert("Не удалось уведомить трейдера"); }
+      paid.textContent = "Оплата отмечена · баланс не зачислен";
+      const confirm = document.createElement("button");
+      confirm.type = "button";
+      confirm.textContent = "Подтверждение трейдера (mock)";
+      details.append(document.createElement("br"), confirm);
+      confirm.addEventListener("click", async () => {
+        confirm.disabled = true;
+        const completed = await fetch(`/api/cash/fiat-orders/${encodeURIComponent(paid.dataset.fiatPaid)}/simulate-trader-confirmation`, {method: "POST"});
+        if (!completed.ok) { confirm.disabled = false; return alert("Трейдер ещё не подтвердил заявку"); }
+        confirm.textContent = "Трейдер подтвердил · CASH зачислен";
+        await load();
+      });
     });
   });
 

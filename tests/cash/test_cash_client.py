@@ -25,8 +25,16 @@ def test_cash_ui_keeps_usdt_payment_fields_separate_from_cash_units():
     assert "cashUnitsToChips" in LOBBY_JS
 
 
+def test_cash_ui_exposes_rub_p2p_without_changing_trc20_withdrawals():
+    assert 'id="cashFiatDeposit"' in LOBBY
+    assert 'id="fiatDepositUsdt"' in LOBBY
+    assert "/api/cash/fiat-orders" in LOBBY_JS
+    assert "Я оплатил" in LOBBY_JS
+    assert "Подтверждение трейдера" in LOBBY_JS
+    assert 'id="withdrawAddress"' in LOBBY
+
+
 def test_profile_and_table_keep_the_mock_warning_visible():
     assert "Доступно" in PROFILE and "За столами" in PROFILE and "Ожидает вывода" in PROFILE
     assert "ТЕСТ — средства ненастоящие" in PROFILE
     assert "ТЕСТ · CASH НЕНАСТОЯЩИЙ" in TABLE_JS
-

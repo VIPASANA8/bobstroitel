@@ -24,6 +24,11 @@ class WithdrawalRequest(BaseModel):
     request_id: str = Field(min_length=1, max_length=200)
 
 
+class FiatOrderRequest(BaseModel):
+    amount_usdt: str
+    request_id: str = Field(min_length=1, max_length=200)
+
+
 def _not_found(row):
     if row is None:
         raise HTTPException(status_code=404, detail="cash operation not found")
@@ -96,6 +101,59 @@ async def simulate_deposit_transfer(
     ))
     final = _not_found(await request.app.state.cash_deposits.get(deposit_id, user.user_id))
     return request.app.state.cash_deposits.public(final)
+
+
+@router.post("/fiat-orders", status_code=201)
+async def create_fiat_order(body: FiatOrderRequest, request: Request,
+                            user: AuthenticatedUser = Depends(get_cash_user)):
+    try:
+        row = await request.app.state.cash_fiat_orders.create(
+            user_id=user.user_id, tenant_id=user.tenant_id,
+            amount_usdt=body.amount_usdt, request_key=body.request_id,
+        )
+    except IdempotencyConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return request.app.state.cash_fiat_orders.public(row)
+
+
+@router.get("/fiat-orders/{order_id}")
+async def get_fiat_order(order_id: str, request: Request,
+                         user: AuthenticatedUser = Depends(get_cash_user)):
+    row = _not_found(await request.app.state.cash_fiat_orders.get(order_id, user.user_id))
+    return request.app.state.cash_fiat_orders.public(row)
+
+
+@router.post("/fiat-orders/{order_id}/paid")
+async def mark_fiat_order_paid(order_id: str, request: Request,
+                               user: AuthenticatedUser = Depends(get_cash_user)):
+    try:
+        row = _not_found(await request.app.state.cash_fiat_orders.mark_paid(order_id, user.user_id))
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return request.app.state.cash_fiat_orders.public(row)
+
+
+@router.post("/fiat-orders/{order_id}/cancel")
+async def cancel_fiat_order(order_id: str, request: Request,
+                            user: AuthenticatedUser = Depends(get_cash_user)):
+    try:
+        row = _not_found(await request.app.state.cash_fiat_orders.cancel(order_id, user.user_id))
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return request.app.state.cash_fiat_orders.public(row)
+
+
+@router.post("/fiat-orders/{order_id}/simulate-trader-confirmation")
+async def simulate_fiat_confirmation(order_id: str, request: Request,
+                                     user: AuthenticatedUser = Depends(get_cash_user)):
+    row = _not_found(await request.app.state.cash_fiat_orders.get(order_id, user.user_id))
+    if row["status"] not in {"waiting_trader", "credited"}:
+        raise HTTPException(status_code=409, detail="fiat order is not waiting for trader confirmation")
+    await request.app.state.cash_fiat_orders.poll_once()
+    final = _not_found(await request.app.state.cash_fiat_orders.get(order_id, user.user_id))
+    return request.app.state.cash_fiat_orders.public(final)
 
 
 @router.post("/withdrawals", status_code=201)

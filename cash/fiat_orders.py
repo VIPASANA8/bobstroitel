@@ -8,7 +8,7 @@ from uuid import uuid4
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 
-from cash.amounts import usdt_to_micros
+from cash.amounts import micros_to_units, micros_to_usdt, usdt_to_micros
 from cash.fiat_p2p import usdt_micros_to_case8_amount
 from cash.ledger import CashLedger, IdempotencyConflict
 from online.schema import (
@@ -200,3 +200,14 @@ class FiatOrderService:
             cash_accounts.c.kind == kind,
             cash_accounts.c.reference_id == reference_id,
         ))
+
+    @staticmethod
+    def public(row):
+        return {
+            "id": row["id"], "status": row["status"], "currency": row["currency"],
+            "requested_usdt": micros_to_usdt(row["requested_micros"]),
+            "requested_units": micros_to_units(row["requested_micros"]),
+            "fiat_amount": row["fiat_amount"], "requisites": row["requisites"],
+            "trader_username": row["trader_username"], "detail": row["detail"],
+            "expires_at": row["expires_at"],
+        }

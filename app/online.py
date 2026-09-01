@@ -14,6 +14,8 @@ from sqlalchemy import select, text
 from app.routers import auth, cash, cash_admin, chat, config, health, lobby, profiles, realtime, tables
 from cash.admin import CashAdminService
 from cash.deposits import DepositService
+from cash.fiat_orders import FiatOrderService
+from cash.fiat_p2p import MockCase8Partner
 from cash.game import CashGameService
 from cash.wallet import WalletService
 from cash.withdrawals import WithdrawalService
@@ -142,6 +144,10 @@ def create_app(
         app.state.runtime = TableRuntimeManager(session_factory, ledger)
         app.state.seating = SeatingService(session_factory, ledger, settings.seat_idle_bots)
         app.state.cash_deposits = DepositService(session_factory)
+        app.state.cash_fiat_partner = MockCase8Partner()
+        app.state.cash_fiat_orders = FiatOrderService(
+            session_factory, partner=app.state.cash_fiat_partner,
+        )
         app.state.cash_withdrawals = WithdrawalService(session_factory)
         app.state.cash_wallet = WalletService(session_factory)
         app.state.cash_admin = CashAdminService(session_factory)
