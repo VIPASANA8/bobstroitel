@@ -5,7 +5,10 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, HTTPException, Request
 from sqlalchemy import func, select, text
 
-from online.schema import integrity_events, poker_tables, table_runtimes, table_seats
+from online.schema import (
+    cash_deposits, cash_fiat_events, cash_fiat_orders, cash_partner_cursors,
+    cash_withdrawals, integrity_events, poker_tables, table_runtimes, table_seats,
+)
 
 
 router = APIRouter(tags=["health"])
@@ -82,6 +85,41 @@ async def metrics(request: Request):
                 )
             )
         ).scalar_one()
+        expired_deposits = await session.scalar(
+            select(func.count()).select_from(cash_deposits).where(
+                cash_deposits.c.status == "awaiting_transfer",
+                cash_deposits.c.expires_at < now,
+            )
+        )
+        unknown_withdrawals = await session.scalar(
+            select(func.count()).select_from(cash_withdrawals).where(
+                cash_withdrawals.c.status == "unknown",
+            )
+        )
+        fiat_orders_attention = await session.scalar(
+            select(func.count()).select_from(cash_fiat_orders).where(
+                cash_fiat_orders.c.status.in_(("requesting", "clarifying", "review_required")),
+            )
+        )
+        fiat_events_review = await session.scalar(
+            select(func.count()).select_from(cash_fiat_events).where(
+                cash_fiat_events.c.status == "review_required",
+            )
+        )
+        paused_cash_tables = await session.scalar(
+            select(func.count()).select_from(
+                table_runtimes.join(poker_tables, poker_tables.c.id == table_runtimes.c.table_id)
+            ).where(
+                poker_tables.c.asset == "CASH_USDT",
+                poker_tables.c.status == "open",
+                table_runtimes.c.phase == "paused",
+            )
+        )
+        partner_offset = await session.scalar(
+            select(cash_partner_cursors.c.offset).where(
+                cash_partner_cursors.c.provider == "case8-p2p",
+            )
+        )
 
     coordinator = getattr(request.app.state, "coordinator", None)
     monitor = getattr(request.app.state, "integrity_monitor", None)
@@ -109,5 +147,13 @@ async def metrics(request: Request):
                 getattr(monitor, "telegram_bot_token", "")
                 and getattr(monitor, "telegram_chat_id", "")
             ),
+        },
+        "cash": {
+            "expired_deposits_pending_reconciliation": int(expired_deposits or 0),
+            "unknown_withdrawals": int(unknown_withdrawals or 0),
+            "fiat_orders_requiring_attention": int(fiat_orders_attention or 0),
+            "fiat_events_requiring_review": int(fiat_events_review or 0),
+            "paused_tables": int(paused_cash_tables or 0),
+            "partner_event_offset": int(partner_offset or 0),
         },
     }
