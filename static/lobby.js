@@ -20,9 +20,32 @@
   let activeSession = null;
   let myRoom = null;
   let roomLevels = [];
+  let asset = "PLAY";
+  let cashWallet = null;
 
   const format = units => (Number(units || 0) / 100).toFixed(2);
-  const buyInRange = table => `${Math.round(table.min_buy_in_units / table.big_blind_units)}–${Math.round(table.max_buy_in_units / table.big_blind_units)} BB`;
+  const decimal = (value, digits) => {
+    const amount = BigInt(value || 0);
+    const scale = 10n ** BigInt(digits);
+    const whole = amount / scale;
+    const tail = String(amount % scale).padStart(digits, "0").replace(/0+$/, "");
+    return tail ? `${whole}.${tail}` : String(whole);
+  };
+  const cashFromUsdt = value => {
+    const match = String(value || "").trim().match(/^(\d+)(?:\.(\d{1,6}))?$/);
+    if (!match) return "—";
+    const micros = BigInt(match[1]) * 1000000n + BigInt((match[2] || "").padEnd(6, "0"));
+    return decimal(micros, 5);
+  };
+  const cashUnitsToChips = (value, chipMicros) => {
+    const match = String(value || "").trim().match(/^(\d+)(?:\.(\d{1,5}))?$/);
+    if (!match) throw new Error("Введите точную сумму CASH");
+    const micros = BigInt(match[1]) * 100000n + BigInt((match[2] || "").padEnd(5, "0"));
+    const chip = BigInt(chipMicros);
+    if (micros % chip) throw new Error("Сумма должна быть кратна фишке стола");
+    return Number(micros / chip);
+  };
+  const buyInRange = table => `${table.min_buy_in_bb || Math.round(table.min_buy_in_units / table.big_blind_units)}–${table.max_buy_in_bb || Math.round(table.max_buy_in_units / table.big_blind_units)} BB`;
   // Buckets on the blind size itself, not the table name -- a player-created
   // room's blinds (from /api/lobby/room-levels) still lands on a real tier
   // this way instead of falling through unlabeled.
@@ -121,7 +144,7 @@
 
   function renderTables() {
     $("tableGrid").innerHTML = tables.map((table, index) => {
-      const tier = tierFor(table);
+      const tier = asset === "CASH_USDT" ? "cash" : tierFor(table);
       const full = table.occupied_count >= 6;
       const seatDots = Array.from({ length: 6 }, (_, seat) => `<i class="${seat < table.occupied_count ? "on" : ""}"></i>`).join("");
       return `
@@ -131,7 +154,10 @@
           <span class="table-state${table.id === myRoom?.id ? " mine" : ""}">${table.id === myRoom?.id ? "● ВАША" : "● ОТКРЫТ"}</span>
         </div>
         <h3>${table.has_password ? '<span class="lock" aria-label="Закрыта паролем" title="Закрыта паролем">🔒</span> ' : ""}${escape(table.name)}</h3>
-        <p class="blinds">Блайнды <b>${format(table.small_blind_units)} / ${format(table.big_blind_units)}</b></p>
+        <p class="blinds">Блайнды <b>${asset === "CASH_USDT"
+          ? `${decimal(table.small_blind_micros, 6)} / ${decimal(table.big_blind_micros, 6)} USDT`
+          : `${format(table.small_blind_units)} / ${format(table.big_blind_units)}`}</b></p>
+        ${asset === "CASH_USDT" ? `<p class="dialog-muted">${decimal(table.small_blind_micros, 5)} / ${decimal(table.big_blind_micros, 5)} CASH</p>` : ""}
         <div class="card-bottom">
           <span>Бай-ин ${buyInRange(table)}</span>
           <span class="seats${full ? " full" : ""}" role="img" aria-label="Занято ${table.occupied_count} из 6 мест">${seatDots}</span>
@@ -172,16 +198,30 @@
 
   async function load() {
     const profile = await window.Poker8Auth.ensureSession();
-    $("wallet").textContent = format(profile.available_units);
-    const [tablesResponse, sessionResponse, roomResponse] = await Promise.all([
-      fetch("/api/lobby/tables?page=1&per_page=12"),
-      fetch("/api/lobby/session"),
-      fetch("/api/lobby/rooms/mine"),
+    const query = `asset=${asset}`;
+    const [tablesResponse, sessionResponse, roomResponse, walletResponse] = await Promise.all([
+      fetch(`/api/lobby/tables?page=1&per_page=12&${query}`),
+      fetch(`/api/lobby/session?${query}`),
+      asset === "PLAY" ? fetch("/api/lobby/rooms/mine") : Promise.resolve(null),
+      asset === "CASH_USDT" ? fetch("/api/cash/wallet") : Promise.resolve(null),
     ]);
     if (!tablesResponse.ok || !sessionResponse.ok) throw new Error("lobby data is unavailable");
     const tablePayload = await tablesResponse.json();
     const sessionPayload = await sessionResponse.json();
-    myRoom = roomResponse.ok ? (await roomResponse.json()).room : null;
+    myRoom = roomResponse?.ok ? (await roomResponse.json()).room : null;
+    if (asset === "CASH_USDT") {
+      if (!walletResponse?.ok) throw new Error("cash mode is unavailable");
+      cashWallet = await walletResponse.json();
+      $("wallet").textContent = `${cashWallet.available_units} CASH`;
+      $("cashAvailable").textContent = `${cashWallet.available_units} CASH`;
+      $("cashAvailableUsdt").textContent = `${cashWallet.available_usdt} USDT`;
+      $("cashEscrow").textContent = `${cashWallet.escrow_units} CASH`;
+      $("cashEscrowUsdt").textContent = `${cashWallet.escrow_usdt} USDT`;
+      $("cashWithdrawal").textContent = `${cashWallet.withdrawal_units} CASH`;
+      $("cashWithdrawalUsdt").textContent = `${cashWallet.withdrawal_usdt} USDT`;
+    } else {
+      $("wallet").textContent = format(profile.available_units);
+    }
     tables = tablePayload.tables;
     renderTables();
     renderLiveStrip();
@@ -189,20 +229,29 @@
     // Fetched on every load, not only after a departure: a player who closed
     // the tab on the way out, or who was evicted while away, has a report
     // waiting the next time they open the lobby.
-    const reportResponse = await fetch("/api/profile/last-session").catch(() => null);
+    const reportResponse = asset === "PLAY" ? await fetch("/api/profile/last-session").catch(() => null) : null;
     renderSessionReport(reportResponse?.ok ? (await reportResponse.json()).session : null);
     $("loadStatus").textContent = "● В СЕТИ";
   }
 
   function openBuyIn(table) {
     selected = table;
-    $("buyInTable").textContent = `${table.name} · ${format(table.small_blind_units)} / ${format(table.big_blind_units)} BB`;
+    $("buyInTable").textContent = asset === "CASH_USDT"
+      ? `${table.name} · ${decimal(table.small_blind_micros, 6)} / ${decimal(table.big_blind_micros, 6)} USDT`
+      : `${table.name} · ${format(table.small_blind_units)} / ${format(table.big_blind_units)} BB`;
     // Every table has its own blinds, so the limits cannot live in the markup.
     const input = $("buyInUnits");
-    input.min = table.min_buy_in_units;
-    input.max = table.max_buy_in_units;
-    input.step = table.big_blind_units;
-    input.value = table.min_buy_in_units;
+    if (asset === "CASH_USDT") {
+      input.min = decimal(table.min_buy_in_micros, 5);
+      input.max = decimal(table.max_buy_in_micros, 5);
+      input.step = decimal(table.chip_micros, 5);
+      input.value = input.min;
+      input.previousElementSibling.textContent = "Единицы CASH";
+    } else {
+      input.min = table.min_buy_in_units; input.max = table.max_buy_in_units;
+      input.step = table.big_blind_units; input.value = table.min_buy_in_units;
+      input.previousElementSibling.textContent = "Фишки";
+    }
     $("buyInDialog").showModal();
     // Same Telegram Desktop webview focus gap as openRoomDialog() above.
     requestAnimationFrame(() => input.focus());
@@ -211,9 +260,21 @@
   $("buyInForm").addEventListener("submit", async event => {
     event.preventDefault();
     if (!selected) return;
+    let buyInUnits;
+    try {
+      buyInUnits = asset === "CASH_USDT"
+        ? cashUnitsToChips($("buyInUnits").value, selected.chip_micros)
+        : Number($("buyInUnits").value);
+    } catch (error) {
+      return alert(error.message);
+    }
     const response = await fetch(`/api/tables/${selected.id}/ready`, {
       method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ seat_no: 2, buy_in_units: Number($("buyInUnits").value), request_id: requestId() }),
+      body: JSON.stringify({
+        seat_no: 2,
+        buy_in_units: buyInUnits,
+        request_id: requestId(),
+      }),
     });
     $("buyInDialog").close();
     if (response.ok) return openTable(selected.id);
@@ -230,9 +291,10 @@
   });
 
   $("quickPlay").addEventListener("click", async () => {
-    const response = await fetch("/api/lobby/quick-play", { method: "POST" });
-    if (!response.ok) return alert("Быстрый вход сейчас недоступен");
-    openBuyIn((await response.json()).table);
+    const response = await fetch(`/api/lobby/quick-play?asset=${asset}`, { method: "POST" });
+    if (response.ok) return openBuyIn((await response.json()).table);
+    if (asset === "CASH_USDT") $("depositDialog").showModal();
+    alert(asset === "CASH_USDT" ? "Для входа нужен CASH-баланс. Создайте mock-пополнение." : "Быстрый вход сейчас недоступен");
   });
 
   $("dismissReport").addEventListener("click", async () => {
@@ -324,5 +386,111 @@
     alert(detail.message || "Не удалось создать комнату");
   });
 
-  load().catch(error => { $("loadStatus").textContent = "● НЕДОСТУПНО"; console.error(error); });
+  async function selectAsset(next) {
+    if (next === asset) return;
+    const previous = asset;
+    asset = next;
+    document.body.classList.toggle("cash-mode", asset === "CASH_USDT");
+    $("cashPilot").hidden = asset !== "CASH_USDT";
+    $("modeFooter").textContent = asset === "CASH_USDT"
+      ? "ТЕСТ · mock USDT · средства ненастоящие"
+      : "Виртуальные фишки · без реальных денег";
+    document.querySelectorAll("[data-asset]").forEach(tab => {
+      const active = tab.dataset.asset === asset;
+      tab.classList.toggle("is-active", active);
+      tab.setAttribute("aria-selected", String(active));
+    });
+    $("loadStatus").textContent = "● ЗАГРУЗКА";
+    try {
+      await load();
+    } catch (error) {
+      if (next === "CASH_USDT") {
+        asset = previous;
+        document.body.classList.remove("cash-mode");
+        $("cashPilot").hidden = true;
+        document.querySelectorAll("[data-asset]").forEach(tab => {
+          const active = tab.dataset.asset === asset;
+          tab.classList.toggle("is-active", active);
+          tab.setAttribute("aria-selected", String(active));
+        });
+        await load();
+        alert("REAL CASH доступен только в изолированном тестовом режиме.");
+      } else throw error;
+    }
+  }
+
+  document.querySelectorAll("[data-asset]").forEach(tab => {
+    tab.addEventListener("click", () => selectAsset(tab.dataset.asset).catch(console.error));
+  });
+
+  function bindConversion(inputId, outputId) {
+    const update = () => { $(outputId).textContent = cashFromUsdt($(inputId).value); };
+    $(inputId).addEventListener("input", update);
+    update();
+  }
+  bindConversion("depositUsdt", "depositCash");
+  bindConversion("withdrawUsdt", "withdrawCash");
+  $("cashDeposit").addEventListener("click", () => $("depositDialog").showModal());
+  $("cashWithdraw").addEventListener("click", () => $("withdrawDialog").showModal());
+
+  $("depositForm").addEventListener("submit", async event => {
+    event.preventDefault();
+    const response = await fetch("/api/cash/deposits", {
+      method: "POST", headers: {"content-type": "application/json"},
+      body: JSON.stringify({amount_usdt: $("depositUsdt").value, request_id: requestId()}),
+    });
+    const payload = await response.json();
+    if (!response.ok) return alert(payload.detail || "Не удалось создать заявку");
+    const details = $("depositDetails");
+    details.hidden = false;
+    details.innerHTML = `
+      <strong>Отправьте ровно ${escape(payload.expected_usdt)} USDT</strong><br>
+      Сеть: ${escape(payload.network)}<br>Адрес: ${escape(payload.address)}<br>
+      Зачисление: ${escape(payload.expected_units)} CASH<br>
+      <button type="button" data-paid="${escape(payload.id)}">Симулировать подтверждение сети</button>`;
+    details.querySelector("[data-paid]").addEventListener("click", async buttonEvent => {
+      const button = buttonEvent.currentTarget;
+      button.disabled = true;
+      const confirmed = await fetch(`/api/cash/deposits/${encodeURIComponent(button.dataset.paid)}/simulate-transfer`, {method: "POST"});
+      if (!confirmed.ok) {
+        button.disabled = false;
+        return alert("Mock-подтверждение не прошло");
+      }
+      button.textContent = "Mock-перевод подтверждён";
+      await load();
+    });
+  });
+
+  $("withdrawForm").addEventListener("submit", async event => {
+    event.preventDefault();
+    const response = await fetch("/api/cash/withdrawals", {
+      method: "POST", headers: {"content-type": "application/json"},
+      body: JSON.stringify({
+        amount_usdt: $("withdrawUsdt").value,
+        address: $("withdrawAddress").value,
+        request_id: requestId(),
+      }),
+    });
+    const payload = await response.json();
+    if (!response.ok) return alert(payload.detail || "Не удалось создать вывод");
+    const details = $("withdrawDetails");
+    details.hidden = false;
+    details.innerHTML = `<strong>${escape(payload.amount_units)} CASH зарезервировано</strong><br>
+      К выплате: ${escape(payload.amount_usdt)} USDT<br>Комиссия: ${escape(payload.fee_usdt)} USDT<br>
+      Статус: ${escape(payload.status)} · ${escape(payload.network)}`;
+    await load();
+  });
+
+  async function boot() {
+    const configResponse = await fetch("/api/config").catch(() => null);
+    const config = configResponse?.ok ? await configResponse.json() : {cash_mode: "off"};
+    const cashTab = document.querySelector('[data-asset="CASH_USDT"]');
+    cashTab.hidden = config.cash_mode !== "mock";
+    await load();
+    if (location.hash === "#cash" && config.cash_mode === "mock") {
+      await selectAsset("CASH_USDT");
+    }
+  }
+
+  boot().catch(error => { $("loadStatus").textContent = "● НЕДОСТУПНО"; console.error(error); });
 })();

@@ -7,7 +7,7 @@ from fastapi.routing import APIRoute
 from sqlalchemy import insert, select
 from types import SimpleNamespace
 
-from online.catalogue import CASH_USDT, PLAY, Catalogue, RoomError
+from online.catalogue import CASH_MOCK_TABLE, CASH_USDT, PLAY, Catalogue, RoomError
 from online.integrity import EscrowIntegrityMonitor
 from online.ledger import PlayLedger
 from online.schema import integrity_events, poker_tables, system_players, table_seats, tenants, users
@@ -45,13 +45,25 @@ async def test_default_catalogue_is_exactly_six_play_tables(table_services):
 
 
 @pytest.mark.anyio
+async def test_mock_seed_adds_one_idempotent_cash_table(table_services):
+    catalogue, _, _ = table_services
+    await catalogue.seed_cash_mock()
+    await catalogue.seed_cash_mock()
+    rows = await catalogue.list_tables(per_page=100, asset=CASH_USDT)
+    assert [row.id for row in rows] == [CASH_MOCK_TABLE["id"]]
+    assert rows[0].min_buy_in_micros == 800_000
+    assert rows[0].max_buy_in_micros == 2_000_000
+
+
+@pytest.mark.anyio
 async def test_catalogue_never_crosses_asset_boundaries(table_services):
     catalogue, _, factory = table_services
     await catalogue.seed_defaults()
     async with factory() as session:
         await session.execute(insert(poker_tables).values(
             id="cash-test", scope="network", asset=CASH_USDT, name="Cash Test",
-            small_blind_units=1_000, big_blind_units=2_000,
+            small_blind_units=1, big_blind_units=2,
+            small_blind_micros=10_000, big_blind_micros=20_000, chip_micros=10_000,
             min_buy_in_bb=40, max_buy_in_bb=100, max_seats=6,
         ))
         await session.commit()
@@ -59,7 +71,7 @@ async def test_catalogue_never_crosses_asset_boundaries(table_services):
     cash = await catalogue.list_tables(per_page=100, asset=CASH_USDT)
     assert [row.id for row in cash] == ["cash-test"]
     assert (await catalogue.quick_play("u1", 100_000)).asset == PLAY
-    assert (await catalogue.quick_play("u1", 100_000, asset=CASH_USDT)).id == "cash-test"
+    assert (await catalogue.quick_play("u1", 1_000_000, asset=CASH_USDT)).id == "cash-test"
     with pytest.raises(ValueError, match="asset"):
         await catalogue.list_tables(asset="USDT")
 
@@ -83,7 +95,7 @@ async def test_play_seating_and_bots_refuse_cash_table(table_services):
 
 
 @pytest.mark.anyio
-async def test_shared_table_routes_refuse_cash_even_by_direct_id(table_services):
+async def test_shared_table_routes_gate_cash_direct_ids_by_mode(table_services):
     _, _, factory = table_services
     async with factory() as session:
         await session.execute(insert(poker_tables).values(
@@ -100,9 +112,7 @@ async def test_shared_table_routes_refuse_cash_even_by_direct_id(table_services)
         await require_play_table_user("cash-test", request, user)
     assert off.value.status_code == 404
     request.app.state.settings.cash_mode = "mock"
-    with pytest.raises(HTTPException) as mock:
-        await require_play_table_user("cash-test", request, user)
-    assert mock.value.status_code == 409
+    assert await require_play_table_user("cash-test", request, user) == user
 
 
 @pytest.mark.anyio

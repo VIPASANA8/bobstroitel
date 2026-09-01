@@ -96,7 +96,7 @@ async def require_play_table_user(
     table_id: str, request: Request,
     user: AuthenticatedUser = Depends(get_current_user),
 ) -> AuthenticatedUser:
-    """Keep every existing table route on PLAY until the CASH runtime exists."""
+    """Authenticate a table viewer and apply the CASH mode gate by asset."""
     async with request.app.state.session_factory() as session:
         asset = await session.scalar(select(poker_tables.c.asset).where(poker_tables.c.id == table_id))
     if asset is None:
@@ -107,5 +107,4 @@ async def require_play_table_user(
         except CashAccessDenied as exc:
             status = 404 if request.app.state.settings.cash_mode == "off" else 403
             raise HTTPException(status_code=status, detail=str(exc)) from exc
-        raise HTTPException(status_code=409, detail="CASH table runtime is not enabled")
     return user

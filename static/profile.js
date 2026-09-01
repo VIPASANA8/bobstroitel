@@ -82,6 +82,16 @@
     document.querySelector('.profile-hero').setAttribute('aria-busy', 'false');
   }
 
+  function renderCashWallet(wallet) {
+    $('profileCash').hidden = false;
+    $('profileCashAvailable').textContent = `${wallet.available_units} CASH`;
+    $('profileCashAvailableUsdt').textContent = `${wallet.available_usdt} USDT`;
+    $('profileCashEscrow').textContent = `${wallet.escrow_units} CASH`;
+    $('profileCashEscrowUsdt').textContent = `${wallet.escrow_usdt} USDT`;
+    $('profileCashWithdrawal').textContent = `${wallet.withdrawal_units} CASH`;
+    $('profileCashWithdrawalUsdt').textContent = `${wallet.withdrawal_usdt} USDT`;
+  }
+
   function setSigned(element, value, format) {
     element.textContent = value == null ? '—' : format(value);
     element.classList.toggle('up', Number(value) > 0);
@@ -281,6 +291,7 @@
       loadBlock('/api/profile/hands?limit=20', 'handHistory', renderHistory, 'Не удалось загрузить историю.'),
       loadBlock('/api/profile/play-journal?limit=20', 'ledger', renderLedger, 'Не удалось загрузить журнал.'),
       json('/api/config').then(config => renderTopUp(Boolean(config.self_top_up_enabled))).catch(() => renderTopUp(false)),
+      json('/api/cash/wallet').then(renderCashWallet).catch(() => { $('profileCash').hidden = true; }),
     ]);
   }
 

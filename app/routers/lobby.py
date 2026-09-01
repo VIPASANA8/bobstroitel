@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.dependencies import AuthenticatedUser, get_current_user
-from online.catalogue import PLAY, ROOM_BLIND_LEVELS, ROOM_NAME_MAX, ROOM_PASSWORD_MAX, RoomError, RoomLimitReached
-from online.schema import poker_tables, seat_queue, table_runtimes, table_seats
+from cash.access import CashAccessDenied, ensure_cash_access
+from online.catalogue import CASH_USDT, PLAY, ROOM_BLIND_LEVELS, ROOM_NAME_MAX, ROOM_PASSWORD_MAX, RoomError, RoomLimitReached
+from online.schema import cash_accounts, poker_tables, seat_queue, table_runtimes, table_seats
 
 
 class CreateRoomRequest(BaseModel):
@@ -21,15 +24,27 @@ class CreateRoomRequest(BaseModel):
 router = APIRouter(prefix="/api/lobby", tags=["lobby"])
 
 
+def _cash_gate(request: Request, user: AuthenticatedUser, asset: str) -> None:
+    if asset != CASH_USDT:
+        return
+    try:
+        ensure_cash_access(request.app.state.settings.cash_mode, user.auth_method)
+    except CashAccessDenied as exc:
+        status = 404 if request.app.state.settings.cash_mode == "off" else 403
+        raise HTTPException(status_code=status, detail=str(exc)) from exc
+
+
 @router.get("/tables")
 async def list_lobby_tables(
     request: Request,
     page: int = Query(1, ge=1),
     per_page: int = Query(6, ge=1, le=100),
+    asset: Literal["PLAY", "CASH_USDT"] = PLAY,
     user: AuthenticatedUser = Depends(get_current_user),
 ):
+    _cash_gate(request, user, asset)
     rows = await request.app.state.catalogue.list_tables(
-        page=page, per_page=per_page, viewer_id=user.user_id
+        page=page, per_page=per_page, viewer_id=user.user_id, asset=asset,
     )
     return {"tables": [row.public_dict() for row in rows], "page": page, "per_page": per_page}
 
@@ -38,8 +53,10 @@ async def list_lobby_tables(
 async def current_lobby_session(
     request: Request,
     user: AuthenticatedUser = Depends(get_current_user),
+    asset: Literal["PLAY", "CASH_USDT"] = PLAY,
 ):
     """Return the caller's one active seat or queue entry for lobby CTAs."""
+    _cash_gate(request, user, asset)
     async with request.app.state.session_factory() as session:
         seat = (
             await session.execute(
@@ -58,7 +75,7 @@ async def current_lobby_session(
                 .where(
                     table_seats.c.user_id == user.user_id,
                     table_seats.c.state.in_(("seated", "held", "leaving")),
-                    poker_tables.c.asset == PLAY,
+                    poker_tables.c.asset == asset,
                 )
                 .order_by(table_seats.c.updated_at.desc())
             )
@@ -83,7 +100,7 @@ async def current_lobby_session(
                 .where(
                     seat_queue.c.user_id == user.user_id,
                     seat_queue.c.state == "waiting",
-                    poker_tables.c.asset == PLAY,
+                    poker_tables.c.asset == asset,
                 )
                 .order_by(seat_queue.c.created_at.desc())
             )
@@ -98,10 +115,23 @@ async def current_lobby_session(
 async def quick_play(
     request: Request,
     user: AuthenticatedUser = Depends(get_current_user),
+    asset: Literal["PLAY", "CASH_USDT"] = PLAY,
 ):
-    available_units = await request.app.state.ledger.available_units(user.user_id)
+    _cash_gate(request, user, asset)
+    if asset == CASH_USDT:
+        async with request.app.state.session_factory() as session:
+            available_units = await session.scalar(select(func.coalesce(func.sum(
+                cash_accounts.c.balance_micros
+            ), 0)).where(
+                cash_accounts.c.user_id == user.user_id,
+                cash_accounts.c.kind == "available",
+            ))
+    else:
+        available_units = await request.app.state.ledger.available_units(user.user_id)
     try:
-        chosen = await request.app.state.catalogue.quick_play(user.user_id, available_units)
+        chosen = await request.app.state.catalogue.quick_play(
+            user.user_id, int(available_units or 0), asset=asset,
+        )
     except LookupError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return {"table": chosen.public_dict(), "join_mode": chosen.join_mode}

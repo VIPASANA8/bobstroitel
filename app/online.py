@@ -14,6 +14,7 @@ from sqlalchemy import select, text
 from app.routers import auth, cash, cash_admin, chat, config, health, lobby, profiles, realtime, tables
 from cash.admin import CashAdminService
 from cash.deposits import DepositService
+from cash.game import CashGameService
 from cash.wallet import WalletService
 from cash.withdrawals import WithdrawalService
 from online.auth import AuthService
@@ -131,6 +132,8 @@ def create_app(
         await ledger.ensure_faucet()
         catalogue = Catalogue(session_factory)
         await catalogue.seed_defaults()
+        if settings.cash_mode == "mock":
+            await catalogue.seed_cash_mock()
         app.state.ledger = ledger
         app.state.catalogue = catalogue
         app.state.integrity_monitor = EscrowIntegrityMonitor(session_factory)
@@ -142,6 +145,7 @@ def create_app(
         app.state.cash_withdrawals = WithdrawalService(session_factory)
         app.state.cash_wallet = WalletService(session_factory)
         app.state.cash_admin = CashAdminService(session_factory)
+        app.state.cash_game = CashGameService(session_factory)
         await app.state.runtime.restore_all()
         await app.state.seating.hold_all_users(datetime.now(timezone.utc))
         if fixture is not None:

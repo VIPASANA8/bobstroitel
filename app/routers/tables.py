@@ -1,15 +1,21 @@
 from __future__ import annotations
 
 import logging
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.dependencies import AuthenticatedUser, require_play_table_user
+from cash.amounts import usdt_to_micros
+from cash.game import CashIntegrityError, CashRuntimeError, CashSeatError
+from cash.ledger import IdempotencyConflict, InsufficientCash
+from online.catalogue import CASH_USDT
 from online.runtime import EMPTY_SNAPSHOT
 from online.schema import poker_tables, seat_queue, table_seats
 from online.seating import AlreadySeated, InsufficientFunds, SeatingError, WrongPassword
+from poker.models import ActionType
 
 
 logger = logging.getLogger(__name__)
@@ -73,14 +79,17 @@ async def table_snapshot(
     user: AuthenticatedUser = Depends(require_play_table_user),
 ):
     row = await _table(request, table_id)
-    try:
-        state = await request.app.state.runtime.public_snapshot(table_id, user.user_id)
-    except Exception:
-        # A table with no hand behind it is no longer an exception -- it comes
-        # back as EMPTY_SNAPSHOT. Anything that lands here now is a real
-        # failure, and it looks identical to the player, so it has to be logged.
-        logger.exception("table snapshot failed", extra={"table_id": table_id})
-        state = dict(EMPTY_SNAPSHOT)
+    if row["asset"] == CASH_USDT:
+        state = await request.app.state.cash_game.public_snapshot(table_id, user.user_id)
+    else:
+        try:
+            state = await request.app.state.runtime.public_snapshot(table_id, user.user_id)
+        except Exception:
+            # A table with no hand behind it is no longer an exception -- it comes
+            # back as EMPTY_SNAPSHOT. Anything that lands here now is a real
+            # failure, and it looks identical to the player, so it has to be logged.
+            logger.exception("table snapshot failed", extra={"table_id": table_id})
+            state = dict(EMPTY_SNAPSHOT)
     async with request.app.state.session_factory() as session:
         seat = (
             await session.execute(
@@ -132,6 +141,34 @@ async def table_snapshot(
 
 @router.post("/{table_id}/ready")
 async def ready(table_id: str, payload: ReadyRequest, request: Request, user: AuthenticatedUser = Depends(require_play_table_user)):
+    row = await _table(request, table_id)
+    if row["asset"] == CASH_USDT:
+        chip = row["chip_micros"]
+        try:
+            seat = await request.app.state.cash_game.seat(
+                user.user_id, table_id, payload.seat_no,
+                payload.buy_in_units * chip, payload.request_id,
+            )
+            try:
+                await request.app.state.cash_game.start_hand(table_id)
+            except CashRuntimeError as exc:
+                if "requires 2 to 6" not in str(exc):
+                    raise
+        except InsufficientCash as exc:
+            wallet = await request.app.state.cash_wallet.get(user.user_id)
+            raise HTTPException(status_code=409, detail={
+                "code": "insufficient_funds", "message": str(exc),
+                "required_units": payload.buy_in_units,
+                "available_units": usdt_to_micros(wallet["available_usdt"]) // chip,
+            }) from exc
+        except (CashSeatError, CashRuntimeError, CashIntegrityError, IdempotencyConflict) as exc:
+            raise HTTPException(status_code=409, detail={
+                "code": "invalid_seating_request", "message": str(exc),
+            }) from exc
+        return {
+            "request_id": seat.id, "queue_state": "seated", "position_seq": 0,
+            "seat_no": seat.seat_no, "viewer_state": "seated",
+        }
     try:
         result = await request.app.state.seating.ready(
             user.user_id, table_id, payload.seat_no, payload.buy_in_units, payload.password
@@ -149,6 +186,11 @@ async def ready(table_id: str, payload: ReadyRequest, request: Request, user: Au
 
 @router.post("/{table_id}/ready/cancel")
 async def cancel_ready(table_id: str, request: Request, user: AuthenticatedUser = Depends(require_play_table_user)):
+    row = await _table(request, table_id)
+    if row["asset"] == CASH_USDT:
+        raise HTTPException(status_code=409, detail={
+            "code": "cash_has_no_queue", "message": "CASH seating is immediate; use leave instead",
+        })
     await request.app.state.seating.cancel_ready(user.user_id, table_id)
     return {"viewer_state": "spectator", "queue_state": "cancelled"}
 
@@ -157,6 +199,25 @@ async def cancel_ready(table_id: str, request: Request, user: AuthenticatedUser 
 async def ready_up(table_id: str, request: Request, user: AuthenticatedUser = Depends(require_play_table_user)):
     """Toggle ready-to-deal for the caller's own seat -- distinct from
     /ready above, which queues a brand new buy-in, not readiness."""
+    row = await _table(request, table_id)
+    if row["asset"] == CASH_USDT:
+        async with request.app.state.session_factory() as session:
+            seated = await session.scalar(select(table_seats.c.id).where(
+                table_seats.c.table_id == table_id,
+                table_seats.c.user_id == user.user_id,
+                table_seats.c.state == "seated",
+            ))
+        if seated is None:
+            raise HTTPException(status_code=409, detail={
+                "code": "not_seated", "message": "take a seat before starting a cash hand",
+            })
+        try:
+            result = await request.app.state.cash_game.start_hand(table_id)
+        except (CashRuntimeError, CashIntegrityError) as exc:
+            raise HTTPException(status_code=409, detail={
+                "code": "cash_hand_not_ready", "message": str(exc),
+            }) from exc
+        return {"seat_no": None, "ready": True, "revision": result.revision}
     seat_no = await request.app.state.seating.user_seat_number(user.user_id, table_id)
     if seat_no is None:
         raise HTTPException(status_code=409, detail={
@@ -168,6 +229,19 @@ async def ready_up(table_id: str, request: Request, user: AuthenticatedUser = De
 
 @router.post("/{table_id}/leave")
 async def leave(table_id: str, request: Request, user: AuthenticatedUser = Depends(require_play_table_user)):
+    row = await _table(request, table_id)
+    if row["asset"] == CASH_USDT:
+        try:
+            snapshot = await request.app.state.cash_game.public_snapshot(table_id, user.user_id)
+            if snapshot.get("acting_player") == user.user_id and "fold" in snapshot.get("legal_actions", []):
+                await request.app.state.cash_game.act(
+                    table_id, user.user_id, ActionType.FOLD, amount_micros=0,
+                    command_id=f"leave-fold:{uuid4().hex}", expected_revision=snapshot["revision"],
+                )
+            await request.app.state.cash_game.leave(user.user_id, table_id, f"leave:{uuid4().hex}")
+        except (CashRuntimeError, CashIntegrityError, CashSeatError) as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return {"viewer_state": "leaving"}
     # Fold it now if it's their turn, rather than leaving the hand hanging on
     # the 30s clock. A no-op whenever it isn't actually their turn.
     await request.app.state.runtime.fold_if_acting(table_id, user.user_id)
@@ -181,12 +255,32 @@ async def leave(table_id: str, request: Request, user: AuthenticatedUser = Depen
 
 @router.post("/{table_id}/reconnect")
 async def reconnect(table_id: str, request: Request, user: AuthenticatedUser = Depends(require_play_table_user)):
+    row = await _table(request, table_id)
+    if row["asset"] == CASH_USDT:
+        async with request.app.state.session_factory() as session:
+            seat = await session.scalar(select(table_seats.c.state).where(
+                table_seats.c.table_id == table_id,
+                table_seats.c.user_id == user.user_id,
+                table_seats.c.state.in_(("seated", "held", "leaving")),
+            ))
+        return {"viewer_state": seat or "spectator"}
     await request.app.state.seating.reconnect(user.user_id, table_id)
     return {"viewer_state": "seated"}
 
 
 @router.post("/{table_id}/add-on")
 async def add_on(table_id: str, payload: AddOnRequest, request: Request, user: AuthenticatedUser = Depends(require_play_table_user)):
+    row = await _table(request, table_id)
+    if row["asset"] == CASH_USDT:
+        try:
+            await request.app.state.cash_game.add_on(
+                user.user_id, table_id, payload.amount_units * row["chip_micros"], payload.request_id,
+            )
+        except (CashSeatError, CashRuntimeError, CashIntegrityError, InsufficientCash) as exc:
+            raise HTTPException(status_code=409, detail={
+                "code": "invalid_seating_request", "message": str(exc),
+            }) from exc
+        return {"ok": True, "amount_units": payload.amount_units}
     try:
         await request.app.state.seating.add_on(
             user.user_id, table_id, payload.amount_units, payload.request_id

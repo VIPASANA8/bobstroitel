@@ -13,6 +13,7 @@ def test_all_user_cash_routes_use_cash_identity_gate():
     assert {route.path for route in routes} == {
         "/api/cash/wallet", "/api/cash/deposits", "/api/cash/deposits/{deposit_id}",
         "/api/cash/deposits/{deposit_id}/cancel", "/api/cash/deposits/{deposit_id}/paid",
+        "/api/cash/deposits/{deposit_id}/simulate-transfer",
         "/api/cash/withdrawals", "/api/cash/withdrawals/{withdrawal_id}",
         "/api/cash/withdrawals/{withdrawal_id}/cancel",
     }

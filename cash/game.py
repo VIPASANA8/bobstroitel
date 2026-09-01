@@ -53,11 +53,71 @@ class CashRuntimeResult:
 
 
 class CashGameService:
-    """Internal exact-chip CASH path. Public access remains disabled."""
+    """Exact-chip CASH runtime used only behind the isolated mock-mode gate."""
 
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self.session_factory = session_factory
         self.ledger = CashLedger()
+
+    async def public_snapshot(self, table_id: str, viewer_id: str | None = None) -> dict:
+        """Return the existing client contract while retaining exact server math.
+
+        The engine stores whole chips. The browser renders big blinds, so this
+        read-only projection divides by the table's whole-chip BB. Commands
+        travel back as whole chips and are converted to micros before mutation.
+        """
+        async with self.session_factory() as session:
+            table = await self._table(session, table_id, lock=False)
+            seats = (await session.execute(select(table_seats).where(
+                table_seats.c.table_id == table_id,
+                table_seats.c.state.in_(("seated", "held", "leaving")),
+            ))).mappings().all()
+            names = dict((await session.execute(select(
+                users.c.id, users.c.display_name,
+            ).where(users.c.id.in_([row["user_id"] for row in seats])))).all()) if seats else {}
+            runtime = (await session.execute(select(table_runtimes).where(
+                table_runtimes.c.table_id == table_id
+            ))).mappings().one_or_none()
+        participant = viewer_id if any(row["user_id"] == viewer_id for row in seats) else None
+        current = {
+            row["seat_no"]: {
+                "id": row["user_id"], "name": names.get(row["user_id"], "Player"),
+                "stack": row["stack_micros"] / table["big_blind_micros"],
+                "is_bot": False, "state": row["state"],
+            } for row in seats
+        }
+        if runtime is None or not runtime["private_state_json"]:
+            return {
+                "phase": "waiting", "revision": 0, "occupancy": len(seats),
+                "legal_actions": [], "players": {}, "action_deadline": None,
+                "viewer_player_id": participant, "current_seats": current,
+                "ready_seats": [], "cash_test": True,
+            }
+        state = deserialize_state(runtime["private_state_json"])
+        public = state.to_dict(viewer_player_id=participant)
+        bb_chips = table["big_blind_micros"] // table["chip_micros"]
+        for player in public["players"].values():
+            for field in ("stack", "street_invested", "total_invested"):
+                player[field] = player[field] / bb_chips
+            player.pop("difficulty", None)
+        for field in ("pot", "current_bet", "min_raise_size"):
+            public[field] = public[field] / bb_chips
+        public["starting_stacks"] = {
+            key: value / bb_chips for key, value in public["starting_stacks"].items()
+        }
+        for action in public["history"]:
+            for field in ("amount", "pot_after", "pot_before", "to_call_before"):
+                action[field] = action[field] / bb_chips
+        legal = [
+            action.value for action in self._engine(table).legal_actions(state, participant)
+        ] if participant else []
+        public.update({
+            "phase": runtime["phase"], "revision": runtime["revision"],
+            "legal_actions": legal, "action_deadline": None,
+            "occupancy": len(seats), "current_seats": current,
+            "ready_seats": [], "cash_test": True,
+        })
+        return public
 
     async def seat(
         self, user_id: str, table_id: str, seat_no: int,
@@ -323,6 +383,18 @@ class CashGameService:
                     )
                 except InvalidAction as exc:
                     raise CashCommandConflict(str(exc)) from exc
+                # A disconnected/leaving player must never hold a money hand
+                # open indefinitely. Their escrow stays reserved and the exact
+                # engine folds them only when their turn is actually reached.
+                leaving = set((await session.execute(select(table_seats.c.user_id).where(
+                    table_seats.c.table_id == table_id,
+                    table_seats.c.state == "leaving",
+                    table_seats.c.user_id.is_not(None),
+                ))).scalars())
+                while not state.terminal and state.acting_player in leaving:
+                    self._engine(table).apply_action(
+                        state, state.acting_player, ActionType.FOLD, 0,
+                    )
                 revision = expected_revision + 1
                 if state.terminal:
                     failure = await self._settle(session, table, state)

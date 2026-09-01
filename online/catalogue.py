@@ -21,6 +21,18 @@ DEFAULT_TABLES = (
     ("mid-b", "Mid B", 500, 1000),
 )
 
+CASH_MOCK_TABLE = {
+    "id": "cash-micro-test",
+    "name": "CASH Micro · TEST",
+    # Compatibility chip counts for the current table client. Money remains
+    # authoritative only in the exact *_micros columns below.
+    "small_blind_units": 1,
+    "big_blind_units": 2,
+    "small_blind_micros": 10_000,
+    "big_blind_micros": 20_000,
+    "chip_micros": 10_000,
+}
+
 PLAY = "PLAY"
 CASH_USDT = "CASH_USDT"
 TABLE_ASSETS = {PLAY, CASH_USDT}
@@ -106,6 +118,11 @@ class TableSummary:
     # Never the hash itself -- just enough for the lobby to show a lock icon
     # and the table page to know it needs to ask.
     has_password: bool = False
+    small_blind_micros: int | None = None
+    big_blind_micros: int | None = None
+    chip_micros: int | None = None
+    min_buy_in_micros: int | None = None
+    max_buy_in_micros: int | None = None
 
     def public_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -174,6 +191,24 @@ class Catalogue:
                         .values(name=BOT_NAMES[index % len(BOT_NAMES)])
                     )
 
+    async def seed_cash_mock(self) -> None:
+        """Create the one human-only table used by the isolated mock pilot."""
+        async with self.session_factory() as session:
+            async with session.begin():
+                existing = (await session.execute(select(poker_tables).where(
+                    poker_tables.c.id == CASH_MOCK_TABLE["id"]
+                ))).mappings().one_or_none()
+                if existing:
+                    expected = {**CASH_MOCK_TABLE, "asset": CASH_USDT}
+                    if any(existing[key] != value for key, value in expected.items()):
+                        raise RuntimeError("existing mock CASH table has incompatible parameters")
+                    return
+                await session.execute(poker_tables.insert().values(
+                    **CASH_MOCK_TABLE,
+                    scope="network", asset=CASH_USDT,
+                    min_buy_in_bb=40, max_buy_in_bb=100, max_seats=6,
+                ))
+
     async def list_tables(
         self, page: int = 1, per_page: int = 6, viewer_id: str | None = None,
         asset: str = PLAY,
@@ -219,14 +254,20 @@ class Catalogue:
             row for row in await self.list_tables(page=1, per_page=100, asset=asset)
             if row.visibility == "public" and not row.has_password
         ]
-        affordable = [row for row in rows if row.min_buy_in_units <= available_units]
+        affordable = [
+            row for row in rows
+            if (
+                row.min_buy_in_micros if asset == CASH_USDT
+                else row.min_buy_in_units
+            ) <= available_units
+        ]
         if not affordable:
             raise LookupError("no affordable table")
         chosen = min(
             affordable,
             key=lambda row: (
                 not row.human_join_available,
-                row.big_blind_units,
+                row.big_blind_micros if asset == CASH_USDT else row.big_blind_units,
                 -row.occupied_count,
                 row.id,
             ),
@@ -358,6 +399,14 @@ class Catalogue:
         human_count = sum(seat.occupant_kind == "user" for seat in active)
         system_count = sum(seat.occupant_kind == "system" for seat in active)
         occupied_count = len(active)
+        min_cash = (
+            row["big_blind_micros"] * row["min_buy_in_bb"]
+            if row["asset"] == CASH_USDT and row["big_blind_micros"] is not None else None
+        )
+        max_cash = (
+            row["big_blind_micros"] * row["max_buy_in_bb"]
+            if row["asset"] == CASH_USDT and row["big_blind_micros"] is not None else None
+        )
         return TableSummary(
             id=row["id"],
             name=row["name"],
@@ -375,4 +424,9 @@ class Catalogue:
             created_by=row["created_by"],
             human_join_available=occupied_count < row["max_seats"] or system_count > 0,
             has_password=bool(row["password_hash"]),
+            small_blind_micros=row["small_blind_micros"],
+            big_blind_micros=row["big_blind_micros"],
+            chip_micros=row["chip_micros"],
+            min_buy_in_micros=min_cash,
+            max_buy_in_micros=max_cash,
         )

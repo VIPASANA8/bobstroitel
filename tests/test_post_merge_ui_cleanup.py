@@ -165,7 +165,8 @@ def test_the_lobby_balance_is_a_number_with_the_profile_chip_after_it():
     js = Path("static/lobby.js").read_text(encoding="utf-8")
     assert 'class="profile-chip"' in lobby
     assert lobby.index('id="wallet"') < lobby.index('class="profile-chip"'), "chip goes last"
-    assert "PLAY" not in js
+    assert 'wallet").textContent = `${cashWallet.available_units} CASH`' in js
+    assert 'wallet").textContent = format(profile.available_units)' in js
     assert ".profile-chip{" in css and "border-radius:50%" in css
 
 

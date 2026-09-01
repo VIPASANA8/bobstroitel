@@ -1163,6 +1163,20 @@
     if (!response.ok) throw new Error("Не удалось загрузить состояние стола");
     const payload = await response.json();
     table = payload.table;
+    const cash = table.asset === "CASH_USDT";
+    document.body.classList.toggle("p8-cash-test", cash);
+    if (cash) {
+      let badge = document.getElementById("p8CashTestBadge");
+      if (!badge) {
+        badge = document.createElement("div");
+        badge.id = "p8CashTestBadge";
+        badge.className = "online-connection-status";
+        badge.style.cssText = "left:14px;right:auto;border-color:rgba(255,160,100,.45);color:#ffb37f";
+        badge.textContent = "ТЕСТ · CASH НЕНАСТОЯЩИЙ";
+        document.body.appendChild(badge);
+      }
+      window.Poker8TopUp = {open: () => { location.href = "/static/lobby.html#cash"; }};
+    }
     viewerState = payload.viewer_state || viewerState;
     viewerSeatedSeat = payload.viewer_seat_no ?? null;
     noticeLostSeatRequest(payload.queue_state);

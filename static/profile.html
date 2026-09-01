@@ -8,8 +8,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Manrope:wght@400;600;700;800&display=swap" />
-  <link rel="stylesheet" href="/static/network.css?v=profile-refined-1" />
-  <link rel="stylesheet" href="/static/profile.css?v=profile-refined-1" />
+  <link rel="stylesheet" href="/static/network.css?v=cash-pilot-1" />
+  <link rel="stylesheet" href="/static/profile.css?v=cash-pilot-1" />
+  <link rel="stylesheet" href="/static/cash-ui.css?v=cash-pilot-1" />
 </head>
 <body class="profile-page">
   <a class="skip-link" href="#profileMain">К профилю</a>
@@ -55,6 +56,16 @@
         <p id="profileError" class="profile-error" role="alert" hidden></p>
       </section>
       <div class="profile-dashboard">
+        <section id="profileCash" class="profile-section cash-profile-section" aria-labelledby="cashHeading" hidden>
+          <div class="profile-section-heading"><div><p class="profile-kicker">REAL CASH · TEST</p><h2 id="cashHeading">Баланс CASH</h2></div><span class="section-count">1 USDT = 10 CASH</span></div>
+          <p class="section-caption">ТЕСТ — средства ненастоящие · USDT TRC20 mock</p>
+          <div class="cash-wallet-grid">
+            <div><span>Доступно</span><strong id="profileCashAvailable">—</strong><small id="profileCashAvailableUsdt">—</small></div>
+            <div><span>За столами</span><strong id="profileCashEscrow">—</strong><small id="profileCashEscrowUsdt">—</small></div>
+            <div><span>Ожидает вывода</span><strong id="profileCashWithdrawal">—</strong><small id="profileCashWithdrawalUsdt">—</small></div>
+          </div>
+          <a class="return-link" href="/static/lobby.html#cash">Открыть CASH-кассу <span aria-hidden="true">↗</span></a>
+        </section>
         <section class="profile-section missions-section" aria-labelledby="missionsHeading" aria-busy="true">
           <div class="profile-section-heading"><h2 id="missionsHeading">Задания дня</h2><span id="missionsCount" class="section-count">— / 3</span></div>
           <p class="section-caption" id="missionsReset">Обновляются в 00:00 МСК</p>
@@ -106,7 +117,7 @@
     </main>
     <footer class="profile-footer"><span>Poker8</span><span>Игра на виртуальные фишки</span></footer>
   </div>
-  <script src="/static/auth-client.js?v=profile-refined-1"></script>
-  <script src="/static/profile.js?v=profile-refined-1"></script>
+  <script src="/static/auth-client.js?v=cash-pilot-1"></script>
+  <script src="/static/profile.js?v=cash-pilot-1"></script>
 </body>
 </html>

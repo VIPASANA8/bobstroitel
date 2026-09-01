@@ -74,7 +74,7 @@ def test_closing_a_dialog_does_not_submit_it():
     script = Path("static/lobby.js").read_text(encoding="utf-8")
 
     closers = re.findall(r'<button class="dialog-close"[^>]*>', markup)
-    assert len(closers) == 2, "both dialogs still have a cross"
+    assert len(closers) >= 2, "every dialog still has a cross"
     for closer in closers:
         assert 'type="button"' in closer, closer
     assert '.dialog-close' in script and 'close("cancel")' in script

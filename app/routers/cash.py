@@ -1,9 +1,12 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.dependencies import AuthenticatedUser, get_cash_user
 from cash.deposits import DepositUnavailable
 from cash.ledger import IdempotencyConflict, InsufficientCash
+from cash.trc20 import TransferEvent
 from cash.withdrawals import WithdrawalStateError
 
 
@@ -67,6 +70,32 @@ async def mark_deposit_paid(deposit_id: str, request: Request,
     # This acknowledgement never changes a balance. Only an observed transfer can.
     row = _not_found(await request.app.state.cash_deposits.get(deposit_id, user.user_id))
     return {**request.app.state.cash_deposits.public(row), "reconciliation_requested": True}
+
+
+@router.post("/deposits/{deposit_id}/simulate-transfer")
+async def simulate_deposit_transfer(
+    deposit_id: str, request: Request,
+    user: AuthenticatedUser = Depends(get_cash_user),
+):
+    """Inject the deterministic provider event for the development/test pilot."""
+    row = _not_found(await request.app.state.cash_deposits.get(deposit_id, user.user_id))
+    if row["status"] == "credited":
+        return request.app.state.cash_deposits.public(row)
+    if row["status"] != "awaiting_transfer":
+        raise HTTPException(status_code=409, detail="deposit cannot receive a mock transfer")
+    now = datetime.now(timezone.utc)
+    if now > row["expires_at"]:
+        raise HTTPException(status_code=409, detail="deposit has expired")
+    await request.app.state.cash_deposits.observe(TransferEvent(
+        provider="c2c-client-mock",
+        external_event_id=f"deposit:{deposit_id}",
+        tx_hash=f"mock-deposit-{deposit_id}", event_index=0,
+        network=row["network"], token_contract=row["token_contract"],
+        destination_address=row["destination_address"],
+        amount_micros=row["expected_micros"], occurred_at=now,
+    ))
+    final = _not_found(await request.app.state.cash_deposits.get(deposit_id, user.user_id))
+    return request.app.state.cash_deposits.public(final)
 
 
 @router.post("/withdrawals", status_code=201)
