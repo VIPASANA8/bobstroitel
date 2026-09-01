@@ -6,6 +6,9 @@ from typing import Optional
 from uuid import uuid4
 
 
+ChipAmount = int | float
+
+
 class Street(str, Enum):
     PREFLOP = "preflop"
     FLOP = "flop"
@@ -29,14 +32,14 @@ class PlayerState:
     id: str
     name: str
     seat: int
-    stack: float
+    stack: ChipAmount
     is_bot: bool = False
     profile_id: str | None = None
     difficulty: str = "normal"
     position: str = ""
     hole_cards: list[str] = field(default_factory=list)
-    street_invested: float = 0.0
-    total_invested: float = 0.0
+    street_invested: ChipAmount = 0.0
+    total_invested: ChipAmount = 0.0
     folded: bool = False
     all_in: bool = False
 
@@ -45,11 +48,11 @@ class PlayerState:
 class Action:
     player_id: str
     action: ActionType
-    amount: float = 0.0
+    amount: ChipAmount = 0.0
     street: Street = Street.PREFLOP
-    pot_after: float = 0.0
-    pot_before: float = 0.0
-    to_call_before: float = 0.0
+    pot_after: ChipAmount = 0.0
+    pot_before: ChipAmount = 0.0
+    to_call_before: ChipAmount = 0.0
     live_players_before: int = 0
 
 
@@ -57,7 +60,7 @@ class Action:
 class GameState:
     hand_id: str = field(default_factory=lambda: uuid4().hex[:12])
     street: Street = Street.PREFLOP
-    pot: float = 0.0
+    pot: ChipAmount = 0.0
     board: list[str] = field(default_factory=list)
     players: dict[str, PlayerState] = field(default_factory=dict)
     seat_order: list[str] = field(default_factory=list)
@@ -67,8 +70,8 @@ class GameState:
     small_blind_player: Optional[str] = None
     big_blind_player: Optional[str] = None
 
-    current_bet: float = 1.0
-    min_raise_size: float = 1.0
+    current_bet: ChipAmount = 1.0
+    min_raise_size: ChipAmount = 1.0
     last_aggressor: Optional[str] = None
     pending_actions: set[str] = field(default_factory=set)
     # Faced a short all-in after already matching the bet: may call or fold,
@@ -84,7 +87,7 @@ class GameState:
     history: list[Action] = field(default_factory=list)
     decision_reviews: list[dict] = field(default_factory=list)
     difficulty: str = "normal"  # legacy HU solver compatibility
-    starting_stacks: dict[str, float] = field(default_factory=dict)
+    starting_stacks: dict[str, ChipAmount] = field(default_factory=dict)
 
     deck: object | None = None
 

@@ -24,8 +24,38 @@ class PokerEngine:
     BIG_BLIND = 1.0
     EPS = 1e-9
 
-    def __init__(self):
+    def __init__(
+        self, *, exact_chips: bool = False,
+        small_blind: int | float | None = None,
+        big_blind: int | float | None = None,
+    ):
+        self.exact_chips = exact_chips
+        if exact_chips:
+            if type(small_blind) is not int or type(big_blind) is not int:
+                raise ValueError("exact blinds must be integers")
+            if small_blind <= 0 or big_blind <= 0 or small_blind > big_blind:
+                raise ValueError("exact blinds must be positive and ordered")
+            self.SMALL_BLIND = small_blind
+            self.BIG_BLIND = big_blind
+            self.STARTING_STACK = 1000
+            self.EPS = 0
+            self.ZERO = 0
+        else:
+            self.SMALL_BLIND = self.SMALL_BLIND if small_blind is None else float(small_blind)
+            self.BIG_BLIND = self.BIG_BLIND if big_blind is None else float(big_blind)
+            self.ZERO = 0.0
+        self.amount_label = "фишек" if exact_chips else "ББ"
         self.evaluator = HandEvaluator()
+
+    def _amount(self, value, label: str):
+        if self.exact_chips:
+            if type(value) is not int:
+                raise InvalidAction(f"{label} must be an integer in exact-chip mode")
+            return value
+        return float(value)
+
+    def _display(self, value: int | float) -> str:
+        return str(value) if self.exact_chips else f"{value:.2f}"
 
     @staticmethod
     def _rotate(order: list[str], start_id: str) -> list[str]:
@@ -58,8 +88,8 @@ class PokerEngine:
         CFR-lite components. Online code passes `seats` directly.
         """
         if seats is None:
-            hero_stack = self.STARTING_STACK if hero_stack is None else float(hero_stack)
-            bot_stack = self.STARTING_STACK if bot_stack is None else float(bot_stack)
+            hero_stack = self.STARTING_STACK if hero_stack is None else self._amount(hero_stack, "stack")
+            bot_stack = self.STARTING_STACK if bot_stack is None else self._amount(bot_stack, "stack")
             seats = [
                 {"id": "hero", "name": "Вы", "seat": 0, "stack": hero_stack, "is_bot": False, "difficulty": "normal"},
                 {"id": "bot", "name": "Бот", "seat": 1, "stack": bot_stack, "is_bot": True, "difficulty": "normal"},
@@ -71,17 +101,18 @@ class PokerEngine:
             raise InvalidAction("A Poker8 hand requires 2 to 6 players")
 
         for row in occupied:
-            if float(row.get("stack", row.get("balance", 0.0))) < self.BIG_BLIND:
+            stack = self._amount(row.get("stack", row.get("balance", self.ZERO)), "stack")
+            if stack < self.BIG_BLIND:
                 raise InvalidAction(f"У игрока {row['name']} недостаточно фишек для новой раздачи")
 
         deck = Deck()
         players: dict[str, PlayerState] = {}
         seat_order: list[str] = []
-        starts: dict[str, float] = {}
+        starts: dict[str, int | float] = {}
 
         for row in occupied:
             pid = str(row["id"])
-            stack = float(row.get("stack", row.get("balance", self.STARTING_STACK)))
+            stack = self._amount(row.get("stack", row.get("balance", self.STARTING_STACK)), "stack")
             players[pid] = PlayerState(
                 id=pid,
                 name=str(row["name"]),
@@ -91,6 +122,8 @@ class PokerEngine:
                 profile_id=row.get("profile_id"),
                 difficulty=str(row.get("difficulty", "normal")),
                 hole_cards=deck.draw(2),
+                street_invested=self.ZERO,
+                total_invested=self.ZERO,
             )
             seat_order.append(pid)
             starts[pid] = stack
@@ -110,7 +143,7 @@ class PokerEngine:
 
         state = GameState(
             street=Street.PREFLOP,
-            pot=0.0,
+            pot=self.ZERO,
             board=[],
             players=players,
             seat_order=seat_order,
@@ -146,14 +179,14 @@ class PokerEngine:
         for pid, label in zip(rotated, labels):
             state.players[pid].position = label
 
-    def _post_blind(self, state: GameState, player_id: str, amount: float):
+    def _post_blind(self, state: GameState, player_id: str, amount: int | float):
         player = state.players[player_id]
         paid = min(player.stack, amount)
         self._put_chips(state, player, paid)
 
-    def to_call(self, state: GameState, player_id: str) -> float:
+    def to_call(self, state: GameState, player_id: str) -> int | float:
         p = state.players[player_id]
-        return max(0.0, state.current_bet - p.street_invested)
+        return max(self.ZERO, state.current_bet - p.street_invested)
 
     def legal_actions(self, state: GameState, player_id: str) -> list[ActionType]:
         if state.terminal or state.acting_player != player_id:
@@ -194,7 +227,7 @@ class PokerEngine:
         player.folded = True
         state.pending_actions.discard(player_id)
         state.history.append(Action(
-            player_id=player_id, action=ActionType.FOLD, amount=0.0, street=state.street,
+            player_id=player_id, action=ActionType.FOLD, amount=self.ZERO, street=state.street,
             pot_after=state.pot, pot_before=pot_before, to_call_before=to_call,
             live_players_before=live_players_before,
         ))
@@ -212,11 +245,12 @@ class PokerEngine:
             state.acting_player = next_actor
         return state
 
-    def min_raise_to(self, state: GameState, player_id: str) -> float:
+    def min_raise_to(self, state: GameState, player_id: str) -> int | float:
         p = state.players[player_id]
         return min(p.street_invested + p.stack, state.current_bet + state.min_raise_size)
 
-    def apply_action(self, state: GameState, player_id: str, action: ActionType, amount: float = 0.0) -> GameState:
+    def apply_action(self, state: GameState, player_id: str, action: ActionType, amount: int | float = 0) -> GameState:
+        amount = self._amount(amount, "action amount")
         if state.terminal:
             raise InvalidAction("Раздача уже завершена")
         if state.acting_player != player_id:
@@ -228,7 +262,7 @@ class PokerEngine:
         to_call = self.to_call(state, player_id)
         pot_before = state.pot
         live_players_before = len(state.live_ids())
-        paid = 0.0
+        paid = self.ZERO
 
         if action == ActionType.FOLD:
             player.folded = True
@@ -250,20 +284,20 @@ class PokerEngine:
             target = min(player.street_invested + player.stack, amount)
             min_bet = min(self.BIG_BLIND, player.stack)
             if target + self.EPS < min_bet and target + self.EPS < player.street_invested + player.stack:
-                raise InvalidAction(f"Минимальная ставка: {min_bet:.2f} ББ")
+                raise InvalidAction(f"Минимальная ставка: {self._display(min_bet)} {self.amount_label}")
             paid = target - player.street_invested
             self._put_chips(state, player, paid)
-            self._apply_aggression(state, player_id, 0.0, player.street_invested)
+            self._apply_aggression(state, player_id, self.ZERO, player.street_invested)
 
         elif action == ActionType.RAISE:
             if amount <= state.current_bet + self.EPS:
                 raise InvalidAction("Размер рейза должен быть больше текущей ставки")
             max_total = player.street_invested + player.stack
-            target = min(float(amount), max_total)
+            target = min(amount, max_total)
             min_total = self.min_raise_to(state, player_id)
             is_all_in = target >= max_total - self.EPS
             if target + self.EPS < min_total and not is_all_in:
-                raise InvalidAction(f"Минимальный рейз до {min_total:.2f} ББ")
+                raise InvalidAction(f"Минимальный рейз до {self._display(min_total)} {self.amount_label}")
 
             previous_bet = state.current_bet
             paid = target - player.street_invested
@@ -302,7 +336,10 @@ class PokerEngine:
             state.acting_player = next_actor
         return state
 
-    def _apply_aggression(self, state: GameState, player_id: str, previous_bet: float, target: float):
+    def _apply_aggression(
+        self, state: GameState, player_id: str,
+        previous_bet: int | float, target: int | float,
+    ):
         """Advance the betting after a bet, raise or all-in.
 
         A raise smaller than the minimum — only reachable by an all-in — does not
@@ -328,14 +365,14 @@ class PokerEngine:
             if pid in state.players and not state.players[pid].folded and not state.players[pid].all_in
         }
 
-    def _put_chips(self, state: GameState, player: PlayerState, amount: float):
-        amount = max(0.0, min(float(amount), player.stack))
+    def _put_chips(self, state: GameState, player: PlayerState, amount: int | float):
+        amount = max(self.ZERO, min(self._amount(amount, "chip amount"), player.stack))
         player.stack -= amount
         player.street_invested += amount
         player.total_invested += amount
         state.pot += amount
         if player.stack <= self.EPS:
-            player.stack = 0.0
+            player.stack = self.ZERO
             player.all_in = True
 
     def _finish_betting_round(self, state: GameState):
@@ -366,8 +403,8 @@ class PokerEngine:
             return
 
         for p in state.players.values():
-            p.street_invested = 0.0
-        state.current_bet = 0.0
+            p.street_invested = self.ZERO
+        state.current_bet = self.ZERO
         state.min_raise_size = self.BIG_BLIND
         state.last_aggressor = None
         state.raise_capped.clear()
@@ -408,7 +445,7 @@ class PokerEngine:
             return
         p = state.players[highest_id]
         p.total_invested -= over
-        p.street_invested = max(0.0, p.street_invested - over)
+        p.street_invested = max(self.ZERO, p.street_invested - over)
         p.stack += over
         p.all_in = p.stack <= self.EPS
         state.pot -= over
@@ -417,9 +454,9 @@ class PokerEngine:
 
     def build_side_pots(self, state: GameState) -> list[dict]:
         contrib = {pid: p.total_invested for pid, p in state.players.items() if p.total_invested > self.EPS}
-        levels = sorted(set(round(v, 10) for v in contrib.values()))
+        levels = sorted(set(contrib.values() if self.exact_chips else (round(v, 10) for v in contrib.values())))
         pots = []
-        previous = 0.0
+        previous = self.ZERO
         for level in levels:
             contributors = [pid for pid, value in contrib.items() if value + self.EPS >= level]
             amount = (level - previous) * len(contributors)
@@ -440,9 +477,12 @@ class PokerEngine:
         state.players[winner_id].stack += won
         state.winner = winner_id
         state.winners = [winner_id]
-        state.result_text = f"{state.players[winner_id].name} выигрывает {won:.2f} ББ — остальные игроки сделали пас"
+        state.result_text = (
+            f"{state.players[winner_id].name} выигрывает "
+            f"{self._display(won)} {self.amount_label} — остальные игроки сделали пас"
+        )
         state.result_details = [{"pot": "Банк", "amount": round(won, 2), "winners": [winner_id]}]
-        state.pot = 0.0
+        state.pot = self.ZERO
         state.acting_player = None
         state.pending_actions.clear()
         state.street = Street.COMPLETE
@@ -454,7 +494,7 @@ class PokerEngine:
         side_pots = self.build_side_pots(state)
         details = []
         all_winners: list[str] = []
-        distributed = 0.0
+        distributed = self.ZERO
 
         for index, pot in enumerate(side_pots):
             eligible = pot["eligible"]
@@ -466,19 +506,36 @@ class PokerEngine:
             }
             best = max(scores.values())
             winners = [pid for pid, score in scores.items() if score == best]
-            share = pot["amount"] / len(winners)
-            for pid in winners:
-                state.players[pid].stack += share
-                distributed += share
+            payouts = {}
+            if self.exact_chips:
+                share, odd = divmod(pot["amount"], len(winners))
+                clockwise = self._rotate(
+                    state.seat_order,
+                    self.next_from_order(state.seat_order, state.button),
+                )
+                odd_order = [pid for pid in clockwise if pid in winners]
+                payouts = {
+                    pid: share + (1 if pid in odd_order[:odd] else 0)
+                    for pid in winners
+                }
+            else:
+                share = pot["amount"] / len(winners)
+                payouts = {pid: share for pid in winners}
+            for pid, payout in payouts.items():
+                state.players[pid].stack += payout
+                distributed += payout
                 if pid not in all_winners:
                     all_winners.append(pid)
 
-            details.append({
+            detail = {
                 "pot": "Главный банк" if index == 0 else f"Побочный банк {index}",
                 "amount": round(pot["amount"], 2),
                 "winners": winners,
                 "winner_names": [state.players[pid].name for pid in winners],
-            })
+            }
+            if self.exact_chips:
+                detail["payouts"] = payouts
+            details.append(detail)
 
         state.winners = all_winners
         state.winner = all_winners[0] if len(all_winners) == 1 else ("tie" if all_winners else None)
@@ -491,14 +548,17 @@ class PokerEngine:
         if len(details) == 1 and len(details[0]["winners"]) == 1:
             pid = details[0]["winners"][0]
             state.result_text = (
-                f"{state.players[pid].name} выигрывает {details[0]['amount']:.2f} ББ — "
+                f"{state.players[pid].name} выигрывает "
+                f"{self._display(details[0]['amount'])} {self.amount_label} — "
                 + " · ".join(descriptions)
             )
         else:
             payouts = []
             for row in details:
                 names = ", ".join(row["winner_names"])
-                payouts.append(f"{row['pot']}: {row['amount']:.2f} ББ → {names}")
+                payouts.append(
+                    f"{row['pot']}: {self._display(row['amount'])} {self.amount_label} → {names}"
+                )
             state.result_text = " | ".join(payouts) + (" — " + " · ".join(descriptions) if descriptions else "")
 
         state.result_details = details
@@ -511,11 +571,12 @@ class PokerEngine:
         # reachable the hand aborts loudly instead of quietly minting a loss.
         # Raising here is safe: the runtime rolls the hand back, pauses the
         # table, and the coordinator refunds and resumes it.
-        assert abs(distributed - state.pot) <= 1e-6, (
+        conserved = distributed == state.pot if self.exact_chips else abs(distributed - state.pot) <= 1e-6
+        assert conserved, (
             f"showdown paid out {distributed:.6f} of a {state.pot:.6f} pot "
             f"in hand {state.hand_id}: a side pot had no eligible winner"
         )
-        state.pot = 0.0
+        state.pot = self.ZERO
         state.acting_player = None
         state.pending_actions.clear()
         state.street = Street.COMPLETE

@@ -140,6 +140,9 @@ poker_tables = Table(
     Column("name", String(200), nullable=False),
     Column("small_blind_units", BIGINT, nullable=False),
     Column("big_blind_units", BIGINT, nullable=False),
+    Column("small_blind_micros", BIGINT),
+    Column("big_blind_micros", BIGINT),
+    Column("chip_micros", BIGINT),
     Column("min_buy_in_bb", Integer, nullable=False),
     Column("max_buy_in_bb", Integer, nullable=False),
     Column("max_seats", Integer, nullable=False, server_default=text("6")),
@@ -171,7 +174,11 @@ table_seats = Table(
     Column("user_id", String(64), ForeignKey("users.id")),
     Column("system_player_id", String(64), ForeignKey("system_players.id")),
     Column("escrow_account_id", String(64), ForeignKey("play_accounts.id")),
+    Column("cash_escrow_account_id", String(64), ForeignKey(
+        "cash_accounts.id", name="fk_table_seats_cash_escrow",
+    )),
     Column("stack_units", BIGINT, nullable=False, server_default=text("0")),
+    Column("stack_micros", BIGINT, nullable=False, server_default=text("0")),
     Column("state", String(32), nullable=False, server_default=text("'empty'")),
     # When this occupancy began. A session is one occupancy (docs/progression.md
     # §4), and the row is blanked rather than deleted on the way out, so this is
@@ -185,6 +192,11 @@ table_seats = Table(
     CheckConstraint("occupant_kind IN ('empty', 'user', 'system')"),
     CheckConstraint("state IN ('empty', 'seated', 'held', 'leaving')"),
     CheckConstraint("stack_units >= 0"),
+    CheckConstraint("stack_micros >= 0", name="ck_table_seats_cash_stack_nonnegative"),
+    CheckConstraint(
+        "NOT (escrow_account_id IS NOT NULL AND cash_escrow_account_id IS NOT NULL)",
+        name="ck_table_seats_one_escrow",
+    ),
 )
 
 seat_queue = Table(
@@ -275,12 +287,18 @@ hand_players = Table(
     Column("system_player_id", String(64), ForeignKey("system_players.id")),
     Column("seat_no", Integer, nullable=False),
     Column("position", String(32), nullable=False),
-    Column("start_stack_units", BIGINT, nullable=False),
+    Column("start_stack_units", BIGINT),
     Column("end_stack_units", BIGINT),
+    Column("cash_escrow_account_id", String(64), ForeignKey(
+        "cash_accounts.id", name="fk_hand_players_cash_escrow",
+    )),
+    Column("start_stack_micros", BIGINT),
+    Column("end_stack_micros", BIGINT),
     Column("hole_cards_json", JSON),
     Column("shown", Boolean, nullable=False, server_default=text("false")),
     Column("folded", Boolean, nullable=False, server_default=text("false")),
     Column("net_units", BIGINT),
+    Column("net_micros", BIGINT),
 )
 
 hand_actions = Table(
