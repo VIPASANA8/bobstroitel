@@ -70,7 +70,7 @@ async def test_all_upgrades_on_empty_schema_keep_cash_disabled(cash_db):
         async with session.begin():
             conn = await session.connection()
             await conn.run_sync(upgrade_all)
-            for name in ("cash_accounts", "cash_transactions", "cash_entries", "cash_deposits", "cash_payment_events", "cash_withdrawals", "cash_operators", "cash_audit_events"):
+            for name in ("cash_accounts", "cash_transactions", "cash_entries", "cash_deposits", "cash_payment_events", "cash_withdrawals", "cash_operators", "cash_audit_events", "cash_fiat_orders", "cash_fiat_events", "cash_partner_cursors"):
                 assert await session.scalar(sa.text(f'SELECT count(*) FROM "{name}"')) == 0
 
 

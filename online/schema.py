@@ -536,6 +536,55 @@ cash_payment_events = Table(
     CheckConstraint("status IN ('observed','processed','review_required','resolved_credited','resolved_rejected')", name="ck_cash_payment_event_status"),
 )
 
+cash_fiat_orders = Table(
+    "cash_fiat_orders", metadata,
+    Column("id", String(64), primary_key=True),
+    Column("user_id", String(64), ForeignKey("users.id"), nullable=False),
+    Column("tenant_id", String(64), ForeignKey("tenants.id"), nullable=False),
+    Column("request_key", String(200), nullable=False),
+    Column("request_hash", String(64), nullable=False),
+    Column("partner_order_id", BIGINT, unique=True),
+    Column("currency", String(3), nullable=False),
+    Column("requested_micros", BIGINT, nullable=False),
+    Column("fiat_amount", BIGINT),
+    Column("requisites", String(500)),
+    Column("trader_username", String(100)),
+    Column("status", String(32), nullable=False),
+    Column("detail", String(500)),
+    Column("expires_at", timestamp),
+    Column("created_at", timestamp, **created_at),
+    Column("updated_at", timestamp, **created_at),
+    UniqueConstraint("user_id", "request_key", name="uq_cash_fiat_order_request"),
+    CheckConstraint("currency = 'RUB'", name="ck_cash_fiat_order_currency"),
+    CheckConstraint("requested_micros BETWEEN 20000000 AND 1000000000", name="ck_cash_fiat_order_amount"),
+    CheckConstraint(
+        "status IN ('requesting','unavailable','awaiting_user','waiting_trader','clarifying','credited','expired','cancelled','review_required')",
+        name="ck_cash_fiat_order_status",
+    ),
+)
+
+cash_fiat_events = Table(
+    "cash_fiat_events", metadata,
+    Column("provider", String(32), primary_key=True),
+    Column("event_id", BIGINT, primary_key=True),
+    Column("partner_order_id", BIGINT, nullable=False),
+    Column("fiat_order_id", String(64), ForeignKey("cash_fiat_orders.id")),
+    Column("event_type", String(32), nullable=False),
+    Column("status", String(32), nullable=False),
+    Column("detail", String(500)),
+    Column("created_at", timestamp, **created_at),
+    Column("processed_at", timestamp),
+    CheckConstraint("status IN ('observed','processed','review_required')", name="ck_cash_fiat_event_status"),
+)
+
+cash_partner_cursors = Table(
+    "cash_partner_cursors", metadata,
+    Column("provider", String(32), primary_key=True),
+    Column("offset", BIGINT, nullable=False, server_default=text("0")),
+    Column("updated_at", timestamp, **created_at),
+    CheckConstraint("offset >= 0", name="ck_cash_partner_cursor_offset"),
+)
+
 cash_withdrawals = Table(
     "cash_withdrawals", metadata,
     Column("id", String(64), primary_key=True),
