@@ -84,11 +84,13 @@ def test_a_seat_claimed_during_a_hand_is_held_and_says_so(spectator_server):
             assert held["ring"] == held["hero"], "the held chair changed size"
             assert held["borderStyle"] == "solid", held
             assert held["label"] == HELD_LABEL, held
-            assert held["clickable"] == "none", "a held seat must not take another click"
+            assert held["clickable"] != "none", "the held chair is also the cancel control"
+
+            page.locator(".seat.v040-sit-slot [data-add-seat]").click()
+            page.wait_for_function("!document.body.classList.contains('p8-seat-reserved')")
 
             # Hand the seat back, so a rerun starts from the same table this
             # one found: cancel while still queued, leave once seated.
-            context.request.post(f"{spectator_server}/api/tables/low-b/ready/cancel")
             context.request.post(f"{spectator_server}/api/tables/low-b/leave")
             context.close()
         finally:

@@ -31,7 +31,10 @@ def test_mobile_online_flow(online_server: str):
         page.locator('.seat[data-visual-seat="0"] .avatar-wrap').click()
         page.wait_for_function("document.body.classList.contains('local-player-active')", timeout=30000)
         page.wait_for_function("document.querySelector('#mobileStreetLabel')?.textContent === 'РАЗДАЧА'", timeout=20000)
-        page.wait_for_function("document.querySelectorAll('.seat .seat-card').length >= 3", timeout=20000)
+        # The deterministic fixture activates two bots globally, not two bots
+        # at every table. micro-a currently has one bot, so this hand is the
+        # viewer plus that bot.
+        page.wait_for_function("document.querySelectorAll('.seat .seat-card').length >= 2", timeout=20000)
         assert page.locator(".viewer-seat .player-cards .card:not(.back)").count() == 2
         assert page.locator("#readyPanel").is_hidden()
 
@@ -82,6 +85,7 @@ def test_mobile_online_flow(online_server: str):
         page.goto(f"{online_server}/static/profile.html", wait_until="domcontentloaded")
         page.wait_for_function("document.querySelector('#profileName')?.textContent === 'Dev Player'", timeout=10000)
         page.locator("#handHistory .history-row").first.wait_for(state="visible")
+        page.get_by_role("tab", name="Операции").click()
         page.locator("#ledger .history-row").first.wait_for(state="visible")
         page.locator("#returnToTable").click()
         page.wait_for_url("**/table?table=*")

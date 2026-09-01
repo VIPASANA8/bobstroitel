@@ -1,0 +1,111 @@
+# CASE8 P2P partner contract
+
+Source: private repository `VIPASANA8/case8`, commit
+`8173c733d71f012537cb08d035777fe9e04b9f83`. This document records only what
+is present in that pinned source. The partner is not named there and no public
+API documentation or real sandbox URL is committed.
+
+## Pilot boundary
+
+- Poker8 accepts only `RUB` fiat deposits in the first pilot.
+- Fiat withdrawal is out of scope; withdrawal remains USDT TRC20.
+- Confirmed USDT is credited through the existing `CashLedger` at
+  `1 USDT = 10 CASH`.
+- The CASE8 `mock` gateway is the only verified sandbox substitute. A real
+  partner environment cannot be enabled until its URL, token and certificate
+  are supplied and checked independently.
+
+## Partner HTTP protocol
+
+All partner calls send `X-Token: <token>`. CASE8 does not sign requests and the
+partner does not call a webhook. Completion is received by outbound long
+polling. Poker8 must therefore preserve a durable poll offset and durable raw
+events instead of inventing a webhook contract.
+
+| Operation | Request | Verified response |
+|---|---|---|
+| Create order | `POST /order?amount=<integer>&currency=RUB` | `204` means no trader. Success JSON accepts upper- or lower-case keys: `ID`, `Amount`, `Method`, `Expires`, optional `Username`. |
+| Business/health data | `GET /me` | `ID`, `Title`, `Fee`, `CreatedAt`, `Deposit`. |
+| User paid / cancel | `POST /notify?order_id=<integer>&cancel=false|true` | Any successful HTTP response; the call itself never credits CASH. |
+| Poll outcomes | `GET /events?offset=<integer>` | `204` means no events. Success is a JSON list. Every usable item has integer `ID`, string `Status`, and integer `OrderID`. |
+
+CASE8 represents requested USDT in integer hundredths: `2000` means 20.00 USDT
+and its accepted range is 20.00–1000.00 USDT. The partner's returned `Amount`
+is an integer fiat amount, but the pinned source does not define whether it is
+whole RUB or minor units. Poker8 must not guess this unit; the sandbox contract
+or partner documentation must confirm it before real orders are enabled.
+
+`Expires` accepts ISO-8601, with or without a timezone; Poker8 will normalize
+it to UTC. `Method` contains the payment requisites shown to the user.
+
+## Event statuses
+
+| Partner status | Poker8 meaning |
+|---|---|
+| `WaitingUser` | Informational; advance the offset, keep waiting for the user. |
+| `WaitingTrader` | Informational; advance the offset, keep waiting for the trader. |
+| `Expired` | Terminal failure, no credit. |
+| `Clarifying` | Manual review; retain optional `Reason`/`Message`, no credit. |
+| `CanceledByUser` | Terminal cancellation, no credit. |
+| `CanceledByTrader` | Terminal cancellation, no credit. |
+| `CanceledBySupport` | Terminal cancellation, no credit. |
+| `CompletedByTrader` | Credit the order's originally stored USDT amount once. |
+| `CompletedBySupport` | Credit the order's originally stored USDT amount once. |
+
+The gateway also parses four legacy event shapes (`RequestAccepted`,
+`RequestExpired`, `OrderExpired`, `OrderFinished`). They are compatibility
+input only. New Poker8 rows use the current status protocol above.
+
+An unknown or malformed event is a poison event: do not advance beyond it and
+raise an operator-visible reconciliation incident. The offset is committed
+only after the corresponding order transition and ledger posting commit.
+Duplicate delivery is expected and must remain harmless.
+
+## Timeouts and failures
+
+- order and notify deadline: 5 seconds;
+- event long poll: 35 seconds;
+- at most three retries for order/notify, within the same total deadline;
+- `409`, `429`, and `503` from `/events` are transient;
+- `Retry-After` is used when it is an integer, otherwise the retry is 5 seconds;
+- `400`, `422`, and `500` are surfaced for operator attention;
+- network timeout never changes a balance and never proves cancellation.
+
+The pinned source defaults `PARTNER_TLS_VERIFY=false` and comments that the
+current endpoint uses a self-signed certificate on an IP address. Poker8 will
+not carry that setting over. TLS verification is mandatory; a real adapter is
+disabled until the partner supplies a hostname and trusted certificate (or a
+separately approved certificate-pinning design).
+
+## Internal order model
+
+Store at least: local UUID, content-bound request key, user/tenant, currency,
+requested USDT micros, partner order ID, fiat amount and its unit, payment
+requisites, optional trader username, commission snapshot, expiry, state,
+last error, timestamps and version. Only one active RUB order per user is
+allowed. A repeated request key with different content is a conflict.
+
+The minimal states are `created`, `trader_found`, `user_confirmed`,
+`awaiting_result`, `clarifying`, `completed`, `cancelled`, `expired`, and
+`failed`. The user button records confirmation and calls `/notify`; only a
+durable `CompletedByTrader` or `CompletedBySupport` event may post funds.
+
+CASE8 contains an ambiguity around commission: it adds commission to the USDT
+amount sent to `/order`, then also derives a fiat commission from the returned
+amount for display. Poker8 must store one explicit quote snapshot and charge
+the user exactly the displayed RUB total. No commission formula is copied
+until the partner confirms what `Amount` already includes.
+
+## Pinned evidence
+
+- partner transport: `pservice-master/infrastructure/partner_gateways/current_partner/gateway.py`;
+- configuration and unsafe TLS default: `pservice-master/config.py`;
+- internal routes and service-key auth: `pservice-master/api/routes/payments.py`,
+  `pservice-master/api/routes/orders.py`, `pservice-master/api/dependencies.py`;
+- order states and transitions: `pservice-master/domain/enums/order_status.py`,
+  `pservice-master/domain/entities/payment_order.py`;
+- completion and reconciliation ordering:
+  `pservice-master/application/use_cases/process_partner_event.py`,
+  `pservice-master/infrastructure/polling/long_poll_worker.py`;
+- local sandbox substitute:
+  `pservice-master/infrastructure/partner_gateways/mock_gateway.py`.
