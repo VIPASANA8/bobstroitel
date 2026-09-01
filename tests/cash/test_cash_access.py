@@ -11,6 +11,19 @@ def test_cash_mode_is_off_by_default_and_mock_is_isolated():
     assert Settings.from_mapping({}).cash_mode == "off"
     assert Settings.from_mapping({}).legacy_play_rooms_enabled is False
     assert Settings.from_mapping({"POKER8_ENV": "test", "POKER8_CASH_MODE": "mock"}).cash_mode == "mock"
+
+
+def test_optional_cash_allowlist_is_strictly_parsed_and_enforced():
+    settings = Settings.from_mapping({
+        "POKER8_ENV": "test", "POKER8_CASH_MODE": "mock",
+        "POKER8_CASH_ALLOWLIST": "101, 202",
+    })
+    assert settings.cash_allowlist == (101, 202)
+    ensure_cash_access("mock", "telegram", 101, settings.cash_allowlist)
+    with pytest.raises(CashAccessDenied, match="allowlist"):
+        ensure_cash_access("mock", "telegram", 303, settings.cash_allowlist)
+    with pytest.raises(ValueError, match="positive Telegram IDs"):
+        Settings.from_mapping({"POKER8_CASH_ALLOWLIST": "101,nope"})
     for values in (
         {"POKER8_ENV": "production", "POKER8_DATABASE_URL": "postgresql+psycopg://db/poker", "POKER8_DEFAULT_BOT_TOKEN": "x", "POKER8_CASH_MODE": "mock"},
         {"POKER8_CASH_MODE": "live"}, {"POKER8_CASH_MODE": "yes"},

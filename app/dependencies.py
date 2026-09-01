@@ -58,7 +58,10 @@ async def get_cash_user(
     request: Request, user: AuthenticatedUser = Depends(get_current_user),
 ) -> AuthenticatedUser:
     try:
-        ensure_cash_access(request.app.state.settings.cash_mode, user.auth_method)
+        ensure_cash_access(
+            request.app.state.settings.cash_mode, user.auth_method,
+            user.telegram_user_id, getattr(request.app.state.settings, "cash_allowlist", ()),
+        )
     except CashAccessDenied as exc:
         status = 404 if request.app.state.settings.cash_mode == "off" else 403
         raise HTTPException(status_code=status, detail=str(exc)) from exc
@@ -103,7 +106,10 @@ async def require_play_table_user(
         raise HTTPException(status_code=404, detail="table not found")
     if asset == CASH_USDT:
         try:
-            ensure_cash_access(request.app.state.settings.cash_mode, user.auth_method)
+            ensure_cash_access(
+                request.app.state.settings.cash_mode, user.auth_method,
+                user.telegram_user_id, getattr(request.app.state.settings, "cash_allowlist", ()),
+            )
         except CashAccessDenied as exc:
             status = 404 if request.app.state.settings.cash_mode == "off" else 403
             raise HTTPException(status_code=status, detail=str(exc)) from exc

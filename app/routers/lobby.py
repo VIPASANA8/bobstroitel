@@ -28,7 +28,10 @@ def _cash_gate(request: Request, user: AuthenticatedUser, asset: str) -> None:
     if asset != CASH_USDT:
         return
     try:
-        ensure_cash_access(request.app.state.settings.cash_mode, user.auth_method)
+        ensure_cash_access(
+            request.app.state.settings.cash_mode, user.auth_method,
+            user.telegram_user_id, getattr(request.app.state.settings, "cash_allowlist", ()),
+        )
     except CashAccessDenied as exc:
         status = 404 if request.app.state.settings.cash_mode == "off" else 403
         raise HTTPException(status_code=status, detail=str(exc)) from exc

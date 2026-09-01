@@ -168,7 +168,10 @@ async def table_socket(websocket: WebSocket, table_id: str) -> None:
     asset = table["asset"]
     if asset == CASH_USDT:
         try:
-            ensure_cash_access(websocket.app.state.settings.cash_mode, user.auth_method)
+            ensure_cash_access(
+                websocket.app.state.settings.cash_mode, user.auth_method,
+                user.telegram_user_id, getattr(websocket.app.state.settings, "cash_allowlist", ()),
+            )
         except CashAccessDenied:
             await websocket.close(code=4403)
             return

@@ -19,6 +19,7 @@ class Settings:
     self_top_up_enabled: bool
     seat_idle_bots: bool
     cash_mode: str
+    cash_allowlist: tuple[int, ...]
     cash_admin_api_key: str
     cash_admin_operators: tuple[dict[str, object], ...]
     legacy_play_rooms_enabled: bool
@@ -52,6 +53,13 @@ class Settings:
         cash_mode = source.get("POKER8_CASH_MODE", "off").strip().lower()
         if cash_mode not in {"off", "mock"} or (cash_mode == "mock" and environment not in {"development", "test"}):
             raise ValueError("POKER8_CASH_MODE must be off, or mock in development/test")
+        raw_cash_allowlist = source.get("POKER8_CASH_ALLOWLIST", "").strip()
+        try:
+            cash_allowlist = tuple(int(value.strip()) for value in raw_cash_allowlist.split(",") if value.strip())
+        except ValueError as exc:
+            raise ValueError("POKER8_CASH_ALLOWLIST must contain positive Telegram IDs") from exc
+        if any(value <= 0 for value in cash_allowlist) or len(set(cash_allowlist)) != len(cash_allowlist):
+            raise ValueError("POKER8_CASH_ALLOWLIST must contain unique positive Telegram IDs")
         raw_legacy_rooms = source.get("POKER8_LEGACY_PLAY_ROOMS", "0").strip().lower()
         cash_admin_api_key = source.get("POKER8_CASH_ADMIN_API_KEY", "").strip()
         raw_cash_operators = source.get("POKER8_CASH_ADMIN_OPERATORS_JSON", "[]").strip()
@@ -123,6 +131,7 @@ class Settings:
             self_top_up_enabled=raw_self_top_up in {"1", "true", "yes", "on"},
             seat_idle_bots=raw_seat_idle_bots in {"1", "true", "yes", "on"},
             cash_mode=cash_mode,
+            cash_allowlist=cash_allowlist,
             cash_admin_api_key=cash_admin_api_key,
             cash_admin_operators=cash_admin_operators,
             legacy_play_rooms_enabled=(
