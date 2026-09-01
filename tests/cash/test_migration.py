@@ -70,7 +70,7 @@ async def test_all_upgrades_on_empty_schema_keep_cash_disabled(cash_db):
         async with session.begin():
             conn = await session.connection()
             await conn.run_sync(upgrade_all)
-            for name in ("cash_accounts", "cash_transactions", "cash_entries", "cash_deposits", "cash_payment_events", "cash_withdrawals"):
+            for name in ("cash_accounts", "cash_transactions", "cash_entries", "cash_deposits", "cash_payment_events", "cash_withdrawals", "cash_operators", "cash_audit_events"):
                 assert await session.scalar(sa.text(f'SELECT count(*) FROM "{name}"')) == 0
 
 
@@ -89,6 +89,15 @@ async def test_c2c_downgrade_refuses_payment_history(cash_db):
             with pytest.raises(RuntimeError, match="payment history"):
                 await conn.run_sync(lambda sync: migrate(sync, "downgrade", "20260901_0017"))
             assert await session.scalar(sa.text("SELECT count(*) FROM cash_deposits")) == 1
+
+
+async def test_operator_downgrade_refuses_roles_even_before_first_decision(cash_db):
+    async with cash_db() as session:
+        async with session.begin():
+            conn = await session.connection()
+            with pytest.raises(RuntimeError, match="audit or roles"):
+                await conn.run_sync(lambda sync: migrate(sync, "downgrade", "20260901_0018"))
+            assert await session.scalar(sa.text("SELECT count(*) FROM cash_operators")) == 4
 
 
 async def test_downgrade_blocks_writers_before_checking_for_cash_data(cash_db):

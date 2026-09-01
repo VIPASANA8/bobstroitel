@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, Header, HTTPException, Request
 from sqlalchemy import select
 
-from cash.access import CashAccessDenied, ensure_cash_access
+from cash.access import CashAccessDenied, CashOperator, ensure_cash_access
 from online.catalogue import CASH_USDT
-from online.schema import auth_sessions, poker_tables, users
+from online.schema import auth_sessions, cash_operators, poker_tables, users
 
 
 @dataclass(frozen=True)
@@ -62,6 +63,33 @@ async def get_cash_user(
         status = 404 if request.app.state.settings.cash_mode == "off" else 403
         raise HTTPException(status_code=status, detail=str(exc)) from exc
     return user
+
+
+async def get_cash_operator(
+    request: Request,
+    api_key: str | None = Header(default=None, alias="X-Cash-Admin-Key"),
+    actor_id: str | None = Header(default=None, alias="X-Cash-Operator-Telegram-Id"),
+) -> CashOperator:
+    settings = request.app.state.settings
+    if settings.cash_mode != "mock":
+        raise HTTPException(status_code=404, detail="cash operator control is disabled")
+    expected = settings.cash_admin_api_key
+    if not expected:
+        raise HTTPException(status_code=503, detail="cash operator authentication is not configured")
+    if not api_key or not hmac.compare_digest(api_key, expected):
+        raise HTTPException(status_code=401, detail="invalid cash operator service key")
+    try:
+        telegram_user_id = int(actor_id or "")
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail="invalid cash operator identity") from exc
+    async with request.app.state.session_factory() as session:
+        row = (await session.execute(select(cash_operators).where(
+            cash_operators.c.telegram_user_id == telegram_user_id,
+            cash_operators.c.active.is_(True),
+        ))).mappings().first()
+    if row is None:
+        raise HTTPException(status_code=403, detail="cash operator is not active")
+    return CashOperator(row["id"], row["telegram_user_id"], row["tenant_id"], row["role"])
 
 
 async def require_play_table_user(

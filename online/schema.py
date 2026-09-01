@@ -533,7 +533,7 @@ cash_payment_events = Table(
     UniqueConstraint("provider", "external_event_id", name="uq_cash_payment_event_external"),
     UniqueConstraint("provider", "tx_hash", "event_index", name="uq_cash_payment_event_chain"),
     CheckConstraint("amount_micros > 0", name="ck_cash_payment_event_amount"),
-    CheckConstraint("status IN ('observed','processed','review_required')", name="ck_cash_payment_event_status"),
+    CheckConstraint("status IN ('observed','processed','review_required','resolved_credited','resolved_rejected')", name="ck_cash_payment_event_status"),
 )
 
 cash_withdrawals = Table(
@@ -561,3 +561,36 @@ cash_withdrawals = Table(
     CheckConstraint("fee_micros >= 0", name="ck_cash_withdrawal_fee"),
     CheckConstraint("status IN ('requested','reserved','approved','sending','submitted','confirmed','rejected','cancelled','unknown')", name="ck_cash_withdrawal_status"),
 )
+
+cash_operators = Table(
+    "cash_operators", metadata,
+    Column("id", String(64), primary_key=True),
+    Column("telegram_user_id", BIGINT, nullable=False, unique=True),
+    Column("tenant_id", String(64), ForeignKey("tenants.id")),
+    Column("role", String(16), nullable=False),
+    Column("active", Boolean, nullable=False, server_default=text("true")),
+    Column("created_at", timestamp, **created_at),
+    Column("updated_at", timestamp, **created_at),
+    CheckConstraint("role IN ('reviewer','operator','admin')", name="ck_cash_operator_role"),
+    CheckConstraint("role = 'admin' OR tenant_id IS NOT NULL", name="ck_cash_operator_scope"),
+)
+
+cash_audit_events = Table(
+    "cash_audit_events", metadata,
+    Column("id", String(64), primary_key=True),
+    Column("operator_id", String(64), ForeignKey("cash_operators.id"), nullable=False),
+    Column("actor_telegram_user_id", BIGINT, nullable=False),
+    Column("tenant_id", String(64), ForeignKey("tenants.id")),
+    Column("action", String(64), nullable=False),
+    Column("target_type", String(32), nullable=False),
+    Column("target_id", String(64), nullable=False),
+    Column("reason", String(500), nullable=False),
+    Column("idempotency_key", String(200), nullable=False),
+    Column("request_hash", String(64), nullable=False),
+    Column("before_json", JSON, nullable=False),
+    Column("after_json", JSON, nullable=False),
+    Column("created_at", timestamp, **created_at),
+    UniqueConstraint("operator_id", "idempotency_key", name="uq_cash_audit_operator_key"),
+    CheckConstraint("length(reason) >= 3", name="ck_cash_audit_reason"),
+)
+Index("ix_cash_audit_tenant_time", cash_audit_events.c.tenant_id, cash_audit_events.c.created_at)

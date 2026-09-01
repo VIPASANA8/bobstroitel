@@ -9,7 +9,7 @@ from online.config import Settings
 
 def test_all_user_cash_routes_use_cash_identity_gate():
     app = create_app(Settings.from_mapping({"POKER8_ENV": "development"}))
-    routes = [route for route in app.routes if isinstance(route, APIRoute) and route.path.startswith("/api/cash")]
+    routes = [route for route in app.routes if isinstance(route, APIRoute) and route.path.startswith("/api/cash/")]
     assert {route.path for route in routes} == {
         "/api/cash/wallet", "/api/cash/deposits", "/api/cash/deposits/{deposit_id}",
         "/api/cash/deposits/{deposit_id}/cancel", "/api/cash/deposits/{deposit_id}/paid",

@@ -1,0 +1,67 @@
+import json
+from io import BytesIO
+from urllib.error import HTTPError
+
+import pytest
+
+from admin_bot.client import AdminAPIError, CashAdminClient
+from admin_bot.config import BotConfig
+from admin_bot.formatting import queue_messages
+
+
+class Response:
+    def __init__(self, body):
+        self.body = json.dumps(body).encode()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        pass
+
+    def read(self):
+        return self.body
+
+
+def test_client_sends_service_identity_actor_and_idempotency_key():
+    captured = {}
+
+    def opener(request, timeout):
+        captured.update(headers=dict(request.header_items()), url=request.full_url,
+                        body=json.loads(request.data), timeout=timeout)
+        return Response({"status": "approved"})
+
+    client = CashAdminClient("https://poker.example", "secret", opener=opener)
+    result = client.decide(1001, "approve", "withdrawal-id", {"reason": "checked"}, key="command-1")
+    assert result["status"] == "approved"
+    assert captured["headers"]["X-cash-admin-key"] == "secret"
+    assert captured["headers"]["X-cash-operator-telegram-id"] == "1001"
+    assert captured["headers"]["Idempotency-key"] == "command-1"
+    assert captured["body"] == {"reason": "checked"}
+
+
+def test_client_surfaces_backend_denial():
+    def opener(_request, timeout):
+        raise HTTPError("url", 403, "Forbidden", {}, BytesIO(b'{"detail":"denied"}'))
+
+    with pytest.raises(AdminAPIError) as denied:
+        CashAdminClient("https://poker.example", "secret", opener=opener).me(999)
+    assert denied.value.status == 403
+
+
+def test_bot_refuses_plain_http_outside_localhost(monkeypatch):
+    monkeypatch.setenv("POKER8_CASH_ADMIN_BOT_TOKEN", "token")
+    monkeypatch.setenv("POKER8_CASH_ADMIN_API_KEY", "secret")
+    monkeypatch.setenv("POKER8_CASH_ADMIN_API_URL", "http://poker.example")
+    with pytest.raises(ValueError, match="HTTPS"):
+        BotConfig.from_env()
+
+
+def test_queue_format_keeps_money_and_identifiers_visible():
+    messages = queue_messages({"withdrawals": [{
+        "id": "w1", "status": "unknown", "user_id": "alice", "amount_micros": 1_250_000,
+        "destination_address": "TWallet",
+    }], "payment_reviews": [], "paused_tables": []})
+    assert len(messages) == 1
+    assert "1.25 USDT" in messages[0][3]
+    assert "unknown" in messages[0][3]

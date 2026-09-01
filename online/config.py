@@ -19,6 +19,8 @@ class Settings:
     self_top_up_enabled: bool
     seat_idle_bots: bool
     cash_mode: str
+    cash_admin_api_key: str
+    cash_admin_operators: tuple[dict[str, object], ...]
     legacy_play_rooms_enabled: bool
     dev_profiles: dict[int, str]
     tenant_configs: dict[str, dict[str, object]] = field(default_factory=dict)
@@ -51,6 +53,31 @@ class Settings:
         if cash_mode not in {"off", "mock"} or (cash_mode == "mock" and environment not in {"development", "test"}):
             raise ValueError("POKER8_CASH_MODE must be off, or mock in development/test")
         raw_legacy_rooms = source.get("POKER8_LEGACY_PLAY_ROOMS", "0").strip().lower()
+        cash_admin_api_key = source.get("POKER8_CASH_ADMIN_API_KEY", "").strip()
+        raw_cash_operators = source.get("POKER8_CASH_ADMIN_OPERATORS_JSON", "[]").strip()
+        try:
+            parsed_cash_operators = json.loads(raw_cash_operators)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("POKER8_CASH_ADMIN_OPERATORS_JSON must be a JSON array") from exc
+        if not isinstance(parsed_cash_operators, list):
+            raise ValueError("POKER8_CASH_ADMIN_OPERATORS_JSON must be a JSON array")
+        cash_admin_operators = tuple(parsed_cash_operators)
+        if not all(isinstance(item, dict) for item in cash_admin_operators):
+            raise ValueError("POKER8_CASH_ADMIN_OPERATORS_JSON must be a JSON array of objects")
+        if cash_admin_operators and not cash_admin_api_key:
+            raise ValueError("POKER8_CASH_ADMIN_API_KEY is required when cash operators are configured")
+        if cash_admin_api_key and len(cash_admin_api_key) < 16:
+            raise ValueError("POKER8_CASH_ADMIN_API_KEY must contain at least 16 characters")
+        for item in cash_admin_operators:
+            try:
+                telegram_id = int(item["telegram_user_id"])
+                role = str(item["role"]).lower()
+            except (KeyError, TypeError, ValueError) as exc:
+                raise ValueError("cash operator requires telegram_user_id and role") from exc
+            if telegram_id <= 0 or role not in {"reviewer", "operator", "admin"}:
+                raise ValueError("cash operator has an invalid Telegram ID or role")
+            if role != "admin" and not str(item.get("tenant_slug") or "").strip():
+                raise ValueError("non-admin cash operator requires tenant_slug")
         database_url = source.get("POKER8_DATABASE_URL", "").strip()
         bot_token = source.get("POKER8_DEFAULT_BOT_TOKEN", "").strip() or None
         if environment == "production" and not database_url:
@@ -96,6 +123,8 @@ class Settings:
             self_top_up_enabled=raw_self_top_up in {"1", "true", "yes", "on"},
             seat_idle_bots=raw_seat_idle_bots in {"1", "true", "yes", "on"},
             cash_mode=cash_mode,
+            cash_admin_api_key=cash_admin_api_key,
+            cash_admin_operators=cash_admin_operators,
             legacy_play_rooms_enabled=(
                 environment in {"development", "test"}
                 and raw_legacy_rooms in {"1", "true", "yes", "on"}

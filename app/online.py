@@ -11,7 +11,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, text
 
-from app.routers import auth, cash, chat, config, health, lobby, profiles, realtime, tables
+from app.routers import auth, cash, cash_admin, chat, config, health, lobby, profiles, realtime, tables
+from cash.admin import CashAdminService
 from cash.deposits import DepositService
 from cash.wallet import WalletService
 from cash.withdrawals import WithdrawalService
@@ -26,12 +27,12 @@ from online.runtime import TableRuntimeManager
 from online.seating import SeatingService
 from online.chat import ChatService
 from online.history import HistoryService
-from online.schema import metadata, tenant_bots, tenants
+from online.schema import cash_operators, metadata, tenant_bots, tenants
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
-EXPECTED_MIGRATION_REVISION = "20260901_0017"
+EXPECTED_MIGRATION_REVISION = "20260901_0018"
 
 # Revalidate every time. Without it these responses carry an ETag and a
 # Last-Modified but no Cache-Control at all, which puts a browser into
@@ -78,6 +79,28 @@ async def _ensure_foundation(session_factory, settings: Settings) -> None:
                             secret_ref=f"POKER8_{slug.upper()}_BOT_TOKEN", enabled=True,
                         ))
 
+            for raw in settings.cash_admin_operators:
+                telegram_id = int(raw["telegram_user_id"])
+                role = str(raw["role"]).lower()
+                tenant_slug = str(raw.get("tenant_slug") or "")
+                if role not in {"reviewer", "operator", "admin"}:
+                    raise ValueError("cash operator role must be reviewer, operator, or admin")
+                tenant_id = None
+                if tenant_slug:
+                    tenant_id = await session.scalar(select(tenants.c.id).where(tenants.c.slug == tenant_slug))
+                    if tenant_id is None:
+                        raise ValueError("cash operator references an unknown tenant")
+                if role != "admin" and tenant_id is None:
+                    raise ValueError("non-admin cash operator requires tenant_slug")
+                exists = await session.scalar(select(cash_operators.c.id).where(
+                    cash_operators.c.telegram_user_id == telegram_id
+                ))
+                if exists is None:
+                    await session.execute(cash_operators.insert().values(
+                        id=f"cash-operator-{telegram_id}", telegram_user_id=telegram_id,
+                        tenant_id=tenant_id, role=role, active=True,
+                    ))
+
 
 def create_app(
     settings: Settings,
@@ -118,6 +141,7 @@ def create_app(
         app.state.cash_deposits = DepositService(session_factory)
         app.state.cash_withdrawals = WithdrawalService(session_factory)
         app.state.cash_wallet = WalletService(session_factory)
+        app.state.cash_admin = CashAdminService(session_factory)
         await app.state.runtime.restore_all()
         await app.state.seating.hold_all_users(datetime.now(timezone.utc))
         if fixture is not None:
@@ -173,6 +197,7 @@ def create_app(
     app.include_router(chat.router)
     app.include_router(config.router)
     app.include_router(cash.router)
+    app.include_router(cash_admin.router)
 
     @app.get("/")
     async def index():

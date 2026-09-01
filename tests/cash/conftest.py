@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool, StaticPool
 
 from online.schema import (
-    cash_accounts, metadata, play_accounts, tenants, users,
+    cash_accounts, cash_operators, metadata, play_accounts, tenants, users,
 )
 
 
@@ -76,6 +76,7 @@ async def cash_db(request, anyio_backend):
             selected = [tenants, users, play_accounts] if schema_state == "historical" else None
             await conn.run_sync(lambda sync: metadata.create_all(sync, tables=selected))
             await conn.execute(tenants.insert().values(id="tenant", slug="cash-test", name="Test"))
+            await conn.execute(tenants.insert().values(id="tenant-other", slug="other", name="Other"))
             await conn.execute(users.insert(), [
                 {"id": "alice", "telegram_user_id": 1, "display_name": "Alice", "acquisition_tenant_id": "tenant"},
                 {"id": "bob", "telegram_user_id": 2, "display_name": "Bob", "acquisition_tenant_id": "tenant"},
@@ -91,6 +92,12 @@ async def cash_db(request, anyio_backend):
                     {"id": "bob-wallet", "kind": "available", "user_id": "bob", "reference_id": "bob"},
                     {"id": "alice-seat", "kind": "escrow", "user_id": "alice", "reference_id": "occupancy-1"},
                     {"id": "alice-withdraw", "kind": "withdrawal", "user_id": "alice", "reference_id": "withdrawal-1"},
+                ])
+                await conn.execute(cash_operators.insert(), [
+                    {"id": "operator", "telegram_user_id": 1001, "tenant_id": "tenant", "role": "operator"},
+                    {"id": "reviewer", "telegram_user_id": 1002, "tenant_id": "tenant", "role": "reviewer"},
+                    {"id": "other-operator", "telegram_user_id": 1003, "tenant_id": "tenant-other", "role": "operator"},
+                    {"id": "global-admin", "telegram_user_id": 1004, "tenant_id": None, "role": "admin"},
                 ])
         yield factory
     finally:
