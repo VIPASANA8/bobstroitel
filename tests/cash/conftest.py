@@ -4,10 +4,10 @@ import re
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import event, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-from sqlalchemy.pool import NullPool
+from sqlalchemy.pool import NullPool, StaticPool
 
 from online.schema import (
     cash_accounts, metadata, play_accounts, tenants, users,
@@ -17,6 +17,33 @@ from online.schema import (
 @pytest.fixture
 def anyio_backend():
     return "asyncio", {"loop_factory": asyncio.SelectorEventLoop}
+
+
+@pytest.fixture
+def db_session_factory():
+    engine = create_async_engine(
+        "sqlite+aiosqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool,
+    )
+
+    @event.listens_for(engine.sync_engine, "connect")
+    def _foreign_keys(dbapi_connection, _record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+    async def setup():
+        async with engine.begin() as connection:
+            await connection.run_sync(metadata.create_all)
+
+    asyncio.run(setup())
+    try:
+        yield async_sessionmaker(engine, expire_on_commit=False)
+    finally:
+        async def teardown():
+            async with engine.begin() as connection:
+                await connection.run_sync(metadata.drop_all)
+            await engine.dispose()
+        asyncio.run(teardown())
 
 
 @pytest.fixture

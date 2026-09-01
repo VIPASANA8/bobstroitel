@@ -71,9 +71,11 @@ auth_sessions = Table(
     Column("user_id", String(64), ForeignKey("users.id"), nullable=False),
     Column("tenant_id", String(64), ForeignKey("tenants.id"), nullable=False),
     Column("token_hash", String(64), nullable=False, unique=True),
+    Column("auth_method", String(16), nullable=False, server_default=text("'legacy'")),
     Column("expires_at", timestamp, nullable=False),
     Column("revoked_at", timestamp),
     Column("created_at", timestamp, **created_at),
+    CheckConstraint("auth_method IN ('telegram', 'dev', 'guest', 'legacy')", name="ck_auth_sessions_method"),
 )
 
 system_players = Table(
@@ -134,6 +136,7 @@ poker_tables = Table(
     Column("id", String(64), primary_key=True),
     Column("tenant_id", String(64), ForeignKey("tenants.id")),
     Column("scope", String(32), nullable=False),
+    Column("asset", String(16), nullable=False, server_default=text("'PLAY'")),
     Column("name", String(200), nullable=False),
     Column("small_blind_units", BIGINT, nullable=False),
     Column("big_blind_units", BIGINT, nullable=False),
@@ -154,6 +157,7 @@ poker_tables = Table(
     Column("created_at", timestamp, **created_at),
     Column("updated_at", timestamp, **created_at),
     CheckConstraint("scope IN ('network', 'tenant')"),
+    CheckConstraint("asset IN ('PLAY', 'CASH_USDT')", name="ck_poker_tables_asset"),
     CheckConstraint("max_seats = 6"),
     CheckConstraint("visibility IN ('public', 'link')", name="ck_poker_tables_visibility"),
 )

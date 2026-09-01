@@ -18,6 +18,8 @@ class Settings:
     open_access: bool
     self_top_up_enabled: bool
     seat_idle_bots: bool
+    cash_mode: str
+    legacy_play_rooms_enabled: bool
     dev_profiles: dict[int, str]
     tenant_configs: dict[str, dict[str, object]] = field(default_factory=dict)
 
@@ -45,6 +47,10 @@ class Settings:
         # unchanged; turning it back on is deleting one line from
         # compose.server.yaml.
         raw_seat_idle_bots = source.get("POKER8_SEAT_IDLE_BOTS", "1").strip().lower()
+        cash_mode = source.get("POKER8_CASH_MODE", "off").strip().lower()
+        if cash_mode not in {"off", "mock"} or (cash_mode == "mock" and environment not in {"development", "test"}):
+            raise ValueError("POKER8_CASH_MODE must be off, or mock in development/test")
+        raw_legacy_rooms = source.get("POKER8_LEGACY_PLAY_ROOMS", "0").strip().lower()
         database_url = source.get("POKER8_DATABASE_URL", "").strip()
         bot_token = source.get("POKER8_DEFAULT_BOT_TOKEN", "").strip() or None
         if environment == "production" and not database_url:
@@ -89,6 +95,11 @@ class Settings:
             open_access=environment != "production" and raw_open_access in {"1", "true", "yes", "on"},
             self_top_up_enabled=raw_self_top_up in {"1", "true", "yes", "on"},
             seat_idle_bots=raw_seat_idle_bots in {"1", "true", "yes", "on"},
+            cash_mode=cash_mode,
+            legacy_play_rooms_enabled=(
+                environment in {"development", "test"}
+                and raw_legacy_rooms in {"1", "true", "yes", "on"}
+            ),
             dev_profiles=profiles,
             tenant_configs=tenant_configs,
         )

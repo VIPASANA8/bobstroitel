@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.dependencies import AuthenticatedUser, get_current_user
-from online.catalogue import ROOM_BLIND_LEVELS, ROOM_NAME_MAX, ROOM_PASSWORD_MAX, RoomError, RoomLimitReached
+from online.catalogue import PLAY, ROOM_BLIND_LEVELS, ROOM_NAME_MAX, ROOM_PASSWORD_MAX, RoomError, RoomLimitReached
 from online.schema import poker_tables, seat_queue, table_runtimes, table_seats
 
 
@@ -58,6 +58,7 @@ async def current_lobby_session(
                 .where(
                     table_seats.c.user_id == user.user_id,
                     table_seats.c.state.in_(("seated", "held", "leaving")),
+                    poker_tables.c.asset == PLAY,
                 )
                 .order_by(table_seats.c.updated_at.desc())
             )
@@ -79,7 +80,11 @@ async def current_lobby_session(
                     .join(poker_tables, poker_tables.c.id == seat_queue.c.table_id)
                     .outerjoin(table_runtimes, table_runtimes.c.table_id == seat_queue.c.table_id)
                 )
-                .where(seat_queue.c.user_id == user.user_id, seat_queue.c.state == "waiting")
+                .where(
+                    seat_queue.c.user_id == user.user_id,
+                    seat_queue.c.state == "waiting",
+                    poker_tables.c.asset == PLAY,
+                )
                 .order_by(seat_queue.c.created_at.desc())
             )
         ).mappings().first()
@@ -103,9 +108,10 @@ async def quick_play(
 
 
 @router.get("/room-levels")
-async def room_levels(_: AuthenticatedUser = Depends(get_current_user)):
+async def room_levels(request: Request, _: AuthenticatedUser = Depends(get_current_user)):
     """Blind levels a room may be opened at. Bots are not a setting."""
     return {
+        "enabled": request.app.state.settings.legacy_play_rooms_enabled,
         "levels": [
             {"key": key, "small_blind_units": small, "big_blind_units": big}
             for key, (small, big) in ROOM_BLIND_LEVELS.items()
@@ -120,6 +126,11 @@ async def create_room(
     request: Request,
     user: AuthenticatedUser = Depends(get_current_user),
 ):
+    if not request.app.state.settings.legacy_play_rooms_enabled:
+        raise HTTPException(status_code=409, detail={
+            "code": "cash_runtime_pending",
+            "message": "new PLAY rooms are disabled until CASH runtime is ready",
+        })
     try:
         room = await request.app.state.catalogue.create_room(
             user.user_id, payload.name, payload.level, payload.password

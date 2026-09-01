@@ -12,7 +12,7 @@ from online.ledger import PlayLedger
 from online.bot_names import BOT_NAMES
 from online.progression import close_play_session
 from online.schema import play_accounts, poker_tables, seat_queue, system_players, table_runtimes, table_seats
-from online.catalogue import IDLE_BOT_COUNTS, ROOM_SEATS, hash_room_password
+from online.catalogue import IDLE_BOT_COUNTS, PLAY, ROOM_SEATS, hash_room_password
 
 
 # A ready request has to survive the hand that is running when it is made,
@@ -34,6 +34,10 @@ BOT_ARRIVAL_WINDOW = timedelta(minutes=5)
 
 
 class SeatingError(ValueError):
+    pass
+
+
+class CashRuntimeUnavailable(SeatingError):
     pass
 
 
@@ -105,6 +109,7 @@ class SeatingService:
             async with session.begin():
                 now = datetime.now(timezone.utc)
                 table = await self._table(session, table_id)
+                self._require_play(table)
                 if table["password_hash"] and hash_room_password(table_id, password or "") != table["password_hash"]:
                     raise WrongPassword("this room needs a password")
                 if not 0 <= seat_no <= 5:
@@ -193,6 +198,8 @@ class SeatingService:
     async def cancel_ready(self, user_id: str, table_id: str) -> None:
         async with self.session_factory() as session:
             async with session.begin():
+                table = await self._table(session, table_id, lock=True)
+                self._require_play(table)
                 await session.execute(
                     update(seat_queue)
                     .where(
@@ -208,6 +215,7 @@ class SeatingService:
         async with self.session_factory() as session:
             async with session.begin():
                 table = await self._table(session, table_id, lock=True)
+                self._require_play(table)
                 await session.execute(
                     update(seat_queue)
                     .where(
@@ -401,7 +409,13 @@ class SeatingService:
             async with session.begin():
                 await session.execute(
                     update(table_seats)
-                    .where(table_seats.c.occupant_kind == "user", table_seats.c.state == "seated")
+                    .where(
+                        table_seats.c.occupant_kind == "user",
+                        table_seats.c.state == "seated",
+                        table_seats.c.table_id.in_(
+                            select(poker_tables.c.id).where(poker_tables.c.asset == PLAY)
+                        ),
+                    )
                     .values(state="held", disconnected_at=now, hold_until=now + HOLD_WINDOW)
                 )
 
@@ -428,6 +442,8 @@ class SeatingService:
         """
         async with self.session_factory() as session:
             async with session.begin():
+                table = await self._table(session, table_id, lock=True)
+                self._require_play(table)
                 await session.execute(
                     update(table_seats)
                     .where(table_seats.c.table_id == table_id, table_seats.c.user_id == user_id)
@@ -477,6 +493,7 @@ class SeatingService:
         async with self.session_factory() as session:
             async with session.begin():
                 table = await self._table(session, table_id, lock=True)
+                self._require_play(table)
                 runtime_phase = (
                     await session.execute(
                         select(table_runtimes.c.phase).where(table_runtimes.c.table_id == table_id)
@@ -516,6 +533,8 @@ class SeatingService:
         """
         async with self.session_factory() as session:
             async with session.begin():
+                table = await self._table(session, table_id, lock=True)
+                self._require_play(table)
                 await session.execute(
                     update(table_seats)
                     .where(table_seats.c.table_id == table_id, table_seats.c.state != "empty")
@@ -853,6 +872,11 @@ class SeatingService:
         if row is None:
             raise SeatingError("table not found")
         return row
+
+    @staticmethod
+    def _require_play(table) -> None:
+        if table["asset"] != PLAY:
+            raise CashRuntimeUnavailable("CASH runtime is not enabled")
 
     async def _user_seat(self, session: AsyncSession, user_id: str, table_id: str):
         return (

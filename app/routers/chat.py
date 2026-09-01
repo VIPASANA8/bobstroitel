@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from pydantic import BaseModel, Field
 
-from app.dependencies import AuthenticatedUser, get_current_user
+from app.dependencies import AuthenticatedUser, require_play_table_user
 from online.chat import CHAT_TEXT_MAX, ChatError, ChatRateLimited
 
 
@@ -13,13 +13,13 @@ class ChatRequest(BaseModel):
 
 
 @router.get("")
-async def recent_chat(table_id: str, request: Request, limit: int = Query(50, ge=1, le=50), user: AuthenticatedUser = Depends(get_current_user)):
+async def recent_chat(table_id: str, request: Request, limit: int = Query(50, ge=1, le=50), user: AuthenticatedUser = Depends(require_play_table_user)):
     rows = await request.app.state.chat.recent(table_id, limit)
     return {"messages": [{"id": row.id, "user_id": row.user_id, "display_name": row.display_name, "text": row.text, "created_at": row.created_at.isoformat()} for row in rows]}
 
 
 @router.post("")
-async def post_chat(table_id: str, payload: ChatRequest, request: Request, user: AuthenticatedUser = Depends(get_current_user)):
+async def post_chat(table_id: str, payload: ChatRequest, request: Request, user: AuthenticatedUser = Depends(require_play_table_user)):
     try:
         row = await request.app.state.chat.post(table_id, user.user_id, payload.text)
     except ChatRateLimited as exc:

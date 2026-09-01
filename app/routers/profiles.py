@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from app.dependencies import AuthenticatedUser, get_current_user
 from online import missions as missions_module
 from online.achievements import ACHIEVEMENTS
+from online.catalogue import PLAY
 from online.progression import (
     MIN_SESSION_HANDS,
     level_for_xp,
@@ -44,17 +45,23 @@ async def _profile(request: Request, user: AuthenticatedUser) -> dict[str, objec
         ).mappings().one()
         stack_units = (
             await session.execute(
-                select(table_seats.c.stack_units).where(
+                select(table_seats.c.stack_units)
+                .join(poker_tables, poker_tables.c.id == table_seats.c.table_id)
+                .where(
                     table_seats.c.user_id == user.user_id,
                     table_seats.c.state.in_(("seated", "held", "leaving")),
+                    poker_tables.c.asset == PLAY,
                 )
             )
         ).scalars().all()
         active_table_id = (
             await session.execute(
-                select(table_seats.c.table_id).where(
+                select(table_seats.c.table_id)
+                .join(poker_tables, poker_tables.c.id == table_seats.c.table_id)
+                .where(
                     table_seats.c.user_id == user.user_id,
                     table_seats.c.state.in_(("seated", "held", "leaving")),
+                    poker_tables.c.asset == PLAY,
                 ).limit(1)
             )
         ).scalar_one_or_none()

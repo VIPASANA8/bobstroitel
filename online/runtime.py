@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bots.multiway import MultiwayBot
 from bots.persona import persona_for
+from online.catalogue import PLAY
 from online.events import append_integrity_event
 from online.ledger import PlayLedger
 from online.progression import record_hand
@@ -1048,7 +1049,11 @@ class TableRuntimeManager:
 
     async def restore_all(self) -> list[str]:
         async with self.session_factory() as session:
-            rows = (await session.execute(select(table_runtimes))).mappings().all()
+            rows = (await session.execute(
+                select(table_runtimes)
+                .join(poker_tables, poker_tables.c.id == table_runtimes.c.table_id)
+                .where(poker_tables.c.asset == PLAY)
+            )).mappings().all()
         restored = []
         for row in rows:
             state = deserialize_state(row["private_state_json"])
@@ -1152,7 +1157,11 @@ class TableRuntimeManager:
             return loaded
         async with self.session_factory() as session:
             row = (
-                await session.execute(select(table_runtimes).where(table_runtimes.c.table_id == table_id))
+                await session.execute(
+                    select(table_runtimes)
+                    .join(poker_tables, poker_tables.c.id == table_runtimes.c.table_id)
+                    .where(table_runtimes.c.table_id == table_id, poker_tables.c.asset == PLAY)
+                )
             ).mappings().first()
         if row is None:
             return None
@@ -1170,6 +1179,8 @@ class TableRuntimeManager:
         row = (await session.execute(select(poker_tables).where(poker_tables.c.id == table_id))).mappings().first()
         if row is None:
             raise RuntimeErrorBase("table not found")
+        if row["asset"] != PLAY:
+            raise RuntimeErrorBase("CASH runtime is not enabled")
         return row
 
     async def _participant_details(self, session: AsyncSession, seats) -> dict[str, dict[str, str]]:

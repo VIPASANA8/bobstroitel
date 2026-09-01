@@ -53,6 +53,7 @@ async def test_valid_init_data_creates_one_global_user(auth_service):
         "partner-b", signed_init_data(token="token-b")
     )
     assert first.user_id == second.user_id
+    assert first.auth_method == second.auth_method == "telegram"
     assert second.acquisition_tenant_slug == "poker8"
     assert second.access_tenant_slug == "partner-b"
 

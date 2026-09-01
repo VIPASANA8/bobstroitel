@@ -13,6 +13,8 @@ def client(tmp_path):
         "POKER8_ENV": "development",
         "POKER8_DATABASE_URL": f"sqlite+aiosqlite:///{tmp_path / 'rooms.sqlite3'}",
         "POKER8_DEV_PROFILES": "101:Dev Player,102:Second Player",
+        # Legacy behavior is exercised only in this isolated test fixture.
+        "POKER8_LEGACY_PLAY_ROOMS": "1",
     })
     with TestClient(create_app(settings)) as test_client:
         yield test_client

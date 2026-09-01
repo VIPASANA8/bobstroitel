@@ -18,6 +18,8 @@ async def public_config(request: Request):
         # this so it can say so, instead of offering a button with a 404 behind
         # it (the exact trap v022-balance-topup.js was written to avoid).
         "self_top_up_enabled": settings.self_top_up_enabled,
+        "cash_mode": settings.cash_mode,
+        "play_room_creation_enabled": settings.legacy_play_rooms_enabled,
         "tenant": {
             "slug": tenant_slug,
             "name": branding.get("name", "Poker8"),

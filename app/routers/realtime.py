@@ -8,7 +8,8 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from sqlalchemy import select
 
 from app.dependencies import AuthenticatedUser
-from online.schema import auth_sessions, users
+from online.catalogue import PLAY
+from online.schema import auth_sessions, poker_tables, users
 from online.runtime import StaleRevision, TablePaused
 
 
@@ -97,6 +98,7 @@ async def _authenticate(websocket: WebSocket) -> AuthenticatedUser | None:
                     auth_sessions.c.tenant_id,
                     users.c.telegram_user_id,
                     users.c.display_name,
+                    auth_sessions.c.auth_method,
                 )
                 .join(users, users.c.id == auth_sessions.c.user_id)
                 .where(
@@ -123,6 +125,11 @@ async def table_socket(websocket: WebSocket, table_id: str) -> None:
     user = await _authenticate(websocket)
     if user is None:
         await websocket.close(code=4401)
+        return
+    async with websocket.app.state.session_factory() as session:
+        asset = await session.scalar(select(poker_tables.c.asset).where(poker_tables.c.id == table_id))
+    if asset != PLAY:
+        await websocket.close(code=4409)
         return
     await websocket.accept()
     hub: ConnectionHub = websocket.app.state.connection_hub

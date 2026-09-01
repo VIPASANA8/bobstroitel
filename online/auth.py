@@ -52,6 +52,7 @@ class AuthResult:
     display_name: str
     acquisition_tenant_slug: str
     access_tenant_slug: str
+    auth_method: str
 
 
 class AuthService:
@@ -87,6 +88,7 @@ class AuthService:
                 tenant_row,
                 int(telegram_user["id"]),
                 self._display_name(telegram_user),
+                "telegram",
             )
 
     async def authenticate_dev(
@@ -95,7 +97,7 @@ class AuthService:
         async with self.session_factory() as session:
             tenant_row = await self._tenant(session, tenant_slug)
             return await self._authenticate_identity(
-                session, tenant_row, telegram_user_id, display_name
+                session, tenant_row, telegram_user_id, display_name, "dev"
             )
 
     async def authenticate_guest(self, tenant_slug: str) -> AuthResult:
@@ -112,6 +114,7 @@ class AuthService:
                         tenant_row,
                         guest_telegram_id,
                         f"Guest-{secrets.token_hex(3).upper()}",
+                        "guest",
                     )
         raise AuthenticationError("could not allocate a guest identity")
 
@@ -134,7 +137,8 @@ class AuthService:
         return tenant_row
 
     async def _authenticate_identity(
-        self, session: AsyncSession, tenant_row, telegram_user_id: int, display_name: str
+        self, session: AsyncSession, tenant_row, telegram_user_id: int, display_name: str,
+        auth_method: str,
     ) -> AuthResult:
         tenant_slug = tenant_row["slug"]
         now = datetime.fromtimestamp(int(self.now()), tz=timezone.utc)
@@ -198,6 +202,7 @@ class AuthService:
             user_id=user_id,
             tenant_id=tenant_row["id"],
             token_hash=hashlib.sha256(token.encode()).hexdigest(),
+            auth_method=auth_method,
             expires_at=now + timedelta(seconds=self.session_ttl_seconds),
             created_at=now,
         ))
@@ -210,6 +215,7 @@ class AuthService:
             display_name=display_name,
             acquisition_tenant_slug=acquisition_slug,
             access_tenant_slug=tenant_slug,
+            auth_method=auth_method,
         )
 
     @staticmethod

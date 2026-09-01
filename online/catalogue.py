@@ -21,6 +21,10 @@ DEFAULT_TABLES = (
     ("mid-b", "Mid B", 500, 1000),
 )
 
+PLAY = "PLAY"
+CASH_USDT = "CASH_USDT"
+TABLE_ASSETS = {PLAY, CASH_USDT}
+
 
 #: How many bots a lobby table shows while nobody is sitting at it. Everything
 #: not named here uses the usual four.
@@ -86,6 +90,7 @@ class TableSummary:
     id: str
     name: str
     scope: str
+    asset: str
     small_blind_units: int
     big_blind_units: int
     min_buy_in_units: int
@@ -126,6 +131,7 @@ class Catalogue:
                     await session.execute(poker_tables.insert().values(
                         id=table_id,
                         scope="network",
+                        asset=PLAY,
                         name=name,
                         small_blind_units=small_blind,
                         big_blind_units=big_blind,
@@ -169,7 +175,8 @@ class Catalogue:
                     )
 
     async def list_tables(
-        self, page: int = 1, per_page: int = 6, viewer_id: str | None = None
+        self, page: int = 1, per_page: int = 6, viewer_id: str | None = None,
+        asset: str = PLAY,
     ) -> list[TableSummary]:
         """Open tables. With a viewer, only what that viewer may see.
 
@@ -178,9 +185,14 @@ class Catalogue:
         reachable by its URL either way -- visibility governs the listing, not
         the door.
         """
+        if asset not in TABLE_ASSETS:
+            raise ValueError("unknown table asset")
         page = max(1, page)
         per_page = max(1, min(per_page, 100))
-        conditions = [poker_tables.c.scope == "network", poker_tables.c.status == "open"]
+        conditions = [
+            poker_tables.c.scope == "network", poker_tables.c.status == "open",
+            poker_tables.c.asset == asset,
+        ]
         if viewer_id is not None:
             conditions.append(
                 (poker_tables.c.visibility == "public")
@@ -198,11 +210,13 @@ class Catalogue:
             ).mappings().all()
             return [await self._summary(session, row) for row in rows]
 
-    async def quick_play(self, user_id: str, available_units: int) -> TableSummary:
+    async def quick_play(
+        self, user_id: str, available_units: int, *, asset: str = PLAY,
+    ) -> TableSummary:
         # Public and password-free only: quick play is for finding a game, not
         # for wandering into a room somebody opened for their own friends.
         rows = [
-            row for row in await self.list_tables(page=1, per_page=100)
+            row for row in await self.list_tables(page=1, per_page=100, asset=asset)
             if row.visibility == "public" and not row.has_password
         ]
         affordable = [row for row in rows if row.min_buy_in_units <= available_units]
@@ -256,6 +270,7 @@ class Catalogue:
                 await session.execute(poker_tables.insert().values(
                     id=table_id,
                     scope="network",
+                    asset=PLAY,
                     name=name,
                     small_blind_units=small_blind,
                     big_blind_units=big_blind,
@@ -278,6 +293,7 @@ class Catalogue:
                     select(poker_tables).where(
                         poker_tables.c.created_by == user_id,
                         poker_tables.c.status == "open",
+                        poker_tables.c.asset == PLAY,
                     )
                 )
             ).mappings().first()
@@ -296,6 +312,8 @@ class Catalogue:
                 ).mappings().first()
                 if row is None or row["created_by"] is None:
                     raise RoomError("not a player room")
+                if row["asset"] != PLAY:
+                    raise RoomError("not a PLAY room")
                 if user_id is not None and row["created_by"] != user_id:
                     raise RoomError("not your room")
                 await session.execute(
@@ -310,6 +328,7 @@ class Catalogue:
                     select(poker_tables.c.id).where(
                         poker_tables.c.status == "open",
                         poker_tables.c.created_by.is_not(None),
+                        poker_tables.c.asset == PLAY,
                     )
                 )
             ).scalars().all()
@@ -343,6 +362,7 @@ class Catalogue:
             id=row["id"],
             name=row["name"],
             scope=row["scope"],
+            asset=row["asset"],
             small_blind_units=row["small_blind_units"],
             big_blind_units=row["big_blind_units"],
             min_buy_in_units=row["big_blind_units"] * row["min_buy_in_bb"],

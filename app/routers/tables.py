@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from app.dependencies import AuthenticatedUser, get_current_user
+from app.dependencies import AuthenticatedUser, require_play_table_user
 from online.runtime import EMPTY_SNAPSHOT
 from online.schema import poker_tables, seat_queue, table_seats
 from online.seating import AlreadySeated, InsufficientFunds, SeatingError, WrongPassword
@@ -70,7 +70,7 @@ def _error(exc: Exception) -> HTTPException:
 async def table_snapshot(
     table_id: str,
     request: Request,
-    user: AuthenticatedUser = Depends(get_current_user),
+    user: AuthenticatedUser = Depends(require_play_table_user),
 ):
     row = await _table(request, table_id)
     try:
@@ -131,7 +131,7 @@ async def table_snapshot(
 
 
 @router.post("/{table_id}/ready")
-async def ready(table_id: str, payload: ReadyRequest, request: Request, user: AuthenticatedUser = Depends(get_current_user)):
+async def ready(table_id: str, payload: ReadyRequest, request: Request, user: AuthenticatedUser = Depends(require_play_table_user)):
     try:
         result = await request.app.state.seating.ready(
             user.user_id, table_id, payload.seat_no, payload.buy_in_units, payload.password
@@ -148,13 +148,13 @@ async def ready(table_id: str, payload: ReadyRequest, request: Request, user: Au
 
 
 @router.post("/{table_id}/ready/cancel")
-async def cancel_ready(table_id: str, request: Request, user: AuthenticatedUser = Depends(get_current_user)):
+async def cancel_ready(table_id: str, request: Request, user: AuthenticatedUser = Depends(require_play_table_user)):
     await request.app.state.seating.cancel_ready(user.user_id, table_id)
     return {"viewer_state": "spectator", "queue_state": "cancelled"}
 
 
 @router.post("/{table_id}/ready-up")
-async def ready_up(table_id: str, request: Request, user: AuthenticatedUser = Depends(get_current_user)):
+async def ready_up(table_id: str, request: Request, user: AuthenticatedUser = Depends(require_play_table_user)):
     """Toggle ready-to-deal for the caller's own seat -- distinct from
     /ready above, which queues a brand new buy-in, not readiness."""
     seat_no = await request.app.state.seating.user_seat_number(user.user_id, table_id)
@@ -167,7 +167,7 @@ async def ready_up(table_id: str, request: Request, user: AuthenticatedUser = De
 
 
 @router.post("/{table_id}/leave")
-async def leave(table_id: str, request: Request, user: AuthenticatedUser = Depends(get_current_user)):
+async def leave(table_id: str, request: Request, user: AuthenticatedUser = Depends(require_play_table_user)):
     # Fold it now if it's their turn, rather than leaving the hand hanging on
     # the 30s clock. A no-op whenever it isn't actually their turn.
     await request.app.state.runtime.fold_if_acting(table_id, user.user_id)
@@ -180,13 +180,13 @@ async def leave(table_id: str, request: Request, user: AuthenticatedUser = Depen
 
 
 @router.post("/{table_id}/reconnect")
-async def reconnect(table_id: str, request: Request, user: AuthenticatedUser = Depends(get_current_user)):
+async def reconnect(table_id: str, request: Request, user: AuthenticatedUser = Depends(require_play_table_user)):
     await request.app.state.seating.reconnect(user.user_id, table_id)
     return {"viewer_state": "seated"}
 
 
 @router.post("/{table_id}/add-on")
-async def add_on(table_id: str, payload: AddOnRequest, request: Request, user: AuthenticatedUser = Depends(get_current_user)):
+async def add_on(table_id: str, payload: AddOnRequest, request: Request, user: AuthenticatedUser = Depends(require_play_table_user)):
     try:
         await request.app.state.seating.add_on(
             user.user_id, table_id, payload.amount_units, payload.request_id

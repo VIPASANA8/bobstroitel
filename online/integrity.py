@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from online.catalogue import PLAY
 from online.schema import hands, integrity_events, play_accounts, poker_tables, table_runtimes, table_seats
 
 
@@ -85,7 +86,11 @@ class EscrowIntegrityMonitor:
         try:
             async with self.session_factory() as session:
                 await self._warm_open_findings(session)
-                table_ids = (await session.execute(select(poker_tables.c.id))).scalars().all()
+                table_ids = (
+                    await session.execute(
+                        select(poker_tables.c.id).where(poker_tables.c.asset == PLAY)
+                    )
+                ).scalars().all()
                 for table_id in table_ids:
                     findings.extend(await self._table_findings(session, table_id))
 
