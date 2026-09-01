@@ -11,7 +11,10 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, text
 
-from app.routers import auth, chat, config, health, lobby, profiles, realtime, tables
+from app.routers import auth, cash, chat, config, health, lobby, profiles, realtime, tables
+from cash.deposits import DepositService
+from cash.wallet import WalletService
+from cash.withdrawals import WithdrawalService
 from online.auth import AuthService
 from online.catalogue import Catalogue
 from online.config import Settings
@@ -28,7 +31,7 @@ from online.schema import metadata, tenant_bots, tenants
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
-EXPECTED_MIGRATION_REVISION = "20260901_0016"
+EXPECTED_MIGRATION_REVISION = "20260901_0017"
 
 # Revalidate every time. Without it these responses carry an ETag and a
 # Last-Modified but no Cache-Control at all, which puts a browser into
@@ -88,6 +91,9 @@ def create_app(
         app.state.engine = engine
         app.state.session_factory = session_factory
         app.state.expected_migration_revision = EXPECTED_MIGRATION_REVISION
+        if settings.cash_mode == "mock" and engine.dialect.name != "postgresql":
+            await engine.dispose()
+            raise RuntimeError("POKER8_CASH_MODE=mock requires PostgreSQL")
         if settings.environment == "development":
             async with engine.begin() as connection:
                 await connection.run_sync(metadata.create_all)
@@ -109,6 +115,9 @@ def create_app(
         app.state.history = HistoryService(session_factory)
         app.state.runtime = TableRuntimeManager(session_factory, ledger)
         app.state.seating = SeatingService(session_factory, ledger, settings.seat_idle_bots)
+        app.state.cash_deposits = DepositService(session_factory)
+        app.state.cash_withdrawals = WithdrawalService(session_factory)
+        app.state.cash_wallet = WalletService(session_factory)
         await app.state.runtime.restore_all()
         await app.state.seating.hold_all_users(datetime.now(timezone.utc))
         if fixture is not None:
@@ -163,6 +172,7 @@ def create_app(
     app.include_router(tables.router)
     app.include_router(chat.router)
     app.include_router(config.router)
+    app.include_router(cash.router)
 
     @app.get("/")
     async def index():

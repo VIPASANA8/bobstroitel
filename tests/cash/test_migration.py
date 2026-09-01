@@ -13,10 +13,10 @@ from online.schema import metadata
 pytestmark = [pytest.mark.anyio, pytest.mark.postgres]
 
 
-def migrate(conn, direction):
+def migrate(conn, direction, revision="20260831_0014"):
     config = Config()
     config.set_main_option("script_location", str(Path(__file__).resolve().parents[2] / "migrations"))
-    module = ScriptDirectory.from_config(config).get_revision("20260831_0014").module
+    module = ScriptDirectory.from_config(config).get_revision(revision).module
     with Operations.context(MigrationContext.configure(conn)):
         getattr(module, direction)()
 
@@ -51,7 +51,7 @@ async def test_upgrade_preserves_play_and_downgrade_refuses_cash_rows(cash_db):
 def assert_cash_schema_matches_metadata(conn):
     context = MigrationContext.configure(conn, opts={
         "include_object": lambda obj, name, type_, reflected, compare_to:
-            type_ != "table" or name.startswith("cash_"),
+            type_ != "table" or name in {"cash_accounts", "cash_transactions", "cash_entries"},
         "compare_server_default": True,
     })
     assert compare_metadata(context, metadata) == []
@@ -70,8 +70,25 @@ async def test_all_upgrades_on_empty_schema_keep_cash_disabled(cash_db):
         async with session.begin():
             conn = await session.connection()
             await conn.run_sync(upgrade_all)
-            for name in ("cash_accounts", "cash_transactions", "cash_entries"):
+            for name in ("cash_accounts", "cash_transactions", "cash_entries", "cash_deposits", "cash_payment_events", "cash_withdrawals"):
                 assert await session.scalar(sa.text(f'SELECT count(*) FROM "{name}"')) == 0
+
+
+async def test_c2c_downgrade_refuses_payment_history(cash_db):
+    async with cash_db() as session:
+        async with session.begin():
+            conn = await session.connection()
+            await session.execute(sa.text("""
+                INSERT INTO cash_deposits
+                    (id, user_id, tenant_id, request_key, request_hash, network, token_contract,
+                     destination_address, requested_micros, expected_micros, status, expires_at)
+                VALUES
+                    ('deposit-probe', 'alice', 'tenant', 'probe', repeat('a', 64), 'TRC20',
+                     'mock-usdt', 'mock-address', 1000000, 1000000, 'awaiting_transfer', CURRENT_TIMESTAMP)
+            """))
+            with pytest.raises(RuntimeError, match="payment history"):
+                await conn.run_sync(lambda sync: migrate(sync, "downgrade", "20260901_0017"))
+            assert await session.scalar(sa.text("SELECT count(*) FROM cash_deposits")) == 1
 
 
 async def test_downgrade_blocks_writers_before_checking_for_cash_data(cash_db):
