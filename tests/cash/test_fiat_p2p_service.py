@@ -5,6 +5,8 @@ from sqlalchemy import insert, select
 
 from cash.fiat_orders import FiatOrderService
 from cash.fiat_p2p import MockCase8Partner, PartnerEvent
+from cash.access import CashOperator
+from cash.admin import CashAdminService
 from cash.ledger import IdempotencyConflict
 from online.schema import (
     cash_fiat_events, cash_fiat_orders, cash_partner_cursors, tenants, users,
@@ -126,3 +128,28 @@ async def test_unknown_partner_event_is_quarantined_and_offset_advances(fiat_db)
         assert event["status"] == "review_required"
         assert event["partner_order_id"] == 404
         assert await session.scalar(select(cash_partner_cursors.c.offset)) == 9
+
+
+async def test_admin_queue_and_user_view_include_scoped_fiat_state(fiat_db):
+    partner = MockCase8Partner()
+    fiat = FiatOrderService(fiat_db, partner=partner, ledger=RecordingLedger())
+    order = await fiat.create(
+        user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="rub-admin",
+    )
+    async with fiat_db() as session:
+        async with session.begin():
+            await session.execute(cash_fiat_orders.update().where(
+                cash_fiat_orders.c.id == order["id"],
+            ).values(status="clarifying", detail="contact support"))
+    operator = CashOperator("operator", 1001, "tenant", "operator")
+    other = CashOperator("other", 1002, "other", "operator")
+    admin = CashAdminService(fiat_db)
+
+    assert [row["id"] for row in (await admin.queue(operator))["fiat_orders"]] == [order["id"]]
+    assert (await admin.queue(other))["fiat_orders"] == []
+    user = await admin.user(operator, "alice")
+    assert user["fiat_orders"] == [{
+        "id": order["id"], "partner_order_id": order["partner_order_id"],
+        "status": "clarifying", "currency": "RUB", "fiat_amount": 1800,
+        "requested_usdt": "20",
+    }]

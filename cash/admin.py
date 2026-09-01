@@ -15,7 +15,7 @@ from cash.withdrawals import MockPayoutExecutor, WithdrawalStateError
 from online.catalogue import CASH_USDT
 from online.schema import (
     cash_accounts, cash_audit_events, cash_deposits, cash_payment_events,
-    cash_withdrawals, poker_tables, table_runtimes, users,
+    cash_fiat_events, cash_fiat_orders, cash_withdrawals, poker_tables, table_runtimes, users,
 )
 
 
@@ -46,6 +46,13 @@ EVENT_FIELDS = (
     "id", "provider", "external_event_id", "tx_hash", "event_index", "network",
     "token_contract", "destination_address", "amount_micros", "occurred_at", "status", "deposit_id",
 )
+FIAT_ORDER_FIELDS = (
+    "id", "user_id", "tenant_id", "partner_order_id", "currency", "requested_micros",
+    "fiat_amount", "status", "detail", "expires_at",
+)
+FIAT_EVENT_FIELDS = (
+    "provider", "event_id", "partner_order_id", "fiat_order_id", "event_type", "status", "detail",
+)
 
 
 class CashAdminService:
@@ -73,6 +80,12 @@ class CashAdminService:
             event_query = select(cash_payment_events, cash_deposits.c.tenant_id).outerjoin(
                 cash_deposits, cash_deposits.c.id == cash_payment_events.c.deposit_id,
             ).where(cash_payment_events.c.status == "review_required")
+            fiat_order_query = select(cash_fiat_orders).where(
+                cash_fiat_orders.c.status.in_(("requesting", "clarifying", "review_required"))
+            )
+            fiat_event_query = select(cash_fiat_events, cash_fiat_orders.c.tenant_id).outerjoin(
+                cash_fiat_orders, cash_fiat_orders.c.id == cash_fiat_events.c.fiat_order_id,
+            ).where(cash_fiat_events.c.status == "review_required")
             table_query = select(
                 poker_tables.c.id, poker_tables.c.tenant_id, poker_tables.c.name,
                 table_runtimes.c.paused_reason, table_runtimes.c.updated_at,
@@ -82,6 +95,8 @@ class CashAdminService:
             if operator.role != "admin":
                 withdrawal_query = withdrawal_query.where(cash_withdrawals.c.tenant_id == operator.tenant_id)
                 event_query = event_query.where(cash_deposits.c.tenant_id == operator.tenant_id)
+                fiat_order_query = fiat_order_query.where(cash_fiat_orders.c.tenant_id == operator.tenant_id)
+                fiat_event_query = fiat_event_query.where(cash_fiat_orders.c.tenant_id == operator.tenant_id)
                 table_query = table_query.where(poker_tables.c.tenant_id == operator.tenant_id)
             withdrawals = (await session.execute(withdrawal_query.order_by(
                 cash_withdrawals.c.created_at
@@ -89,10 +104,19 @@ class CashAdminService:
             events = (await session.execute(event_query.order_by(
                 cash_payment_events.c.created_at
             ))).mappings().all()
+            fiat_orders = (await session.execute(fiat_order_query.order_by(
+                cash_fiat_orders.c.created_at
+            ))).mappings().all()
+            fiat_events = (await session.execute(fiat_event_query.order_by(
+                cash_fiat_events.c.created_at
+            ))).mappings().all()
             paused = (await session.execute(table_query.order_by(poker_tables.c.id))).mappings().all()
         return {
             "withdrawals": [_snapshot(row, WITHDRAWAL_FIELDS) for row in withdrawals],
             "payment_reviews": [_snapshot(row, EVENT_FIELDS) | {"tenant_id": row["tenant_id"]} for row in events],
+            "fiat_orders": [_snapshot(row, FIAT_ORDER_FIELDS) for row in fiat_orders],
+            "fiat_reviews": [_snapshot(row, FIAT_EVENT_FIELDS) | {"tenant_id": row["tenant_id"]}
+                              for row in fiat_events],
             "paused_tables": [dict(row) for row in paused],
         }
 
@@ -127,6 +151,9 @@ class CashAdminService:
             withdrawals = (await session.execute(select(cash_withdrawals).where(
                 cash_withdrawals.c.user_id == user["id"]
             ).order_by(cash_withdrawals.c.created_at.desc()).limit(20))).mappings().all()
+            fiat_orders = (await session.execute(select(cash_fiat_orders).where(
+                cash_fiat_orders.c.user_id == user["id"]
+            ).order_by(cash_fiat_orders.c.created_at.desc()).limit(20))).mappings().all()
         balances = {kind: sum(amount for row_kind, amount in accounts if row_kind == kind)
                     for kind in ("available", "escrow", "withdrawal")}
         return {
@@ -138,6 +165,12 @@ class CashAdminService:
                           "expected_usdt": micros_to_usdt(row["expected_micros"])} for row in deposits],
             "withdrawals": [{"id": row["id"], "status": row["status"],
                              "amount_usdt": micros_to_usdt(row["amount_micros"])} for row in withdrawals],
+            "fiat_orders": [{
+                "id": row["id"], "partner_order_id": row["partner_order_id"],
+                "status": row["status"], "currency": row["currency"],
+                "fiat_amount": row["fiat_amount"],
+                "requested_usdt": micros_to_usdt(row["requested_micros"]),
+            } for row in fiat_orders],
         }
 
     async def approve_withdrawal(self, withdrawal_id, operator, *, reason, key):

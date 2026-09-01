@@ -25,6 +25,25 @@ def queue_messages(queue):
             f"TX: <code>{escape(row['tx_hash'])}</code>\n"
             f"Deposit: <code>{escape(str(row.get('deposit_id') or 'не найден'))}</code>",
         ))
+    for row in queue.get("fiat_orders", []):
+        messages.append((
+            "fiat_order", row["id"], row["status"],
+            f"₽ <b>Fiat P2P</b> <code>{escape(row['id'])}</code>\n"
+            f"Статус: <b>{escape(row['status'])}</b>\n"
+            f"Пользователь: <code>{escape(row['user_id'])}</code>\n"
+            f"Сумма: {_usdt(row['requested_micros'])} USDT / "
+            f"{escape(str(row.get('fiat_amount') or '—'))} {escape(row['currency'])}\n"
+            f"Partner order: <code>{escape(str(row.get('partner_order_id') or 'не создан'))}</code>\n"
+            f"Детали: {escape(row.get('detail') or '—')}",
+        ))
+    for row in queue.get("fiat_reviews", []):
+        messages.append((
+            "fiat_event", str(row["event_id"]), row["status"],
+            f"⚠️ <b>Событие P2P на разборе</b> <code>{escape(str(row['event_id']))}</code>\n"
+            f"Partner order: <code>{escape(str(row['partner_order_id']))}</code>\n"
+            f"Тип: <b>{escape(row['event_type'])}</b>\n"
+            f"Детали: {escape(row.get('detail') or '—')}",
+        ))
     for row in queue.get("paused_tables", []):
         messages.append((
             "table", row["id"], "paused",

@@ -65,3 +65,21 @@ def test_queue_format_keeps_money_and_identifiers_visible():
     assert len(messages) == 1
     assert "1.25 USDT" in messages[0][3]
     assert "unknown" in messages[0][3]
+
+
+def test_queue_format_exposes_fiat_orders_and_unknown_partner_events():
+    messages = queue_messages({
+        "withdrawals": [], "payment_reviews": [], "paused_tables": [],
+        "fiat_orders": [{
+            "id": "rub-1", "partner_order_id": 71, "status": "clarifying",
+            "user_id": "alice", "requested_micros": 20_000_000,
+            "fiat_amount": 1800, "currency": "RUB", "detail": "contact support",
+        }],
+        "fiat_reviews": [{
+            "event_id": 9, "partner_order_id": 404, "event_type": "completed",
+            "status": "review_required", "detail": "unknown partner order",
+        }],
+    })
+    assert len(messages) == 2
+    assert "20 USDT" in messages[0][3] and "1800 RUB" in messages[0][3]
+    assert "404" in messages[1][3] and "unknown partner order" in messages[1][3]
