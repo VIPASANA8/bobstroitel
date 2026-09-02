@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from sqlalchemy import select, update
@@ -19,6 +19,9 @@ from online.schema import (
 
 PROVIDER = "case8-p2p"
 ACTIVE_STATES = ("requesting", "awaiting_user", "waiting_trader", "clarifying")
+# A partner answer that never arrived leaves a row nobody can finish. It stops
+# holding the user's one open slot after this, and an operator gets to see it.
+LOST_ANSWER_SECONDS = 300
 
 
 class ActiveFiatOrderExists(Exception):
@@ -43,6 +46,7 @@ class FiatOrderService:
         fingerprint = _hash({"amount_micros": amount, "currency": "RUB"})
         now = self.now()
         order_id = uuid4().hex
+        await self._release_stale(user_id, now)
         try:
             async with self.sessions() as session:
                 async with session.begin():
@@ -89,6 +93,25 @@ class FiatOrderService:
                     cash_fiat_orders.c.id == order_id,
                 ))).mappings().one()
                 return dict(row)
+
+    async def _release_stale(self, user_id, now):
+        """Free the user's open slot from orders the partner can no longer finish."""
+        async with self.sessions() as session:
+            async with session.begin():
+                # The user never claimed to have paid, and the quote is dead.
+                # CASE8 expires its own side, so there is nothing to notify.
+                await session.execute(update(cash_fiat_orders).where(
+                    cash_fiat_orders.c.user_id == user_id,
+                    cash_fiat_orders.c.status == "awaiting_user",
+                    cash_fiat_orders.c.expires_at < now,
+                ).values(status="expired", detail="expired before the user confirmed payment", updated_at=now))
+                # The /order call never came back, so the partner may hold an
+                # order this row cannot name. That is an operator's decision.
+                await session.execute(update(cash_fiat_orders).where(
+                    cash_fiat_orders.c.user_id == user_id,
+                    cash_fiat_orders.c.status == "requesting",
+                    cash_fiat_orders.c.created_at < now - timedelta(seconds=LOST_ANSWER_SECONDS),
+                ).values(status="review_required", detail="partner answer was lost", updated_at=now))
 
     @staticmethod
     async def _by_request_key(session, user_id, request_key):

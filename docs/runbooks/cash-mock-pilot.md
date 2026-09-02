@@ -16,7 +16,7 @@ $env:POKER8_CASH_ALLOWLIST='101,202'
 
 Use only Telegram IDs belonging to pilot testers. An empty `POKER8_CASH_ALLOWLIST` allows every otherwise valid test identity and is intended for local development only.
 
-The RUB flow uses the CASE8-compatible in-process partner mock. A user creates a 20–1000 USDT order, sees RUB requisites, and presses **Я оплатил**. That notification never changes the balance. The mock trader confirmation is a separate action and credits the exact requested USDT amount through `CashLedger`; the UI displays it at `1 USDT = 10 CASH`. Withdrawals remain TRC20 mock only.
+The RUB flow uses the CASE8-compatible in-process partner mock. A user creates a 20–1000 USDT order, sees the RUB total with kopecks and the requisites, and presses **Я оплатил**. That notification never changes the balance. The credit happens only when the partner poller reads a `CompletedByTrader`/`CompletedBySupport` event and posts it through `CashLedger`; the UI displays it at `1 USDT = 10 CASH`. A user has one open RUB order at a time, enforced by the database, and an unfinished order comes back with its countdown after a page reload. Withdrawals remain TRC20 mock only.
 
 ## Observe and reconcile
 
@@ -27,6 +27,13 @@ Check `GET /health/metrics`. The `cash` section must normally contain zeros for:
 - `fiat_orders_requiring_attention`
 - `fiat_events_requiring_review`
 - `paused_tables`
+
+`cash.partner_poller` reports the long poll itself:
+
+- `leader` is true in exactly one process; the others idle by design.
+- `seconds_since_success` is the alert. A stalled poll means paid orders are not being credited, long before a user complains. Page on it, not on error counts.
+- `poisoned` true means an unknown or malformed event stopped the loop with the offset intact. Read the raw event, fix or agree the mapping, then restart the process; never edit the cursor forward to skip it.
+- `partner_fee` is the `Fee` from `/me` at start. Against a real partner, compare it with the fee the pilot charges before the first order.
 
 `partner_event_offset` must never move backwards after a restart. Use the admin bot `/queue` for item details. `requesting` may mean the process stopped during partner order creation; do not automatically create another external order because CASE8 exposes no client idempotency key. An unknown completed partner order stays in `review_required` and must not be credited without a verified user/order mapping.
 

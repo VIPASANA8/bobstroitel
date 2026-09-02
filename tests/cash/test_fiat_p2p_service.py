@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy import insert, select
@@ -174,3 +174,40 @@ async def test_database_allows_one_open_rub_order_per_user(fiat_db):
         user_id="alice", tenant_id="tenant", amount_usdt="25", request_key="rub-2",
     )
     assert second["id"] != first["id"] and second["status"] == "awaiting_user"
+
+
+async def test_an_expired_quote_stops_holding_the_users_only_open_slot(fiat_db):
+    clock = [datetime.now(timezone.utc)]
+    service = FiatOrderService(fiat_db, partner=MockCase8Partner(), now=lambda: clock[0])
+    first = await service.create(
+        user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="rub-1",
+    )
+
+    clock[0] += timedelta(minutes=20)
+    second = await service.create(
+        user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="rub-2",
+    )
+
+    assert (await service.get(first["id"], "alice"))["status"] == "expired"
+    assert second["status"] == "awaiting_user"
+
+
+async def test_a_lost_partner_answer_goes_to_review_instead_of_blocking_the_user(fiat_db):
+    clock = [datetime.now(timezone.utc)]
+    service = FiatOrderService(fiat_db, partner=MockCase8Partner(), now=lambda: clock[0])
+    async with fiat_db() as session:
+        async with session.begin():
+            await session.execute(insert(cash_fiat_orders).values(
+                id="lost", user_id="alice", tenant_id="tenant", request_key="lost",
+                request_hash="a" * 64, currency="RUB", requested_micros=20_000_000,
+                status="requesting", created_at=clock[0], updated_at=clock[0],
+            ))
+
+    clock[0] += timedelta(minutes=6)
+    fresh = await service.create(
+        user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="rub-1",
+    )
+
+    lost = await service.get("lost", "alice")
+    assert lost["status"] == "review_required" and lost["detail"] == "partner answer was lost"
+    assert fresh["status"] == "awaiting_user"
