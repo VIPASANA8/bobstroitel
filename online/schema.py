@@ -582,7 +582,7 @@ cash_partner_cursors = Table(
     Column("provider", String(32), primary_key=True),
     Column("offset", BIGINT, nullable=False, server_default=text("0")),
     Column("updated_at", timestamp, **created_at),
-    CheckConstraint("offset >= 0", name="ck_cash_partner_cursor_offset"),
+    CheckConstraint('"offset" >= 0', name="ck_cash_partner_cursor_offset"),
 )
 
 cash_withdrawals = Table(

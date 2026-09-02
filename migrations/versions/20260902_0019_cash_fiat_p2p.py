@@ -59,7 +59,7 @@ def upgrade():
             sa.Column("provider", sa.String(32), primary_key=True),
             sa.Column("offset", sa.BIGINT(), nullable=False, server_default=sa.text("0")),
             sa.Column("updated_at", TS, nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
-            sa.CheckConstraint("offset >= 0", name="ck_cash_partner_cursor_offset"),
+            sa.CheckConstraint('"offset" >= 0', name="ck_cash_partner_cursor_offset"),
         )
 
 
