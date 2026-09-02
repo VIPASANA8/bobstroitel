@@ -37,6 +37,17 @@ Check `GET /health/metrics`. The `cash` section must normally contain zeros for:
 
 `partner_event_offset` must never move backwards after a restart. Use the admin bot `/queue` for item details. `requesting` may mean the process stopped during partner order creation; do not automatically create another external order because CASE8 exposes no client idempotency key. An unknown completed partner order stays in `review_required` and must not be credited without a verified user/order mapping.
 
+## RUB disputes, late payments and unknown events
+
+`/order ID` in the admin bot opens one order by its Poker8 id or by the partner's number, with every event the poller stored for it. Trader requisites are payment data: the card shows only the last four characters, and nothing in the bot or the audit log carries the full string.
+
+- **Unknown partner order.** A completed event whose order Poker8 never stored stays in `review_required` and credits nothing. An operator presses **Привязать и зачислить**, types the Poker8 order id, and gives a reason. The credit uses the poller's own ledger key, so a later partner replay of that event cannot pay twice, and the decision is in `cash_audit_events` with the operator's Telegram id.
+- **Late payment.** The user paid after the quote expired, the order is already terminal, and the partner's completion lands in `review_required`. Same button; answer `-` when the event already names the order.
+- **No payment.** **Отклонить** closes the event without touching the ledger.
+- **Stuck order.** `requesting`, `clarifying` and `review_required` orders hold the user's one open RUB slot. **Закрыть заявку** cancels such an order. It never credits: only a durable partner event moves money, by design.
+
+Reviewers see the queue and read the cards; only `operator` and `admin` roles may decide, and every decision demands a reason of at least three characters.
+
 ## Stop CASH without stopping PLAY
 
 1. Set `POKER8_CASH_MODE=off` and restart the application.

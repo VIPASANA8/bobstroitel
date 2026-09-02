@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from admin_bot.client import AdminAPIError, CashAdminClient
 from admin_bot.config import BotConfig
-from admin_bot.formatting import queue_messages
+from admin_bot.formatting import fiat_order_message, queue_messages
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -90,7 +90,8 @@ class OperatorBot:
                 chat_id,
                 f"Poker8 CASH control\nРоль: <b>{escape(identity['role'])}</b>\n"
                 "/queue — очередь решений\n/audit — последние действия\n"
-                "/user ID — кошелёк и операции пользователя",
+                "/user ID — кошелёк и операции пользователя\n"
+                "/order ID — заявка RUB P2P по локальному или партнёрскому номеру",
             )
             return
         if text == "/queue":
@@ -117,9 +118,22 @@ class OperatorBot:
                 f"В выводе: {escape(balances['withdrawal']['usdt'])} USDT",
             )
             return
+        if text.startswith("/order "):
+            self.telegram.send(
+                chat_id, fiat_order_message(self.api.fiat_order(actor_id, text.split(maxsplit=1)[1])),
+            )
+            return
         pending = self.pending.get(actor_id)
         if not pending:
             self.telegram.send(chat_id, "Неизвестная команда. Используйте /queue")
+            return
+        if pending.step == "order_id":
+            if text != "-" and (not text or len(text) > 64):
+                self.telegram.send(chat_id, "Введите ID заявки Poker8 или «-»")
+                return
+            pending.body["order_id"] = None if text == "-" else text
+            pending.step = "reason"
+            self.telegram.send(chat_id, "Укажите причину решения (минимум 3 символа)")
             return
         if pending.step == "tx_hash":
             if not text or len(text) > 128:
@@ -166,6 +180,11 @@ class OperatorBot:
             elif kind == "payment":
                 keyboard = [[{"text": "Зачислить", "callback_data": f"credit:{target_id}"},
                              {"text": "Отклонить", "callback_data": f"payreject:{target_id}"}]]
+            elif kind == "fiat_event":
+                keyboard = [[{"text": "Привязать и зачислить", "callback_data": f"bindcredit:{target_id}"},
+                             {"text": "Отклонить", "callback_data": f"fiatreject:{target_id}"}]]
+            elif kind == "fiat_order" and status in {"requesting", "clarifying", "review_required"}:
+                keyboard = [[{"text": "Закрыть заявку", "callback_data": f"fiatclose:{target_id}"}]]
             self.telegram.send(chat_id, text, keyboard)
 
     def handle_callback(self, chat_id, actor_id, data, _identity):
@@ -196,13 +215,19 @@ class OperatorBot:
             "unpaid": ("resolve_withdrawal", {"decision": "rejected", "tx_hash": None}),
             "credit": ("resolve_payment", {"decision": "credit"}),
             "payreject": ("resolve_payment", {"decision": "reject"}),
+            "bindcredit": ("resolve_fiat_event", {"decision": "credit"}),
+            "fiatreject": ("resolve_fiat_event", {"decision": "reject"}),
+            "fiatclose": ("close_fiat_order", {}),
         }
         if verb not in mapping:
             return
         action, body = mapping[verb]
-        step = "tx_hash" if verb == "confirmed" else "reason"
+        step = {"confirmed": "tx_hash", "bindcredit": "order_id"}.get(verb, "reason")
         self.pending[actor_id] = Pending(action, target_id, body, step)
-        prompt = "Введите проверенный reference транзакции" if step == "tx_hash" else "Укажите причину решения"
+        prompt = {
+            "tx_hash": "Введите проверенный reference транзакции",
+            "order_id": "Введите ID заявки Poker8 или «-», если он уже известен",
+        }.get(step, "Укажите причину решения")
         self.telegram.send(chat_id, prompt)
 
 

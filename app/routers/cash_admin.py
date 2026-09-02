@@ -30,6 +30,12 @@ class PaymentResolution(ReasonRequest):
     decision: Literal["credit", "reject"]
 
 
+class FiatEventResolution(ReasonRequest):
+    decision: Literal["credit", "reject"]
+    # Only needed when the partner event names an order Poker8 never stored.
+    order_id: str | None = Field(default=None, min_length=1, max_length=64)
+
+
 def _error(exc):
     if isinstance(exc, OperatorAccessDenied):
         return HTTPException(status_code=403, detail=str(exc))
@@ -122,6 +128,40 @@ async def resolve_payment(event_id: str, body: PaymentResolution, request: Reque
     try:
         return await request.app.state.cash_admin.resolve_payment(
             event_id, operator, decision=body.decision, reason=body.reason, key=key,
+        )
+    except (ValueError, LookupError) as exc:
+        raise _error(exc) from exc
+
+
+@router.get("/fiat-orders/{identifier}")
+async def fiat_order(identifier: str, request: Request,
+                     operator: CashOperator = Depends(get_cash_operator)):
+    try:
+        return await request.app.state.cash_admin.fiat_order(operator, identifier)
+    except (ValueError, LookupError) as exc:
+        raise _error(exc) from exc
+
+
+@router.post("/fiat-events/{event_id}/resolve")
+async def resolve_fiat_event(event_id: int, body: FiatEventResolution, request: Request,
+                             key: str = Header(alias="Idempotency-Key"),
+                             operator: CashOperator = Depends(get_cash_operator)):
+    try:
+        return await request.app.state.cash_admin.resolve_fiat_event(
+            event_id, operator, decision=body.decision, order_id=body.order_id,
+            reason=body.reason, key=key,
+        )
+    except (ValueError, LookupError) as exc:
+        raise _error(exc) from exc
+
+
+@router.post("/fiat-orders/{order_id}/close")
+async def close_fiat_order(order_id: str, body: ReasonRequest, request: Request,
+                           key: str = Header(alias="Idempotency-Key"),
+                           operator: CashOperator = Depends(get_cash_operator)):
+    try:
+        return await request.app.state.cash_admin.close_fiat_order(
+            order_id, operator, reason=body.reason, key=key,
         )
     except (ValueError, LookupError) as exc:
         raise _error(exc) from exc

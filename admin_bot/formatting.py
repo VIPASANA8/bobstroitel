@@ -55,3 +55,27 @@ def queue_messages(queue):
             f"Причина: {escape(row.get('paused_reason') or 'не указана')}",
         ))
     return messages
+
+
+def fiat_order_message(order):
+    events = "\n".join(
+        "• #{id} {type} · {status}{detail}".format(
+            id=escape(str(event["event_id"])), type=escape(event["event_type"]),
+            status=escape(event["status"]),
+            detail=" · " + escape(event["detail"]) if event.get("detail") else "",
+        )
+        for event in order.get("events", [])
+    ) or "событий пока нет"
+    return (
+        f"\u20bd <b>Fiat P2P</b> <code>{escape(order['id'])}</code>\n"
+        f"Статус: <b>{escape(order['status'])}</b>\n"
+        f"Пользователь: <code>{escape(order['user_id'])}</code>\n"
+        f"Сумма: {_usdt(order['requested_micros'])} USDT / "
+        f"{_rub(order.get('fiat_kopecks'))} {escape(order['currency'])}\n"
+        f"Partner order: <code>{escape(str(order.get('partner_order_id') or 'не создан'))}</code>\n"
+        f"Трейдер: {escape(order.get('trader_username') or '—')} · "
+        f"реквизиты {escape(order.get('requisites_tail') or '—')}\n"
+        f"Истекает: {escape(str(order.get('expires_at') or '—'))}\n"
+        f"Детали: {escape(order.get('detail') or '—')}\n"
+        f"События:\n{events}"
+    )

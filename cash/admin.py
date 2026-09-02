@@ -53,6 +53,12 @@ FIAT_ORDER_FIELDS = (
 FIAT_EVENT_FIELDS = (
     "provider", "event_id", "partner_order_id", "fiat_order_id", "event_type", "status", "detail",
 )
+PROVIDER = "case8-p2p"
+
+
+def _mask(value):
+    """Trader requisites are payment data: an operator sees only the tail."""
+    return None if not value else "…" + str(value)[-4:]
 
 
 class CashAdminService:
@@ -369,6 +375,124 @@ class CashAdminService:
                 after = before | {"status": status}
                 await self._audit(session, operator, tenant_id, "payment.resolve", "payment_event",
                                   event_id, reason, key, fingerprint, before, after)
+                return after
+
+    async def fiat_order(self, operator: CashOperator, identifier: str):
+        """One RUB order by Poker8 id or partner order id, with its raw events."""
+        identifier = str(identifier or "")
+        if not identifier or len(identifier) > 64:
+            raise ValueError("invalid fiat order identifier")
+        async with self.sessions() as session:
+            condition = cash_fiat_orders.c.id == identifier
+            if identifier.isdigit():
+                condition = condition | (cash_fiat_orders.c.partner_order_id == int(identifier))
+            row = (await session.execute(select(cash_fiat_orders).where(condition))).mappings().first()
+            if row is None:
+                raise LookupError("fiat order not found")
+            self._require_scope(operator, row["tenant_id"])
+            events = (await session.execute(select(cash_fiat_events).where(
+                (cash_fiat_events.c.fiat_order_id == row["id"])
+                | (cash_fiat_events.c.partner_order_id == row["partner_order_id"])
+            ).order_by(cash_fiat_events.c.event_id))).mappings().all()
+        return _snapshot(row, FIAT_ORDER_FIELDS) | {
+            "trader_username": row["trader_username"],
+            "requisites_tail": _mask(row["requisites"]),
+            "created_at": _json(row["created_at"]), "updated_at": _json(row["updated_at"]),
+            "events": [_snapshot(event, FIAT_EVENT_FIELDS) | {"processed_at": _json(event["processed_at"])}
+                       for event in events],
+        }
+
+    async def resolve_fiat_event(self, event_id, operator, *, decision, reason, key, order_id=None):
+        """Bind a partner event to its order and credit it once, or close it unpaid."""
+        self._require_mutation(operator)
+        if decision not in {"credit", "reject"}:
+            raise ValueError("fiat event resolution must be credit or reject")
+        if order_id is not None and (not order_id or len(order_id) > 64):
+            raise ValueError("invalid fiat order identifier")
+        async with self.sessions() as session:
+            async with session.begin():
+                replay, fingerprint = await self._claim(
+                    session, operator, key, "fiat_event.resolve", str(event_id), reason,
+                    {"decision": decision, "order_id": order_id},
+                )
+                if replay is not None:
+                    return replay
+                event = (await session.execute(select(cash_fiat_events).where(
+                    cash_fiat_events.c.provider == PROVIDER,
+                    cash_fiat_events.c.event_id == int(event_id),
+                ).with_for_update())).mappings().one_or_none()
+                if event is None:
+                    raise LookupError("fiat event not found")
+                if event["status"] != "review_required":
+                    raise ValueError("fiat event is not awaiting review")
+                target_id = order_id or event["fiat_order_id"]
+                if not target_id:
+                    raise ValueError("this event names no Poker8 order; supply the one it belongs to")
+                order = (await session.execute(select(cash_fiat_orders).where(
+                    cash_fiat_orders.c.id == target_id
+                ).with_for_update())).mappings().one_or_none()
+                if order is None:
+                    raise LookupError("fiat order not found")
+                self._require_scope(operator, order["tenant_id"])
+                before = _snapshot(event, FIAT_EVENT_FIELDS)
+                now = self.now()
+                if decision == "credit":
+                    if event["event_type"] != "completed":
+                        raise ValueError("only a completed partner event can credit an order")
+                    if order["status"] == "credited":
+                        raise ValueError("the order is already credited")
+                    wallet = await self._account(session, "available", order["user_id"], order["user_id"])
+                    clearing = await self._account(session, "clearing", None, PROVIDER)
+                    # The poller's ledger key, so a later partner replay of the same
+                    # event cannot credit this order a second time.
+                    await self.ledger.post(
+                        session, scope="fiat-deposit", key=PROVIDER + ":" + str(event["event_id"]),
+                        kind="deposit", reference_id=order["id"],
+                        actor="operator:" + str(operator.telegram_user_id),
+                        postings={clearing: -order["requested_micros"], wallet: order["requested_micros"]},
+                    )
+                    await session.execute(update(cash_fiat_orders).where(
+                        cash_fiat_orders.c.id == order["id"]
+                    ).values(status="credited", detail=reason, updated_at=now))
+                values = {
+                    "status": "processed", "fiat_order_id": order["id"], "processed_at": now,
+                    "detail": ("operator " + decision + ": " + reason.strip())[:500],
+                }
+                await session.execute(update(cash_fiat_events).where(
+                    cash_fiat_events.c.provider == PROVIDER,
+                    cash_fiat_events.c.event_id == event["event_id"],
+                ).values(**values))
+                after = before | {name: _json(value) for name, value in values.items()
+                                  if name in FIAT_EVENT_FIELDS}
+                await self._audit(session, operator, order["tenant_id"], "fiat_event.resolve",
+                                  "fiat_event", str(event_id), reason, key, fingerprint, before, after)
+                return after
+
+    async def close_fiat_order(self, order_id, operator, *, reason, key):
+        """Close a stuck order. It never credits: only a partner event moves money."""
+        self._require_mutation(operator)
+        async with self.sessions() as session:
+            async with session.begin():
+                replay, fingerprint = await self._claim(
+                    session, operator, key, "fiat_order.close", order_id, reason, {},
+                )
+                if replay is not None:
+                    return replay
+                row = (await session.execute(select(cash_fiat_orders).where(
+                    cash_fiat_orders.c.id == order_id
+                ).with_for_update())).mappings().one_or_none()
+                if row is None:
+                    raise LookupError("fiat order not found")
+                self._require_scope(operator, row["tenant_id"])
+                if row["status"] not in {"requesting", "clarifying", "review_required"}:
+                    raise ValueError("only a stuck fiat order can be closed by an operator")
+                before = _snapshot(row, FIAT_ORDER_FIELDS)
+                await session.execute(update(cash_fiat_orders).where(
+                    cash_fiat_orders.c.id == order_id
+                ).values(status="cancelled", detail=reason, updated_at=self.now()))
+                after = before | {"status": "cancelled", "detail": reason}
+                await self._audit(session, operator, row["tenant_id"], "fiat_order.close",
+                                  "fiat_order", order_id, reason, key, fingerprint, before, after)
                 return after
 
     async def _claim(self, session, operator, key, action, target_id, reason, details):

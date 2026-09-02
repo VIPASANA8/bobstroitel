@@ -60,6 +60,12 @@ class CashAdminClient:
         from urllib.parse import quote
         return self.request("GET", f"/api/cash-admin/users/{quote(str(identifier), safe='')}", actor_id)
 
+    def fiat_order(self, actor_id, identifier):
+        from urllib.parse import quote
+        return self.request(
+            "GET", "/api/cash-admin/fiat-orders/" + quote(str(identifier), safe=""), actor_id,
+        )
+
     def decide(self, actor_id, action, target_id, body, *, key=None):
         routes = {
             "approve": f"/api/cash-admin/withdrawals/{target_id}/approve",
@@ -67,6 +73,8 @@ class CashAdminClient:
             "execute": f"/api/cash-admin/withdrawals/{target_id}/execute-mock",
             "resolve_withdrawal": f"/api/cash-admin/withdrawals/{target_id}/resolve",
             "resolve_payment": f"/api/cash-admin/payment-events/{target_id}/resolve",
+            "resolve_fiat_event": f"/api/cash-admin/fiat-events/{target_id}/resolve",
+            "close_fiat_order": f"/api/cash-admin/fiat-orders/{target_id}/close",
         }
         if action not in routes:
             raise ValueError("unknown operator action")

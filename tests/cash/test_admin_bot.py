@@ -6,7 +6,7 @@ import pytest
 
 from admin_bot.client import AdminAPIError, CashAdminClient
 from admin_bot.config import BotConfig
-from admin_bot.formatting import queue_messages
+from admin_bot.formatting import fiat_order_message, queue_messages
 
 
 class Response:
@@ -83,3 +83,21 @@ def test_queue_format_exposes_fiat_orders_and_unknown_partner_events():
     assert len(messages) == 2
     assert "20 USDT" in messages[0][3] and "1800,50 RUB" in messages[0][3]
     assert "404" in messages[1][3] and "unknown partner order" in messages[1][3]
+
+
+def test_order_card_shows_the_events_and_never_the_full_requisites():
+    card = fiat_order_message({
+        "id": "rub-1", "user_id": "alice", "status": "review_required",
+        "currency": "RUB", "requested_micros": 20_000_000, "fiat_kopecks": 180_050,
+        "partner_order_id": 71, "trader_username": "trader_one",
+        "requisites_tail": "…1234", "expires_at": "2026-09-02T12:30:00+00:00",
+        "detail": "unknown partner order",
+        "events": [
+            {"event_id": 41, "event_type": "completed", "status": "review_required",
+             "detail": "unknown partner order"},
+        ],
+    })
+
+    assert "1800,50 RUB" in card and "20 USDT" in card
+    assert "…1234" in card and "4276" not in card
+    assert "#41 completed" in card
