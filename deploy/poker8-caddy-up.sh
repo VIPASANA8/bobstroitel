@@ -9,9 +9,9 @@ DOMAIN=${1:-bubbledouble.cc}
 HERE=$(curl -fsS --max-time 10 https://api.ipify.org)
 THERE=$(getent hosts "$DOMAIN" | awk '{print $1}' | head -1)
 
-echo "$DOMAIN -> ${THERE:-<не резолвится>}; этот сервер -> $HERE"
+echo "$DOMAIN -> ${THERE:-<no A record>}; this server -> $HERE"
 if [ "$THERE" != "$HERE" ]; then
-    echo "REFUSING: A-запись $DOMAIN не указывает на этот сервер. Caddy не запущен."
+    echo "REFUSING: $DOMAIN does not point at this server. Caddy not started."
     exit 1
 fi
 
