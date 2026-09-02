@@ -43,6 +43,7 @@ Check `GET /health/metrics`. The `cash` section must normally contain zeros for:
 
 `/order ID` in the admin bot opens one order by its Poker8 id or by the partner's number, with every event the poller stored for it. Trader requisites are payment data: the card shows only the last four characters, and nothing in the bot or the audit log carries the full string.
 
+- **Changed redelivery.** The partner sent event 41 as `CompletedByTrader` and later as `CanceledBySupport`. Poker8 applies neither the second time: the event goes to `review_required` with both statuses named, and whatever the first delivery already did stands until an operator says otherwise.
 - **Unknown partner order.** A completed event whose order Poker8 never stored stays in `review_required` and credits nothing. An operator presses **Привязать и зачислить**, types the Poker8 order id, and gives a reason. The credit uses the poller's own ledger key, so a later partner replay of that event cannot pay twice, and the decision is in `cash_audit_events` with the operator's Telegram id.
 - **Late payment.** The user paid after the quote expired, the order is already terminal, and the partner's completion lands in `review_required`. Same button; answer `-` when the event already names the order.
 - **No payment.** **Отклонить** closes the event without touching the ledger.

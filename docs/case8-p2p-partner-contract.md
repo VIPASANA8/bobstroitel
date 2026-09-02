@@ -62,7 +62,11 @@ input only. New Poker8 rows use the current status protocol above.
 An unknown or malformed event is a poison event: do not advance beyond it and
 raise an operator-visible reconciliation incident. The offset is committed
 only after the corresponding order transition and ledger posting commit.
-Duplicate delivery is expected and must remain harmless.
+Duplicate delivery is expected and must remain harmless. The same event id
+carrying different content is not: Poker8 stores a hash of every delivery, and
+a changed redelivery applies nothing and moves that event to
+`review_required`, because one of the two deliveries is a lie and only an
+operator can say which.
 
 ## Timeouts and failures
 

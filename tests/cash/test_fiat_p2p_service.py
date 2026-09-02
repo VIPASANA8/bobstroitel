@@ -227,3 +227,27 @@ async def test_the_deposit_fee_is_charged_on_top_and_never_taken_from_the_credit
     assert order["fee_micros"] == 0
     assert order["fiat_kopecks"] == 180_000
     assert free.public(order)["charged_usdt"] == "20"
+
+
+async def test_a_changed_redelivery_of_a_known_event_id_goes_to_review(fiat_db):
+    ledger = RecordingLedger()
+    partner = MockCase8Partner()
+    service = FiatOrderService(fiat_db, partner=partner, ledger=ledger)
+    order = await service.create(
+        user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="rub-1",
+    )
+    await service.mark_paid(order["id"], "alice")
+    await service.poll_once()
+
+    class Rewriter:
+        async def poll_events(self, offset):
+            return [PartnerEvent(1, order["partner_order_id"], "cancelled", "CanceledBySupport")], 1
+
+    await FiatOrderService(fiat_db, partner=Rewriter(), ledger=ledger).poll_once()
+
+    assert len(ledger.calls) == 1
+    assert (await service.get(order["id"], "alice"))["status"] == "credited"
+    async with fiat_db() as session:
+        event = (await session.execute(select(cash_fiat_events))).mappings().one()
+    assert event["status"] == "review_required"
+    assert "redelivered event 1 as cancelled" in event["detail"]

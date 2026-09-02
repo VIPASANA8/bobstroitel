@@ -225,13 +225,33 @@ class FiatOrderService:
         now = self.now()
         async with self.sessions() as session:
             async with session.begin():
+                fingerprint = _hash({
+                    "partner_order_id": event.partner_order_id,
+                    "status": event.status, "detail": event.detail,
+                })
                 inserted = await session.scalar(insert(cash_fiat_events).values(
                     provider=PROVIDER, event_id=event.event_id,
                     partner_order_id=event.partner_order_id,
-                    event_type=event.status, status="observed", detail=event.detail,
-                    created_at=now,
+                    event_type=event.status, event_hash=fingerprint,
+                    status="observed", detail=event.detail, created_at=now,
                 ).on_conflict_do_nothing().returning(cash_fiat_events.c.event_id))
                 if inserted is None:
+                    # A duplicate is expected and harmless. The same event id
+                    # carrying different content is neither: apply nothing and
+                    # let an operator decide which delivery was the truth.
+                    stored = (await session.execute(select(cash_fiat_events).where(
+                        cash_fiat_events.c.provider == PROVIDER,
+                        cash_fiat_events.c.event_id == event.event_id,
+                    ).with_for_update())).mappings().one()
+                    changed = stored["event_hash"] not in (None, fingerprint)
+                    if changed and stored["status"] != "review_required":
+                        await session.execute(update(cash_fiat_events).where(
+                            cash_fiat_events.c.provider == PROVIDER,
+                            cash_fiat_events.c.event_id == event.event_id,
+                        ).values(
+                            status="review_required", processed_at=now,
+                            detail=f"partner redelivered event {event.event_id} as {event.status}"[:500],
+                        ))
                     return
                 order = (await session.execute(select(cash_fiat_orders).where(
                     cash_fiat_orders.c.partner_order_id == event.partner_order_id,

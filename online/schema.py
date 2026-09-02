@@ -581,6 +581,7 @@ cash_fiat_events = Table(
     Column("partner_order_id", BIGINT, nullable=False),
     Column("fiat_order_id", String(64), ForeignKey("cash_fiat_orders.id")),
     Column("event_type", String(32), nullable=False),
+    Column("event_hash", String(64)),
     Column("status", String(32), nullable=False),
     Column("detail", String(500)),
     Column("created_at", timestamp, **created_at),

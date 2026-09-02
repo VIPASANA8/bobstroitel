@@ -59,6 +59,7 @@ def upgrade():
             sa.Column("partner_order_id", sa.BIGINT(), nullable=False),
             sa.Column("fiat_order_id", sa.String(64), sa.ForeignKey("cash_fiat_orders.id")),
             sa.Column("event_type", sa.String(32), nullable=False),
+            sa.Column("event_hash", sa.String(64)),
             sa.Column("status", sa.String(32), nullable=False),
             sa.Column("detail", sa.String(500)),
             sa.Column("created_at", TS, nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
