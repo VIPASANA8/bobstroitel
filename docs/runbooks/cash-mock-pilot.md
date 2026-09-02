@@ -60,6 +60,24 @@ It alerts on: a stalled or poisoned partner poll, partner events on review, orde
 
 Trader requisites are erased seven days after the order is created; the same hourly housekeeping does it, and the admin bot only ever showed their last four characters.
 
+## Backup and restore
+
+A backup is only good if restoring it cannot pay anybody twice. The check builds a database that has done every irreversible CASH thing — a credited TRC20 provider event, a credited RUB partner event, a submitted payout, a settled CASH hand — dumps it, restores it into a database that has never run the application, and then replays every one of those operations against the restored copy:
+
+```bash
+python tools/cash_backup_restore_check.py
+```
+
+It uses `pg_dump`/`psql` from the compose service when no local client is installed, drops its two scratch databases afterwards (`--keep` leaves them), and exits non-zero on the first thing that does not hold. It asserts three separate properties:
+
+1. the restored copy matches the source row for row and balance for balance, and carries the same `alembic_version` the application demands at boot;
+2. a redelivered provider event, a redelivered partner completion and a repeated hand command change no balance and add no transaction — the idempotency keys were inside the dump, not in the memory of the process that made them;
+3. repeating the payout never reaches the executor, so a restore cannot put a second transfer on chain.
+
+The check has been verified in both directions: with a deliberate second credit posted under a key the dump did not carry, it fails and names the account, the amount and the extra rows.
+
+Before real money, run it against a restore of the actual backup you intend to rely on, not only against this synthetic one — the properties are the same, the data is not.
+
 ## Stop CASH without stopping PLAY
 
 1. Set `POKER8_CASH_MODE=off` and restart the application.
