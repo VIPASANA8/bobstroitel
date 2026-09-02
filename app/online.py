@@ -15,6 +15,7 @@ from app.routers import auth, cash, cash_admin, chat, config, health, lobby, pro
 from cash.admin import CashAdminService
 from cash.deposits import DepositService
 from cash.fiat_orders import FiatOrderService
+from cash.fiat_poller import FiatPoller
 from cash.fiat_p2p import MockCase8Partner
 from cash.game import CashGameService
 from cash.wallet import WalletService
@@ -148,6 +149,11 @@ def create_app(
         app.state.cash_fiat_orders = FiatOrderService(
             session_factory, partner=app.state.cash_fiat_partner,
         )
+        app.state.cash_fiat_poller = None
+        app.state.cash_fiat_poller_task = None
+        if settings.cash_mode == "mock":
+            app.state.cash_fiat_poller = FiatPoller(app.state.cash_fiat_orders)
+            app.state.cash_fiat_poller_task = asyncio.create_task(app.state.cash_fiat_poller.run())
         app.state.cash_withdrawals = WithdrawalService(session_factory)
         app.state.cash_wallet = WalletService(session_factory)
         app.state.cash_admin = CashAdminService(session_factory)
@@ -187,6 +193,12 @@ def create_app(
         try:
             yield
         finally:
+            if app.state.cash_fiat_poller_task is not None:
+                app.state.cash_fiat_poller.stop()
+                # A long poll can still be waiting on the partner for 35 seconds.
+                _, hung = await asyncio.wait({app.state.cash_fiat_poller_task}, timeout=5)
+                for task in hung:
+                    task.cancel()
             if app.state.coordinator_task is not None:
                 await app.state.coordinator.stop()
                 app.state.coordinator_task.cancel()

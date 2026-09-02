@@ -30,10 +30,13 @@ events instead of inventing a webhook contract.
 | Poll outcomes | `GET /events?offset=<integer>` | `204` means no events. Success is a JSON list. Every usable item has integer `ID`, string `Status`, and integer `OrderID`. |
 
 CASE8 represents requested USDT in integer hundredths: `2000` means 20.00 USDT
-and its accepted range is 20.00–1000.00 USDT. The partner's returned `Amount`
-is an integer fiat amount, but the pinned source does not define whether it is
-whole RUB or minor units. Poker8 must not guess this unit; the sandbox contract
-or partner documentation must confirm it before real orders are enabled.
+and its accepted range is 20.00–1000.00 USDT. The returned `Amount` is RUB with
+kopecks after a comma (`1850,75`), confirmed by the project owner on 2026-09-02;
+the pinned source does not state it. Poker8 stores it as integer kopecks in
+`cash_fiat_orders.fiat_kopecks` and accepts `1850`, `1850,75` and `1850.75`,
+rejecting anything else rather than rounding it. The sandbox must still confirm
+this before real orders are enabled, and whether `Amount` already includes the
+partner commission is still open.
 
 `Expires` accepts ISO-8601, with or without a timezone; Poker8 will normalize
 it to UTC. `Method` contains the payment requisites shown to the user.
@@ -70,6 +73,19 @@ Duplicate delivery is expected and must remain harmless.
 - `Retry-After` is used when it is an integer, otherwise the retry is 5 seconds;
 - `400`, `422`, and `500` are surfaced for operator attention;
 - network timeout never changes a balance and never proves cancellation.
+
+## What Poker8 runs today
+
+- `cash/fiat_poller.py` owns the long poll: one leader per database chosen with
+  a PostgreSQL advisory lock, `GET /me` on start for health and the `Fee`
+  snapshot, exponential backoff honouring an integer `Retry-After`, and a stop
+  that never interrupts a committed transition.
+- A malformed or unknown event poisons the loop on purpose: the offset stays
+  where it is, `cash.partner_poller.poisoned` goes true in `/metrics` and an
+  operator has to look. Alert on `seconds_since_success`, not on error counts.
+- One open RUB order per user is a partial unique index over
+  `('requesting', 'awaiting_user', 'waiting_trader', 'clarifying')`, not a
+  service-level check, so a second tab cannot open a second order.
 
 The pinned source defaults `PARTNER_TLS_VERIFY=false` and comments that the
 current endpoint uses a self-signed certificate on an IP address. Poker8 will

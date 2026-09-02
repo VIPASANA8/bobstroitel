@@ -8,6 +8,9 @@ branch_labels = None
 depends_on = None
 
 TS = sa.DateTime(timezone=True)
+ACTIVE_ORDER_STATES = (
+    "status IN ('requesting', 'awaiting_user', 'waiting_trader', 'clarifying')"
+)
 
 
 def upgrade():
@@ -23,7 +26,7 @@ def upgrade():
             sa.Column("partner_order_id", sa.BIGINT(), unique=True),
             sa.Column("currency", sa.String(3), nullable=False),
             sa.Column("requested_micros", sa.BIGINT(), nullable=False),
-            sa.Column("fiat_amount", sa.BIGINT()),
+            sa.Column("fiat_kopecks", sa.BIGINT()),
             sa.Column("requisites", sa.String(500)),
             sa.Column("trader_username", sa.String(100)),
             sa.Column("status", sa.String(32), nullable=False),
@@ -38,6 +41,13 @@ def upgrade():
                 "status IN ('requesting','unavailable','awaiting_user','waiting_trader','clarifying','credited','expired','cancelled','review_required')",
                 name="ck_cash_fiat_order_status",
             ),
+        )
+        # One active RUB order per user, enforced by the database and not only
+        # by the service that creates them.
+        op.create_index(
+            "uq_cash_fiat_order_active_user", "cash_fiat_orders", ["user_id"], unique=True,
+            postgresql_where=sa.text(ACTIVE_ORDER_STATES),
+            sqlite_where=sa.text(ACTIVE_ORDER_STATES),
         )
     if "cash_fiat_events" not in tables:
         op.create_table(

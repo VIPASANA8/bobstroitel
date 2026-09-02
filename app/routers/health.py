@@ -121,6 +121,8 @@ async def metrics(request: Request):
             )
         )
 
+    poller = getattr(request.app.state, "cash_fiat_poller", None)
+    last_poll = getattr(poller, "last_success_at", None)
     coordinator = getattr(request.app.state, "coordinator", None)
     monitor = getattr(request.app.state, "integrity_monitor", None)
     return {
@@ -155,5 +157,16 @@ async def metrics(request: Request):
             "fiat_events_requiring_review": int(fiat_events_review or 0),
             "paused_tables": int(paused_cash_tables or 0),
             "partner_event_offset": int(partner_offset or 0),
+            "partner_poller": {
+                "running": poller is not None,
+                "leader": bool(getattr(poller, "leader", False)),
+                "poisoned": bool(getattr(poller, "poisoned", False)),
+                "last_success_at": last_poll.isoformat() if last_poll else None,
+                # Alert on this: a partner offset stops moving long before a
+                # user notices that their paid order was never credited.
+                "seconds_since_success": None if last_poll is None else round((now - last_poll).total_seconds(), 3),
+                "last_error": getattr(poller, "last_error", None),
+                "partner_fee": getattr(poller, "partner_fee", None),
+            },
         },
     }

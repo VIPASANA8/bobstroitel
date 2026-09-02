@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -23,7 +24,7 @@ def usdt_micros_to_case8_amount(amount_micros: int) -> int:
 @dataclass(frozen=True)
 class PartnerOrder:
     partner_order_id: int
-    fiat_amount: int
+    fiat_kopecks: int
     requisites: str
     expires_at: datetime
     trader_username: str | None = None
@@ -56,6 +57,18 @@ def _integer(raw: dict[str, Any], upper: str, lower: str) -> int:
     if str(parsed) != str(value) and not isinstance(value, int):
         raise PartnerProtocolError(f"invalid partner field {upper}")
     return parsed
+
+
+def _kopecks(raw: dict[str, Any], upper: str, lower: str) -> int:
+    """Partner ``Amount`` is RUB with kopecks after a comma: ``1850,75``."""
+    value = _pick(raw, upper, lower)
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        raise PartnerProtocolError(f"invalid partner field {upper}")
+    match = re.fullmatch(r"([0-9]{1,12})(?:[.,]([0-9]{1,2}))?", str(value).strip().replace(" ", ""))
+    if match is None:
+        raise PartnerProtocolError(f"invalid partner field {upper}")
+    whole, fraction = match.groups()
+    return int(whole) * 100 + int((fraction or "").ljust(2, "0"))
 
 
 def _utc(value: Any) -> datetime:
@@ -111,12 +124,23 @@ class Case8PartnerClient:
             raise PartnerProtocolError("invalid partner field Username")
         return PartnerOrder(
             partner_order_id=_integer(raw, "ID", "id"),
-            fiat_amount=_integer(raw, "Amount", "amount"),
+            fiat_kopecks=_kopecks(raw, "Amount", "amount"),
             requisites=requisites,
             expires_at=_utc(_pick(raw, "Expires", "expires")),
             trader_username=username,
         )
 
+    async def me(self) -> dict[str, Any]:
+        """Health and business data; ``Fee`` is the partner's commission snapshot."""
+        response = await self._client.get("/me", timeout=5)
+        response.raise_for_status()
+        raw = response.json()
+        if not isinstance(raw, dict):
+            raise PartnerProtocolError("invalid partner /me payload")
+        return raw
+
+    # ponytail: no retry on /order or /notify. POST /order is not idempotent, so
+    # a retry can buy a second trader order; the user simply presses again.
     async def notify(self, partner_order_id: int, *, cancel: bool) -> None:
         response = await self._client.post("/notify", params={
             "order_id": partner_order_id,
@@ -179,11 +203,14 @@ class MockCase8Partner:
         self._orders[order_id] = {"amount_micros": amount_micros, "finished": False}
         return PartnerOrder(
             partner_order_id=order_id,
-            fiat_amount=amount_micros * self._rate // 1_000_000,
+            fiat_kopecks=amount_micros * self._rate // 10_000,
             requisites=f"4276 **** **** {1000 + order_id:04d}",
             expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
             trader_username="mock_trader",
         )
+
+    async def me(self) -> dict[str, Any]:
+        return {"ID": 0, "Title": "mock trader", "Fee": 0, "Deposit": 0}
 
     async def notify(self, partner_order_id: int, *, cancel: bool) -> None:
         order = self._orders.get(partner_order_id)

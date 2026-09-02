@@ -463,6 +463,81 @@
     });
   });
 
+  const FIAT_CLOSED = {
+    unavailable: "Свободный трейдер не найден · попробуйте позже",
+    credited: "Трейдер подтвердил · CASH зачислен",
+    expired: "Срок заявки истёк · CASH не зачислен",
+    cancelled: "Заявка отменена · CASH не зачислен",
+    review_required: "Заявка на разборе у оператора · ждите ответа поддержки",
+  };
+  let fiatTicker = null;
+
+  function fiatCountdown(order) {
+    if (!order.expires_at) return "";
+    const left = Math.round((new Date(order.expires_at).getTime() - Date.now()) / 1000);
+    if (left <= 0) return "Время оплаты истекло, подтверждение зависит от трейдера";
+    return `Осталось ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
+  }
+
+  function renderFiatOrder(order) {
+    const details = $("fiatDepositDetails");
+    if (fiatTicker) { clearInterval(fiatTicker); fiatTicker = null; }
+    if (!order) { details.hidden = true; details.innerHTML = ""; return; }
+    details.hidden = false;
+    if (FIAT_CLOSED[order.status]) {
+      details.innerHTML = `<strong>${escape(FIAT_CLOSED[order.status])}</strong>` +
+        (order.detail ? `<br>${escape(order.detail)}` : "");
+      load().catch(console.error);
+      return;
+    }
+    const waiting = order.status !== "awaiting_user";
+    details.innerHTML = `
+      <strong>К оплате: ${escape(order.fiat_rub)} ₽</strong><br>
+      Реквизиты: ${escape(order.requisites)}<br>
+      Зачисление: ${escape(order.requested_units)} CASH (${escape(order.requested_usdt)} USDT)<br>
+      <span id="fiatCountdown">${escape(fiatCountdown(order))}</span><br>
+      ${order.status === "clarifying" ? "<strong>Трейдер уточняет платёж · напишите в поддержку</strong><br>" : ""}
+      ${waiting ? "<strong>Оплата отмечена · ждём подтверждения трейдера</strong>"
+                : '<button type="button" id="fiatPaid">Я оплатил</button>'}
+      <button type="button" id="fiatCancel">Отменить заявку</button>`;
+
+    const act = async (path, failure) => {
+      const response = await fetch(`/api/cash/fiat-orders/${encodeURIComponent(order.id)}/${path}`, {method: "POST"});
+      if (!response.ok) return alert(failure);
+      renderFiatOrder(await response.json());
+    };
+    $("fiatPaid")?.addEventListener("click", event => {
+      event.currentTarget.disabled = true;
+      act("paid", "Не удалось уведомить трейдера").catch(console.error);
+    });
+    $("fiatCancel").addEventListener("click", event => {
+      event.currentTarget.disabled = true;
+      act("cancel", "Не удалось отменить заявку").catch(console.error);
+    });
+
+    // The trader answers through the partner poller, so the page asks the
+    // server rather than guessing that a notification means money.
+    let ticks = 0;
+    fiatTicker = setInterval(async () => {
+      const countdown = $("fiatCountdown");
+      if (countdown) countdown.textContent = fiatCountdown(order);
+      if (++ticks % 3) return;
+      const response = await fetch(`/api/cash/fiat-orders/${encodeURIComponent(order.id)}`);
+      if (!response.ok) return;
+      const fresh = await response.json();
+      if (fresh.status !== order.status) renderFiatOrder(fresh);
+    }, 1000);
+  }
+
+  async function restoreFiatOrder() {
+    const response = await fetch("/api/cash/fiat-orders/active");
+    if (!response.ok) return;
+    const order = await response.json();
+    if (!order) return;
+    renderFiatOrder(order);
+    $("fiatDepositDialog").showModal();
+  }
+
   $("fiatDepositForm").addEventListener("submit", async event => {
     event.preventDefault();
     const response = await fetch("/api/cash/fiat-orders", {
@@ -470,32 +545,9 @@
       body: JSON.stringify({amount_usdt: $("fiatDepositUsdt").value, request_id: requestId()}),
     });
     const payload = await response.json();
+    if (response.status === 409) return restoreFiatOrder();
     if (!response.ok) return alert(payload.detail || "Не удалось получить реквизиты");
-    const details = $("fiatDepositDetails");
-    details.hidden = false;
-    details.innerHTML = `
-      <strong>К оплате: ${escape(payload.fiat_amount)} ₽</strong><br>
-      Реквизиты: ${escape(payload.requisites)}<br>
-      Зачисление: ${escape(payload.requested_units)} CASH (${escape(payload.requested_usdt)} USDT)<br>
-      <button type="button" data-fiat-paid="${escape(payload.id)}">Я оплатил</button>`;
-    details.querySelector("[data-fiat-paid]").addEventListener("click", async paidEvent => {
-      const paid = paidEvent.currentTarget;
-      paid.disabled = true;
-      const notified = await fetch(`/api/cash/fiat-orders/${encodeURIComponent(paid.dataset.fiatPaid)}/paid`, {method: "POST"});
-      if (!notified.ok) { paid.disabled = false; return alert("Не удалось уведомить трейдера"); }
-      paid.textContent = "Оплата отмечена · баланс не зачислен";
-      const confirm = document.createElement("button");
-      confirm.type = "button";
-      confirm.textContent = "Подтверждение трейдера (mock)";
-      details.append(document.createElement("br"), confirm);
-      confirm.addEventListener("click", async () => {
-        confirm.disabled = true;
-        const completed = await fetch(`/api/cash/fiat-orders/${encodeURIComponent(paid.dataset.fiatPaid)}/simulate-trader-confirmation`, {method: "POST"});
-        if (!completed.ok) { confirm.disabled = false; return alert("Трейдер ещё не подтвердил заявку"); }
-        confirm.textContent = "Трейдер подтвердил · CASH зачислен";
-        await load();
-      });
-    });
+    renderFiatOrder(payload);
   });
 
   $("withdrawForm").addEventListener("submit", async event => {
@@ -527,6 +579,7 @@
     if (location.hash === "#cash" && config.cash_mode === "mock") {
       await selectAsset("CASH_USDT");
     }
+    if (config.cash_mode === "mock") await restoreFiatOrder().catch(console.error);
   }
 
   boot().catch(error => { $("loadStatus").textContent = "● НЕДОСТУПНО"; console.error(error); });

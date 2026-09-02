@@ -546,7 +546,7 @@ cash_fiat_orders = Table(
     Column("partner_order_id", BIGINT, unique=True),
     Column("currency", String(3), nullable=False),
     Column("requested_micros", BIGINT, nullable=False),
-    Column("fiat_amount", BIGINT),
+    Column("fiat_kopecks", BIGINT),
     Column("requisites", String(500)),
     Column("trader_username", String(100)),
     Column("status", String(32), nullable=False),
@@ -561,6 +561,15 @@ cash_fiat_orders = Table(
         "status IN ('requesting','unavailable','awaiting_user','waiting_trader','clarifying','credited','expired','cancelled','review_required')",
         name="ck_cash_fiat_order_status",
     ),
+)
+
+_active_fiat_order_states = cash_fiat_orders.c.status.in_(
+    ("requesting", "awaiting_user", "waiting_trader", "clarifying"),
+)
+Index(
+    "uq_cash_fiat_order_active_user", cash_fiat_orders.c.user_id, unique=True,
+    postgresql_where=_active_fiat_order_states,
+    sqlite_where=_active_fiat_order_states,
 )
 
 cash_fiat_events = Table(

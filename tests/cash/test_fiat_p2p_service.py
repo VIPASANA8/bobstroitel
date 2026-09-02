@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import pytest
 from sqlalchemy import insert, select
 
-from cash.fiat_orders import FiatOrderService
+from cash.fiat_orders import ActiveFiatOrderExists, FiatOrderService
 from cash.fiat_p2p import MockCase8Partner, PartnerEvent
 from cash.access import CashOperator
 from cash.admin import CashAdminService
@@ -50,7 +50,8 @@ async def test_create_is_content_bound_and_persists_partner_requisites(fiat_db):
     assert again["id"] == first["id"]
     assert first["status"] == "awaiting_user"
     assert first["requested_micros"] == 20_000_000
-    assert first["fiat_amount"] == 1800
+    assert first["fiat_kopecks"] == 180_000
+    assert service.public(first)["fiat_rub"] == "1800,00"
     assert first["currency"] == "RUB"
     assert first["requisites"].startswith("4276")
     assert service.public(first)["requested_units"] == "200"
@@ -150,6 +151,26 @@ async def test_admin_queue_and_user_view_include_scoped_fiat_state(fiat_db):
     user = await admin.user(operator, "alice")
     assert user["fiat_orders"] == [{
         "id": order["id"], "partner_order_id": order["partner_order_id"],
-        "status": "clarifying", "currency": "RUB", "fiat_amount": 1800,
+        "status": "clarifying", "currency": "RUB", "fiat_kopecks": 180_000,
         "requested_usdt": "20",
     }]
+
+
+async def test_database_allows_one_open_rub_order_per_user(fiat_db):
+    service = FiatOrderService(fiat_db, partner=MockCase8Partner())
+    first = await service.create(
+        user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="rub-1",
+    )
+    assert (await service.active("alice"))["id"] == first["id"]
+
+    with pytest.raises(ActiveFiatOrderExists):
+        await service.create(
+            user_id="alice", tenant_id="tenant", amount_usdt="25", request_key="rub-2",
+        )
+
+    await service.cancel(first["id"], "alice")
+    assert await service.active("alice") is None
+    second = await service.create(
+        user_id="alice", tenant_id="tenant", amount_usdt="25", request_key="rub-2",
+    )
+    assert second["id"] != first["id"] and second["status"] == "awaiting_user"

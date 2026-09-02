@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 from app.dependencies import AuthenticatedUser, get_cash_user
 from cash.deposits import DepositUnavailable
+from cash.fiat_orders import ActiveFiatOrderExists
 from cash.ledger import IdempotencyConflict, InsufficientCash
 from cash.trc20 import TransferEvent
 from cash.withdrawals import WithdrawalStateError
@@ -111,11 +112,17 @@ async def create_fiat_order(body: FiatOrderRequest, request: Request,
             user_id=user.user_id, tenant_id=user.tenant_id,
             amount_usdt=body.amount_usdt, request_key=body.request_id,
         )
-    except IdempotencyConflict as exc:
+    except (ActiveFiatOrderExists, IdempotencyConflict) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return request.app.state.cash_fiat_orders.public(row)
+
+
+@router.get("/fiat-orders/active")
+async def active_fiat_order(request: Request, user: AuthenticatedUser = Depends(get_cash_user)):
+    row = await request.app.state.cash_fiat_orders.active(user.user_id)
+    return None if row is None else request.app.state.cash_fiat_orders.public(row)
 
 
 @router.get("/fiat-orders/{order_id}")

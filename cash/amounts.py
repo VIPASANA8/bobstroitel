@@ -41,3 +41,9 @@ def micros_to_usdt(value: int) -> str:
 
 def micros_to_units(value: int) -> str:
     return _format(value, 5)
+
+
+def kopecks_to_rub(value: int) -> str:
+    if type(value) is not int or not 0 <= value <= MAX_MICROS:
+        raise ValueError("kopecks must be a nonnegative signed-bigint value")
+    return f"{value // 100},{value % 100:02d}"

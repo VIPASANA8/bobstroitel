@@ -2,7 +2,7 @@
 
 ## Poker8 Online MVP
 
-The network product is a Telegram Mini App with six public 6-max tables, virtual PLAY balances, authoritative server hands, reconnectable WebSockets, FIFO seating, chat, profile/history, and tenant branding. It has no deposits, withdrawals, KYC, USDT/TRC20, blockchain, or real-money API.
+The network product is a Telegram Mini App with six public 6-max tables, virtual PLAY balances, authoritative server hands, reconnectable WebSockets, FIFO seating, chat, profile/history, and tenant branding. A separate CASH_USDT contour exists in development and test only (`POKER8_CASH_MODE=mock`): mock TRC20 deposits, a mock CASE8-compatible RUB P2P gateway and reserved TRC20 withdrawals, all against a mock provider. There is no blockchain watcher, no real partner, no KYC and no real-money mode.
 
 Local development:
 

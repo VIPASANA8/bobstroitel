@@ -48,7 +48,7 @@ EVENT_FIELDS = (
 )
 FIAT_ORDER_FIELDS = (
     "id", "user_id", "tenant_id", "partner_order_id", "currency", "requested_micros",
-    "fiat_amount", "status", "detail", "expires_at",
+    "fiat_kopecks", "status", "detail", "expires_at",
 )
 FIAT_EVENT_FIELDS = (
     "provider", "event_id", "partner_order_id", "fiat_order_id", "event_type", "status", "detail",
@@ -168,7 +168,7 @@ class CashAdminService:
             "fiat_orders": [{
                 "id": row["id"], "partner_order_id": row["partner_order_id"],
                 "status": row["status"], "currency": row["currency"],
-                "fiat_amount": row["fiat_amount"],
+                "fiat_kopecks": row["fiat_kopecks"],
                 "requested_usdt": micros_to_usdt(row["requested_micros"]),
             } for row in fiat_orders],
         }

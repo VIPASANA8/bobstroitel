@@ -7,8 +7,9 @@ from uuid import uuid4
 
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import IntegrityError
 
-from cash.amounts import micros_to_units, micros_to_usdt, usdt_to_micros
+from cash.amounts import kopecks_to_rub, micros_to_units, micros_to_usdt, usdt_to_micros
 from cash.fiat_p2p import usdt_micros_to_case8_amount
 from cash.ledger import CashLedger, IdempotencyConflict
 from online.schema import (
@@ -17,6 +18,11 @@ from online.schema import (
 
 
 PROVIDER = "case8-p2p"
+ACTIVE_STATES = ("requesting", "awaiting_user", "waiting_trader", "clarifying")
+
+
+class ActiveFiatOrderExists(Exception):
+    """The database allows one open RUB order per user."""
 
 
 def _hash(payload) -> str:
@@ -37,22 +43,28 @@ class FiatOrderService:
         fingerprint = _hash({"amount_micros": amount, "currency": "RUB"})
         now = self.now()
         order_id = uuid4().hex
-        async with self.sessions() as session:
-            async with session.begin():
-                await session.execute(insert(cash_fiat_orders).values(
-                    id=order_id, user_id=user_id, tenant_id=tenant_id,
-                    request_key=request_key, request_hash=fingerprint,
-                    currency="RUB", requested_micros=amount, status="requesting",
-                    created_at=now, updated_at=now,
-                ).on_conflict_do_nothing(index_elements=["user_id", "request_key"]))
-                row = (await session.execute(select(cash_fiat_orders).where(
-                    cash_fiat_orders.c.user_id == user_id,
-                    cash_fiat_orders.c.request_key == request_key,
-                ))).mappings().one()
-                if row["request_hash"] != fingerprint:
-                    raise IdempotencyConflict("same fiat order key with different content")
-                if row["status"] != "requesting" or row["id"] != order_id:
-                    return dict(row)
+        try:
+            async with self.sessions() as session:
+                async with session.begin():
+                    await session.execute(insert(cash_fiat_orders).values(
+                        id=order_id, user_id=user_id, tenant_id=tenant_id,
+                        request_key=request_key, request_hash=fingerprint,
+                        currency="RUB", requested_micros=amount, status="requesting",
+                        created_at=now, updated_at=now,
+                    ).on_conflict_do_nothing(index_elements=["user_id", "request_key"]))
+                    row = await self._by_request_key(session, user_id, request_key)
+        except IntegrityError as exc:
+            # The unique index over open states rejected a second order. A replay
+            # of the same key can land here too, because either index may be the
+            # one the database checks first.
+            async with self.sessions() as session:
+                row = await self._by_request_key(session, user_id, request_key)
+            if row is None or row["request_hash"] != fingerprint:
+                raise ActiveFiatOrderExists("finish or cancel the open RUB order first") from exc
+        if row["request_hash"] != fingerprint:
+            raise IdempotencyConflict("same fiat order key with different content")
+        if row["status"] != "requesting" or row["id"] != order_id:
+            return dict(row)
 
         partner_order = await self.partner.create_order(amount, "RUB")
         values = {"updated_at": self.now()}
@@ -61,7 +73,7 @@ class FiatOrderService:
         else:
             values.update(
                 partner_order_id=partner_order.partner_order_id,
-                fiat_amount=partner_order.fiat_amount,
+                fiat_kopecks=partner_order.fiat_kopecks,
                 requisites=partner_order.requisites,
                 trader_username=partner_order.trader_username,
                 expires_at=partner_order.expires_at,
@@ -77,6 +89,23 @@ class FiatOrderService:
                     cash_fiat_orders.c.id == order_id,
                 ))).mappings().one()
                 return dict(row)
+
+    @staticmethod
+    async def _by_request_key(session, user_id, request_key):
+        row = (await session.execute(select(cash_fiat_orders).where(
+            cash_fiat_orders.c.user_id == user_id,
+            cash_fiat_orders.c.request_key == request_key,
+        ))).mappings().first()
+        return dict(row) if row else None
+
+    async def active(self, user_id: str):
+        """The one open order the database allows, so a reload can resume it."""
+        async with self.sessions() as session:
+            row = (await session.execute(select(cash_fiat_orders).where(
+                cash_fiat_orders.c.user_id == user_id,
+                cash_fiat_orders.c.status.in_(ACTIVE_STATES),
+            ))).mappings().first()
+            return dict(row) if row else None
 
     async def get(self, order_id: str, user_id: str):
         async with self.sessions() as session:
@@ -207,7 +236,9 @@ class FiatOrderService:
             "id": row["id"], "status": row["status"], "currency": row["currency"],
             "requested_usdt": micros_to_usdt(row["requested_micros"]),
             "requested_units": micros_to_units(row["requested_micros"]),
-            "fiat_amount": row["fiat_amount"], "requisites": row["requisites"],
+            "fiat_kopecks": row["fiat_kopecks"],
+            "fiat_rub": None if row["fiat_kopecks"] is None else kopecks_to_rub(row["fiat_kopecks"]),
+            "requisites": row["requisites"],
             "trader_username": row["trader_username"], "detail": row["detail"],
             "expires_at": row["expires_at"],
         }

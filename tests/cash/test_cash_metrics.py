@@ -23,7 +23,7 @@ async def test_metrics_report_fiat_attention_and_durable_partner_offset(db_sessi
             await session.execute(insert(cash_fiat_orders).values(
                 id="rub-1", user_id="alice", tenant_id="tenant", request_key="rub-1",
                 request_hash="a" * 64, partner_order_id=71, currency="RUB",
-                requested_micros=20_000_000, fiat_amount=1800, status="clarifying",
+                requested_micros=20_000_000, fiat_kopecks=180_000, status="clarifying",
                 expires_at=now + timedelta(minutes=5),
             ))
             await session.execute(insert(cash_fiat_events).values(
@@ -46,4 +46,9 @@ async def test_metrics_report_fiat_attention_and_durable_partner_offset(db_sessi
         "fiat_events_requiring_review": 1,
         "paused_tables": 0,
         "partner_event_offset": 9,
+        "partner_poller": {
+            "running": False, "leader": False, "poisoned": False,
+            "last_success_at": None, "seconds_since_success": None,
+            "last_error": None, "partner_fee": None,
+        },
     }
