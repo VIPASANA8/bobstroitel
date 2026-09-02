@@ -13,6 +13,9 @@ COPY alembic.ini .
 COPY migrations ./migrations
 COPY online ./online
 COPY app ./app
+COPY cash ./cash
+COPY admin_bot ./admin_bot
+COPY tools ./tools
 COPY static ./static
 COPY bots ./bots
 COPY poker ./poker

@@ -1,0 +1,64 @@
+# Closed CASH pilot on one host.
+#
+# POKER8_ENV=test is deliberate, not a mistake: the application accepts
+# POKER8_CASH_MODE=mock only in development or test, and has no production CASH
+# mode by design. Nothing is published past localhost here -- put Caddy in front
+# once a domain and a certificate exist, because Telegram needs real HTTPS.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: poker8
+      POSTGRES_USER: poker8
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - poker8_pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U poker8 -d poker8"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POKER8_ENV: test
+      POKER8_DATABASE_URL: postgresql+psycopg://poker8:${POSTGRES_PASSWORD}@postgres:5432/poker8
+      POKER8_COORDINATOR_ENABLED: "1"
+      POKER8_SEAT_IDLE_BOTS: ${POKER8_SEAT_IDLE_BOTS:-0}
+      POKER8_DEFAULT_BOT_TOKEN: ${POKER8_DEFAULT_BOT_TOKEN:-}
+      POKER8_DEV_PROFILES: ${POKER8_DEV_PROFILES:-101:Dev Player,202:Observer}
+      # CASH pilot
+      POKER8_CASH_MODE: ${POKER8_CASH_MODE:-mock}
+      POKER8_CASH_ALLOWLIST: ${POKER8_CASH_ALLOWLIST:-}
+      POKER8_CASH_FIAT_FEE_BPS: ${POKER8_CASH_FIAT_FEE_BPS:-100}
+      POKER8_CASH_ORDERS_PER_HOUR: ${POKER8_CASH_ORDERS_PER_HOUR:-6}
+      POKER8_CASH_DAILY_DEPOSIT_USDT: ${POKER8_CASH_DAILY_DEPOSIT_USDT:-0}
+      POKER8_CASH_ADMIN_API_KEY: ${POKER8_CASH_ADMIN_API_KEY:-}
+      POKER8_CASH_ADMIN_OPERATORS_JSON: ${POKER8_CASH_ADMIN_OPERATORS_JSON:-[]}
+      # Read-only TRC20 deposit watcher; unset means it does not start.
+      POKER8_CASH_TRC20_API_URL: ${POKER8_CASH_TRC20_API_URL:-}
+      POKER8_CASH_TRC20_ADDRESS: ${POKER8_CASH_TRC20_ADDRESS:-}
+      POKER8_CASH_TRC20_CONTRACT: ${POKER8_CASH_TRC20_CONTRACT:-}
+      POKER8_CASH_TRC20_API_KEY: ${POKER8_CASH_TRC20_API_KEY:-}
+      # Alerts
+      POKER8_ALERT_TELEGRAM_BOT_TOKEN: ${POKER8_ALERT_TELEGRAM_BOT_TOKEN:-}
+      POKER8_ALERT_TELEGRAM_CHAT_ID: ${POKER8_ALERT_TELEGRAM_CHAT_ID:-}
+      POKER8_ESCROW_ALERT_WEBHOOK_URL: ${POKER8_ESCROW_ALERT_WEBHOOK_URL:-}
+    command: ["sh", "-c", "python -m alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+    # Localhost only. Public exposure waits for a domain and a certificate.
+    ports:
+      - "127.0.0.1:8000:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  poker8_pgdata:
