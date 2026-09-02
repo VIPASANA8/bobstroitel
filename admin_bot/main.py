@@ -9,7 +9,9 @@ from uuid import uuid4
 
 from admin_bot.client import AdminAPIError, CashAdminClient
 from admin_bot.config import BotConfig
-from admin_bot.formatting import fiat_order_message, queue_messages, reconciliation_message
+from admin_bot.formatting import (
+    fiat_order_message, queue_messages, reconciliation_message, user_card,
+)
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -92,7 +94,8 @@ class OperatorBot:
                 "/queue — очередь решений\n/audit — последние действия\n"
                 "/user ID — кошелёк и операции пользователя\n"
                 "/order ID — заявка RUB P2P по локальному или партнёрскому номеру\n"
-                "/recon [ГГГГ-ММ-ДД] — сверка RUB за день",
+                "/recon [ГГГГ-ММ-ДД] — сверка RUB за день\n"
+                "заморозка аккаунта — кнопкой в карточке /user",
             )
             return
         if text == "/queue":
@@ -108,16 +111,12 @@ class OperatorBot:
             return
         if text.startswith("/user "):
             user = self.api.user(actor_id, text.split(maxsplit=1)[1])
-            balances = user["balances"]
-            self.telegram.send(
-                chat_id,
-                f"👤 <b>{escape(user['display_name'])}</b> <code>{escape(user['id'])}</code>\n"
-                f"Telegram: <code>{user['telegram_user_id']}</code>\n"
-                f"Доступно: {escape(balances['available']['usdt'])} USDT / "
-                f"{escape(balances['available']['units'])} CASH\n"
-                f"За столами: {escape(balances['escrow']['usdt'])} USDT\n"
-                f"В выводе: {escape(balances['withdrawal']['usdt'])} USDT",
-            )
+            keyboard = None
+            if identity["role"] != "reviewer":
+                verb = "unfreeze" if user.get("hold") else "freeze"
+                label = "Разморозить" if user.get("hold") else "Заморозить"
+                keyboard = [[{"text": label, "callback_data": f"{verb}:{user['id']}"}]]
+            self.telegram.send(chat_id, user_card(user), keyboard)
             return
         if text == "/recon" or text.startswith("/recon "):
             day = text.split(maxsplit=1)[1] if " " in text else None
@@ -205,7 +204,8 @@ class OperatorBot:
             result = self.api.decide(actor_id, pending.action, pending.target_id,
                                      pending.body, key=pending.key)
             self.pending.pop(actor_id, None)
-            self.telegram.send(chat_id, f"✅ Новый статус: <b>{escape(result['status'])}</b>")
+            status = result.get("status") or ("заморожен" if result.get("held") else "разморожен")
+            self.telegram.send(chat_id, f"✅ Новый статус: <b>{escape(status)}</b>")
             return
         try:
             verb, target_id = data.split(":", 1)
@@ -223,6 +223,8 @@ class OperatorBot:
             "bindcredit": ("resolve_fiat_event", {"decision": "credit"}),
             "fiatreject": ("resolve_fiat_event", {"decision": "reject"}),
             "fiatclose": ("close_fiat_order", {}),
+            "freeze": ("freeze_user", {}),
+            "unfreeze": ("release_user", {}),
         }
         if verb not in mapping:
             return

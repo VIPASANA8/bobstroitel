@@ -109,3 +109,39 @@ async def test_requisites_do_not_outlive_their_retention(cash_rows):
     async with cash_rows() as session:
         assert await session.scalar(select(cash_fiat_orders.c.requisites)) is None
     assert watchdog.purged_requisites == 1
+
+
+async def test_cancelling_after_saying_you_paid_becomes_an_operator_signal(cash_rows):
+    now = datetime.now(timezone.utc)
+    watchdog = CashWatchdog(cash_rows, notifier=Recorder(), housekeeping_seconds=10_000)
+    async with cash_rows() as session:
+        async with session.begin():
+            for index in range(3):
+                await session.execute(insert(cash_fiat_orders).values(
+                    id=f"order-{index}", user_id="alice", tenant_id="tenant",
+                    request_key=f"key-{index}", request_hash="a" * 64,
+                    partner_order_id=100 + index, currency="RUB",
+                    requested_micros=20_000_000, fee_micros=200_000, status="cancelled",
+                    user_confirmed=True, created_at=now, updated_at=now,
+                ))
+
+    findings = await watchdog.check()
+
+    assert findings["cancel-after-paid-alice"] == "пользователь alice: 3 отмен после «я оплатил» за сутки"
+
+
+async def test_two_cancellations_are_not_yet_a_pattern(cash_rows):
+    now = datetime.now(timezone.utc)
+    watchdog = CashWatchdog(cash_rows, notifier=Recorder(), housekeeping_seconds=10_000)
+    async with cash_rows() as session:
+        async with session.begin():
+            for index in range(2):
+                await session.execute(insert(cash_fiat_orders).values(
+                    id=f"order-{index}", user_id="alice", tenant_id="tenant",
+                    request_key=f"key-{index}", request_hash="a" * 64,
+                    partner_order_id=200 + index, currency="RUB",
+                    requested_micros=20_000_000, fee_micros=200_000, status="cancelled",
+                    user_confirmed=True, created_at=now, updated_at=now,
+                ))
+
+    assert await watchdog.check() == {}

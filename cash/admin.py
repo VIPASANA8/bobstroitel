@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 from uuid import uuid4
@@ -9,6 +9,7 @@ from sqlalchemy import select, text, update
 from sqlalchemy.dialects.postgresql import insert
 
 from cash.access import CashOperator
+from cash.antifraud import cancelled_after_payment
 from cash.amounts import micros_to_units, micros_to_usdt
 from cash.fiat_orders import fiat_credit_postings
 from cash.fiat_reconciliation import daily_fiat_reconciliation
@@ -17,7 +18,8 @@ from cash.withdrawals import MockPayoutExecutor, WithdrawalStateError
 from online.catalogue import CASH_USDT
 from online.schema import (
     cash_accounts, cash_audit_events, cash_deposits, cash_payment_events,
-    cash_fiat_events, cash_fiat_orders, cash_withdrawals, poker_tables, table_runtimes, users,
+    cash_fiat_events, cash_fiat_orders, cash_user_holds, cash_withdrawals, poker_tables,
+    table_runtimes, users,
 )
 
 
@@ -137,19 +139,29 @@ class CashAdminService:
             rows = (await session.execute(query)).mappings().all()
             return [dict(row) for row in rows]
 
-    async def user(self, operator: CashOperator, identifier: str):
+    @staticmethod
+    async def _find_user(session, identifier):
+        identifier = str(identifier or "")
         if not identifier or len(identifier) > 64:
             raise ValueError("invalid user identifier")
+        condition = users.c.id == identifier
+        if identifier.isdigit():
+            condition = condition | (users.c.telegram_user_id == int(identifier))
+        user = (await session.execute(select(users).where(condition))).mappings().first()
+        if user is None:
+            raise LookupError("user not found")
+        return user
+
+    async def user(self, operator: CashOperator, identifier: str):
         async with self.sessions() as session:
-            condition = users.c.id == identifier
-            try:
-                condition = condition | (users.c.telegram_user_id == int(identifier))
-            except ValueError:
-                pass
-            user = (await session.execute(select(users).where(condition))).mappings().first()
-            if user is None:
-                raise LookupError("user not found")
+            user = await self._find_user(session, identifier)
             self._require_scope(operator, user["acquisition_tenant_id"])
+            hold = (await session.execute(select(cash_user_holds).where(
+                cash_user_holds.c.user_id == user["id"],
+            ))).mappings().first()
+            cancellations = await cancelled_after_payment(
+                session, since=self.now() - timedelta(days=1), threshold=1,
+            )
             accounts = (await session.execute(select(
                 cash_accounts.c.kind, cash_accounts.c.balance_micros
             ).where(cash_accounts.c.user_id == user["id"]))).all()
@@ -179,6 +191,11 @@ class CashAdminService:
                 "fiat_kopecks": row["fiat_kopecks"],
                 "requested_usdt": micros_to_usdt(row["requested_micros"]),
             } for row in fiat_orders],
+            "hold": None if hold is None else {
+                "reason": hold["reason"], "operator_id": hold["operator_id"],
+                "created_at": _json(hold["created_at"]),
+            },
+            "cancellations_after_payment": cancellations.get(user["id"], 0),
         }
 
     async def approve_withdrawal(self, withdrawal_id, operator, *, reason, key):
@@ -403,6 +420,49 @@ class CashAdminService:
             "events": [_snapshot(event, FIAT_EVENT_FIELDS) | {"processed_at": _json(event["processed_at"])}
                        for event in events],
         }
+
+    async def freeze_user(self, identifier, operator, *, reason, key):
+        """Stop new money in or out for one account. Money already at risk still moves."""
+        return await self._set_hold(identifier, operator, reason=reason, key=key, hold=True)
+
+    async def release_user(self, identifier, operator, *, reason, key):
+        return await self._set_hold(identifier, operator, reason=reason, key=key, hold=False)
+
+    async def _set_hold(self, identifier, operator, *, reason, key, hold):
+        self._require_mutation(operator)
+        action = "user.freeze" if hold else "user.release"
+        async with self.sessions() as session:
+            async with session.begin():
+                replay, fingerprint = await self._claim(
+                    session, operator, key, action, str(identifier), reason, {},
+                )
+                if replay is not None:
+                    return replay
+                user = await self._find_user(session, identifier)
+                tenant_id = user["acquisition_tenant_id"]
+                self._require_scope(operator, tenant_id)
+                existing = (await session.execute(select(cash_user_holds).where(
+                    cash_user_holds.c.user_id == user["id"],
+                ).with_for_update())).mappings().first()
+                before = {"user_id": user["id"], "held": existing is not None,
+                          "reason": existing["reason"] if existing else None}
+                if hold:
+                    await session.execute(insert(cash_user_holds).values(
+                        user_id=user["id"], tenant_id=tenant_id, reason=reason.strip(),
+                        operator_id=operator.id, created_at=self.now(),
+                    ).on_conflict_do_update(index_elements=["user_id"], set_={
+                        "reason": reason.strip(), "operator_id": operator.id,
+                        "created_at": self.now(),
+                    }))
+                else:
+                    await session.execute(cash_user_holds.delete().where(
+                        cash_user_holds.c.user_id == user["id"],
+                    ))
+                after = {"user_id": user["id"], "held": hold,
+                         "reason": reason.strip() if hold else None}
+                await self._audit(session, operator, tenant_id, action, "user",
+                                  user["id"], reason, key, fingerprint, before, after)
+                return after
 
     async def fiat_reconciliation(self, operator: CashOperator, day):
         """Daily RUB sweep. Ledger accounts carry no tenant, so this is admin-only."""

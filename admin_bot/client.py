@@ -82,6 +82,8 @@ class CashAdminClient:
             "resolve_payment": f"/api/cash-admin/payment-events/{target_id}/resolve",
             "resolve_fiat_event": f"/api/cash-admin/fiat-events/{target_id}/resolve",
             "close_fiat_order": f"/api/cash-admin/fiat-orders/{target_id}/close",
+            "freeze_user": f"/api/cash-admin/users/{target_id}/freeze",
+            "release_user": f"/api/cash-admin/users/{target_id}/unfreeze",
         }
         if action not in routes:
             raise ValueError("unknown operator action")

@@ -20,6 +20,8 @@ class Settings:
     seat_idle_bots: bool
     cash_mode: str
     cash_fiat_fee_bps: int
+    cash_orders_per_hour: int
+    cash_daily_deposit_micros: int
     cash_allowlist: tuple[int, ...]
     cash_admin_api_key: str
     cash_admin_operators: tuple[dict[str, object], ...]
@@ -60,6 +62,16 @@ class Settings:
             raise ValueError("POKER8_CASH_FIAT_FEE_BPS must be basis points") from exc
         if not 0 <= cash_fiat_fee_bps <= 1_000:
             raise ValueError("POKER8_CASH_FIAT_FEE_BPS must be between 0 and 1000 basis points")
+        # Antifraud knobs. Zero means off, which is what the pilot asked for on
+        # the daily amount; the request rate stays on because no honest cashier
+        # opens six RUB orders in an hour.
+        try:
+            cash_orders_per_hour = int(source.get("POKER8_CASH_ORDERS_PER_HOUR", "6").strip() or 0)
+            cash_daily_deposit_usdt = int(source.get("POKER8_CASH_DAILY_DEPOSIT_USDT", "0").strip() or 0)
+        except ValueError as exc:
+            raise ValueError("POKER8_CASH_ORDERS_PER_HOUR and POKER8_CASH_DAILY_DEPOSIT_USDT must be integers") from exc
+        if cash_orders_per_hour < 0 or cash_daily_deposit_usdt < 0:
+            raise ValueError("cash antifraud limits cannot be negative")
         raw_cash_allowlist = source.get("POKER8_CASH_ALLOWLIST", "").strip()
         try:
             cash_allowlist = tuple(int(value.strip()) for value in raw_cash_allowlist.split(",") if value.strip())
@@ -139,6 +151,8 @@ class Settings:
             seat_idle_bots=raw_seat_idle_bots in {"1", "true", "yes", "on"},
             cash_mode=cash_mode,
             cash_fiat_fee_bps=cash_fiat_fee_bps,
+            cash_orders_per_hour=cash_orders_per_hour,
+            cash_daily_deposit_micros=cash_daily_deposit_usdt * 1_000_000,
             cash_allowlist=cash_allowlist,
             cash_admin_api_key=cash_admin_api_key,
             cash_admin_operators=cash_admin_operators,

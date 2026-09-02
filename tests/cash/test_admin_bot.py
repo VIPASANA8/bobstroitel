@@ -6,7 +6,7 @@ import pytest
 
 from admin_bot.client import AdminAPIError, CashAdminClient
 from admin_bot.config import BotConfig
-from admin_bot.formatting import fiat_order_message, queue_messages
+from admin_bot.formatting import fiat_order_message, queue_messages, user_card
 
 
 class Response:
@@ -101,3 +101,20 @@ def test_order_card_shows_the_events_and_never_the_full_requisites():
     assert "1800,50 RUB" in card and "20 USDT" in card
     assert "…1234" in card and "4276" not in card
     assert "#41 completed" in card
+
+
+def test_the_user_card_shows_a_hold_and_the_cancellation_signal():
+    balances = {kind: {"usdt": "1", "units": "10"} for kind in ("available", "escrow", "withdrawal")}
+    quiet = user_card({
+        "id": "alice", "display_name": "Alice", "telegram_user_id": 1, "balances": balances,
+        "hold": None, "cancellations_after_payment": 0,
+    })
+    held = user_card({
+        "id": "alice", "display_name": "Alice", "telegram_user_id": 1, "balances": balances,
+        "hold": {"reason": "chargeback opened", "operator_id": "operator", "created_at": None},
+        "cancellations_after_payment": 4,
+    })
+
+    assert "Заморожен" not in quiet and "Отмен" not in quiet
+    assert "Заморожен" in held and "chargeback opened" in held
+    assert "Отмен после «я оплатил» за сутки: 4" in held

@@ -8,6 +8,7 @@ from sqlalchemy import insert, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from cash.holds import assert_not_frozen
 from cash.ledger import CashLedger, IdempotencyConflict
 from online.catalogue import CASH_USDT
 from online.events import append_integrity_event
@@ -126,6 +127,7 @@ class CashGameService:
         async with self.session_factory() as session:
             async with session.begin():
                 self._require_postgres(session)
+                await assert_not_frozen(session, user_id)
                 table = await self._table(session, table_id, lock=True)
                 self._validate_buy_in(table, seat_no, buy_in_micros)
                 existing = (

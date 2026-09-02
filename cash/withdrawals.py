@@ -9,6 +9,7 @@ from sqlalchemy import select, update
 from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import insert
 
+from cash.holds import assert_not_frozen
 from cash.amounts import micros_to_units, micros_to_usdt, usdt_to_micros
 from cash.ledger import CashLedger, IdempotencyConflict
 from cash.trc20 import MOCK_NETWORK
@@ -62,6 +63,7 @@ class WithdrawalService:
                     raise ValueError("cash withdrawals require PostgreSQL")
                 # Serialize only identical user request keys. Different requests
                 # still run concurrently and meet at the wallet row lock.
+                await assert_not_frozen(session, user_id)
                 await session.execute(text(
                     "SELECT pg_advisory_xact_lock(hashtextextended(:request, 0))"
                 ), {"request": f"cash-withdrawal:{user_id}:{request_key}"})

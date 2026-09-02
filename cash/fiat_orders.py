@@ -10,7 +10,9 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 
 from cash.amounts import kopecks_to_rub, micros_to_units, micros_to_usdt, usdt_to_micros
+from cash.antifraud import DepositPolicy, screen_fiat_order
 from cash.fiat_p2p import quote_with_fee, usdt_micros_to_case8_amount
+from cash.holds import assert_not_frozen
 from cash.ledger import CashLedger, IdempotencyConflict
 from online.schema import (
     cash_accounts, cash_fiat_events, cash_fiat_orders, cash_partner_cursors,
@@ -52,10 +54,12 @@ def _hash(payload) -> str:
 
 
 class FiatOrderService:
-    def __init__(self, session_factory, *, partner, ledger=None, now=None, fee_bps=100):
+    def __init__(self, session_factory, *, partner, ledger=None, now=None, fee_bps=100,
+                 policy=None):
         self.sessions = session_factory
         self.partner = partner
         self.fee_bps = fee_bps
+        self.policy = policy or DepositPolicy()
         self.ledger = ledger or CashLedger()
         self.now = now or (lambda: datetime.now(timezone.utc))
 
@@ -72,6 +76,10 @@ class FiatOrderService:
         try:
             async with self.sessions() as session:
                 async with session.begin():
+                    await assert_not_frozen(session, user_id)
+                    await screen_fiat_order(
+                        session, user_id=user_id, amount_micros=amount, now=now, policy=self.policy,
+                    )
                     await session.execute(insert(cash_fiat_orders).values(
                         id=order_id, user_id=user_id, tenant_id=tenant_id,
                         request_key=request_key, request_hash=fingerprint,
@@ -180,7 +188,11 @@ class FiatOrderService:
         if row["status"] != "awaiting_user":
             raise ValueError("fiat order cannot be marked paid in its current state")
         await self.partner.notify(row["partner_order_id"], cancel=False)
-        return await self._set_user_state(order_id, user_id, "awaiting_user", "waiting_trader")
+        # Recorded for the cancel-after-payment signal, and because "the user
+        # said they paid" is the fact a dispute turns on.
+        return await self._set_user_state(
+            order_id, user_id, "awaiting_user", "waiting_trader", user_confirmed=True,
+        )
 
     async def cancel(self, order_id: str, user_id: str):
         row = await self.get(order_id, user_id)
@@ -193,14 +205,14 @@ class FiatOrderService:
         await self.partner.notify(row["partner_order_id"], cancel=True)
         return await self._set_user_state(order_id, user_id, row["status"], "cancelled")
 
-    async def _set_user_state(self, order_id, user_id, previous, status):
+    async def _set_user_state(self, order_id, user_id, previous, status, **extra):
         async with self.sessions() as session:
             async with session.begin():
                 await session.execute(update(cash_fiat_orders).where(
                     cash_fiat_orders.c.id == order_id,
                     cash_fiat_orders.c.user_id == user_id,
                     cash_fiat_orders.c.status == previous,
-                ).values(status=status, updated_at=self.now()))
+                ).values(status=status, updated_at=self.now(), **extra))
                 row = (await session.execute(select(cash_fiat_orders).where(
                     cash_fiat_orders.c.id == order_id,
                     cash_fiat_orders.c.user_id == user_id,

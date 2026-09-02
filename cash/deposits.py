@@ -8,6 +8,7 @@ from uuid import uuid4
 from sqlalchemy import select, text, update
 from sqlalchemy.dialects.postgresql import insert
 
+from cash.holds import assert_not_frozen
 from cash.amounts import micros_to_units, micros_to_usdt, usdt_to_micros
 from cash.ledger import CashLedger, IdempotencyConflict
 from cash.trc20 import MOCK_ADDRESS, MOCK_NETWORK, MOCK_USDT_CONTRACT, TransferEvent
@@ -44,6 +45,7 @@ class DepositService:
             async with session.begin():
                 if session.get_bind().dialect.name != "postgresql":
                     raise ValueError("cash deposits require PostgreSQL")
+                await assert_not_frozen(session, user_id)
                 await session.execute(text("LOCK TABLE cash_deposits IN SHARE ROW EXCLUSIVE MODE"))
                 existing = (await session.execute(select(cash_deposits).where(
                     cash_deposits.c.user_id == user_id,

@@ -179,3 +179,27 @@ async def fiat_reconciliation(request: Request, day: str | None = None,
         return await request.app.state.cash_admin.fiat_reconciliation(operator, chosen)
     except (ValueError, LookupError) as exc:
         raise _error(exc) from exc
+
+
+@router.post("/users/{identifier}/freeze")
+async def freeze_user(identifier: str, body: ReasonRequest, request: Request,
+                      key: str = Header(alias="Idempotency-Key"),
+                      operator: CashOperator = Depends(get_cash_operator)):
+    try:
+        return await request.app.state.cash_admin.freeze_user(
+            identifier, operator, reason=body.reason, key=key,
+        )
+    except (ValueError, LookupError) as exc:
+        raise _error(exc) from exc
+
+
+@router.post("/users/{identifier}/unfreeze")
+async def unfreeze_user(identifier: str, body: ReasonRequest, request: Request,
+                        key: str = Header(alias="Idempotency-Key"),
+                        operator: CashOperator = Depends(get_cash_operator)):
+    try:
+        return await request.app.state.cash_admin.release_user(
+            identifier, operator, reason=body.reason, key=key,
+        )
+    except (ValueError, LookupError) as exc:
+        raise _error(exc) from exc

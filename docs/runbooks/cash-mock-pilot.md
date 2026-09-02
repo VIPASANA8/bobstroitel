@@ -61,6 +61,21 @@ It alerts on: a stalled or poisoned partner poll, partner events on review, orde
 
 Trader requisites are erased seven days after the order is created; the same hourly housekeeping does it, and the admin bot only ever showed their last four characters.
 
+## Holding an account, and the limits that run without one
+
+**A hold** is the manual stop. In the bot, `/user ID` now carries a **Заморозить** / **Разморозить** button; it asks for a reason like every other operator decision, is idempotent by key and lands in `cash_audit_events` with the operator's Telegram id. The API is `POST /api/cash-admin/users/{id}/freeze` and `/unfreeze`.
+
+A hold stops **new** money: no deposit, no RUB order, no withdrawal, no sitting down at a CASH table. It deliberately does **not** stop money already at risk — a partner completion for an order the user already paid still credits, a seated player still leaves with their escrow, and a settled hand still pays. Freezing an account mid-payment must not turn the user's own money into a hostage of the investigation. The user is told only that their account is on hold; the operator's reason stays with the operator.
+
+**Limits run without anybody watching**:
+
+- `POKER8_CASH_ORDERS_PER_HOUR` — RUB requests per user per hour, default 6, `0` disables it. Refused with `429` before a trader is asked for anything.
+- `POKER8_CASH_DAILY_DEPOSIT_USDT` — the 24-hour total a user may ask for, default `0` (off, which is what the pilot chose). Cancelled orders cost the user nothing and do not count; open and credited ones do.
+
+**Signals go to an operator, never to an automatic freeze.** A user who pressed «Я оплатил» and then cancelled three or more times in a day becomes a watchdog alert and a line on their `/user` card. The same pattern fits an honest user whose trader kept going silent, which is exactly why the decision stays human.
+
+Not covered, and not pretendable: repeat accounts. Poker8 has no device, document or payment-instrument identity to compare, so the same person on two Telegram accounts is invisible here. That needs KYC or a real device signal, and both belong to the real-money decision, not this pilot.
+
 ## Backup and restore
 
 A backup is only good if restoring it cannot pay anybody twice. The check builds a database that has done every irreversible CASH thing — a credited TRC20 provider event, a credited RUB partner event, a submitted payout, a settled CASH hand — dumps it, restores it into a database that has never run the application, and then replays every one of those operations against the restored copy:

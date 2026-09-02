@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select
 
+from cash.antifraud import cancelled_after_payment
 from cash.fiat_orders import LOST_ANSWER_SECONDS
 from cash.fiat_reconciliation import daily_fiat_reconciliation
 from online.alerts import AlertNotifier
@@ -104,6 +105,7 @@ class CashWatchdog:
             unknown = await session.scalar(select(func.count()).select_from(cash_withdrawals).where(
                 cash_withdrawals.c.status == "unknown",
             ))
+            flagged = await cancelled_after_payment(session, since=now - timedelta(days=1))
             paused = await session.scalar(select(func.count()).select_from(
                 table_runtimes.join(poker_tables, poker_tables.c.id == table_runtimes.c.table_id)
             ).where(
@@ -121,6 +123,10 @@ class CashWatchdog:
             findings["withdrawals-unknown"] = f"выводов в состоянии unknown: {unknown}"
         if paused:
             findings["cash-tables-paused"] = f"CASH-столов остановлено: {paused}"
+        for user_id, cancellations in flagged.items():
+            findings[f"cancel-after-paid-{user_id}"] = (
+                f"пользователь {user_id}: {cancellations} отмен после «я оплатил» за сутки"
+            )
         return findings | self._reconciliation
 
     async def _housekeeping(self) -> None:

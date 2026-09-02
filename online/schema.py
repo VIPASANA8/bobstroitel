@@ -552,6 +552,7 @@ cash_fiat_orders = Table(
     Column("trader_username", String(100)),
     Column("status", String(32), nullable=False),
     Column("detail", String(500)),
+    Column("user_confirmed", Boolean, nullable=False, server_default=text("false")),
     Column("expires_at", timestamp),
     Column("created_at", timestamp, **created_at),
     Column("updated_at", timestamp, **created_at),
@@ -595,6 +596,15 @@ cash_partner_cursors = Table(
     Column("offset", BIGINT, nullable=False, server_default=text("0")),
     Column("updated_at", timestamp, **created_at),
     CheckConstraint('"offset" >= 0', name="ck_cash_partner_cursor_offset"),
+)
+
+cash_user_holds = Table(
+    "cash_user_holds", metadata,
+    Column("user_id", String(64), ForeignKey("users.id"), primary_key=True),
+    Column("tenant_id", String(64), ForeignKey("tenants.id"), nullable=False),
+    Column("reason", String(500), nullable=False),
+    Column("operator_id", String(64), ForeignKey("cash_operators.id"), nullable=False),
+    Column("created_at", timestamp, **created_at),
 )
 
 cash_withdrawals = Table(

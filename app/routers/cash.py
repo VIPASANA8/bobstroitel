@@ -4,7 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.dependencies import AuthenticatedUser, get_cash_user
+from cash.antifraud import DepositRefused
 from cash.deposits import DepositUnavailable
+from cash.holds import CashUserFrozen
 from cash.fiat_orders import ActiveFiatOrderExists
 from cash.ledger import IdempotencyConflict, InsufficientCash
 from cash.trc20 import TransferEvent
@@ -30,6 +32,13 @@ class FiatOrderRequest(BaseModel):
     request_id: str = Field(min_length=1, max_length=200)
 
 
+def _guard(exc):
+    """A hold and a limit are refusals with different answers for the caller."""
+    if isinstance(exc, CashUserFrozen):
+        return HTTPException(status_code=403, detail=str(exc))
+    return HTTPException(status_code=429, detail=str(exc))
+
+
 def _not_found(row):
     if row is None:
         raise HTTPException(status_code=404, detail="cash operation not found")
@@ -49,6 +58,8 @@ async def create_deposit(body: DepositRequest, request: Request,
             user_id=user.user_id, tenant_id=user.tenant_id,
             amount_usdt=body.amount_usdt, request_key=body.request_id,
         )
+    except (CashUserFrozen, DepositRefused) as exc:
+        raise _guard(exc) from exc
     except IdempotencyConflict as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except (DepositUnavailable, ValueError) as exc:
@@ -112,6 +123,8 @@ async def create_fiat_order(body: FiatOrderRequest, request: Request,
             user_id=user.user_id, tenant_id=user.tenant_id,
             amount_usdt=body.amount_usdt, request_key=body.request_id,
         )
+    except (CashUserFrozen, DepositRefused) as exc:
+        raise _guard(exc) from exc
     except (ActiveFiatOrderExists, IdempotencyConflict) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
@@ -171,6 +184,8 @@ async def create_withdrawal(body: WithdrawalRequest, request: Request,
             user_id=user.user_id, tenant_id=user.tenant_id, amount_usdt=body.amount_usdt,
             destination_address=body.address, request_key=body.request_id,
         )
+    except CashUserFrozen as exc:
+        raise _guard(exc) from exc
     except (IdempotencyConflict, InsufficientCash) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:

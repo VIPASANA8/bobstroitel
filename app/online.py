@@ -14,6 +14,7 @@ from sqlalchemy import select, text
 from app.routers import auth, cash, cash_admin, chat, config, health, lobby, profiles, realtime, tables
 from cash.admin import CashAdminService
 from cash.deposits import DepositService
+from cash.antifraud import DepositPolicy
 from cash.fiat_orders import FiatOrderService
 from cash.fiat_poller import FiatPoller
 from cash.watchdog import CashWatchdog
@@ -37,7 +38,7 @@ from online.schema import cash_operators, metadata, tenant_bots, tenants
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
-EXPECTED_MIGRATION_REVISION = "20260902_0019"
+EXPECTED_MIGRATION_REVISION = "20260902_0020"
 
 # Revalidate every time. Without it these responses carry an ETag and a
 # Last-Modified but no Cache-Control at all, which puts a browser into
@@ -150,6 +151,7 @@ def create_app(
         app.state.cash_fiat_orders = FiatOrderService(
             session_factory, partner=app.state.cash_fiat_partner,
             fee_bps=settings.cash_fiat_fee_bps,
+            policy=DepositPolicy.from_settings(settings),
         )
         app.state.cash_fiat_poller = None
         app.state.cash_fiat_poller_task = None

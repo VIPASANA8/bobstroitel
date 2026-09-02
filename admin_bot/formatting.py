@@ -102,3 +102,25 @@ def reconciliation_message(report):
         f"комиссия {escape(balances['fee_usdt'])} USDT"
         + (f"\nРасхождения:\n{mismatches}" if mismatches else "")
     )
+
+
+def user_card(user):
+    balances = user["balances"]
+    hold = user.get("hold")
+    cancellations = user.get("cancellations_after_payment") or 0
+    lines = [
+        f"👤 <b>{escape(user['display_name'])}</b> <code>{escape(user['id'])}</code>",
+        f"Telegram: <code>{user['telegram_user_id']}</code>",
+        f"Доступно: {escape(balances['available']['usdt'])} USDT / "
+        f"{escape(balances['available']['units'])} CASH",
+        f"За столами: {escape(balances['escrow']['usdt'])} USDT",
+        f"В выводе: {escape(balances['withdrawal']['usdt'])} USDT",
+    ]
+    if hold:
+        lines.append(
+            f"🚫 <b>Заморожен</b>: {escape(hold['reason'])} "
+            f"(оператор <code>{escape(hold['operator_id'])}</code>)"
+        )
+    if cancellations:
+        lines.append(f"⚠️ Отмен после «я оплатил» за сутки: {cancellations}")
+    return "\n".join(lines)

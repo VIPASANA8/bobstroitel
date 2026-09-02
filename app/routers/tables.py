@@ -10,6 +10,7 @@ from sqlalchemy import select
 from app.dependencies import AuthenticatedUser, require_play_table_user
 from cash.amounts import usdt_to_micros
 from cash.game import CashIntegrityError, CashRuntimeError, CashSeatError
+from cash.holds import CashUserFrozen
 from cash.ledger import IdempotencyConflict, InsufficientCash
 from online.catalogue import CASH_USDT
 from online.runtime import EMPTY_SNAPSHOT
@@ -154,6 +155,10 @@ async def ready(table_id: str, payload: ReadyRequest, request: Request, user: Au
             except CashRuntimeError as exc:
                 if "requires 2 to 6" not in str(exc):
                     raise
+        except CashUserFrozen as exc:
+            raise HTTPException(status_code=403, detail={
+                "code": "account_on_hold", "message": str(exc),
+            }) from exc
         except InsufficientCash as exc:
             wallet = await request.app.state.cash_wallet.get(user.user_id)
             raise HTTPException(status_code=409, detail={
