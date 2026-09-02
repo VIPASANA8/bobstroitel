@@ -7,7 +7,8 @@ API documentation or real sandbox URL is committed.
 
 ## Pilot boundary
 
-- Poker8 accepts only `RUB` fiat deposits in the first pilot.
+- Poker8 accepts only `RUB` fiat deposits in the first pilot, 20–500 USDT per
+  order. The partner itself accepts 20–1000; the tighter window is Poker8's.
 - Fiat withdrawal is out of scope; withdrawal remains USDT TRC20.
 - Confirmed USDT is credited through the existing `CashLedger` at
   `1 USDT = 10 CASH`.

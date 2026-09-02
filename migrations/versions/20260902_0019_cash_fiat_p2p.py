@@ -37,7 +37,7 @@ def upgrade():
             sa.Column("updated_at", TS, nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
             sa.UniqueConstraint("user_id", "request_key", name="uq_cash_fiat_order_request"),
             sa.CheckConstraint("currency = 'RUB'", name="ck_cash_fiat_order_currency"),
-            sa.CheckConstraint("requested_micros BETWEEN 20000000 AND 1000000000", name="ck_cash_fiat_order_amount"),
+            sa.CheckConstraint("requested_micros BETWEEN 20000000 AND 500000000", name="ck_cash_fiat_order_amount"),
             sa.CheckConstraint("fee_micros >= 0", name="ck_cash_fiat_order_fee"),
             sa.CheckConstraint(
                 "status IN ('requesting','unavailable','awaiting_user','waiting_trader','clarifying','credited','expired','cancelled','review_required')",

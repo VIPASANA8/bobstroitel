@@ -18,6 +18,9 @@ from online.schema import (
 
 
 PROVIDER = "case8-p2p"
+# The pilot's own deposit window, inside what the partner would accept.
+MIN_DEPOSIT_MICROS = 20_000_000
+MAX_DEPOSIT_MICROS = 500_000_000
 # Poker8 keeps its deposit fee here; the partner's own fee is inside its quote.
 FEE_ACCOUNT = "case8-p2p-fee"
 ACTIVE_STATES = ("requesting", "awaiting_user", "waiting_trader", "clarifying")
@@ -58,6 +61,8 @@ class FiatOrderService:
 
     async def create(self, *, user_id: str, tenant_id: str, amount_usdt: str, request_key: str):
         amount = usdt_to_micros(amount_usdt)
+        if not MIN_DEPOSIT_MICROS <= amount <= MAX_DEPOSIT_MICROS:
+            raise ValueError("a RUB deposit is between 20 and 500 USDT")
         charged, fee = quote_with_fee(amount, self.fee_bps)
         usdt_micros_to_case8_amount(charged)
         fingerprint = _hash({"amount_micros": amount, "currency": "RUB", "fee_micros": fee})

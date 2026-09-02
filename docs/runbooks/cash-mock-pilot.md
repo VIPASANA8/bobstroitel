@@ -18,7 +18,7 @@ Use only Telegram IDs belonging to pilot testers. An empty `POKER8_CASH_ALLOWLIS
 
 Poker8 charges its own deposit fee on top of the credit — `POKER8_CASH_FIAT_FEE_BPS`, 1% by default — so a user asking for 20 USDT of CASH pays roubles for 20.20 USDT, is credited exactly 20, and the fee lands in the `case8-p2p-fee` clearing account. The partner's own `Fee` from `/me` is reported in metrics for comparison and is not part of that arithmetic.
 
-The RUB flow uses the CASE8-compatible in-process partner mock. A user creates a 20–1000 USDT order, sees the RUB total with kopecks and the requisites, and presses **Я оплатил**. That notification never changes the balance. The credit happens only when the partner poller reads a `CompletedByTrader`/`CompletedBySupport` event and posts it through `CashLedger`; the UI displays it at `1 USDT = 10 CASH`. A user has one open RUB order at a time, enforced by the database, and an unfinished order comes back with its countdown after a page reload. Withdrawals remain TRC20 mock only.
+The RUB flow uses the CASE8-compatible in-process partner mock. A user creates a 20–500 USDT order, sees the RUB total with kopecks and the requisites, and presses **Я оплатил**. That notification never changes the balance. The credit happens only when the partner poller reads a `CompletedByTrader`/`CompletedBySupport` event and posts it through `CashLedger`; the UI displays it at `1 USDT = 10 CASH`. A user has one open RUB order at a time, enforced by the database, and an unfinished order comes back with its countdown after a page reload. Withdrawals remain TRC20 mock only.
 
 ## Observe and reconcile
 
@@ -78,6 +78,26 @@ It uses `pg_dump`/`psql` from the compose service when no local client is instal
 The check has been verified in both directions: with a deliberate second credit posted under a key the dump did not carry, it fails and names the account, the amount and the extra rows.
 
 Before real money, run it against a restore of the actual backup you intend to rely on, not only against this synthetic one — the properties are the same, the data is not.
+
+## What the suite already proves, and what staging still has to
+
+Automated, on every run (`pytest -m postgres`):
+
+- another user's deposit, RUB order or withdrawal id is a 404 on every route that takes one, including the mutating ones;
+- the same provider event delivered by four processes at once credits exactly once, and 24 credits landing together on one wallet row and one clearing row stay exact to the micro;
+- two withdrawals racing for the same balance end with exactly one reservation — the ledger's non-negative constraint, not application timing, is what stops the second;
+- a crash between a partner event and its commit leaves no event row, no posting and an unmoved cursor, so the redelivery credits once;
+- leaving a table twice, and leaving again from a second process, returns the escrow once;
+- a hand settles exactly with no WebSocket attached at all, so a dropped connection cannot cost or create a chip;
+- `POKER8_CASH_MODE=off` answers 404 on the identity gate and an allowlist miss answers 403;
+- trader requisites and the partner token appear in no application log line.
+
+That last one holds only while SQLAlchemy engine echo stays off. **Never set `echo=True` or raise `sqlalchemy.engine` to INFO in a pilot**: SQL parameter logging would put card requisites in the log file, and no test can stop it.
+
+Not automated, and the reason a separate staging exists:
+
+- sustained load. `tests/load/online_mvp_load.py` measures PLAY WebSockets against a running deployment, not the ledger. A CASH load run needs a target first — how many concurrent depositors, what latency is acceptable — and a machine that is not production.
+- Staging must be its own machine, its own PostgreSQL, its own bot token, its own `POKER8_CASH_ALLOWLIST` and its own alert channel. It must never point at production data, and the backup/restore check belongs there as well as here. Keep it at `POKER8_CASH_MODE=mock` until the partner's sandbox credentials exist; the sandbox is a separate mode and a separate decision.
 
 ## Stop CASH without stopping PLAY
 
