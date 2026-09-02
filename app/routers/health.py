@@ -122,6 +122,8 @@ async def metrics(request: Request):
         )
 
     poller = getattr(request.app.state, "cash_fiat_poller", None)
+    watchdog = getattr(request.app.state, "cash_watchdog", None)
+    watched_at = getattr(watchdog, "last_check_at", None)
     last_poll = getattr(poller, "last_success_at", None)
     coordinator = getattr(request.app.state, "coordinator", None)
     monitor = getattr(request.app.state, "integrity_monitor", None)
@@ -167,6 +169,12 @@ async def metrics(request: Request):
                 "seconds_since_success": None if last_poll is None else round((now - last_poll).total_seconds(), 3),
                 "last_error": getattr(poller, "last_error", None),
                 "partner_fee": getattr(poller, "partner_fee", None),
+            },
+            "watchdog": {
+                "running": watchdog is not None,
+                "last_check_at": watched_at.isoformat() if watched_at else None,
+                "alerts_configured": bool(getattr(getattr(watchdog, "notifier", None), "configured", False)),
+                "open_findings": sorted(getattr(watchdog, "open_findings", {})),
             },
         },
     }

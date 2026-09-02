@@ -34,6 +34,7 @@ def test_cash_ui_exposes_rub_p2p_without_changing_trc20_withdrawals():
     # The cashier survives a reload, shows the expiry and never credits itself.
     assert "/api/cash/fiat-orders/active" in LOBBY_JS
     assert "Осталось" in LOBBY_JS
+    assert "Комиссия пополнения" in LOBBY_JS
     assert "simulate-trader-confirmation" not in LOBBY_JS
     assert 'id="withdrawAddress"' in LOBBY
 

@@ -16,6 +16,8 @@ $env:POKER8_CASH_ALLOWLIST='101,202'
 
 Use only Telegram IDs belonging to pilot testers. An empty `POKER8_CASH_ALLOWLIST` allows every otherwise valid test identity and is intended for local development only.
 
+Poker8 charges its own deposit fee on top of the credit — `POKER8_CASH_FIAT_FEE_BPS`, 1% by default — so a user asking for 20 USDT of CASH pays roubles for 20.20 USDT, is credited exactly 20, and the fee lands in the `case8-p2p-fee` clearing account. The partner's own `Fee` from `/me` is reported in metrics for comparison and is not part of that arithmetic.
+
 The RUB flow uses the CASE8-compatible in-process partner mock. A user creates a 20–1000 USDT order, sees the RUB total with kopecks and the requisites, and presses **Я оплатил**. That notification never changes the balance. The credit happens only when the partner poller reads a `CompletedByTrader`/`CompletedBySupport` event and posts it through `CashLedger`; the UI displays it at `1 USDT = 10 CASH`. A user has one open RUB order at a time, enforced by the database, and an unfinished order comes back with its countdown after a page reload. Withdrawals remain TRC20 mock only.
 
 ## Observe and reconcile
@@ -47,6 +49,16 @@ Check `GET /health/metrics`. The `cash` section must normally contain zeros for:
 - **Stuck order.** `requesting`, `clarifying` and `review_required` orders hold the user's one open RUB slot. **Закрыть заявку** cancels such an order. It never credits: only a durable partner event moves money, by design.
 
 Reviewers see the queue and read the cards; only `operator` and `admin` roles may decide, and every decision demands a reason of at least three characters.
+
+## Alerts and the daily sweep
+
+Metrics say what is wrong; the watchdog is what wakes somebody. It runs inside the coordinator — deliberately not inside the partner poller, because a stopped poller is one of the things it reports — and sends one message when a finding appears and one when it clears, through `POKER8_ESCROW_ALERT_WEBHOOK_URL` and/or `POKER8_ALERT_TELEGRAM_BOT_TOKEN` + `POKER8_ALERT_TELEGRAM_CHAT_ID`. Without those it still fills `cash.watchdog.open_findings` in `/health/metrics`, and `alerts_configured` is then `false` — check that before a pilot session.
+
+It alerts on: a stalled or poisoned partner poll, partner events on review, orders stuck in `requesting`, orders waiting for an operator, `unknown` withdrawals, paused CASH tables, and a day whose reconciliation does not balance. Findings live in memory, so a restart repeats a standing alert once.
+
+`/recon` in the admin bot (or `GET /api/cash-admin/reconciliation?day=YYYY-MM-DD`, admin role only) rebuilds the day independently: it reads the credited orders and the ledger separately and only then asks whether they agree, order by order. `balanced: false` names the specific order and what disagreed — a credit with no posting, a credited amount that is not the quote, a fee that is not the fee, or clearing that did not move the whole charge. The watchdog runs the same sweep for today and yesterday every hour, so nobody has to remember to.
+
+Trader requisites are erased seven days after the order is created; the same hourly housekeeping does it, and the admin bot only ever showed their last four characters.
 
 ## Stop CASH without stopping PLAY
 

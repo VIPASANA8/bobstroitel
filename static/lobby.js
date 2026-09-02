@@ -495,6 +495,7 @@
       <strong>К оплате: ${escape(order.fiat_rub)} ₽</strong><br>
       Реквизиты: ${escape(order.requisites)}<br>
       Зачисление: ${escape(order.requested_units)} CASH (${escape(order.requested_usdt)} USDT)<br>
+      Комиссия пополнения: ${escape(order.fee_usdt)} USDT · всего ${escape(order.charged_usdt)} USDT<br>
       <span id="fiatCountdown">${escape(fiatCountdown(order))}</span><br>
       ${order.status === "clarifying" ? "<strong>Трейдер уточняет платёж · напишите в поддержку</strong><br>" : ""}
       ${waiting ? "<strong>Оплата отмечена · ждём подтверждения трейдера</strong>"

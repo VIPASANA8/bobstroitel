@@ -21,6 +21,21 @@ def usdt_micros_to_case8_amount(amount_micros: int) -> int:
     return amount_micros // MICROS_PER_USDT_CENT
 
 
+def quote_with_fee(requested_micros: int, fee_bps: int) -> tuple[int, int]:
+    """Poker8 charges its deposit fee on top of what the user is credited.
+
+    The partner only accepts whole USDT cents, so the charge rounds up to one
+    and the rounding lands in the fee, never in the user's balance.
+    """
+    if type(requested_micros) is not int or requested_micros <= 0:
+        raise ValueError("fiat P2P amount must be a positive integer of micros")
+    if type(fee_bps) is not int or not 0 <= fee_bps <= 1_000:
+        raise ValueError("the deposit fee must be between 0 and 10 percent")
+    charged = -(-requested_micros * (10_000 + fee_bps) // 10_000)
+    charged = -(-charged // MICROS_PER_USDT_CENT) * MICROS_PER_USDT_CENT
+    return charged, charged - requested_micros
+
+
 @dataclass(frozen=True)
 class PartnerOrder:
     partner_order_id: int

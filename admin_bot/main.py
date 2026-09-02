@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from admin_bot.client import AdminAPIError, CashAdminClient
 from admin_bot.config import BotConfig
-from admin_bot.formatting import fiat_order_message, queue_messages
+from admin_bot.formatting import fiat_order_message, queue_messages, reconciliation_message
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -91,7 +91,8 @@ class OperatorBot:
                 f"Poker8 CASH control\nРоль: <b>{escape(identity['role'])}</b>\n"
                 "/queue — очередь решений\n/audit — последние действия\n"
                 "/user ID — кошелёк и операции пользователя\n"
-                "/order ID — заявка RUB P2P по локальному или партнёрскому номеру",
+                "/order ID — заявка RUB P2P по локальному или партнёрскому номеру\n"
+                "/recon [ГГГГ-ММ-ДД] — сверка RUB за день",
             )
             return
         if text == "/queue":
@@ -117,6 +118,10 @@ class OperatorBot:
                 f"За столами: {escape(balances['escrow']['usdt'])} USDT\n"
                 f"В выводе: {escape(balances['withdrawal']['usdt'])} USDT",
             )
+            return
+        if text == "/recon" or text.startswith("/recon "):
+            day = text.split(maxsplit=1)[1] if " " in text else None
+            self.telegram.send(chat_id, reconciliation_message(self.api.reconciliation(actor_id, day)))
             return
         if text.startswith("/order "):
             self.telegram.send(

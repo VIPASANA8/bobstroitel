@@ -10,7 +10,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 
 from cash.amounts import kopecks_to_rub, micros_to_units, micros_to_usdt, usdt_to_micros
-from cash.fiat_p2p import usdt_micros_to_case8_amount
+from cash.fiat_p2p import quote_with_fee, usdt_micros_to_case8_amount
 from cash.ledger import CashLedger, IdempotencyConflict
 from online.schema import (
     cash_accounts, cash_fiat_events, cash_fiat_orders, cash_partner_cursors,
@@ -18,6 +18,8 @@ from online.schema import (
 
 
 PROVIDER = "case8-p2p"
+# Poker8 keeps its deposit fee here; the partner's own fee is inside its quote.
+FEE_ACCOUNT = "case8-p2p-fee"
 ACTIVE_STATES = ("requesting", "awaiting_user", "waiting_trader", "clarifying")
 # A partner answer that never arrived leaves a row nobody can finish. It stops
 # holding the user's one open slot after this, and an operator gets to see it.
@@ -28,22 +30,37 @@ class ActiveFiatOrderExists(Exception):
     """The database allows one open RUB order per user."""
 
 
+async def fiat_credit_postings(session, order, account):
+    """The clearing account pays the whole charge: the quote to the user, the fee to us."""
+    wallet = await account(session, "available", order["user_id"], order["user_id"])
+    clearing = await account(session, "clearing", None, PROVIDER)
+    postings = {
+        clearing: -(order["requested_micros"] + order["fee_micros"]),
+        wallet: order["requested_micros"],
+    }
+    if order["fee_micros"]:
+        postings[await account(session, "clearing", None, FEE_ACCOUNT)] = order["fee_micros"]
+    return postings
+
+
 def _hash(payload) -> str:
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(encoded).hexdigest()
 
 
 class FiatOrderService:
-    def __init__(self, session_factory, *, partner, ledger=None, now=None):
+    def __init__(self, session_factory, *, partner, ledger=None, now=None, fee_bps=100):
         self.sessions = session_factory
         self.partner = partner
+        self.fee_bps = fee_bps
         self.ledger = ledger or CashLedger()
         self.now = now or (lambda: datetime.now(timezone.utc))
 
     async def create(self, *, user_id: str, tenant_id: str, amount_usdt: str, request_key: str):
         amount = usdt_to_micros(amount_usdt)
-        usdt_micros_to_case8_amount(amount)
-        fingerprint = _hash({"amount_micros": amount, "currency": "RUB"})
+        charged, fee = quote_with_fee(amount, self.fee_bps)
+        usdt_micros_to_case8_amount(charged)
+        fingerprint = _hash({"amount_micros": amount, "currency": "RUB", "fee_micros": fee})
         now = self.now()
         order_id = uuid4().hex
         await self._release_stale(user_id, now)
@@ -53,7 +70,8 @@ class FiatOrderService:
                     await session.execute(insert(cash_fiat_orders).values(
                         id=order_id, user_id=user_id, tenant_id=tenant_id,
                         request_key=request_key, request_hash=fingerprint,
-                        currency="RUB", requested_micros=amount, status="requesting",
+                        currency="RUB", requested_micros=amount, fee_micros=fee,
+                        status="requesting",
                         created_at=now, updated_at=now,
                     ).on_conflict_do_nothing(index_elements=["user_id", "request_key"]))
                     row = await self._by_request_key(session, user_id, request_key)
@@ -70,7 +88,7 @@ class FiatOrderService:
         if row["status"] != "requesting" or row["id"] != order_id:
             return dict(row)
 
-        partner_order = await self.partner.create_order(amount, "RUB")
+        partner_order = await self.partner.create_order(charged, "RUB")
         values = {"updated_at": self.now()}
         if partner_order is None:
             values.update(status="unavailable", detail="no trader is currently available")
@@ -93,6 +111,16 @@ class FiatOrderService:
                     cash_fiat_orders.c.id == order_id,
                 ))).mappings().one()
                 return dict(row)
+
+    async def purge_requisites(self, before):
+        """Trader requisites are payment data and are not kept past retention."""
+        async with self.sessions() as session:
+            async with session.begin():
+                result = await session.execute(update(cash_fiat_orders).where(
+                    cash_fiat_orders.c.requisites.is_not(None),
+                    cash_fiat_orders.c.created_at < before,
+                ).values(requisites=None))
+                return result.rowcount or 0
 
     async def _release_stale(self, user_id, now):
         """Free the user's open slot from orders the partner can no longer finish."""
@@ -217,12 +245,10 @@ class FiatOrderService:
                 event_values = {"fiat_order_id": order["id"], "status": "processed", "processed_at": now}
                 terminal = order["status"] in {"credited", "expired", "cancelled", "review_required"}
                 if event.status == "completed" and not terminal:
-                    wallet = await self._account(session, "available", order["user_id"], order["user_id"])
-                    clearing = await self._account(session, "clearing", None, PROVIDER)
                     await self.ledger.post(
                         session, scope="fiat-deposit", key=f"{PROVIDER}:{event.event_id}",
                         kind="deposit", reference_id=order["id"], actor="case8-p2p-reconciler",
-                        postings={clearing: -order["requested_micros"], wallet: order["requested_micros"]},
+                        postings=await fiat_credit_postings(session, order, self._account),
                     )
                     await session.execute(update(cash_fiat_orders).where(
                         cash_fiat_orders.c.id == order["id"],
@@ -259,6 +285,8 @@ class FiatOrderService:
             "id": row["id"], "status": row["status"], "currency": row["currency"],
             "requested_usdt": micros_to_usdt(row["requested_micros"]),
             "requested_units": micros_to_units(row["requested_micros"]),
+            "fee_usdt": micros_to_usdt(row["fee_micros"]),
+            "charged_usdt": micros_to_usdt(row["requested_micros"] + row["fee_micros"]),
             "fiat_kopecks": row["fiat_kopecks"],
             "fiat_rub": None if row["fiat_kopecks"] is None else kopecks_to_rub(row["fiat_kopecks"]),
             "requisites": row["requisites"],

@@ -1,3 +1,4 @@
+from datetime import date, datetime, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
@@ -163,5 +164,18 @@ async def close_fiat_order(order_id: str, body: ReasonRequest, request: Request,
         return await request.app.state.cash_admin.close_fiat_order(
             order_id, operator, reason=body.reason, key=key,
         )
+    except (ValueError, LookupError) as exc:
+        raise _error(exc) from exc
+
+
+@router.get("/reconciliation")
+async def fiat_reconciliation(request: Request, day: str | None = None,
+                              operator: CashOperator = Depends(get_cash_operator)):
+    try:
+        chosen = date.fromisoformat(day) if day else datetime.now(timezone.utc).date()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="day must be YYYY-MM-DD") from exc
+    try:
+        return await request.app.state.cash_admin.fiat_reconciliation(operator, chosen)
     except (ValueError, LookupError) as exc:
         raise _error(exc) from exc

@@ -66,6 +66,13 @@ class CashAdminClient:
             "GET", "/api/cash-admin/fiat-orders/" + quote(str(identifier), safe=""), actor_id,
         )
 
+    def reconciliation(self, actor_id, day=None):
+        from urllib.parse import quote
+        path = "/api/cash-admin/reconciliation"
+        if day:
+            path += "?day=" + quote(str(day), safe="")
+        return self.request("GET", path, actor_id)
+
     def decide(self, actor_id, action, target_id, body, *, key=None):
         routes = {
             "approve": f"/api/cash-admin/withdrawals/{target_id}/approve",

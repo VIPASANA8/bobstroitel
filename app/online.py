@@ -16,6 +16,7 @@ from cash.admin import CashAdminService
 from cash.deposits import DepositService
 from cash.fiat_orders import FiatOrderService
 from cash.fiat_poller import FiatPoller
+from cash.watchdog import CashWatchdog
 from cash.fiat_p2p import MockCase8Partner
 from cash.game import CashGameService
 from cash.wallet import WalletService
@@ -148,12 +149,18 @@ def create_app(
         app.state.cash_fiat_partner = MockCase8Partner()
         app.state.cash_fiat_orders = FiatOrderService(
             session_factory, partner=app.state.cash_fiat_partner,
+            fee_bps=settings.cash_fiat_fee_bps,
         )
         app.state.cash_fiat_poller = None
         app.state.cash_fiat_poller_task = None
+        app.state.cash_watchdog = None
         if settings.cash_mode == "mock":
             app.state.cash_fiat_poller = FiatPoller(app.state.cash_fiat_orders)
             app.state.cash_fiat_poller_task = asyncio.create_task(app.state.cash_fiat_poller.run())
+            app.state.cash_watchdog = CashWatchdog(
+                session_factory, poller=app.state.cash_fiat_poller,
+                fiat=app.state.cash_fiat_orders,
+            )
         app.state.cash_withdrawals = WithdrawalService(session_factory)
         app.state.cash_wallet = WalletService(session_factory)
         app.state.cash_admin = CashAdminService(session_factory)
@@ -168,6 +175,7 @@ def create_app(
             app.state.seating,
             catalogue,
             integrity_monitor=app.state.integrity_monitor,
+            cash_watchdog=app.state.cash_watchdog,
             on_change=lambda table_id: app.state.connection_hub.broadcast(table_id, app.state.runtime),
         )
         app.state.coordinator_task = None

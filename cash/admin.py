@@ -10,6 +10,8 @@ from sqlalchemy.dialects.postgresql import insert
 
 from cash.access import CashOperator
 from cash.amounts import micros_to_units, micros_to_usdt
+from cash.fiat_orders import fiat_credit_postings
+from cash.fiat_reconciliation import daily_fiat_reconciliation
 from cash.ledger import CashLedger, IdempotencyConflict
 from cash.withdrawals import MockPayoutExecutor, WithdrawalStateError
 from online.catalogue import CASH_USDT
@@ -48,7 +50,7 @@ EVENT_FIELDS = (
 )
 FIAT_ORDER_FIELDS = (
     "id", "user_id", "tenant_id", "partner_order_id", "currency", "requested_micros",
-    "fiat_kopecks", "status", "detail", "expires_at",
+    "fee_micros", "fiat_kopecks", "status", "detail", "expires_at",
 )
 FIAT_EVENT_FIELDS = (
     "provider", "event_id", "partner_order_id", "fiat_order_id", "event_type", "status", "detail",
@@ -402,6 +404,11 @@ class CashAdminService:
                        for event in events],
         }
 
+    async def fiat_reconciliation(self, operator: CashOperator, day):
+        """Daily RUB sweep. Ledger accounts carry no tenant, so this is admin-only."""
+        self._require_scope(operator, None)
+        return await daily_fiat_reconciliation(self.sessions, day)
+
     async def resolve_fiat_event(self, event_id, operator, *, decision, reason, key, order_id=None):
         """Bind a partner event to its order and credit it once, or close it unpaid."""
         self._require_mutation(operator)
@@ -441,15 +448,13 @@ class CashAdminService:
                         raise ValueError("only a completed partner event can credit an order")
                     if order["status"] == "credited":
                         raise ValueError("the order is already credited")
-                    wallet = await self._account(session, "available", order["user_id"], order["user_id"])
-                    clearing = await self._account(session, "clearing", None, PROVIDER)
                     # The poller's ledger key, so a later partner replay of the same
                     # event cannot credit this order a second time.
                     await self.ledger.post(
                         session, scope="fiat-deposit", key=PROVIDER + ":" + str(event["event_id"]),
                         kind="deposit", reference_id=order["id"],
                         actor="operator:" + str(operator.telegram_user_id),
-                        postings={clearing: -order["requested_micros"], wallet: order["requested_micros"]},
+                        postings=await fiat_credit_postings(session, order, self._account),
                     )
                     await session.execute(update(cash_fiat_orders).where(
                         cash_fiat_orders.c.id == order["id"]

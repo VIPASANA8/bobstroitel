@@ -50,8 +50,12 @@ async def test_create_is_content_bound_and_persists_partner_requisites(fiat_db):
     assert again["id"] == first["id"]
     assert first["status"] == "awaiting_user"
     assert first["requested_micros"] == 20_000_000
-    assert first["fiat_kopecks"] == 180_000
-    assert service.public(first)["fiat_rub"] == "1800,00"
+    # 20 USDT credited, 1% on top, so the trader collects 20.20 USDT in roubles.
+    assert first["fee_micros"] == 200_000
+    assert first["fiat_kopecks"] == 181_800
+    assert service.public(first)["fiat_rub"] == "1818,00"
+    assert service.public(first)["fee_usdt"] == "0.2"
+    assert service.public(first)["charged_usdt"] == "20.2"
     assert first["currency"] == "RUB"
     assert first["requisites"].startswith("4276")
     assert service.public(first)["requested_units"] == "200"
@@ -92,7 +96,8 @@ async def test_completed_event_credits_once_and_cursor_survives_restart(fiat_db)
     final = await restarted.get(order["id"], "alice")
     assert final["status"] == "credited"
     assert len(ledger.calls) == 1
-    assert sorted(ledger.calls[0]["postings"].values()) == [-20_000_000, 20_000_000]
+    # The clearing account pays the whole charge: 20 USDT to the user, 0.20 to us.
+    assert sorted(ledger.calls[0]["postings"].values()) == [-20_200_000, 200_000, 20_000_000]
     async with fiat_db() as session:
         assert await session.scalar(select(cash_partner_cursors.c.offset)) == 1
         assert await session.scalar(select(cash_fiat_events.c.status)) == "processed"
@@ -151,7 +156,7 @@ async def test_admin_queue_and_user_view_include_scoped_fiat_state(fiat_db):
     user = await admin.user(operator, "alice")
     assert user["fiat_orders"] == [{
         "id": order["id"], "partner_order_id": order["partner_order_id"],
-        "status": "clarifying", "currency": "RUB", "fiat_kopecks": 180_000,
+        "status": "clarifying", "currency": "RUB", "fiat_kopecks": 181_800,
         "requested_usdt": "20",
     }]
 
@@ -211,3 +216,14 @@ async def test_a_lost_partner_answer_goes_to_review_instead_of_blocking_the_user
     lost = await service.get("lost", "alice")
     assert lost["status"] == "review_required" and lost["detail"] == "partner answer was lost"
     assert fresh["status"] == "awaiting_user"
+
+
+async def test_the_deposit_fee_is_charged_on_top_and_never_taken_from_the_credit(fiat_db):
+    free = FiatOrderService(fiat_db, partner=MockCase8Partner(rub_per_usdt=90), fee_bps=0)
+    order = await free.create(
+        user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="rub-free",
+    )
+
+    assert order["fee_micros"] == 0
+    assert order["fiat_kopecks"] == 180_000
+    assert free.public(order)["charged_usdt"] == "20"

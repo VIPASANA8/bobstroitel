@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-import asyncio
-import json
 import logging
 import os
 import time
-import urllib.request
 from datetime import datetime, timedelta, timezone
 import uuid
 from dataclasses import dataclass
@@ -13,6 +10,7 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from online.alerts import AlertNotifier
 from online.catalogue import PLAY
 from online.schema import hands, integrity_events, play_accounts, poker_tables, table_runtimes, table_seats
 
@@ -62,9 +60,11 @@ class EscrowIntegrityMonitor:
     ) -> None:
         self.session_factory = session_factory
         self.interval_seconds = max(5.0, float(interval_seconds or os.getenv("POKER8_ESCROW_CHECK_INTERVAL_SECONDS", "30")))
-        self.webhook_url = webhook_url if webhook_url is not None else os.getenv("POKER8_ESCROW_ALERT_WEBHOOK_URL", "")
-        self.telegram_bot_token = os.getenv("POKER8_ALERT_TELEGRAM_BOT_TOKEN", "")
-        self.telegram_chat_id = os.getenv("POKER8_ALERT_TELEGRAM_CHAT_ID", "")
+        self.notifier = AlertNotifier(webhook_url=webhook_url)
+        # Kept as attributes because /health/metrics reports what is configured.
+        self.webhook_url = self.notifier.webhook_url
+        self.telegram_bot_token = self.notifier.telegram_bot_token
+        self.telegram_chat_id = self.notifier.telegram_chat_id
         self._next_check_at = 0.0
         self._open_findings: dict[str, dict[str, object]] = {}
         self._warmed = False
@@ -237,45 +237,10 @@ class EscrowIntegrityMonitor:
         await session.commit()
 
     async def _send_alert(self, payload: dict[str, object]) -> None:
-        body = json.dumps({"event": "poker8_escrow_stack_mismatch", **payload}).encode("utf-8")
-
-        def post_webhook() -> None:
-            request = urllib.request.Request(
-                self.webhook_url,
-                data=body,
-                headers={"Content-Type": "application/json"},
-                method="POST",
-            )
-            with urllib.request.urlopen(request, timeout=4) as response:
-                response.read(1)
-
-        def post_telegram() -> None:
-            telegram_body = json.dumps({
-                "chat_id": self.telegram_chat_id,
-                "text": (
-                    "Poker8: критическая рассинхронизация escrow\\n"
-                    f"Стол: {payload['table_id']}\\n"
-                    f"Тип: {payload['code']}\\n"
-                    f"Ожидалось: {payload['expected_units']}\\n"
-                    f"Фактически: {payload['actual_units']}"
-                ),
-            }).encode("utf-8")
-            request = urllib.request.Request(
-                f"https://api.telegram.org/bot{self.telegram_bot_token}/sendMessage",
-                data=telegram_body,
-                headers={"Content-Type": "application/json"},
-                method="POST",
-            )
-            with urllib.request.urlopen(request, timeout=4) as response:
-                response.read(1)
-
-        deliveries = []
-        if self.webhook_url:
-            deliveries.append(post_webhook)
-        if self.telegram_bot_token and self.telegram_chat_id:
-            deliveries.append(post_telegram)
-        for delivery in deliveries:
-            try:
-                await asyncio.to_thread(delivery)
-            except Exception:
-                logger.exception("poker8_escrow_alert_delivery_failed", extra={"table_id": payload["table_id"]})
+        await self.notifier.send("poker8_escrow_stack_mismatch", (
+            "Poker8: критическая рассинхронизация escrow\n"
+            f"Стол: {payload['table_id']}\n"
+            f"Тип: {payload['code']}\n"
+            f"Ожидалось: {payload['expected_units']}\n"
+            f"Фактически: {payload['actual_units']}"
+        ), payload)

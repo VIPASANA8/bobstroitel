@@ -26,6 +26,7 @@ def upgrade():
             sa.Column("partner_order_id", sa.BIGINT(), unique=True),
             sa.Column("currency", sa.String(3), nullable=False),
             sa.Column("requested_micros", sa.BIGINT(), nullable=False),
+            sa.Column("fee_micros", sa.BIGINT(), nullable=False, server_default=sa.text("0")),
             sa.Column("fiat_kopecks", sa.BIGINT()),
             sa.Column("requisites", sa.String(500)),
             sa.Column("trader_username", sa.String(100)),
@@ -37,6 +38,7 @@ def upgrade():
             sa.UniqueConstraint("user_id", "request_key", name="uq_cash_fiat_order_request"),
             sa.CheckConstraint("currency = 'RUB'", name="ck_cash_fiat_order_currency"),
             sa.CheckConstraint("requested_micros BETWEEN 20000000 AND 1000000000", name="ck_cash_fiat_order_amount"),
+            sa.CheckConstraint("fee_micros >= 0", name="ck_cash_fiat_order_fee"),
             sa.CheckConstraint(
                 "status IN ('requesting','unavailable','awaiting_user','waiting_trader','clarifying','credited','expired','cancelled','review_required')",
                 name="ck_cash_fiat_order_status",

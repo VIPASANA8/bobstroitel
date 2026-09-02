@@ -108,9 +108,13 @@ durable `CompletedByTrader` or `CompletedBySupport` event may post funds.
 
 CASE8 contains an ambiguity around commission: it adds commission to the USDT
 amount sent to `/order`, then also derives a fiat commission from the returned
-amount for display. Poker8 must store one explicit quote snapshot and charge
-the user exactly the displayed RUB total. No commission formula is copied
-until the partner confirms what `Amount` already includes.
+amount for display. Poker8 does not copy that formula. It charges its own
+deposit fee — `POKER8_CASH_FIAT_FEE_BPS`, 100 basis points by default — on top
+of what the user is credited: `/order` asks for credit plus fee, rounded up to
+a whole USDT cent, and the RUB total the partner returns is the whole amount
+the user pays. `fee_micros` on the order is that snapshot. The partner's own
+`Fee` from `/me` is a separate number, recorded in `/health/metrics` for
+comparison and never used in a calculation.
 
 ## Pinned evidence
 

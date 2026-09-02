@@ -59,6 +59,7 @@ class OnlineCoordinator:
         *,
         interval_seconds: float = 0.25,
         integrity_monitor: EscrowIntegrityMonitor | None = None,
+        cash_watchdog=None,
         on_change=None,
     ) -> None:
         self.runtime = runtime
@@ -66,6 +67,9 @@ class OnlineCoordinator:
         self.catalogue = catalogue
         self.interval_seconds = interval_seconds
         self.integrity_monitor = integrity_monitor
+        # The CASH watchdog lives here rather than in the partner poller: a
+        # stopped poller is exactly the thing it has to alert about.
+        self.cash_watchdog = cash_watchdog
         # Bot moves, timeouts and hand boundaries all happen here rather than on
         # a client command, so without this the only way a viewer learns about
         # them is the slow fallback poll.
@@ -95,6 +99,11 @@ class OnlineCoordinator:
                     await self.integrity_monitor.maybe_check()
                 except Exception:
                     logger.exception("poker8 escrow integrity monitor failed")
+            if self.cash_watchdog is not None:
+                try:
+                    await self.cash_watchdog.maybe_check()
+                except Exception:
+                    logger.exception("poker8 cash watchdog failed")
             await self._retire_idle_rooms()
             await self._sweep_logs()
             tables = await self.catalogue.list_tables(page=1, per_page=100)

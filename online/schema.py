@@ -546,6 +546,7 @@ cash_fiat_orders = Table(
     Column("partner_order_id", BIGINT, unique=True),
     Column("currency", String(3), nullable=False),
     Column("requested_micros", BIGINT, nullable=False),
+    Column("fee_micros", BIGINT, nullable=False, server_default=text("0")),
     Column("fiat_kopecks", BIGINT),
     Column("requisites", String(500)),
     Column("trader_username", String(100)),
@@ -557,6 +558,7 @@ cash_fiat_orders = Table(
     UniqueConstraint("user_id", "request_key", name="uq_cash_fiat_order_request"),
     CheckConstraint("currency = 'RUB'", name="ck_cash_fiat_order_currency"),
     CheckConstraint("requested_micros BETWEEN 20000000 AND 1000000000", name="ck_cash_fiat_order_amount"),
+    CheckConstraint("fee_micros >= 0", name="ck_cash_fiat_order_fee"),
     CheckConstraint(
         "status IN ('requesting','unavailable','awaiting_user','waiting_trader','clarifying','credited','expired','cancelled','review_required')",
         name="ck_cash_fiat_order_status",
