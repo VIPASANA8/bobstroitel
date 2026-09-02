@@ -17,6 +17,7 @@ from cash.deposits import DepositService
 from cash.antifraud import DepositPolicy
 from cash.fiat_orders import FiatOrderService
 from cash.fiat_poller import FiatPoller
+from cash.trc20_watcher import Trc20DepositWatcher
 from cash.watchdog import CashWatchdog
 from cash.fiat_p2p import MockCase8Partner
 from cash.game import CashGameService
@@ -146,7 +147,11 @@ def create_app(
         app.state.history = HistoryService(session_factory)
         app.state.runtime = TableRuntimeManager(session_factory, ledger)
         app.state.seating = SeatingService(session_factory, ledger, settings.seat_idle_bots)
-        app.state.cash_deposits = DepositService(session_factory)
+        app.state.cash_deposits = DepositService(
+            session_factory,
+            address=settings.cash_trc20_address or None,
+            contract=settings.cash_trc20_contract or None,
+        )
         app.state.cash_fiat_partner = MockCase8Partner()
         app.state.cash_fiat_orders = FiatOrderService(
             session_factory, partner=app.state.cash_fiat_partner,
@@ -155,13 +160,26 @@ def create_app(
         )
         app.state.cash_fiat_poller = None
         app.state.cash_fiat_poller_task = None
+        app.state.cash_trc20_watcher = None
+        app.state.cash_trc20_watcher_task = None
         app.state.cash_watchdog = None
         if settings.cash_mode == "mock":
             app.state.cash_fiat_poller = FiatPoller(app.state.cash_fiat_orders)
             app.state.cash_fiat_poller_task = asyncio.create_task(app.state.cash_fiat_poller.run())
+            if settings.cash_trc20_api_url:
+                app.state.cash_trc20_watcher = Trc20DepositWatcher(
+                    app.state.cash_deposits,
+                    base_url=settings.cash_trc20_api_url,
+                    address=settings.cash_trc20_address,
+                    contract=settings.cash_trc20_contract,
+                    api_key=settings.cash_trc20_api_key,
+                )
+                app.state.cash_trc20_watcher_task = asyncio.create_task(
+                    app.state.cash_trc20_watcher.run()
+                )
             app.state.cash_watchdog = CashWatchdog(
                 session_factory, poller=app.state.cash_fiat_poller,
-                fiat=app.state.cash_fiat_orders,
+                chain=app.state.cash_trc20_watcher, fiat=app.state.cash_fiat_orders,
             )
         app.state.cash_withdrawals = WithdrawalService(session_factory)
         app.state.cash_wallet = WalletService(session_factory)
@@ -203,6 +221,12 @@ def create_app(
         try:
             yield
         finally:
+            if app.state.cash_trc20_watcher_task is not None:
+                app.state.cash_trc20_watcher.stop()
+                _, hung = await asyncio.wait({app.state.cash_trc20_watcher_task}, timeout=5)
+                for task in hung:
+                    task.cancel()
+                await app.state.cash_trc20_watcher.close()
             if app.state.cash_fiat_poller_task is not None:
                 app.state.cash_fiat_poller.stop()
                 # A long poll can still be waiting on the partner for 35 seconds.

@@ -61,6 +61,33 @@ It alerts on: a stalled or poisoned partner poll, partner events on review, orde
 
 Trader requisites are erased seven days after the order is created; the same hourly housekeeping does it, and the admin bot only ever showed their last four characters.
 
+## The TRC20 deposit watcher (read-only)
+
+The watcher holds no key of any kind and can move nothing. It reads confirmed
+USDT transfers to one address and hands them to the same `DepositService.observe`
+the mock feeds, so matching against the exact expected amount, deduplication and
+the ledger posting are the code that is already tested. Payouts remain mock and
+remain a separate decision.
+
+```powershell
+$env:POKER8_CASH_TRC20_API_URL='https://nile.trongrid.io'   # testnet first
+$env:POKER8_CASH_TRC20_ADDRESS='T...'                       # the receiving address
+$env:POKER8_CASH_TRC20_CONTRACT='T...'                      # USDT on that network
+$env:POKER8_CASH_TRC20_API_KEY='...'                        # optional, rate limits only
+```
+
+All three of URL, address and contract are set together or not at all; the URL must be HTTPS and both addresses must be TRON base58. Unset, nothing starts and the mock contour is untouched. When they are set, deposits are issued for that address and that contract, so what the cashier shows and what the watcher reads are the same setting.
+
+What it guarantees, and what it does not:
+
+- **Reorgs.** It asks for `only_confirmed=true`, so it only ever reads transfers in a solidified TRON block — signed by more than two thirds of the super representatives and no longer reversible. An unsolidified transfer is never read, so it cannot be credited and then vanish. There is no confirmation count of our own to tune.
+- **Fake USDT.** Anyone can send anything to a public address, and on TRON they constantly do. Only the configured contract, with 6 decimals, to the configured address, of type `Transfer`, can become a payment event; everything else is counted in `cash.chain_watcher.ignored_transfers` and dropped. A spoofed token for the exact expected amount credits nothing.
+- **One reader.** The same advisory-lock leadership as the partner poller, on its own key, so several application processes do not read the chain in parallel.
+- **A cursor that cannot skip.** The last block timestamp is stored in `cash_partner_cursors` and re-read inclusively, so two transfers sharing a millisecond cannot fall between two polls; the repeat is deduplicated by event key.
+- **Unreadable data stops it.** A malformed page, value or timestamp poisons the loop: the cursor stays put, `cash.chain_watcher.poisoned` goes true, the watchdog alerts and an operator looks. It never guesses past a row it could not read.
+
+It does **not** watch the address for withdrawals, does not sign, and does not know a private key exists. Moving funds out of that address is manual and outside this application.
+
 ## Holding an account, and the limits that run without one
 
 **A hold** is the manual stop. In the bot, `/user ID` now carries a **Заморозить** / **Разморозить** button; it asks for a reason like every other operator decision, is idempotent by key and lands in `cash_audit_events` with the operator's Telegram id. The API is `POST /api/cash-admin/users/{id}/freeze` and `/unfreeze`.

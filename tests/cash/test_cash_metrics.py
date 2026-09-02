@@ -51,6 +51,11 @@ async def test_metrics_report_fiat_attention_and_durable_partner_offset(db_sessi
             "last_success_at": None, "seconds_since_success": None,
             "last_error": None, "partner_fee": None,
         },
+        "chain_watcher": {
+            "running": False, "leader": False, "poisoned": False,
+            "last_success_at": None, "seconds_since_success": None,
+            "ignored_transfers": 0, "last_error": None,
+        },
         "watchdog": {
             "running": False, "last_check_at": None,
             "alerts_configured": False, "open_findings": [],

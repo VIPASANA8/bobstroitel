@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from typing import Mapping
 
@@ -20,6 +21,10 @@ class Settings:
     seat_idle_bots: bool
     cash_mode: str
     cash_fiat_fee_bps: int
+    cash_trc20_api_url: str
+    cash_trc20_address: str
+    cash_trc20_contract: str
+    cash_trc20_api_key: str
     cash_orders_per_hour: int
     cash_daily_deposit_micros: int
     cash_allowlist: tuple[int, ...]
@@ -72,6 +77,22 @@ class Settings:
             raise ValueError("POKER8_CASH_ORDERS_PER_HOUR and POKER8_CASH_DAILY_DEPOSIT_USDT must be integers") from exc
         if cash_orders_per_hour < 0 or cash_daily_deposit_usdt < 0:
             raise ValueError("cash antifraud limits cannot be negative")
+        # The deposit watcher is read-only: an endpoint, an address it reads and
+        # the one token contract that counts. No key of any kind signs anything.
+        trc20_api_url = source.get("POKER8_CASH_TRC20_API_URL", "").strip()
+        trc20_address = source.get("POKER8_CASH_TRC20_ADDRESS", "").strip()
+        trc20_contract = source.get("POKER8_CASH_TRC20_CONTRACT", "").strip()
+        trc20_api_key = source.get("POKER8_CASH_TRC20_API_KEY", "").strip()
+        if trc20_api_url or trc20_address or trc20_contract:
+            if not (trc20_api_url and trc20_address and trc20_contract):
+                raise ValueError(
+                    "POKER8_CASH_TRC20_API_URL, _ADDRESS and _CONTRACT are set together"
+                )
+            if not trc20_api_url.startswith("https://"):
+                raise ValueError("POKER8_CASH_TRC20_API_URL must be HTTPS")
+            if any(not re.fullmatch(r"T[1-9A-HJ-NP-Za-km-z]{33}", value)
+                   for value in (trc20_address, trc20_contract)):
+                raise ValueError("POKER8_CASH_TRC20_ADDRESS and _CONTRACT must be TRON addresses")
         raw_cash_allowlist = source.get("POKER8_CASH_ALLOWLIST", "").strip()
         try:
             cash_allowlist = tuple(int(value.strip()) for value in raw_cash_allowlist.split(",") if value.strip())
@@ -151,6 +172,10 @@ class Settings:
             seat_idle_bots=raw_seat_idle_bots in {"1", "true", "yes", "on"},
             cash_mode=cash_mode,
             cash_fiat_fee_bps=cash_fiat_fee_bps,
+            cash_trc20_api_url=trc20_api_url,
+            cash_trc20_address=trc20_address,
+            cash_trc20_contract=trc20_contract,
+            cash_trc20_api_key=trc20_api_key,
             cash_orders_per_hour=cash_orders_per_hour,
             cash_daily_deposit_micros=cash_daily_deposit_usdt * 1_000_000,
             cash_allowlist=cash_allowlist,

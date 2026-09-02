@@ -28,10 +28,15 @@ class DepositService:
     MAX = 100_000_000
     STEP = 10_000
 
-    def __init__(self, session_factory, *, ledger=None, now=None):
+    def __init__(self, session_factory, *, ledger=None, now=None,
+                 address=None, contract=None):
         self.sessions = session_factory
         self.ledger = ledger or CashLedger()
         self.now = now or (lambda: datetime.now(timezone.utc))
+        # One receiving address, and the one token that counts as a deposit on
+        # it. Defaults keep the mock contour unchanged.
+        self.address = address or MOCK_ADDRESS
+        self.contract = contract or MOCK_USDT_CONTRACT
 
     async def create(self, *, user_id: str, tenant_id: str, amount_usdt: str, request_key: str):
         amount = usdt_to_micros(amount_usdt)
@@ -56,7 +61,7 @@ class DepositService:
                         raise IdempotencyConflict("same deposit key with different content")
                     return dict(existing)
                 used = set((await session.execute(select(cash_deposits.c.expected_micros).where(
-                    cash_deposits.c.destination_address == MOCK_ADDRESS,
+                    cash_deposits.c.destination_address == self.address,
                     cash_deposits.c.expected_micros.between(amount, min(amount + 9 * self.STEP, self.MAX)),
                 ))).scalars())
                 expected = next((amount + offset * self.STEP for offset in range(10)
@@ -68,8 +73,8 @@ class DepositService:
                 await session.execute(cash_deposits.insert().values(
                     id=deposit_id, user_id=user_id, tenant_id=tenant_id,
                     request_key=request_key, request_hash=fingerprint,
-                    network=MOCK_NETWORK, token_contract=MOCK_USDT_CONTRACT,
-                    destination_address=MOCK_ADDRESS, requested_micros=amount,
+                    network=MOCK_NETWORK, token_contract=self.contract,
+                    destination_address=self.address, requested_micros=amount,
                     expected_micros=expected, status="created", expires_at=now + timedelta(minutes=30),
                     created_at=now, updated_at=now,
                 ))

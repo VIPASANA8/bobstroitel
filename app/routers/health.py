@@ -122,6 +122,8 @@ async def metrics(request: Request):
         )
 
     poller = getattr(request.app.state, "cash_fiat_poller", None)
+    chain = getattr(request.app.state, "cash_trc20_watcher", None)
+    chain_poll = getattr(chain, "last_success_at", None)
     watchdog = getattr(request.app.state, "cash_watchdog", None)
     watched_at = getattr(watchdog, "last_check_at", None)
     last_poll = getattr(poller, "last_success_at", None)
@@ -169,6 +171,15 @@ async def metrics(request: Request):
                 "seconds_since_success": None if last_poll is None else round((now - last_poll).total_seconds(), 3),
                 "last_error": getattr(poller, "last_error", None),
                 "partner_fee": getattr(poller, "partner_fee", None),
+            },
+            "chain_watcher": {
+                "running": chain is not None,
+                "leader": bool(getattr(chain, "leader", False)),
+                "poisoned": bool(getattr(chain, "poisoned", False)),
+                "last_success_at": chain_poll.isoformat() if chain_poll else None,
+                "seconds_since_success": None if chain_poll is None else round((now - chain_poll).total_seconds(), 3),
+                "ignored_transfers": getattr(chain, "ignored", 0),
+                "last_error": getattr(chain, "last_error", None),
             },
             "watchdog": {
                 "running": watchdog is not None,

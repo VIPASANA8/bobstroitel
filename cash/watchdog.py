@@ -30,12 +30,13 @@ class CashWatchdog:
     """
 
     def __init__(
-        self, sessions, *, poller=None, fiat=None, notifier=None,
+        self, sessions, *, poller=None, chain=None, fiat=None, notifier=None,
         interval_seconds: float = 60.0, stall_seconds: float = 300.0,
         housekeeping_seconds: float = 3600.0, now=None,
     ):
         self.sessions = sessions
         self.poller = poller
+        self.chain = chain
         self.fiat = fiat
         self.notifier = notifier or AlertNotifier()
         self.interval_seconds = interval_seconds
@@ -78,17 +79,18 @@ class CashWatchdog:
     async def findings(self) -> dict[str, str]:
         now = self.now()
         findings: dict[str, str] = {}
-        if self.poller is not None:
-            if self.poller.poisoned:
-                findings["poller-poisoned"] = (
-                    f"поллер партнёра остановлен на неизвестном событии: {self.poller.last_error}"
-                )
-            elif self.poller.leader:
-                last = self.poller.last_success_at
+        feeds = (("poller", "поллер партнёра", self.poller), ("chain", "TRC20-наблюдатель", self.chain))
+        for key, title, feed in feeds:
+            if feed is None:
+                continue
+            if feed.poisoned:
+                findings[f"{key}-poisoned"] = f"{title} остановлен на нечитаемых данных: {feed.last_error}"
+            elif feed.leader:
+                last = feed.last_success_at
                 idle = None if last is None else (now - last).total_seconds()
                 if idle is None or idle > self.stall_seconds:
-                    findings["poller-stalled"] = (
-                        "поллер партнёра не завершал опрос успешно "
+                    findings[f"{key}-stalled"] = (
+                        f"{title} не завершал опрос успешно "
                         + ("ни разу" if idle is None else f"{int(idle)} с")
                     )
         async with self.sessions() as session:
