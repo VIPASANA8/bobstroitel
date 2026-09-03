@@ -34,14 +34,14 @@ def test_two_players_complete_mock_cash_flow(cash_server: str):
         assert page.get_by_text("USDT TRC20 mock", exact=False).first.is_visible()
 
         alice_deposit = _post(alice, cash_server, "/api/cash/deposits", {
-            "amount_usdt": "2", "request_id": "alice-deposit",
+            "amount_usdt": "10", "request_id": "alice-deposit",
         })
         paid = _post(alice, cash_server, f'/api/cash/deposits/{alice_deposit["id"]}/paid')
         assert paid["status"] == "awaiting_transfer"
         assert _get(alice, cash_server, "/api/cash/wallet")["available_usdt"] == "0"
 
         bob_deposit = _post(bob, cash_server, "/api/cash/deposits", {
-            "amount_usdt": "3", "request_id": "bob-deposit",
+            "amount_usdt": "12", "request_id": "bob-deposit",
         })
         for context, deposit in ((alice, alice_deposit), (bob, bob_deposit)):
             credited = _post(
@@ -49,18 +49,18 @@ def test_two_players_complete_mock_cash_flow(cash_server: str):
             )
             assert credited["status"] == "credited"
 
-        assert _get(alice, cash_server, "/api/cash/wallet")["available_usdt"] == "2"
-        assert _get(bob, cash_server, "/api/cash/wallet")["available_usdt"] == "3"
+        assert _get(alice, cash_server, "/api/cash/wallet")["available_usdt"] == "10"
+        assert _get(bob, cash_server, "/api/cash/wallet")["available_usdt"] == "12"
 
         for context, seat_no, player in ((alice, 0, "alice"), (bob, 1, "bob")):
             seated = _post(context, cash_server, "/api/tables/cash-micro-test/ready", {
                 "seat_no": seat_no,
-                "buy_in_units": 80,
+                "buy_in_units": 400,
                 "request_id": f"{player}-cash-seat",
             })
             assert seated["viewer_state"] == "seated"
             wallet = _get(context, cash_server, "/api/cash/wallet")
-            assert wallet["escrow_usdt"] == "0.8"
+            assert wallet["escrow_usdt"] == "4"
 
         active = _get(alice, cash_server, "/api/tables/cash-micro-test")
         assert active["state"]["phase"] == "active"
@@ -76,7 +76,8 @@ def test_two_players_complete_mock_cash_flow(cash_server: str):
         alice_wallet = _get(alice, cash_server, "/api/cash/wallet")
         bob_wallet = _get(bob, cash_server, "/api/cash/wallet")
         assert alice_wallet["escrow_usdt"] == bob_wallet["escrow_usdt"] == "0"
-        assert Decimal(alice_wallet["available_usdt"]) + Decimal(bob_wallet["available_usdt"]) == 5
+        # Nobody reached a flop, so no flop no drop: every chip comes back.
+        assert Decimal(alice_wallet["available_usdt"]) + Decimal(bob_wallet["available_usdt"]) == 22
 
         withdrawal = _post(alice, cash_server, "/api/cash/withdrawals", {
             "amount_usdt": "0.5",

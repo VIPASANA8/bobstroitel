@@ -48,7 +48,7 @@ async def test_public_cash_lobby_never_falls_back_to_play(cash_db):
 
     for user in (alice, bob):
         deposit = await create_deposit(
-            DepositRequest(amount_usdt="1", request_id=f"deposit-{user.user_id}"),
+            DepositRequest(amount_usdt="5", request_id=f"deposit-{user.user_id}"),
             request, user,
         )
         credited = await simulate_deposit_transfer(deposit["id"], request, user)
@@ -56,7 +56,7 @@ async def test_public_cash_lobby_never_falls_back_to_play(cash_db):
 
     listing = await list_lobby_tables(request, 1, 6, CASH_USDT, alice)
     assert [row["id"] for row in listing["tables"]] == [CASH_MOCK_TABLE["id"]]
-    assert listing["tables"][0]["min_buy_in_micros"] == 800_000
+    assert listing["tables"][0]["min_buy_in_micros"] == 4_000_000
 
     chosen = await quick_play(request, alice, CASH_USDT)
     assert chosen["table"]["asset"] == CASH_USDT
@@ -64,7 +64,7 @@ async def test_public_cash_lobby_never_falls_back_to_play(cash_db):
 
     seated = await ready(
         CASH_MOCK_TABLE["id"],
-        ReadyRequest(seat_no=0, buy_in_units=80, request_id="public-seat-alice"),
+        ReadyRequest(seat_no=0, buy_in_units=400, request_id="public-seat-alice"),
         request, alice,
     )
     assert seated["viewer_state"] == "seated"
@@ -72,11 +72,11 @@ async def test_public_cash_lobby_never_falls_back_to_play(cash_db):
     snapshot = await table_snapshot(CASH_MOCK_TABLE["id"], request, alice)
     assert snapshot["table"]["asset"] == CASH_USDT
     assert snapshot["state"]["cash_test"] is True
-    assert snapshot["state"]["current_seats"][0]["stack"] == 40
+    assert snapshot["state"]["current_seats"][0]["stack"] == 40  # 400 chips / 10 per BB
 
     await ready(
         CASH_MOCK_TABLE["id"],
-        ReadyRequest(seat_no=1, buy_in_units=80, request_id="public-seat-bob"),
+        ReadyRequest(seat_no=1, buy_in_units=400, request_id="public-seat-bob"),
         request, bob,
     )
     active = await table_snapshot(CASH_MOCK_TABLE["id"], request, alice)

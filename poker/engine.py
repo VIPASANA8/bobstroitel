@@ -23,6 +23,8 @@ class PokerEngine:
     SMALL_BLIND = 0.5
     BIG_BLIND = 1.0
     EPS = 1e-9
+    #: Ceiling on the rake of one whole hand, in big blinds.
+    RAKE_CAP_BB = 3
 
     def __init__(
         self, *, exact_chips: bool = False,
@@ -460,17 +462,21 @@ class PokerEngine:
         if state.current_bet > p.street_invested:
             state.current_bet = max(x.street_invested for x in state.players.values())
 
-    def _rake(self, gross: int, own: int) -> int:
-        """The house takes its cut only from money the winner took off others.
+    def _rake(self, taxable: int, state: GameState) -> int:
+        """The house takes its cut only from money the winners took off others.
 
-        `own` is what this winner put into this very pot, so a player who drags
-        a pot nobody contested pays nothing, and a split pot is taxed per
-        winner on their own share. Floor division: the rounding always lands
-        with the player, never with the house.
+        `taxable` is the pot less what its winners put into it themselves, so a
+        pot nobody contested is free. Three limits sit on top of that: floor
+        division, so the rounding always lands with the player and never with
+        the house; no flop no drop, because a hand that ended before a card was
+        dealt never really happened; and a per-hand ceiling, because the pots
+        players remember are the big ones and an uncapped percentage takes its
+        largest bite from exactly those.
         """
-        if not self.rake_bps:
+        if not self.rake_bps or not state.board:
             return 0
-        return max(0, gross - own) * self.rake_bps // 10_000
+        remaining = self.RAKE_CAP_BB * self.BIG_BLIND - state.rake
+        return max(0, min(taxable * self.rake_bps // 10_000, remaining))
 
     def build_side_pots(self, state: GameState) -> list[dict]:
         contrib = {pid: p.total_invested for pid, p in state.players.items() if p.total_invested > self.EPS}
@@ -494,7 +500,7 @@ class PokerEngine:
         self._refund_uncalled_overage(state)
         winner_id = state.live_ids()[0]
         won = state.pot
-        rake = self._rake(won, state.players[winner_id].total_invested)
+        rake = self._rake(won - state.players[winner_id].total_invested, state)
         state.rake = rake
         state.players[winner_id].stack += won - rake
         state.winner = winner_id
@@ -533,7 +539,13 @@ class PokerEngine:
             winners = [pid for pid, score in scores.items() if score == best]
             payouts = {}
             if self.exact_chips:
-                share, odd = divmod(pot["amount"], len(winners))
+                # Every contributor put the same amount into this layer -- that
+                # is what a side-pot level is -- so one division gives each
+                # winner their own stake back untaxed.
+                own = pot["amount"] // len(pot["contributors"])
+                pot_rake = self._rake(pot["amount"] - own * len(winners), state)
+                state.rake += pot_rake
+                share, odd = divmod(pot["amount"] - pot_rake, len(winners))
                 clockwise = self._rotate(
                     state.seat_order,
                     self.next_from_order(state.seat_order, state.button),
@@ -544,18 +556,12 @@ class PokerEngine:
                     for pid in winners
                 }
             else:
+                pot_rake = self.ZERO
                 share = pot["amount"] / len(winners)
                 payouts = {pid: share for pid in winners}
-            # Every contributor put the same amount into this layer -- that is
-            # what a side-pot level is -- so one division gives each winner
-            # their own stake back untaxed.
-            own = pot["amount"] // len(pot["contributors"]) if self.exact_chips else self.ZERO
-            pot_rake = self.ZERO
             for pid, payout in payouts.items():
-                rake = self._rake(payout, own)
-                pot_rake += rake
-                state.players[pid].stack += payout - rake
-                distributed += payout - rake
+                state.players[pid].stack += payout
+                distributed += payout
                 if pid not in all_winners:
                     all_winners.append(pid)
             raked += pot_rake
@@ -605,7 +611,7 @@ class PokerEngine:
         # reachable the hand aborts loudly instead of quietly minting a loss.
         # Raising here is safe: the runtime rolls the hand back, pauses the
         # table, and the coordinator refunds and resumes it.
-        state.rake = raked
+        assert state.rake == raked
         paid = distributed + raked
         conserved = paid == state.pot if self.exact_chips else abs(paid - state.pot) <= 1e-6
         assert conserved, (
