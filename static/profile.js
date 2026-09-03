@@ -299,7 +299,10 @@
   load().catch(error => {
     console.error(error);
     $('profileLoading').hidden = true;
-    showError('profileError', 'Профиль не загрузился. Откройте его через Telegram или обновите страницу.');
+    const signIn = window.Poker8Auth.needsSignIn(error);
+    showError('profileError', signIn
+      ? 'Войдите через Telegram: откройте профиль из бота.'
+      : 'Профиль временно недоступен. Попробуйте обновить страницу через минуту.');
     showError('missionsError', 'Задания появятся после входа.');
     showError('statsError', 'Статистика появится после входа.');
     showError('achievementsError', 'Коллекция появится после входа.');

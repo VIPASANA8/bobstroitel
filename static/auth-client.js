@@ -1,4 +1,12 @@
 window.Poker8Auth = (() => {
+  //: Marks a failure as "nobody is signed in", as opposed to "the server is
+  //: not answering". The two need different words on screen: one is the
+  //: player's next step, the other is ours.
+  function signIn(error) {
+    error.needsSignIn = true;
+    return error;
+  }
+
   function telegramProfile() {
     const user = window.Telegram?.WebApp?.initDataUnsafe?.user;
     if (!user || typeof user !== "object") return null;
@@ -36,7 +44,15 @@ window.Poker8Auth = (() => {
       const response = await fetch('/api/auth/telegram', {
         method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({init_data:initData}),
       });
-      if (!response.ok) throw new Error('Telegram session rejected');
+      if (!response.ok) {
+        // Carry the server's reason. A rejected signature and an unreachable
+        // server look identical on screen otherwise, and that is exactly how a
+        // bot token pointing at the wrong bot stayed invisible: every player
+        // saw "profile did not load" while the server was answering 401 all
+        // along.
+        const detail = await response.json().then(body => body.detail).catch(() => null);
+        throw signIn(new Error(`Telegram session rejected: ${detail || response.status}`));
+      }
       return response.json();
     }
     const profile = await fetch('/api/profile').then(response => response.ok ? response.json() : null).catch(() => null);
@@ -51,7 +67,7 @@ window.Poker8Auth = (() => {
       const response = await fetch('/api/auth/guest', {method:'POST'});
       if (response.ok) return response.json();
     }
-    throw new Error('Откройте приложение внутри Telegram');
+    throw signIn(new Error('Откройте приложение внутри Telegram'));
   }
-  return {ensureSession, telegramProfile, publishTelegramProfile};
+  return {ensureSession, telegramProfile, publishTelegramProfile, needsSignIn: error => Boolean(error?.needsSignIn)};
 })();

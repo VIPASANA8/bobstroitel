@@ -184,7 +184,10 @@ class Settings:
             session_ttl_seconds=7 * 24 * 60 * 60,
             telegram_auth_max_age_seconds=15 * 60,
             coordinator_enabled=raw_coordinator in {"1", "true", "yes", "on"},
-            open_access=environment != "production" and raw_open_access in {"1", "true", "yes", "on"},
+            # Same reasoning as the session cookie: anything that is not local
+            # development is somebody's real deployment. A guest has no identity
+            # to hold responsible for anything, so the door only opens locally.
+            open_access=environment == "development" and raw_open_access in {"1", "true", "yes", "on"},
             self_top_up_enabled=raw_self_top_up in {"1", "true", "yes", "on"},
             seat_idle_bots=raw_seat_idle_bots in {"1", "true", "yes", "on"},
             cash_mode=cash_mode,

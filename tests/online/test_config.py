@@ -43,3 +43,21 @@ def test_public_config_uses_request_host_tenant_branding(tmp_path):
         "slug": "partner-b", "name": "Partner B", "support_url": None,
         "branding": {"accent": "violet"},
     }
+
+
+def test_a_staging_label_is_still_a_real_deployment():
+    """Security is keyed on "not local development", not on the word production.
+
+    The pilot runs POKER8_ENV=test on a public HTTPS domain, because test is
+    the only environment the CASH mock is allowed in. Anything that read the
+    label instead of the risk left that deployment unprotected.
+    """
+    for environment in ("test", "staging", "qa"):
+        settings = Settings.from_mapping({
+            "POKER8_ENV": environment, "POKER8_OPEN_ACCESS": "1",
+        })
+        assert settings.open_access is False, environment
+        assert settings.environment != "development"
+    assert Settings.from_mapping({
+        "POKER8_ENV": "development", "POKER8_OPEN_ACCESS": "1",
+    }).open_access is True

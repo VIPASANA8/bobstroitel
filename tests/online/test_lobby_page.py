@@ -256,3 +256,21 @@ def test_request_observe_dead_code_is_gone():
     assert '"/{table_id}/observe"' not in router
     transport = Path("static/online-transport.js").read_text(encoding="utf-8")
     assert "/observe" not in transport
+
+
+def test_a_signed_out_visitor_is_not_told_the_site_is_down():
+    """The two failures need different words.
+
+    A wrong bot token answered 401 to every login for hours while the lobby
+    and the profile both said only that something was unavailable, which sent
+    everyone to refresh a page that could never load.
+    """
+    auth = Path("static/auth-client.js").read_text(encoding="utf-8")
+    assert "needsSignIn" in auth
+    # The server's reason has to survive into the console, or the next such
+    # outage is just as silent.
+    assert "Telegram session rejected: ${detail" in auth
+
+    for name in ("lobby.js", "profile.js"):
+        source = Path("static") .joinpath(name).read_text(encoding="utf-8")
+        assert "window.Poker8Auth.needsSignIn(error)" in source, name

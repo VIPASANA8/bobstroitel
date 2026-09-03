@@ -45,7 +45,12 @@ def _set_session_cookie(response: JSONResponse, request: Request, token: str) ->
         token,
         max_age=settings.session_ttl_seconds,
         httponly=True,
-        secure=settings.environment == "production",
+        # Keyed on "not local development", not on the label "production": the
+        # pilot runs POKER8_ENV=test because that is the only environment the
+        # CASH mock is allowed in, and it is served over HTTPS on a public
+        # domain all the same. Tying the flag to the label meant the session
+        # cookie of every real player travelled without it.
+        secure=settings.environment != "development",
         samesite="lax",
         path="/",
     )

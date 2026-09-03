@@ -583,5 +583,13 @@
     if (config.cash_mode === "mock") await restoreFiatOrder().catch(console.error);
   }
 
-  boot().catch(error => { $("loadStatus").textContent = "● НЕДОСТУПНО"; console.error(error); });
+  boot().catch(error => {
+    // "Not signed in" is the player's problem to fix and "unavailable" is
+    // ours. Saying the second when it is the first sends everyone to refresh
+    // a page that will never load.
+    $("loadStatus").textContent = window.Poker8Auth.needsSignIn(error)
+      ? "● ВОЙДИТЕ ЧЕРЕЗ TELEGRAM"
+      : "● НЕДОСТУПНО";
+    console.error(error);
+  });
 })();

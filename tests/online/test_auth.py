@@ -89,3 +89,23 @@ async def test_display_name_falls_back_to_telegram_id_without_a_first_name(auth_
         "poker8", signed_init_data(user_id=777, name=None, username="handle99")
     )
     assert result.display_name == "777"
+
+
+def test_the_session_cookie_is_secure_outside_local_development():
+    """A deployment labelled `test` still serves real players over HTTPS."""
+    from types import SimpleNamespace
+    from fastapi.responses import JSONResponse
+    from online.config import Settings
+    from app.routers.auth import _set_session_cookie
+
+    def cookie_for(environment):
+        response = JSONResponse({})
+        request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(
+            settings=Settings.from_mapping({"POKER8_ENV": environment}),
+        )))
+        _set_session_cookie(response, request, "token")
+        return response.headers["set-cookie"]
+
+    for environment in ("test", "staging", "qa"):
+        assert "Secure" in cookie_for(environment), environment
+    assert "Secure" not in cookie_for("development")
