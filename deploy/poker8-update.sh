@@ -16,4 +16,5 @@ echo "$BEFORE -> $AFTER"
 [ "$BEFORE" = "$AFTER" ] && echo "nothing new" || true
 docker compose -f compose.pilot.yaml -f deploy/compose.caddy.yaml up -d --build
 sleep 15
-curl -fsS -o /dev/null -w 'ready:%{http_code}\n' http://127.0.0.1:8000/health/ready
+# app публикует 8000 только внутрь сети compose — проверка идёт через Caddy
+curl -fsS -o /dev/null -w 'ready:%{http_code}\n' "https://$DOMAIN/health/ready"
