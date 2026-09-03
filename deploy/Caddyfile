@@ -1,8 +1,9 @@
 # Poker8 — Caddy reverse-proxy с автоматическим TLS (Let's Encrypt).
-# Домен заменить на реальный. Caddy проксирует WebSocket (/ws/) прозрачно,
-# отдельная секция не нужна.
+# Оба домена обслуживаются одним сайтом: donbas.win — вариант написания
+# без второй "s", отдельный редирект не нужен. Caddy проксирует WebSocket
+# (/ws/) прозрачно, отдельная секция не нужна.
 
-bubbledouble.cc {
+donbass.win, www.donbass.win, donbas.win, www.donbas.win {
     encode zstd gzip
 
     reverse_proxy app:8000 {

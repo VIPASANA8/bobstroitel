@@ -5,7 +5,7 @@
 # Let's Encrypt failure budget for nothing, so the DNS check is a gate, not a
 # warning.
 set -e
-DOMAIN=${1:-bubbledouble.cc}
+DOMAIN=${1:-donbass.win}
 HERE=$(curl -fsS --max-time 10 https://api.ipify.org)
 THERE=$(getent hosts "$DOMAIN" | awk '{print $1}' | head -1)
 
