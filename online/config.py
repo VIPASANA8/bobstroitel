@@ -93,7 +93,7 @@ class Settings:
         except ValueError as exc:
             raise ValueError("POKER8_CASH_WITHDRAWAL_FEE_USDT must be a USDT amount") from exc
         if cash_withdrawal_fee_micros >= 100_000_000:
-            raise ValueError("POKER8_CASH_WITHDRAWAL_FEE_USDT must stay below the withdrawal ceiling")
+            raise ValueError("POKER8_CASH_WITHDRAWAL_FEE_USDT must be under 100 USDT")
         # The deposit watcher is read-only: an endpoint, an address it reads and
         # the one token contract that counts. No key of any kind signs anything.
         trc20_api_url = source.get("POKER8_CASH_TRC20_API_URL", "").strip()

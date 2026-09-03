@@ -101,7 +101,7 @@ A hold stops **new** money: no deposit, no RUB order, no withdrawal, no sitting 
 
 **Signals go to an operator, never to an automatic freeze.** A user who pressed «Я оплатил» and then cancelled three or more times in a day becomes a watchdog alert and a line on their `/user` card. The same pattern fits an honest user whose trader kept going silent, which is exactly why the decision stays human.
 
-Not covered, and not pretendable: repeat accounts. Poker8 has no device, document or payment-instrument identity to compare, so the same person on two Telegram accounts is invisible here. That needs KYC or a real device signal, and both belong to the real-money decision, not this pilot.
+Not covered, and not pretendable: repeat accounts. Poker8 has no device or payment-instrument identity to compare, so the same person on two Telegram accounts is invisible here. That needs a real device signal, and it belongs to the real-money decision, not this pilot.
 
 ## Backup and restore
 
@@ -160,4 +160,4 @@ $env:POKER8_CASH_TEST_DATABASE_URL='postgresql+psycopg://poker8:poker8@127.0.0.1
 node --check static\lobby.js
 ```
 
-Before any real-money design, separately approve the partner URL and credentials, confirmed fee semantics, KYC/AML and sanctions process, custody and refund ownership, daily independent reconciliation, alert recipients, and legal jurisdiction.
+Before any real-money design, separately approve the partner URL and credentials, confirmed fee semantics, custody and refund ownership, daily independent reconciliation, alert recipients, and legal jurisdiction.

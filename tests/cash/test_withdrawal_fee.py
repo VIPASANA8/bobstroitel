@@ -19,3 +19,15 @@ def test_the_public_projection_separates_the_debit_from_the_payout():
     assert public["amount_usdt"] == "5"       # taken off the wallet
     assert public["fee_usdt"] == "1.5"        # kept by the house
     assert public["payout_usdt"] == "3.5"     # what reaches the chain
+
+
+def test_the_withdrawal_ceiling_matches_the_deposit_one():
+    """Capped lower, the flat fee is charged once per 100 USDT taken out.
+
+    A player who deposited 500 USDT through C2C had to leave in five payouts
+    and pay 5 USDT each time. The two bounds move together or the fee stops
+    being a fee and becomes a percentage nobody agreed to.
+    """
+    from cash.deposits import DepositService
+
+    assert WithdrawalService.MAX == DepositService.MAX

@@ -41,7 +41,13 @@ class MockPayoutExecutor:
 
 class WithdrawalService:
     MIN = 10_000
-    MAX = 100_000_000
+    # Matches the C2C deposit ceiling. They have to agree: capped lower, a
+    # player who deposited 500 USDT had to take it out in five payouts and pay
+    # the flat fee five times. Nothing here is automatic -- create() only
+    # reserves, and no payout leaves without an operator moving it through
+    # approve() first -- so the ceiling bounds one approved payout, not a
+    # self-service withdrawal of that size.
+    MAX = 100_000_000_000
 
     def __init__(self, session_factory, *, ledger=None, executor=None, now=None,
                  fee_micros: int = 0):
@@ -57,7 +63,7 @@ class WithdrawalService:
                      destination_address: str, request_key: str):
         amount = usdt_to_micros(amount_usdt)
         if not self.MIN <= amount <= self.MAX:
-            raise ValueError("withdrawal amount must be between 0.01 and 100 USDT")
+            raise ValueError("withdrawal amount must be between 0.01 and 100000 USDT")
         # A payout costs real money to send on chain. Below the fee the request
         # is not a small withdrawal, it is a way to make us pay for a transfer
         # of nothing, so the floor is the fee rather than a second constant.

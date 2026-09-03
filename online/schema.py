@@ -631,7 +631,7 @@ cash_withdrawals = Table(
     Column("submitted_at", timestamp),
     Column("confirmed_at", timestamp),
     UniqueConstraint("user_id", "request_key", name="uq_cash_withdrawal_request"),
-    CheckConstraint("amount_micros BETWEEN 10000 AND 100000000", name="ck_cash_withdrawal_amount"),
+    CheckConstraint("amount_micros BETWEEN 10000 AND 100000000000", name="ck_cash_withdrawal_amount"),
     CheckConstraint("fee_micros >= 0", name="ck_cash_withdrawal_fee"),
     CheckConstraint("status IN ('requested','reserved','approved','sending','submitted','confirmed','rejected','cancelled','unknown')", name="ck_cash_withdrawal_status"),
 )
