@@ -36,7 +36,11 @@ def test_the_client_is_read_from_the_proxy_header_when_there_is_one():
     def request(headers, client="10.0.0.9"):
         return SimpleNamespace(headers=headers, client=SimpleNamespace(host=client))
 
-    assert caller(request({"x-forwarded-for": "203.0.113.7, 10.0.0.1"})) == "203.0.113.7"
+    # The last entry, because it is the only one our own proxy wrote. Taking
+    # the first would let a caller choose their own rate-limit key by sending
+    # a header, and pick a new one every request.
+    assert caller(request({"x-forwarded-for": "203.0.113.7, 10.0.0.1"})) == "10.0.0.1"
+    assert caller(request({"x-forwarded-for": "spoofed, spoofed, 198.51.100.4"})) == "198.51.100.4"
     assert caller(request({})) == "10.0.0.9"
     assert caller(SimpleNamespace(headers={}, client=None)) == "unknown"
     # A header long enough to be a memory attack is cut down to size.

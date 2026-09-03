@@ -58,12 +58,18 @@ class WindowLimiter:
 def caller(request: Request) -> str:
     """Who is knocking, as far as we can honestly tell.
 
-    Caddy is the only way in -- the app publishes no port of its own -- so the
-    left-most X-Forwarded-For entry is the client it saw. Without it every
-    request would carry the proxy's own address and one caller would throttle
-    everybody at once, which is worse than not limiting at all.
+    The **last** X-Forwarded-For entry, not the first. Everything to the left of
+    it was written by whoever sent the request and can say anything; the last
+    one was appended by the proxy immediately in front of us, which is the only
+    party here that saw the connection itself. Caddy happens to replace the
+    header outright today, which makes the two the same -- but then the limit
+    would rest on a proxy setting rather than on this function, and a caller
+    who could pick their own key would have no limit at all.
+
+    Reading the header is still necessary: without it every request carries the
+    proxy's own address, and one visitor throttles everybody at once.
     """
     forwarded = request.headers.get("x-forwarded-for", "")
     if forwarded:
-        return forwarded.split(",")[0].strip()[:64]
+        return forwarded.rsplit(",", 1)[-1].strip()[:64]
     return (request.client.host if request.client else "unknown")[:64]

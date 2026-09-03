@@ -57,7 +57,7 @@ Telegram ──initData──► Caddy (TLS) ──X-Forwarded-For──► app 
 | Мошенничество оператора | Каждое действие в `cash_audit_events`, с причиной и ключом | `test_admin_control.py` |
 | Оператор чужого тенанта | `_require_scope` на каждом действии | `test_admin_access.py` |
 | Гость/dev у реальных денег | `cash.access.IDENTITIES` по режиму | `test_cash_access.py` |
-| Флуд по логину | `WindowLimiter` на `/api/auth/*` | `test_rate_limit.py` |
+| Флуд по логину | `WindowLimiter` на `/api/auth/*`, ключ — адрес, дописанный прокси, а не присланный вызывающим | `test_rate_limit.py` |
 | Утечка реквизитов в логи | Проверка отсутствия в логах | `test_requisites_and_the_partner_token_never_reach_the_logs` |
 | Расхождение эскроу | Останавливает только свой стол, резерв сохраняется | `test_escrow_mismatch_pauses_only_cash_table_without_faucet` |
 | Аварийная остановка | `POKER8_CASH_MODE=off`, PLAY продолжает работать | `test_the_kill_switch_closes_cash_for_everyone_it_should` |
