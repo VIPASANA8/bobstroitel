@@ -134,3 +134,46 @@ comparison and never used in a calculation.
   `pservice-master/infrastructure/polling/long_poll_worker.py`;
 - local sandbox substitute:
   `pservice-master/infrastructure/partner_gateways/mock_gateway.py`.
+
+## Operational check — 2026-09-04
+
+Проверено по `case8p2pconfig.txt` (боевой env-дамп хоста CASE8) и прямыми
+зондами снаружи. Уточняет то, что раньше было записано только по исходнику.
+
+**Переходов два, и это разные вещи.**
+
+1. **Poker8 → pservice** (наш). Протокол `/order`, `/me`, `/events` с `X-Token`
+   отдаёт именно pservice. Внутри CASE8 к нему ходят по Docker-сети:
+   `http://<coolify-id>:8000`, plaintext, без TLS. Бот и backend — на том же
+   хосте, поэтому TLS между ними не участвует вовсе. Так это «и работает».
+2. **pservice → реальный P2P-партнёр** (не наш). `PARTNER_API_URL=
+   https://80.78.19.112:8443`, self-signed, `PARTNER_TLS_VERIFY=false`. Это
+   внутренний переход CASE8; Poker8 его не касается.
+
+**Снаружи pservice сейчас нечем потреблять.** Зонды 2026-09-04:
+
+- `https://<coolify-id>.45.9.148.242.sslip.io/me` → **self-signed** сертификат
+  (Coolify не выпустил Let's Encrypt на sslip.io), verify падает;
+- `http://<coolify-id>.45.9.148.242.sslip.io/me` → **502 Bad Gateway**;
+- `https://80.78.19.112:8443` (партнёр) → недоступен, фильтр по IP, ждём
+  добавления боевого хоста в firewall;
+- для сравнения: `https://api.case8x.cc` (клиентский backend, не pservice) —
+  валидный Let's Encrypt, verified TLS проходит. Значит нормальные домены с
+  сертификатами у CASE8 есть — просто pservice наружу так не выставлен.
+
+**Вывод.** Блокер — не строгость нашего клиента к сертификату. Нет ни одного
+достижимого эндпоинта pservice, предъявляющего сертификат, которому можно
+верить. Разблокирует одно из трёх, в порядке предпочтения:
+
+1. CASE8 выставляет pservice на реальном домене с валидным сертификатом (как
+   уже сделано для `api.case8x.cc`) и открывает firewall на IP боевого хоста
+   Poker8 — тогда `Case8PartnerClient` с `verify=True` работает без изменений;
+2. приватная сеть между Poker8 и pservice (WireGuard/один хост) — но тогда
+   `X-Token` пойдёт по plaintext, приемлемо только если сеть действительно
+   приватная;
+3. отдельно согласованный certificate-pinning на самоподписанный сертификат
+   pservice — минимальный по доверию вариант, требует явного решения.
+
+SSH на хост CASE8 (`45.9.148.242:4141`) закрыт тем же фильтром по IP: порт
+недоступен и с моей машины, и с боевого хоста Poker8; порт 22 открыт, но ключ
+отклоняется. Внутрь зайти нельзя до открытия доступа.
