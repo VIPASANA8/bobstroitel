@@ -275,10 +275,20 @@ class CashAdminService:
                 now = self.now()
                 if result["status"] == "submitted":
                     clearing = await self._account(session, "clearing", None, "c2c-mock")
+                    # The fee is realised here too. This is the path an operator
+                    # actually uses, so leaving it out sent the whole amount to
+                    # the chain and kept nothing, however the service was set up.
+                    fee = row["fee_micros"]
+                    postings = {row["reserve_account_id"]: -row["amount_micros"],
+                                clearing: row["amount_micros"] - fee}
+                    if fee:
+                        postings[await self._account(
+                            session, "clearing", None, FEE_ACCOUNT
+                        )] = fee
                     await self.ledger.post(
                         session, scope="withdrawal-payout", key=row["payout_id"], kind="payout",
                         reference_id=withdrawal_id, actor=f"operator:{operator.telegram_user_id}",
-                        postings={row["reserve_account_id"]: -row["amount_micros"], clearing: row["amount_micros"]},
+                        postings=postings,
                     )
                     values = {"status": "submitted", "tx_hash": result["tx_hash"],
                               "detail": reason, "submitted_at": now, "updated_at": now}
