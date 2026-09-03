@@ -59,7 +59,10 @@ services:
       POKER8_ALERT_TELEGRAM_BOT_TOKEN: ${POKER8_ALERT_TELEGRAM_BOT_TOKEN:-}
       POKER8_ALERT_TELEGRAM_CHAT_ID: ${POKER8_ALERT_TELEGRAM_CHAT_ID:-}
       POKER8_ESCROW_ALERT_WEBHOOK_URL: ${POKER8_ESCROW_ALERT_WEBHOOK_URL:-}
-    command: ["sh", "-c", "python -m alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+    # --proxy-headers so the client address in X-Forwarded-For is the one the
+    # rate limiter counts. Trusting every hop is safe only because the app
+    # publishes no port of its own: Caddy is the only way a request arrives.
+    command: ["sh", "-c", "python -m alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips=*"]
     # Localhost only. Public exposure waits for a domain and a certificate.
     ports:
       - "127.0.0.1:8000:8000"

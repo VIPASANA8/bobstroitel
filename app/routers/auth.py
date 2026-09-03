@@ -5,9 +5,30 @@ from pydantic import BaseModel
 from fastapi.responses import JSONResponse
 
 from online.auth import AuthenticationError
+from online.ratelimit import WindowLimiter, caller
 
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+
+#: Generous for a person opening the Mini App, including retries and a reload
+#: or two; nowhere near enough to be worth pointing a script at.
+LOGIN_LIMIT, LOGIN_WINDOW = 20, 60
+
+
+def _throttle(request: Request) -> None:
+    """The counter belongs to the app, not to the module.
+
+    Module state is shared by every app in a process, which is one app in
+    production and dozens in a test run -- there the limiter would carry counts
+    from one test into the next and eventually refuse a login nobody made.
+    """
+    state = request.app.state
+    limiter = getattr(state, "login_limiter", None)
+    if limiter is None:
+        limiter = state.login_limiter = WindowLimiter(
+            limit=LOGIN_LIMIT, seconds=LOGIN_WINDOW,
+        )
+    limiter.check(caller(request))
 
 
 class TelegramAuthRequest(BaseModel):
@@ -68,6 +89,7 @@ async def _finish_login(request: Request, result):
 
 @router.post("/telegram")
 async def telegram_login(payload: TelegramAuthRequest, request: Request):
+    _throttle(request)
     try:
         result = await request.app.state.auth_service.authenticate(
             _tenant_slug(request), payload.init_data
@@ -79,6 +101,7 @@ async def telegram_login(payload: TelegramAuthRequest, request: Request):
 
 @router.post("/guest")
 async def guest_login(request: Request):
+    _throttle(request)
     if not request.app.state.settings.open_access:
         raise HTTPException(status_code=404, detail="Guest access is disabled")
     try:
