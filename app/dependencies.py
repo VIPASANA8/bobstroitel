@@ -74,7 +74,9 @@ async def get_cash_operator(
     actor_id: str | None = Header(default=None, alias="X-Cash-Operator-Telegram-Id"),
 ) -> CashOperator:
     settings = request.app.state.settings
-    if settings.cash_mode != "mock":
+    # Any live mode needs its operators -- production more than mock, because
+    # that is where a P2P payout is moderated by hand.
+    if settings.cash_mode == "off":
         raise HTTPException(status_code=404, detail="cash operator control is disabled")
     expected = settings.cash_admin_api_key
     if not expected:

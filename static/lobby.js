@@ -21,6 +21,7 @@
   let myRoom = null;
   let roomLevels = [];
   let asset = "PLAY";
+  let cashMode = "off";
   let cashWallet = null;
 
   const format = units => (Number(units || 0) / 100).toFixed(2);
@@ -392,9 +393,11 @@
     asset = next;
     document.body.classList.toggle("cash-mode", asset === "CASH_USDT");
     $("cashPilot").hidden = asset !== "CASH_USDT";
-    $("modeFooter").textContent = asset === "CASH_USDT"
-      ? "ТЕСТ · mock USDT · средства ненастоящие"
-      : "Виртуальные фишки · без реальных денег";
+    $("modeFooter").textContent = asset !== "CASH_USDT"
+      ? "Виртуальные фишки · без реальных денег"
+      : cashMode === "mock"
+        ? "ТЕСТ · mock USDT · средства ненастоящие"
+        : "USDT TRC20 · реальные средства";
     document.querySelectorAll("[data-asset]").forEach(tab => {
       const active = tab.dataset.asset === asset;
       tab.classList.toggle("is-active", active);
@@ -414,7 +417,7 @@
           tab.setAttribute("aria-selected", String(active));
         });
         await load();
-        alert("REAL CASH доступен только в изолированном тестовом режиме.");
+        alert("Раздел REAL CASH сейчас недоступен.");
       } else throw error;
     }
   }
@@ -571,16 +574,35 @@
     await load();
   });
 
+  // Every place that tells the player whether the money is real. Getting this
+  // wrong is not a cosmetic bug: "средства ненастоящие" printed over a real
+  // balance is a lie, and the same words over a mock balance are the only
+  // thing stopping someone from treating test chips as savings.
+  function applyCashWording(mode) {
+    const test = mode === "mock";
+    const tab = document.querySelector('[data-asset="CASH_USDT"] small');
+    if (tab) tab.textContent = test ? "TEST" : "";
+    const warning = document.querySelector("#cashPilot .cash-warning");
+    if (warning) {
+      warning.hidden = !test;
+      warning.querySelector("strong").textContent = "ТЕСТ — средства ненастоящие";
+    }
+    const withdraw = $("cashWithdraw");
+    if (withdraw) withdraw.textContent = test ? "Вывести mock USDT" : "Вывести USDT";
+  }
+
   async function boot() {
     const configResponse = await fetch("/api/config").catch(() => null);
     const config = configResponse?.ok ? await configResponse.json() : {cash_mode: "off"};
+    cashMode = config.cash_mode;
     const cashTab = document.querySelector('[data-asset="CASH_USDT"]');
-    cashTab.hidden = config.cash_mode !== "mock";
+    cashTab.hidden = config.cash_mode === "off";
+    applyCashWording(config.cash_mode);
     await load();
-    if (location.hash === "#cash" && config.cash_mode === "mock") {
+    if (location.hash === "#cash" && config.cash_mode !== "off") {
       await selectAsset("CASH_USDT");
     }
-    if (config.cash_mode === "mock") await restoreFiatOrder().catch(console.error);
+    if (config.cash_mode !== "off") await restoreFiatOrder().catch(console.error);
   }
 
   boot().catch(error => {

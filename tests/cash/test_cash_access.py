@@ -70,3 +70,69 @@ async def test_authentication_records_how_identity_was_verified(db_session_facto
     async with db_session_factory() as session:
         methods = set((await session.execute(select(auth_sessions.c.auth_method))).scalars())
     assert methods == {"dev", "guest"}
+
+
+PRODUCTION = {
+    "POKER8_ENV": "production",
+    "POKER8_DATABASE_URL": "postgresql+psycopg://db/poker",
+    "POKER8_DEFAULT_BOT_TOKEN": "x",
+    "POKER8_CASH_MODE": "production",
+    "POKER8_CASH_FIAT_API_URL": "https://partner.example/api",
+    "POKER8_CASH_FIAT_TOKEN": "t" * 20,
+    "POKER8_CASH_TRC20_API_URL": "https://tron.example/api",
+    "POKER8_CASH_TRC20_ADDRESS": "T" + "1" * 33,
+    "POKER8_CASH_TRC20_CONTRACT": "T" + "2" * 33,
+    "POKER8_CASH_PAYOUT_PROVIDER": "somebody",
+}
+
+
+def test_production_cash_needs_a_production_environment():
+    """Real money does not borrow the test environment the mock had to use."""
+    for environment in ("development", "test", "staging"):
+        with pytest.raises(ValueError, match="requires POKER8_ENV=production"):
+            Settings.from_mapping({**PRODUCTION, "POKER8_ENV": environment})
+    assert Settings.from_mapping(PRODUCTION).cash_mode == "production"
+
+
+@pytest.mark.parametrize("missing", [
+    "POKER8_CASH_FIAT_API_URL", "POKER8_CASH_FIAT_TOKEN", "POKER8_CASH_TRC20_API_URL",
+    "POKER8_CASH_TRC20_ADDRESS", "POKER8_CASH_TRC20_CONTRACT", "POKER8_CASH_PAYOUT_PROVIDER",
+])
+def test_production_refuses_to_start_with_a_hole_in_the_money_path(missing):
+    values = dict(PRODUCTION)
+    values[missing] = ""
+    with pytest.raises(ValueError) as refusal:
+        Settings.from_mapping(values)
+    # The TRC20 trio has its own older "set together" rule that fires first;
+    # either way the boot stops and the message names the variables at fault.
+    assert missing in str(refusal.value) or "_ADDRESS and _CONTRACT" in str(refusal.value)
+
+
+def test_the_partner_endpoint_must_be_https():
+    with pytest.raises(ValueError, match="must be HTTPS"):
+        Settings.from_mapping({**PRODUCTION, "POKER8_CASH_FIAT_API_URL": "http://partner.example"})
+
+
+def test_production_has_no_payout_provider_yet_and_says_so():
+    """The one thing standing between this mode and real money.
+
+    Falling back to MockPayoutExecutor here would mean a production deployment
+    that reports payouts as submitted and sends nothing, so it refuses instead.
+    """
+    from app.online import PAYOUT_PROVIDERS, _payout_executor
+
+    assert PAYOUT_PROVIDERS == {}
+    with pytest.raises(RuntimeError, match="cannot start with a mock executor"):
+        _payout_executor(Settings.from_mapping(PRODUCTION))
+    # Every other mode keeps its mock, and says so by asking for the default.
+    assert _payout_executor(Settings.from_mapping({"POKER8_CASH_MODE": "off"})) is None
+
+
+def test_only_a_real_telegram_identity_reaches_real_money():
+    for method in ("dev", "guest", "legacy"):
+        with pytest.raises(CashAccessDenied, match="verified identity"):
+            ensure_cash_access("production", method, 101)
+    for absent in (None, 0, -1, "101"):
+        with pytest.raises(CashAccessDenied, match="verified Telegram identity"):
+            ensure_cash_access("production", "telegram", absent)
+    ensure_cash_access("production", "telegram", 101)

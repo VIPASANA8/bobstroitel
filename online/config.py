@@ -35,6 +35,9 @@ class Settings:
     cash_allowlist: tuple[int, ...]
     cash_admin_api_key: str
     cash_admin_operators: tuple[dict[str, object], ...]
+    cash_fiat_api_url: str
+    cash_fiat_token: str
+    cash_payout_provider: str
     legacy_play_rooms_enabled: bool
     dev_profiles: dict[int, str]
     tenant_configs: dict[str, dict[str, object]] = field(default_factory=dict)
@@ -63,9 +66,18 @@ class Settings:
         # unchanged; turning it back on is deleting one line from
         # compose.server.yaml.
         raw_seat_idle_bots = source.get("POKER8_SEAT_IDLE_BOTS", "1").strip().lower()
+        # Three modes, each tied to the environment that may run it. `mock` moves
+        # pretend money and therefore may not run where real players are; nothing
+        # in `production` is allowed to be a stand-in. Splitting them this way is
+        # what frees the pilot from POKER8_ENV=test: real CASH runs under a real
+        # production environment instead of borrowing the test one.
         cash_mode = source.get("POKER8_CASH_MODE", "off").strip().lower()
-        if cash_mode not in {"off", "mock"} or (cash_mode == "mock" and environment not in {"development", "test"}):
-            raise ValueError("POKER8_CASH_MODE must be off, or mock in development/test")
+        if cash_mode not in {"off", "mock", "production"}:
+            raise ValueError("POKER8_CASH_MODE must be off, mock, or production")
+        if cash_mode == "mock" and environment not in {"development", "test"}:
+            raise ValueError("POKER8_CASH_MODE=mock is only allowed in development/test")
+        if cash_mode == "production" and environment != "production":
+            raise ValueError("POKER8_CASH_MODE=production requires POKER8_ENV=production")
         try:
             cash_fiat_fee_bps = int(source.get("POKER8_CASH_FIAT_FEE_BPS", "100").strip() or 0)
         except ValueError as exc:
@@ -118,6 +130,33 @@ class Settings:
         if any(value <= 0 for value in cash_allowlist) or len(set(cash_allowlist)) != len(cash_allowlist):
             raise ValueError("POKER8_CASH_ALLOWLIST must contain unique positive Telegram IDs")
         raw_legacy_rooms = source.get("POKER8_LEGACY_PLAY_ROOMS", "0").strip().lower()
+        # The live CASE8 endpoint. The pinned partner source ships
+        # PARTNER_TLS_VERIFY=false against a self-signed certificate on a bare
+        # IP; Case8PartnerClient does not carry that over, so an HTTPS hostname
+        # with a trusted certificate is the only thing that will connect.
+        cash_fiat_api_url = source.get("POKER8_CASH_FIAT_API_URL", "").strip()
+        cash_fiat_token = source.get("POKER8_CASH_FIAT_TOKEN", "").strip()
+        # Who signs and holds the keys for an outgoing payout. Never this
+        # application: it may only queue a payout and read back its status.
+        cash_payout_provider = source.get("POKER8_CASH_PAYOUT_PROVIDER", "").strip()
+        if cash_mode == "production":
+            missing = [
+                name for name, value in (
+                    ("POKER8_CASH_FIAT_API_URL", cash_fiat_api_url),
+                    ("POKER8_CASH_FIAT_TOKEN", cash_fiat_token),
+                    ("POKER8_CASH_TRC20_API_URL", trc20_api_url),
+                    ("POKER8_CASH_TRC20_ADDRESS", trc20_address),
+                    ("POKER8_CASH_TRC20_CONTRACT", trc20_contract),
+                    ("POKER8_CASH_PAYOUT_PROVIDER", cash_payout_provider),
+                ) if not value
+            ]
+            if missing:
+                raise ValueError(
+                    "POKER8_CASH_MODE=production requires " + ", ".join(missing)
+                )
+            if not cash_fiat_api_url.startswith("https://"):
+                raise ValueError("POKER8_CASH_FIAT_API_URL must be HTTPS")
+
         cash_admin_api_key = source.get("POKER8_CASH_ADMIN_API_KEY", "").strip()
         raw_cash_operators = source.get("POKER8_CASH_ADMIN_OPERATORS_JSON", "[]").strip()
         try:
@@ -202,6 +241,9 @@ class Settings:
             cash_allowlist=cash_allowlist,
             cash_admin_api_key=cash_admin_api_key,
             cash_admin_operators=cash_admin_operators,
+            cash_fiat_api_url=cash_fiat_api_url,
+            cash_fiat_token=cash_fiat_token,
+            cash_payout_provider=cash_payout_provider,
             legacy_play_rooms_enabled=(
                 environment in {"development", "test"}
                 and raw_legacy_rooms in {"1", "true", "yes", "on"}

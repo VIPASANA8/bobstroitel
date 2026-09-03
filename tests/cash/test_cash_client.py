@@ -43,3 +43,18 @@ def test_profile_and_table_keep_the_mock_warning_visible():
     assert "Доступно" in PROFILE and "За столами" in PROFILE and "Ожидает вывода" in PROFILE
     assert "ТЕСТ — средства ненастоящие" in PROFILE
     assert "ТЕСТ · CASH НЕНАСТОЯЩИЙ" in TABLE_JS
+
+
+def test_the_client_never_calls_real_money_fake():
+    """`средства ненастоящие` is keyed on the mock mode, not on the CASH tab.
+
+    Printed over a production balance those words are a lie; removed from a
+    mock balance, they are the only thing telling a tester the chips are not
+    savings. So the wording follows the mode, and the tab itself follows only
+    whether CASH is on at all.
+    """
+    assert 'cashTab.hidden = config.cash_mode === "off";' in LOBBY_JS
+    assert 'const test = mode === "mock";' in LOBBY_JS
+    assert '"USDT TRC20 · реальные средства"' in LOBBY_JS
+    # Nothing may gate a live CASH surface on the mock mode specifically.
+    assert 'cash_mode === "mock"' not in LOBBY_JS.replace('cashMode === "mock"', "")

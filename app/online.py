@@ -19,7 +19,7 @@ from cash.fiat_orders import FiatOrderService
 from cash.fiat_poller import FiatPoller
 from cash.trc20_watcher import Trc20DepositWatcher
 from cash.watchdog import CashWatchdog
-from cash.fiat_p2p import MockCase8Partner
+from cash.fiat_p2p import Case8PartnerClient, MockCase8Partner
 from cash.game import CashGameService
 from cash.wallet import WalletService
 from cash.withdrawals import WithdrawalService
@@ -40,6 +40,33 @@ from online.schema import cash_operators, metadata, tenant_bots, tenants
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
 EXPECTED_MIGRATION_REVISION = "20260903_0023"
+
+#: Payout providers this application knows how to drive. Deliberately empty:
+#: custody and transaction signing live outside Poker8, and until one is
+#: written and reviewed there is nothing here that may move real USDT. Naming
+#: one in POKER8_CASH_PAYOUT_PROVIDER therefore refuses the boot instead of
+#: quietly falling back to the mock, which is the entire point of the check.
+PAYOUT_PROVIDERS: dict[str, object] = {}
+
+
+def _fiat_partner(settings):
+    """The RUB gateway. A mock never answers for real money."""
+    if settings.cash_mode != "production":
+        return MockCase8Partner()
+    return Case8PartnerClient(settings.cash_fiat_api_url, settings.cash_fiat_token)
+
+
+def _payout_executor(settings):
+    """Who actually sends USDT out. `None` leaves WithdrawalService on its mock."""
+    if settings.cash_mode != "production":
+        return None
+    try:
+        return PAYOUT_PROVIDERS[settings.cash_payout_provider]()
+    except KeyError:
+        raise RuntimeError(
+            f"no payout provider named {settings.cash_payout_provider!r} is implemented; "
+            "CASH production cannot start with a mock executor"
+        ) from None
 
 # Revalidate every time. Without it these responses carry an ETag and a
 # Last-Modified but no Cache-Control at all, which puts a browser into
@@ -121,9 +148,9 @@ def create_app(
         app.state.engine = engine
         app.state.session_factory = session_factory
         app.state.expected_migration_revision = EXPECTED_MIGRATION_REVISION
-        if settings.cash_mode == "mock" and engine.dialect.name != "postgresql":
+        if settings.cash_mode != "off" and engine.dialect.name != "postgresql":
             await engine.dispose()
-            raise RuntimeError("POKER8_CASH_MODE=mock requires PostgreSQL")
+            raise RuntimeError(f"POKER8_CASH_MODE={settings.cash_mode} requires PostgreSQL")
         if settings.environment == "development":
             async with engine.begin() as connection:
                 await connection.run_sync(metadata.create_all)
@@ -139,6 +166,9 @@ def create_app(
         catalogue = Catalogue(session_factory)
         await catalogue.seed_defaults()
         if settings.cash_mode == "mock":
+            # Deliberately mock-only: the seeded table is `cash-micro-test`, a
+            # test table by name and by stakes. Production needs its own table,
+            # which is a decision about limits, not a rename.
             await catalogue.seed_cash_mock()
         app.state.ledger = ledger
         app.state.catalogue = catalogue
@@ -152,7 +182,7 @@ def create_app(
             address=settings.cash_trc20_address or None,
             contract=settings.cash_trc20_contract or None,
         )
-        app.state.cash_fiat_partner = MockCase8Partner()
+        app.state.cash_fiat_partner = _fiat_partner(settings)
         app.state.cash_fiat_orders = FiatOrderService(
             session_factory, partner=app.state.cash_fiat_partner,
             fee_bps=settings.cash_fiat_fee_bps,
@@ -163,7 +193,7 @@ def create_app(
         app.state.cash_trc20_watcher = None
         app.state.cash_trc20_watcher_task = None
         app.state.cash_watchdog = None
-        if settings.cash_mode == "mock":
+        if settings.cash_mode != "off":
             app.state.cash_fiat_poller = FiatPoller(app.state.cash_fiat_orders)
             app.state.cash_fiat_poller_task = asyncio.create_task(app.state.cash_fiat_poller.run())
             if settings.cash_trc20_api_url:
@@ -183,6 +213,7 @@ def create_app(
             )
         app.state.cash_withdrawals = WithdrawalService(
             session_factory, fee_micros=settings.cash_withdrawal_fee_micros,
+            executor=_payout_executor(settings),
         )
         app.state.cash_wallet = WalletService(session_factory)
         app.state.cash_admin = CashAdminService(session_factory)
