@@ -11,6 +11,9 @@ def test_all_user_cash_routes_use_cash_identity_gate():
     app = create_app(Settings.from_mapping({"POKER8_ENV": "development"}))
     routes = [route for route in app.routes if isinstance(route, APIRoute) and route.path.startswith("/api/cash/")]
     assert {route.path for route in routes} == {
+        # A self-imposed break is a cash route like any other: it is refused for
+        # a session that may not touch money in the first place.
+        "/api/cash/break",
         "/api/cash/wallet", "/api/cash/deposits", "/api/cash/deposits/{deposit_id}",
         "/api/cash/deposits/{deposit_id}/cancel", "/api/cash/deposits/{deposit_id}/paid",
         "/api/cash/deposits/{deposit_id}/simulate-transfer",

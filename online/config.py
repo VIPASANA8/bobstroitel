@@ -32,6 +32,7 @@ class Settings:
     cash_orders_per_hour: int
     cash_daily_deposit_micros: int
     cash_withdrawal_fee_micros: int
+    cash_daily_loss_micros: int
     cash_allowlist: tuple[int, ...]
     cash_admin_api_key: str
     cash_admin_operators: tuple[dict[str, object], ...]
@@ -106,6 +107,16 @@ class Settings:
             raise ValueError("POKER8_CASH_WITHDRAWAL_FEE_USDT must be a USDT amount") from exc
         if cash_withdrawal_fee_micros >= 100_000_000:
             raise ValueError("POKER8_CASH_WITHDRAWAL_FEE_USDT must be under 100 USDT")
+        # How much a player may lose in 24 hours before the table stops selling
+        # them another buy-in. A rolling window, not a "session": a session ends
+        # whenever the player stands up, which makes it the easiest limit in the
+        # world to walk around. Zero is off, like the deposit limit beside it.
+        try:
+            cash_daily_loss_micros = usdt_to_micros(
+                source.get("POKER8_CASH_DAILY_LOSS_USDT", "0").strip() or "0"
+            )
+        except ValueError as exc:
+            raise ValueError("POKER8_CASH_DAILY_LOSS_USDT must be a USDT amount") from exc
         # The deposit watcher is read-only: an endpoint, an address it reads and
         # the one token contract that counts. No key of any kind signs anything.
         trc20_api_url = source.get("POKER8_CASH_TRC20_API_URL", "").strip()
@@ -238,6 +249,7 @@ class Settings:
             cash_orders_per_hour=cash_orders_per_hour,
             cash_daily_deposit_micros=cash_daily_deposit_usdt * 1_000_000,
             cash_withdrawal_fee_micros=cash_withdrawal_fee_micros,
+            cash_daily_loss_micros=cash_daily_loss_micros,
             cash_allowlist=cash_allowlist,
             cash_admin_api_key=cash_admin_api_key,
             cash_admin_operators=cash_admin_operators,

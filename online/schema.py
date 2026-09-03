@@ -606,8 +606,18 @@ cash_user_holds = Table(
     Column("user_id", String(64), ForeignKey("users.id"), primary_key=True),
     Column("tenant_id", String(64), ForeignKey("tenants.id"), nullable=False),
     Column("reason", String(500), nullable=False),
-    Column("operator_id", String(64), ForeignKey("cash_operators.id"), nullable=False),
+    # Null when the user asked for the break themselves. An operator hold and a
+    # self-imposed one stop the same things, so they are the same row rather
+    # than two tables and two checks that could drift apart.
+    Column("operator_id", String(64), ForeignKey("cash_operators.id")),
+    # Null means indefinite, which is what an operator hold is. A break the user
+    # chose always ends, and only by running out -- there is no way to shorten
+    # one, because a break you can end on impulse is not a break.
+    Column("until", timestamp),
     Column("created_at", timestamp, **created_at),
+    CheckConstraint(
+        "operator_id IS NOT NULL OR until IS NOT NULL", name="ck_cash_hold_owner",
+    ),
 )
 
 cash_withdrawals = Table(
@@ -640,6 +650,15 @@ cash_withdrawals = Table(
     CheckConstraint("network IN ('TRC20', 'P2P_RUB')", name="ck_cash_withdrawal_network"),
     CheckConstraint("fiat_kopecks IS NULL OR fiat_kopecks > 0", name="ck_cash_withdrawal_fiat"),
     CheckConstraint("status IN ('requested','reserved','approved','sending','submitted','confirmed','rejected','cancelled','unknown')", name="ck_cash_withdrawal_status"),
+)
+
+_active_withdrawal_states = cash_withdrawals.c.status.in_(
+    ("requested", "reserved", "approved", "sending", "submitted", "unknown"),
+)
+Index(
+    "uq_cash_withdrawal_active_user", cash_withdrawals.c.user_id, unique=True,
+    postgresql_where=_active_withdrawal_states,
+    sqlite_where=_active_withdrawal_states,
 )
 
 cash_operators = Table(

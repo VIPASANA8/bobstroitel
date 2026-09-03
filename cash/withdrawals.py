@@ -6,6 +6,7 @@ import json
 from uuid import uuid4
 
 from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import insert
 
@@ -28,6 +29,15 @@ RAILS = (TRC20, P2P_RUB)
 
 #: Where a paid-out P2P payout lands, beside the C2C clearing account.
 P2P_CLEARING = "p2p-payout"
+
+#: A withdrawal that has not finished one way or the other. One of these per
+#: user at a time, so a queue of payouts cannot be built up faster than the
+#: operator reviewing them.
+ACTIVE_STATES = ("requested", "reserved", "approved", "sending", "submitted", "unknown")
+
+
+class ActiveWithdrawalExists(ValueError):
+    """One payout at a time: the database says so, not just this service."""
 
 
 class WithdrawalStateError(ValueError):
@@ -91,6 +101,27 @@ class WithdrawalService:
                              "network": rail, "tenant_id": tenant_id,
                              "fee_micros": self.fee_micros})
         now = self.now()
+        try:
+            return await self._reserve(
+                user_id=user_id, tenant_id=tenant_id, amount=amount, rail=rail,
+                destination_address=destination_address, request_key=request_key,
+                fingerprint=fingerprint, now=now,
+            )
+        except IntegrityError as exc:
+            # The partial unique index got there first. Only the database can
+            # settle a race between two different request keys, so the friendly
+            # error is reconstructed here rather than trusted to the check above.
+            async with self.sessions() as session:
+                replay = (await session.execute(select(cash_withdrawals).where(
+                    cash_withdrawals.c.user_id == user_id,
+                    cash_withdrawals.c.request_key == request_key,
+                ))).mappings().first()
+            if replay is not None and replay["request_hash"] == fingerprint:
+                return dict(replay)
+            raise ActiveWithdrawalExists("finish or cancel the open withdrawal first") from exc
+
+    async def _reserve(self, *, user_id, tenant_id, amount, rail, destination_address,
+                       request_key, fingerprint, now):
         async with self.sessions() as session:
             async with session.begin():
                 if session.get_bind().dialect.name != "postgresql":
@@ -112,6 +143,14 @@ class WithdrawalService:
                 withdrawal_id = uuid4().hex
                 reserve_id = await self._account(session, "withdrawal", user_id, withdrawal_id)
                 wallet_id = await self._account(session, "available", user_id, user_id)
+                live = await session.scalar(select(cash_withdrawals.c.id).where(
+                    cash_withdrawals.c.user_id == user_id,
+                    cash_withdrawals.c.status.in_(ACTIVE_STATES),
+                ))
+                if live is not None:
+                    raise ActiveWithdrawalExists(
+                        "finish or cancel the open withdrawal first"
+                    )
                 await session.execute(cash_withdrawals.insert().values(
                     id=withdrawal_id, user_id=user_id, tenant_id=tenant_id,
                     request_key=request_key, request_hash=fingerprint, network=rail,

@@ -39,7 +39,7 @@ from online.schema import cash_operators, metadata, tenant_bots, tenants
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
-EXPECTED_MIGRATION_REVISION = "20260903_0024"
+EXPECTED_MIGRATION_REVISION = "20260903_0025"
 
 #: Payout providers this application knows how to drive. Deliberately empty:
 #: custody and transaction signing live outside Poker8, and until one is
@@ -217,7 +217,9 @@ def create_app(
         )
         app.state.cash_wallet = WalletService(session_factory)
         app.state.cash_admin = CashAdminService(session_factory)
-        app.state.cash_game = CashGameService(session_factory)
+        app.state.cash_game = CashGameService(
+            session_factory, daily_loss_micros=settings.cash_daily_loss_micros,
+        )
         await app.state.runtime.restore_all()
         await app.state.seating.hold_all_users(datetime.now(timezone.utc))
         if fixture is not None:

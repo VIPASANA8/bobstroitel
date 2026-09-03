@@ -8,6 +8,7 @@ from sqlalchemy import insert, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from cash.antifraud import screen_cash_buy_in
 from cash.holds import assert_not_frozen
 from cash.ledger import CashLedger, IdempotencyConflict
 from online.catalogue import CASH_USDT
@@ -60,7 +61,10 @@ class CashRuntimeResult:
 class CashGameService:
     """Exact-chip CASH runtime used only behind the isolated mock-mode gate."""
 
-    def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
+    def __init__(self, session_factory: async_sessionmaker[AsyncSession],
+                 *, daily_loss_micros: int = 0) -> None:
+        # Zero is off, like every other limit in this package.
+        self.daily_loss_micros = daily_loss_micros
         self.session_factory = session_factory
         self.ledger = CashLedger()
 
@@ -134,6 +138,13 @@ class CashGameService:
                 await assert_not_frozen(session, user_id)
                 table = await self._table(session, table_id, lock=True)
                 self._validate_buy_in(table, seat_no, buy_in_micros)
+                # Checked when buying in, never mid-hand: a limit that ejects a
+                # seated player would strand their stack in escrow, and the
+                # point is to stop the next buy-in, not to seize this one.
+                await screen_cash_buy_in(
+                    session, user_id=user_id, limit_micros=self.daily_loss_micros,
+                    now=datetime.now(timezone.utc),
+                )
                 existing = (
                     await session.execute(
                         select(table_seats).where(

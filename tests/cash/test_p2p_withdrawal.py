@@ -25,10 +25,10 @@ OPERATOR = CashOperator("operator", 1001, "tenant", "operator")
 CARD = "2200 7007 1234 5678"
 
 
-async def fund(cash_db, key="fund"):
+async def fund(cash_db, key="fund", user_id="alice"):
     deposits = DepositService(cash_db)
     deposit = await deposits.create(
-        user_id="alice", tenant_id="tenant", amount_usdt="50", request_key=key,
+        user_id=user_id, tenant_id="tenant", amount_usdt="50", request_key=key,
     )
     await deposits.observe(TransferEvent(
         provider="mock-trc20", external_event_id=f"e-{key}", tx_hash=f"tx-{key}", event_index=0,
@@ -110,12 +110,14 @@ async def test_the_two_rails_never_settle_each_other(cash_db):
     await fund(cash_db, key="fund-rails")
     service = WithdrawalService(cash_db)
     admin = CashAdminService(cash_db)
+    # One live withdrawal per user, so the two rails need two people.
+    await fund(cash_db, key="fund-bob", user_id="bob")
     chain = await service.create(
         user_id="alice", tenant_id="tenant", amount_usdt="5",
         destination_address="TUserWallet", request_key="chain", rail=TRC20,
     )
     fiat = await service.create(
-        user_id="alice", tenant_id="tenant", amount_usdt="5",
+        user_id="bob", tenant_id="tenant", amount_usdt="5",
         destination_address=CARD, request_key="fiat", rail=P2P_RUB,
     )
     await admin.approve_withdrawal(chain["id"], OPERATOR, reason="checked", key="c1")

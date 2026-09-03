@@ -46,6 +46,8 @@ services:
       # .env; ноль по умолчанию означает, что сеть оплачивается из своего
       # кармана, и это допустимо только на dev-стеке.
       POKER8_CASH_WITHDRAWAL_FEE_USDT: ${POKER8_CASH_WITHDRAWAL_FEE_USDT:-0}
+      # Потолок проигрыша за скользящие сутки. Ноль -- выключено.
+      POKER8_CASH_DAILY_LOSS_USDT: ${POKER8_CASH_DAILY_LOSS_USDT:-0}
       POKER8_CASH_ADMIN_API_KEY: ${POKER8_CASH_ADMIN_API_KEY:-}
       POKER8_CASH_ADMIN_OPERATORS_JSON: ${POKER8_CASH_ADMIN_OPERATORS_JSON:-[]}
       # Read-only TRC20 deposit watcher; unset means it does not start.

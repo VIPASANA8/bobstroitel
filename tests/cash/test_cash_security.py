@@ -19,7 +19,7 @@ from cash.fiat_p2p import MockCase8Partner
 from cash.ledger import InsufficientCash
 from cash.trc20 import MOCK_ADDRESS, MOCK_NETWORK, TransferEvent
 from cash.wallet import WalletService
-from cash.withdrawals import WithdrawalService
+from cash.withdrawals import ActiveWithdrawalExists, WithdrawalService
 from online.config import Settings
 from online.schema import cash_accounts, cash_transactions
 
@@ -112,7 +112,9 @@ async def test_concurrent_withdrawals_cannot_spend_the_same_balance_twice(cash_d
                 user_id="alice", tenant_id="tenant", amount_usdt="6",
                 destination_address="TAliceWallet", request_key=f"race-{index}",
             )
-        except InsufficientCash:
+        # Two rules now stop the second one, and which fires depends on who
+        # reaches the wallet row first. Either way exactly one may survive.
+        except (InsufficientCash, ActiveWithdrawalExists):
             return None
 
     results = await asyncio.gather(*(withdraw(index) for index in range(2)))

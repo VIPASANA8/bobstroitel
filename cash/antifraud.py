@@ -6,7 +6,8 @@ from datetime import timedelta
 from sqlalchemy import func, select
 
 from cash.amounts import micros_to_usdt
-from online.schema import cash_fiat_orders
+from online.catalogue import CASH_USDT
+from online.schema import cash_fiat_orders, hand_players, hands, poker_tables
 
 
 # What a user has asked for and not lost: open orders plus credited ones.
@@ -51,6 +52,43 @@ async def screen_fiat_order(session, *, user_id, amount_micros, now, policy):
             raise DepositRefused(
                 f"the daily RUB deposit limit of {micros_to_usdt(policy.daily_micros)} USDT is reached"
             )
+
+
+class LossLimitReached(ValueError):
+    """Not a fraud signal and not an error: the player has lost enough today."""
+
+
+async def screen_cash_buy_in(session, *, user_id, limit_micros, now):
+    """Stop selling a losing player another buy-in for the rest of the day.
+
+    Counted over a rolling 24 hours rather than over a session, because a
+    session ends the moment somebody stands up, and a limit that resets on
+    standing up is a limit nobody ever reaches.
+
+    It is the *net* of completed CASH hands, not the sum of the losing ones.
+    Poker loses more pots than it wins by design, so counting only losing hands
+    would stop a player who is up on the day, which is not a loss limit but a
+    win cap. Net means the number matches what the wallet actually shows.
+    """
+    if not limit_micros:
+        return
+    lost = await session.scalar(select(func.coalesce(func.sum(
+        hand_players.c.net_micros
+    ), 0)).select_from(hand_players).join(
+        hands, hands.c.id == hand_players.c.hand_id,
+    ).join(
+        poker_tables, poker_tables.c.id == hands.c.table_id,
+    ).where(
+        hand_players.c.user_id == user_id,
+        hand_players.c.net_micros.is_not(None),
+        poker_tables.c.asset == CASH_USDT,
+        hands.c.completed_at >= now - timedelta(days=1),
+    ))
+    if -lost >= limit_micros:
+        raise LossLimitReached(
+            f"the daily loss limit of {micros_to_usdt(limit_micros)} USDT is reached; "
+            "the table reopens 24 hours after the losing hands"
+        )
 
 
 async def cancelled_after_payment(session, *, since, threshold=3):

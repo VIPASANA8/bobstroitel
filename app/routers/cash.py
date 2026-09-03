@@ -7,10 +7,11 @@ from pydantic import BaseModel, Field
 from app.dependencies import AuthenticatedUser, get_cash_user
 from cash.antifraud import DepositRefused
 from cash.deposits import DepositUnavailable
-from cash.holds import CashUserFrozen
+from cash.holds import CashUserFrozen, take_a_break
 from cash.fiat_orders import ActiveFiatOrderExists
 from cash.ledger import IdempotencyConflict, InsufficientCash
 from cash.trc20 import TransferEvent
+from cash.withdrawals import ActiveWithdrawalExists
 from cash.withdrawals import WithdrawalStateError
 
 
@@ -46,6 +47,30 @@ def _not_found(row):
     if row is None:
         raise HTTPException(status_code=404, detail="cash operation not found")
     return row
+
+
+class BreakRequest(BaseModel):
+    """A break the player imposes on themselves, in whole hours."""
+
+    hours: int = Field(ge=1, le=365 * 24)
+
+
+@router.post("/break", status_code=201)
+async def take_break(body: BreakRequest, request: Request,
+                     user: AuthenticatedUser = Depends(get_cash_user)):
+    """Shut yourself out of CASH for a while. Extendable, never cancellable."""
+    factory = request.app.state.session_factory
+    async with factory() as session:
+        async with session.begin():
+            try:
+                until = await take_a_break(
+                    session, user_id=user.user_id, tenant_id=user.tenant_id, hours=body.hours,
+                )
+            except CashUserFrozen as exc:
+                raise HTTPException(status_code=403, detail=str(exc)) from exc
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"until": until.isoformat()}
 
 
 @router.get("/wallet")
@@ -189,7 +214,7 @@ async def create_withdrawal(body: WithdrawalRequest, request: Request,
         )
     except CashUserFrozen as exc:
         raise _guard(exc) from exc
-    except (IdempotencyConflict, InsufficientCash) as exc:
+    except (IdempotencyConflict, InsufficientCash, ActiveWithdrawalExists) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
