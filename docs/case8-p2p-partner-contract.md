@@ -177,3 +177,58 @@ comparison and never used in a calculation.
 SSH на хост CASE8 (`45.9.148.242:4141`) закрыт тем же фильтром по IP: порт
 недоступен и с моей машины, и с боевого хоста Poker8; порт 22 открыт, но ключ
 отклоняется. Внутрь зайти нельзя до открытия доступа.
+
+## Live inspection of CASE8 prod — 2026-09-04
+
+Зашёл на хост CASE8 по SSH (порт 22) и осмотрел контейнер pservice
+(`p2p_payment_service`, FastAPI). Это отменяет главное предположение, на
+котором построен наш клиент.
+
+**Наш `Case8PartnerClient` нацелен не на тот слой.** Протокол `/order`, `/me`,
+`/notify`, `/events` с заголовком `X-Token` — это
+`infrastructure/partner_gateways/current_partner/gateway.py`, то есть **клиент
+самого pservice к вышестоящей сети трейдеров** (`PARTNER_API_URL`,
+`PARTNER_TOKEN`). pservice его не *отдаёт* — он его *потребляет*. Наш клиент,
+говорящий на этом протоколе, пытается стать вторым pservice против сырого
+партнёра, минуя всю машину заказов, C2C и сверки, которую pservice уже везёт.
+
+**Что pservice отдаёт наружу — чистый REST под `/api/v1`, авторизация
+заголовком `X-Service-Key: <SHARED_SERVICE_KEY>`** (`hmac.compare_digest` в
+`api/dependencies.py`;`/api/v1/health` без ключа):
+
+| Группа | Маршруты |
+|---|---|
+| Fiat P2P | `POST /api/v1/payments`, `GET /payments/{id}`, `/payments/by-intent/{intent_id}`, `/payments/user/{user_id}/active` |
+| Заказы | `POST /orders/{id}/confirm`, `POST /orders/{id}/cancel`, `GET /orders/{id}/status` |
+| C2C (TRON) | `POST /c2c/deposit`, `/deposit/{id}/pending`, `GET /deposit/{id}/status`, `/deposit/user/{id}/active`, `POST /deposit/{id}/cancel` |
+| Admin (чтение) | `GET /admin/commission`, `/admin/partner/business`, `/admin/c2c/config` |
+
+**Открытые вопросы контракта закрыты живыми ответами** (read-only вызовы с
+сервисным ключом, 2026-09-04):
+
+- `GET /api/v1/admin/commission` → `{"commission_percent":1.0,"example_fiat_100":101}`.
+  **Комиссия добавляется сверху:** к 100 фиата пользователь платит 101. То есть
+  сумма, которую партнёр возвращает, уже включает комиссию, и это и есть полная
+  сумма к оплате пользователем — ровно то, как считает наш `quote_with_fee`,
+  только процент задаёт партнёр (1%), а не мы.
+- `GET /api/v1/admin/partner/business` → `{"id":2,"title":"Case 8 🎰","fee":100,
+  "deposit":64097,...}`. `fee:100` — снимок комиссии партнёра (1.00), совпадает
+  с полем `Fee` из `/me`.
+- `GET /api/v1/admin/c2c/config` → C2C через TRON у pservice **уже есть**:
+  кошелёк `TZ6bFGgwpWEXYqh9A96j4a9VrQ7xweFGXB`, min 1 / max 5000 USDT, TTL 90
+  мин, опрос 30 с. Это пересекается с нашим собственным `Trc20DepositWatcher`.
+
+**Следствие — развилка интеграции, решать владельцу:**
+
+- **Модель A (текущий код):** Poker8 → сырой партнёр напрямую, повторяя
+  pservice. Заблокирована (голый IP, self-signed, фильтр) и дублирует всё, что
+  pservice уже делает.
+- **Модель B (рекомендую):** Poker8 → pservice `/api/v1` с `X-Service-Key`.
+  Чистый API, pservice везёт заказы, C2C, сверку; сертификат решаем как у
+  `api.case8x.cc`. Нужно: pservice выставлен на домене с валидным сертификатом
+  и firewall на IP боевого Poker8 — либо приватная сеть между хостами.
+  Требует переписать `cash/fiat_p2p.py` под REST `/api/v1` вместо
+  `/order,/me,/events`.
+
+SSH: рабочий порт — **22**, не 4141 (в `~/.ssh/config` для `case8` стоит 4141 и
+таймаутит). Docker — только под `sudo`.
