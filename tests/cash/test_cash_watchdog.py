@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import insert, select
 
 from cash.fiat_orders import FiatOrderService
-from cash.fiat_p2p import MockCase8Partner
+from cash.fiat_p2p import MockPservice
 from cash.watchdog import REQUISITES_RETENTION, CashWatchdog
 from online.schema import cash_fiat_events, cash_fiat_orders, tenants, users
 
@@ -89,7 +89,7 @@ async def test_a_stopped_partner_poll_is_the_alert_nobody_gets_from_silence(cash
 
 
 async def test_requisites_do_not_outlive_their_retention(cash_rows):
-    service = FiatOrderService(cash_rows, partner=MockCase8Partner())
+    service = FiatOrderService(cash_rows, partner=MockPservice())
     order = await service.create(
         user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="rub-1",
     )

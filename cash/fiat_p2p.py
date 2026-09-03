@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import re
+import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -17,15 +17,15 @@ def usdt_micros_to_case8_amount(amount_micros: int) -> int:
     if type(amount_micros) is not int or not CASE8_MIN_MICROS <= amount_micros <= CASE8_MAX_MICROS:
         raise ValueError("fiat P2P amount must be between 20 and 1000 USDT")
     if amount_micros % MICROS_PER_USDT_CENT:
-        raise ValueError("CASE8 partner amount requires whole USDT cents")
+        raise ValueError("CASE8 amount requires whole USDT cents")
     return amount_micros // MICROS_PER_USDT_CENT
 
 
 def quote_with_fee(requested_micros: int, fee_bps: int) -> tuple[int, int]:
     """Poker8 charges its deposit fee on top of what the user is credited.
 
-    The partner only accepts whole USDT cents, so the charge rounds up to one
-    and the rounding lands in the fee, never in the user's balance.
+    pservice only accepts whole USDT cents, so the charge rounds up to one and
+    the rounding lands in the fee, never in the user's balance.
     """
     if type(requested_micros) is not int or requested_micros <= 0:
         raise ValueError("fiat P2P amount must be a positive integer of micros")
@@ -36,211 +36,215 @@ def quote_with_fee(requested_micros: int, fee_bps: int) -> tuple[int, int]:
     return charged, charged - requested_micros
 
 
-@dataclass(frozen=True)
-class PartnerOrder:
-    partner_order_id: int
-    fiat_kopecks: int
-    requisites: str
-    expires_at: datetime
-    trader_username: str | None = None
-
-
-@dataclass(frozen=True)
-class PartnerEvent:
-    event_id: int
-    partner_order_id: int
-    status: str
-    detail: str | None = None
-
-
 class PartnerProtocolError(ValueError):
     pass
 
 
-def _pick(raw: dict[str, Any], upper: str, lower: str) -> Any:
-    return raw[upper] if upper in raw else raw.get(lower)
-
-
-def _integer(raw: dict[str, Any], upper: str, lower: str) -> int:
-    value = _pick(raw, upper, lower)
-    if isinstance(value, bool):
-        raise PartnerProtocolError(f"invalid partner field {upper}")
-    try:
-        parsed = int(value)
-    except (TypeError, ValueError) as exc:
-        raise PartnerProtocolError(f"invalid partner field {upper}") from exc
-    if str(parsed) != str(value) and not isinstance(value, int):
-        raise PartnerProtocolError(f"invalid partner field {upper}")
-    return parsed
-
-
-def _kopecks(raw: dict[str, Any], upper: str, lower: str) -> int:
-    """Partner ``Amount`` is RUB with kopecks after a comma: ``1850,75``."""
-    value = _pick(raw, upper, lower)
-    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
-        raise PartnerProtocolError(f"invalid partner field {upper}")
-    match = re.fullmatch(r"([0-9]{1,12})(?:[.,]([0-9]{1,2}))?", str(value).strip().replace(" ", ""))
-    if match is None:
-        raise PartnerProtocolError(f"invalid partner field {upper}")
-    whole, fraction = match.groups()
-    return int(whole) * 100 + int((fraction or "").ljust(2, "0"))
-
-
 def _utc(value: Any) -> datetime:
     if not isinstance(value, str):
-        raise PartnerProtocolError("invalid partner expiry")
+        raise PartnerProtocolError("invalid pservice timestamp")
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError as exc:
-        raise PartnerProtocolError("invalid partner expiry") from exc
+        raise PartnerProtocolError("invalid pservice timestamp") from exc
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed.astimezone(timezone.utc)
 
 
-class Case8PartnerClient:
-    """Pinned CASE8 transport with mandatory CA verification."""
+def _optional_utc(value: Any) -> datetime | None:
+    return None if value is None else _utc(value)
 
-    def __init__(
-        self, base_url: str, token: str, *,
-        transport: httpx.AsyncBaseTransport | None = None,
-    ):
-        if not base_url.startswith("https://") or not token:
-            raise ValueError("CASE8 partner requires an HTTPS URL and token")
+
+# --- pservice /api/v1: the layer Poker8 actually integrates with ---------------
+#
+# The old `/order,/me,/events` + X-Token protocol was pservice's *own* client to
+# the raw trader network (docs/case8-p2p-partner-contract.md, "Live inspection").
+# Poker8 consumes pservice's REST API instead: create a payment, poll its status,
+# credit CASH on completion. There is no event stream to us -- pservice owns the
+# partner events; we read one order at a time.
+
+#: Deterministic namespace so one Poker8 user maps to one stable pservice UUID.
+_USER_NS = uuid.UUID("0b7b8d2a-8f4e-5c31-9a20-9b6f0e6d5c44")
+
+#: pservice OrderStatus (domain/enums/order_status.py) -> our coarse state.
+#: Every non-terminal status lands in the active set the one-open-order index
+#: guards; FAILED goes to review_required so a person confirms nothing is owed.
+PSERVICE_STATUS = {
+    0: "requesting",       # CREATED
+    1: "requesting",       # REQUEST_SENT
+    2: "expired",          # REQUEST_EXPIRED
+    3: "awaiting_user",    # TRADER_FOUND -- requisites are available
+    4: "waiting_trader",   # USER_CONFIRMED
+    5: "cancelled",        # USER_CANCELLED
+    6: "waiting_trader",   # AWAITING_RESULT
+    7: "credited",         # COMPLETED -- the only status that moves money
+    8: "review_required",  # FAILED
+    9: "cancelled",        # CANCELLED
+    10: "clarifying",      # CLARIFYING
+}
+COMPLETED_STATUS = 7
+
+
+@dataclass(frozen=True)
+class PservicePayment:
+    """What POST /api/v1/payments returns."""
+
+    order_id: str
+    status: int
+    expires_at: datetime | None
+
+
+@dataclass(frozen=True)
+class PserviceOrderStatus:
+    """What GET /api/v1/payments/{order_id} returns, as much as we use."""
+
+    status: int
+    fiat_kopecks: int | None
+    requisites: str | None
+    trader_username: str | None
+    expires_at: datetime | None
+    detail: str | None
+
+    @property
+    def local_status(self) -> str:
+        try:
+            return PSERVICE_STATUS[self.status]
+        except KeyError:
+            raise PartnerProtocolError(f"unknown pservice status {self.status!r}") from None
+
+
+def _order_status_from(raw: dict[str, Any]) -> PserviceOrderStatus:
+    if not isinstance(raw, dict) or "status" not in raw:
+        raise PartnerProtocolError("invalid pservice order status payload")
+    status = raw.get("status")
+    if type(status) is not int:
+        raise PartnerProtocolError("pservice status must be an integer")
+    fiat = raw.get("fiat_amount_with_commission")
+    if fiat is not None and type(fiat) is not int:
+        raise PartnerProtocolError("pservice fiat amount must be integer minor units")
+    return PserviceOrderStatus(
+        status=status,
+        fiat_kopecks=fiat,
+        requisites=(raw.get("trader_info") or None),
+        trader_username=(raw.get("trader_tg") or None),
+        expires_at=_optional_utc(raw.get("expires_at")),
+        detail=(raw.get("error_reason") or None),
+    )
+
+
+class PserviceClient:
+    """pservice REST transport. Verifies TLS; a self-signed endpoint is refused."""
+
+    def __init__(self, base_url: str, service_key: str, *,
+                 transport: httpx.AsyncBaseTransport | None = None):
+        if not base_url.startswith("https://") or not service_key:
+            raise ValueError("pservice requires an HTTPS URL and a service key")
         self._client = httpx.AsyncClient(
-            base_url=base_url.rstrip("/"),
-            headers={"X-Token": token},
-            verify=True,
-            transport=transport,
-            timeout=httpx.Timeout(35, connect=5),
+            base_url=base_url.rstrip("/") + "/api/v1",
+            headers={"X-Service-Key": service_key},
+            verify=True, transport=transport,
+            timeout=httpx.Timeout(15, connect=5),
         )
 
     async def close(self) -> None:
         await self._client.aclose()
 
-    async def create_order(self, amount_micros: int, currency: str) -> PartnerOrder | None:
+    async def create_payment(self, *, amount_micros: int, currency: str,
+                             client_payment_id: str, user_id: str) -> PservicePayment:
         if currency != "RUB":
             raise ValueError("the first fiat P2P pilot supports RUB only")
-        response = await self._client.post("/order", params={
-            "amount": usdt_micros_to_case8_amount(amount_micros),
+        cents = usdt_micros_to_case8_amount(amount_micros)
+        body = {
+            "cases_payment_intent_id": str(uuid.uuid4()),
+            "client_payment_id": client_payment_id,
+            "user_id": str(uuid.uuid5(_USER_NS, user_id)),
+            "amount_usdt": cents,
             "currency": currency,
-        }, timeout=5)
-        if response.status_code == 204:
-            return None
+        }
+        response = await self._client.post("/payments", json=body)
         response.raise_for_status()
         raw = response.json()
-        if not isinstance(raw, dict):
-            raise PartnerProtocolError("invalid partner order payload")
-        requisites = _pick(raw, "Method", "method")
-        if not isinstance(requisites, str) or not requisites.strip():
-            raise PartnerProtocolError("invalid partner field Method")
-        username = _pick(raw, "Username", "username")
-        if username is not None and not isinstance(username, str):
-            raise PartnerProtocolError("invalid partner field Username")
-        return PartnerOrder(
-            partner_order_id=_integer(raw, "ID", "id"),
-            fiat_kopecks=_kopecks(raw, "Amount", "amount"),
-            requisites=requisites,
-            expires_at=_utc(_pick(raw, "Expires", "expires")),
-            trader_username=username,
+        if not isinstance(raw, dict) or "order_id" not in raw or "status" not in raw:
+            raise PartnerProtocolError("invalid pservice create payload")
+        return PservicePayment(
+            order_id=str(raw["order_id"]),
+            status=int(raw["status"]),
+            expires_at=_optional_utc(raw.get("expires_at")),
         )
 
-    async def me(self) -> dict[str, Any]:
-        """Health and business data; ``Fee`` is the partner's commission snapshot."""
-        response = await self._client.get("/me", timeout=5)
+    async def order_status(self, order_id: str) -> PserviceOrderStatus:
+        response = await self._client.get(f"/payments/{order_id}")
         response.raise_for_status()
-        raw = response.json()
-        if not isinstance(raw, dict):
-            raise PartnerProtocolError("invalid partner /me payload")
-        return raw
+        return _order_status_from(response.json())
 
-    # ponytail: no retry on /order or /notify. POST /order is not idempotent, so
-    # a retry can buy a second trader order; the user simply presses again.
-    async def notify(self, partner_order_id: int, *, cancel: bool) -> None:
-        response = await self._client.post("/notify", params={
-            "order_id": partner_order_id,
-            "cancel": str(cancel).lower(),
-        }, timeout=5)
+    async def confirm(self, order_id: str) -> None:
+        (await self._client.post(f"/orders/{order_id}/confirm")).raise_for_status()
+
+    async def cancel(self, order_id: str) -> None:
+        (await self._client.post(f"/orders/{order_id}/cancel")).raise_for_status()
+
+    async def business(self) -> dict[str, Any]:
+        """Read-only health and commission snapshot for the poller warm-up."""
+        response = await self._client.get("/admin/partner/business")
         response.raise_for_status()
-
-    async def poll_events(self, offset: int) -> tuple[list[PartnerEvent], int]:
-        response = await self._client.get("/events", params={"offset": offset}, timeout=35)
-        if response.status_code == 204:
-            return [], offset
-        response.raise_for_status()
-        payload = response.json()
-        if not isinstance(payload, list):
-            raise PartnerProtocolError("invalid partner events payload")
-
-        events = []
-        next_offset = offset
-        for raw in payload:
-            if not isinstance(raw, dict):
-                raise PartnerProtocolError("invalid partner event")
-            event_id = _integer(raw, "ID", "id")
-            order_id = _integer(raw, "OrderID", "order_id")
-            status = _pick(raw, "Status", "status")
-            if status in {"WaitingUser", "WaitingTrader"}:
-                event = None
-            elif status == "Expired":
-                event = PartnerEvent(event_id, order_id, "expired")
-            elif status == "Clarifying":
-                detail = _pick(raw, "Reason", "reason") or _pick(raw, "Message", "message")
-                event = PartnerEvent(event_id, order_id, "clarifying", detail)
-            elif status in {"CanceledByUser", "CanceledByTrader", "CanceledBySupport"}:
-                event = PartnerEvent(event_id, order_id, "cancelled", status)
-            elif status in {"CompletedByTrader", "CompletedBySupport"}:
-                event = PartnerEvent(event_id, order_id, "completed")
-            else:
-                raise PartnerProtocolError(f"unknown partner event status: {status!r}")
-            next_offset = max(next_offset, event_id)
-            if event is not None:
-                events.append(event)
-        return events, next_offset
+        return response.json()
 
 
-class MockCase8Partner:
+class MockPservice:
+    """In-process pservice for development and tests: a full order lifecycle.
+
+    Mirrors the status enum, not a happy path. An order is CREATED, a trader is
+    found on the first status read, the user confirms, and the next read
+    completes it. Cancellation is explicit; `_force_status` drives the rest.
+    """
+
     def __init__(self, *, rub_per_usdt: int = 90):
         if type(rub_per_usdt) is not int or rub_per_usdt <= 0:
             raise ValueError("mock RUB rate must be a positive integer")
         self._rate = rub_per_usdt
-        self._next_order = 1
-        self._next_event = 1
-        self._orders: dict[int, dict[str, Any]] = {}
-        self._events: list[PartnerEvent] = []
+        self._orders: dict[str, dict[str, Any]] = {}
 
-    async def create_order(self, amount_micros: int, currency: str) -> PartnerOrder:
+    async def create_payment(self, *, amount_micros: int, currency: str,
+                             client_payment_id: str, user_id: str) -> PservicePayment:
         if currency != "RUB":
             raise ValueError("the first fiat P2P pilot supports RUB only")
         usdt_micros_to_case8_amount(amount_micros)
-        order_id = self._next_order
-        self._next_order += 1
-        self._orders[order_id] = {"amount_micros": amount_micros, "finished": False}
-        return PartnerOrder(
-            partner_order_id=order_id,
-            fiat_kopecks=amount_micros * self._rate // 10_000,
-            requisites=f"4276 **** **** {1000 + order_id:04d}",
+        order_id = str(uuid.uuid4())
+        self._orders[order_id] = {
+            "status": 0, "amount_micros": amount_micros,
+            "fiat_kopecks": amount_micros * self._rate // 10_000,
+            "requisites": f"4276 **** **** {len(self._orders) + 1000:04d}",
+        }
+        return PservicePayment(order_id=order_id, status=0,
+                               expires_at=datetime.now(timezone.utc) + timedelta(minutes=10))
+
+    async def order_status(self, order_id: str) -> PserviceOrderStatus:
+        order = self._orders.get(order_id)
+        if order is None:
+            raise PartnerProtocolError("unknown pservice order")
+        if order["status"] == 0:            # CREATED -> TRADER_FOUND
+            order["status"] = 3
+        elif order["status"] in (4, 6):     # confirmed -> COMPLETED
+            order["status"] = COMPLETED_STATUS
+        found = order["status"] == 3
+        return PserviceOrderStatus(
+            status=order["status"],
+            fiat_kopecks=order["fiat_kopecks"],
+            requisites=order["requisites"] if found else None,
+            trader_username="@mock_trader" if found else None,
             expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
-            trader_username="mock_trader",
+            detail=None,
         )
 
-    async def me(self) -> dict[str, Any]:
-        return {"ID": 0, "Title": "mock trader", "Fee": 0, "Deposit": 0}
+    async def confirm(self, order_id: str) -> None:
+        self._orders[order_id]["status"] = 4   # USER_CONFIRMED
 
-    async def notify(self, partner_order_id: int, *, cancel: bool) -> None:
-        order = self._orders.get(partner_order_id)
-        if order is None:
-            raise LookupError("unknown mock partner order")
-        if order["finished"]:
-            return
-        order["finished"] = True
-        self._events.append(PartnerEvent(
-            self._next_event, partner_order_id,
-            "cancelled" if cancel else "completed",
-            "CanceledByUser" if cancel else None,
-        ))
-        self._next_event += 1
+    async def cancel(self, order_id: str) -> None:
+        self._orders[order_id]["status"] = 9   # CANCELLED
 
-    async def poll_events(self, offset: int) -> tuple[list[PartnerEvent], int]:
-        events = [event for event in self._events if event.event_id > offset]
-        return events, max([offset, *(event.event_id for event in events)])
+    async def business(self) -> dict[str, Any]:
+        return {"id": 0, "title": "mock", "fee": 0, "deposit": 0}
+
+    def _force_status(self, order_id: str, status: int) -> None:
+        self._orders[order_id]["status"] = status

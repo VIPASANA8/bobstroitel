@@ -37,7 +37,7 @@ sys.path.insert(0, str(ROOT))
 from app.online import EXPECTED_MIGRATION_REVISION  # noqa: E402
 from cash.deposits import DepositService  # noqa: E402
 from cash.fiat_orders import FiatOrderService  # noqa: E402
-from cash.fiat_p2p import MockCase8Partner, PartnerEvent  # noqa: E402
+from cash.fiat_p2p import COMPLETED_STATUS, MockPservice, PserviceOrderStatus  # noqa: E402
 from cash.access import CashOperator  # noqa: E402
 from cash.admin import CashAdminService  # noqa: E402
 from cash.game import CashGameService  # noqa: E402
@@ -149,14 +149,12 @@ async def seed(factory):
         await deposits.observe(event)
         events.append(event)
 
-    fiat = FiatOrderService(factory, partner=MockCase8Partner())
+    fiat = FiatOrderService(factory, partner=MockPservice())
     order = await fiat.create(
         user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="rub-backup",
     )
     await fiat.mark_paid(order["id"], "alice")
-    await fiat.poll_once()
-    async with factory() as session:
-        partner_event = (await session.execute(select(cash_fiat_events))).mappings().one()
+    await fiat.poll_once()  # pservice reports COMPLETED -> credited
 
     withdrawals = WithdrawalService(factory)
     withdrawal = await withdrawals.create(
@@ -206,13 +204,10 @@ async def seed(factory):
 
     return {
         "transfer_events": events,
-        "partner_event": PartnerEvent(
-            partner_event["event_id"], partner_event["partner_order_id"], partner_event["event_type"],
-        ),
+        "fiat_order_id": order["id"],
         "withdrawal_id": withdrawal["id"],
         "tx_hash": (await withdrawals.get(withdrawal["id"]))["tx_hash"],
         "p2p_withdrawal_id": fiat_payout["id"],
-        "fiat_order_id": order["id"],
         "replayable": replayable,
         "hand_id": started.state.hand_id,
     }
@@ -247,16 +242,6 @@ class RefuseToPayTwice:
         return {"status": "submitted", "tx_hash": f"replayed-{payout_id}"}
 
 
-class ResendingPartner:
-    """The partner redelivering an event the restored copy has already applied."""
-
-    def __init__(self, event):
-        self.event = event
-
-    async def poll_events(self, offset):
-        return [self.event], max(offset, self.event.event_id)
-
-
 async def replay(factory, state):
     """Try every payment again. Each line records what the restored copy did."""
     outcomes = []
@@ -265,8 +250,14 @@ async def replay(factory, state):
         await DepositService(factory).observe(event)
     outcomes.append("provider transfer events redelivered")
 
-    await FiatOrderService(factory, partner=ResendingPartner(state["partner_event"])).poll_once()
-    outcomes.append("partner completion redelivered")
+    # Re-apply COMPLETED to the already-credited order. The restored dump has
+    # it terminal, so the credit path refuses a second posting.
+    completed = PserviceOrderStatus(
+        status=COMPLETED_STATUS, fiat_kopecks=None, requisites=None,
+        trader_username=None, expires_at=None, detail=None,
+    )
+    await FiatOrderService(factory, partner=MockPservice())._sync(state["fiat_order_id"], completed)
+    outcomes.append("pservice completion re-applied, nothing credited twice")
 
     executor = RefuseToPayTwice()
     replayed_payout = await WithdrawalService(factory, executor=executor).execute(

@@ -546,7 +546,11 @@ cash_fiat_orders = Table(
     Column("tenant_id", String(64), ForeignKey("tenants.id"), nullable=False),
     Column("request_key", String(200), nullable=False),
     Column("request_hash", String(64), nullable=False),
+    # Legacy int id from the old direct-partner protocol; kept nullable so old
+    # rows survive. Model B (pservice) uses the UUID below.
     Column("partner_order_id", BIGINT, unique=True),
+    # pservice order id (UUID) -- what confirm/cancel/status address.
+    Column("pservice_order_id", String(64), unique=True),
     Column("currency", String(3), nullable=False),
     Column("requested_micros", BIGINT, nullable=False),
     Column("fee_micros", BIGINT, nullable=False, server_default=text("0")),

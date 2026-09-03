@@ -6,7 +6,8 @@ from cash.leader_poller import (  # noqa: F401  (re-exported for the tests and c
 )
 
 
-# CASE8 has no webhook, so one process long-polls /events for the whole
+# pservice sends its completion webhook to CASE8's own backend, not to us, so
+# one Poker8 process polls the status of its open orders for the whole
 # deployment. The advisory lock picks that process; the others idle.
 LEADER_LOCK_KEY = 8202609
 
@@ -23,10 +24,10 @@ class FiatPoller(LeaderPoller):
 
     async def warm_up(self) -> None:
         try:
-            self.partner_fee = (await self.service.partner.me()).get("Fee")
+            self.partner_fee = (await self.service.partner.business()).get("fee")
         except Exception as exc:
-            # A partner that answers /events but not /me still deserves polling.
-            self.last_error = f"/me unavailable: {exc!r}"
+            # A pservice that answers status but not /admin still deserves polling.
+            self.last_error = f"business snapshot unavailable: {exc!r}"
 
     async def poll(self) -> bool:
         await self.service.poll_once()

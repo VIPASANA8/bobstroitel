@@ -6,7 +6,7 @@ from cash.admin import CashAdminService, OperatorAccessDenied
 from cash.antifraud import DepositPolicy, DepositRefused
 from cash.deposits import DepositService
 from cash.fiat_orders import FiatOrderService
-from cash.fiat_p2p import MockCase8Partner
+from cash.fiat_p2p import MockPservice
 from cash.game import CashGameService
 from cash.holds import CashUserFrozen
 from cash.trc20 import MOCK_ADDRESS, MOCK_NETWORK, TransferEvent
@@ -60,7 +60,7 @@ async def test_a_hold_stops_every_new_money_path_and_lifts_cleanly(cash_db):
             user_id="alice", tenant_id="tenant", amount_usdt="5", request_key="after-hold",
         )
     with pytest.raises(CashUserFrozen):
-        await FiatOrderService(cash_db, partner=MockCase8Partner()).create(
+        await FiatOrderService(cash_db, partner=MockPservice()).create(
             user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="rub-after-hold",
         )
     with pytest.raises(CashUserFrozen):
@@ -83,7 +83,7 @@ async def test_a_hold_stops_every_new_money_path_and_lifts_cleanly(cash_db):
 async def test_a_hold_never_traps_money_already_at_risk(cash_db):
     await funded(cash_db)
     await seed_table(cash_db)
-    fiat = FiatOrderService(cash_db, partner=MockCase8Partner())
+    fiat = FiatOrderService(cash_db, partner=MockPservice())
     order = await fiat.create(
         user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="rub-paid",
     )
@@ -129,7 +129,7 @@ async def test_only_a_scoped_operator_freezes_and_the_key_replays(cash_db):
 
 async def test_the_request_rate_and_the_daily_limit_refuse_before_a_trader_is_asked(cash_db):
     policy = DepositPolicy(orders_per_hour=3, daily_micros=60_000_000)
-    partner = MockCase8Partner()
+    partner = MockPservice()
     service = FiatOrderService(cash_db, partner=partner, policy=policy)
 
     for index in range(3):

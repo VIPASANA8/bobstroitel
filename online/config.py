@@ -143,7 +143,7 @@ class Settings:
         raw_legacy_rooms = source.get("POKER8_LEGACY_PLAY_ROOMS", "0").strip().lower()
         # The live CASE8 endpoint. The pinned partner source ships
         # PARTNER_TLS_VERIFY=false against a self-signed certificate on a bare
-        # IP; Case8PartnerClient does not carry that over, so an HTTPS hostname
+        # IP; PserviceClient does not carry that over, so an HTTPS hostname
         # with a trusted certificate is the only thing that will connect.
         cash_fiat_api_url = source.get("POKER8_CASH_FIAT_API_URL", "").strip()
         cash_fiat_token = source.get("POKER8_CASH_FIAT_TOKEN", "").strip()

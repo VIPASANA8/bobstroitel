@@ -19,7 +19,7 @@ from cash.fiat_orders import FiatOrderService
 from cash.fiat_poller import FiatPoller
 from cash.trc20_watcher import Trc20DepositWatcher
 from cash.watchdog import CashWatchdog
-from cash.fiat_p2p import Case8PartnerClient, MockCase8Partner
+from cash.fiat_p2p import MockPservice, PserviceClient
 from cash.game import CashGameService
 from cash.wallet import WalletService
 from cash.withdrawals import WithdrawalService
@@ -39,7 +39,7 @@ from online.schema import cash_operators, metadata, tenant_bots, tenants
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
-EXPECTED_MIGRATION_REVISION = "20260903_0025"
+EXPECTED_MIGRATION_REVISION = "20260904_0026"
 
 #: Payout providers this application knows how to drive. Deliberately empty:
 #: custody and transaction signing live outside Poker8, and until one is
@@ -50,10 +50,11 @@ PAYOUT_PROVIDERS: dict[str, object] = {}
 
 
 def _fiat_partner(settings):
-    """The RUB gateway. A mock never answers for real money."""
+    """The RUB gateway is pservice. A mock never answers for real money."""
     if settings.cash_mode != "production":
-        return MockCase8Partner()
-    return Case8PartnerClient(settings.cash_fiat_api_url, settings.cash_fiat_token)
+        return MockPservice()
+    # POKER8_CASH_FIAT_TOKEN carries the X-Service-Key pservice validates.
+    return PserviceClient(settings.cash_fiat_api_url, settings.cash_fiat_token)
 
 
 def _payout_executor(settings):

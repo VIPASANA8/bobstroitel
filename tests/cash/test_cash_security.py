@@ -15,7 +15,7 @@ from app.routers.cash import (
 )
 from cash.deposits import DepositService
 from cash.fiat_orders import FiatOrderService
-from cash.fiat_p2p import MockCase8Partner
+from cash.fiat_p2p import MockPservice
 from cash.ledger import InsufficientCash
 from cash.trc20 import MOCK_ADDRESS, MOCK_NETWORK, TransferEvent
 from cash.wallet import WalletService
@@ -35,7 +35,7 @@ def cash_request(cash_db, partner=None):
         session_factory=cash_db,
         settings=SimpleNamespace(cash_mode="mock", cash_allowlist=()),
         cash_deposits=DepositService(cash_db),
-        cash_fiat_orders=FiatOrderService(cash_db, partner=partner or MockCase8Partner()),
+        cash_fiat_orders=FiatOrderService(cash_db, partner=partner or MockPservice()),
         cash_withdrawals=WithdrawalService(cash_db),
         cash_wallet=WalletService(cash_db),
     )

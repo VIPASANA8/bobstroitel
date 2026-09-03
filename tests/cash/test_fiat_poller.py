@@ -12,13 +12,13 @@ pytestmark = pytest.mark.anyio
 
 
 class FakePartner:
-    def __init__(self, me=None):
-        self._me = me
+    def __init__(self, business=None):
+        self._business = business
 
-    async def me(self):
-        if isinstance(self._me, Exception):
-            raise self._me
-        return self._me or {"Fee": 3}
+    async def business(self):
+        if isinstance(self._business, Exception):
+            raise self._business
+        return self._business or {"fee": 3}
 
 
 class FakeService:

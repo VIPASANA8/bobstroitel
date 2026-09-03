@@ -11,12 +11,14 @@ from sqlalchemy.exc import IntegrityError
 
 from cash.amounts import kopecks_to_rub, micros_to_units, micros_to_usdt, usdt_to_micros
 from cash.antifraud import DepositPolicy, screen_fiat_order
-from cash.fiat_p2p import quote_with_fee, usdt_micros_to_case8_amount
+from cash.fiat_p2p import PserviceOrderStatus, quote_with_fee, usdt_micros_to_case8_amount
 from cash.holds import assert_not_frozen
 from cash.ledger import CashLedger, IdempotencyConflict
-from online.schema import (
-    cash_accounts, cash_fiat_events, cash_fiat_orders, cash_partner_cursors,
-)
+from online.schema import cash_accounts, cash_fiat_orders
+
+# Statuses the poller no longer touches: a credited order is done, and the other
+# three are terminal failures. review_required waits for a person, not a poll.
+TERMINAL_STATES = ("credited", "expired", "cancelled", "review_required")
 
 
 PROVIDER = "case8-p2p"
@@ -101,29 +103,26 @@ class FiatOrderService:
         if row["status"] != "requesting" or row["id"] != order_id:
             return dict(row)
 
-        partner_order = await self.partner.create_order(charged, "RUB")
-        values = {"updated_at": self.now()}
-        if partner_order is None:
-            values.update(status="unavailable", detail="no trader is currently available")
-        else:
-            values.update(
-                partner_order_id=partner_order.partner_order_id,
-                fiat_kopecks=partner_order.fiat_kopecks,
-                requisites=partner_order.requisites,
-                trader_username=partner_order.trader_username,
-                expires_at=partner_order.expires_at,
-                status="awaiting_user",
-            )
+        payment = await self.partner.create_payment(
+            amount_micros=charged, currency="RUB",
+            client_payment_id=order_id, user_id=user_id,
+        )
         async with self.sessions() as session:
             async with session.begin():
                 await session.execute(update(cash_fiat_orders).where(
                     cash_fiat_orders.c.id == order_id,
                     cash_fiat_orders.c.status == "requesting",
-                ).values(**values))
-                row = (await session.execute(select(cash_fiat_orders).where(
-                    cash_fiat_orders.c.id == order_id,
-                ))).mappings().one()
-                return dict(row)
+                ).values(pservice_order_id=payment.order_id, expires_at=payment.expires_at,
+                         updated_at=self.now()))
+        # A trader is usually found by the first status read, so one fetch here
+        # lets the user see requisites without waiting for the poller's tick.
+        try:
+            await self._sync(order_id, await self.partner.order_status(payment.order_id))
+        except Exception:
+            # A create that succeeded must not be lost because the first status
+            # read hiccuped: the poller will advance it. The order already exists.
+            pass
+        return await self.get(order_id, user_id)
 
     async def purge_requisites(self, before):
         """Trader requisites are payment data and are not kept past retention."""
@@ -187,7 +186,7 @@ class FiatOrderService:
             return row
         if row["status"] != "awaiting_user":
             raise ValueError("fiat order cannot be marked paid in its current state")
-        await self.partner.notify(row["partner_order_id"], cancel=False)
+        await self.partner.confirm(row["pservice_order_id"])
         # Recorded for the cancel-after-payment signal, and because "the user
         # said they paid" is the fact a dispute turns on.
         return await self._set_user_state(
@@ -202,7 +201,7 @@ class FiatOrderService:
             return row
         if row["status"] not in {"awaiting_user", "waiting_trader", "clarifying"}:
             raise ValueError("fiat order cannot be cancelled in its current state")
-        await self.partner.notify(row["partner_order_id"], cancel=True)
+        await self.partner.cancel(row["pservice_order_id"])
         return await self._set_user_state(order_id, user_id, row["status"], "cancelled")
 
     async def _set_user_state(self, order_id, user_id, previous, status, **extra):
@@ -220,90 +219,67 @@ class FiatOrderService:
                 return dict(row)
 
     async def poll_once(self):
-        async with self.sessions() as session:
-            offset = await session.scalar(select(cash_partner_cursors.c.offset).where(
-                cash_partner_cursors.c.provider == PROVIDER,
-            )) or 0
-        events, next_offset = await self.partner.poll_events(offset)
-        for event in events:
-            await self._process_event(event)
-        if next_offset != offset:
-            async with self.sessions() as session:
-                async with session.begin():
-                    await session.execute(insert(cash_partner_cursors).values(
-                        provider=PROVIDER, offset=next_offset, updated_at=self.now(),
-                    ).on_conflict_do_update(
-                        index_elements=["provider"],
-                        set_={"offset": next_offset, "updated_at": self.now()},
-                    ))
-        return len(events)
+        """Read the status of every active order and advance it.
 
-    async def _process_event(self, event):
+        Replaces the old /events long poll: pservice has no event stream for us,
+        so the leader process walks its own open orders and asks pservice about
+        each one. Crediting stays idempotent through the ledger key, so a status
+        seen COMPLETED twice still credits once.
+        """
+        async with self.sessions() as session:
+            rows = (await session.execute(select(
+                cash_fiat_orders.c.id, cash_fiat_orders.c.pservice_order_id,
+            ).where(
+                cash_fiat_orders.c.status.in_(ACTIVE_STATES),
+                cash_fiat_orders.c.pservice_order_id.is_not(None),
+            ))).mappings().all()
+        for row in rows:
+            status = await self.partner.order_status(row["pservice_order_id"])
+            await self._sync(row["id"], status)
+        return len(rows)
+
+    async def _sync(self, order_id: str, status: PserviceOrderStatus):
+        """Apply one pservice status to the local order, crediting on COMPLETED.
+
+        The whole money decision is one line: only `credited` posts, and it posts
+        through an idempotent ledger key, so re-seeing COMPLETED is harmless.
+        """
+        target = status.local_status
         now = self.now()
         async with self.sessions() as session:
             async with session.begin():
-                fingerprint = _hash({
-                    "partner_order_id": event.partner_order_id,
-                    "status": event.status, "detail": event.detail,
-                })
-                inserted = await session.scalar(insert(cash_fiat_events).values(
-                    provider=PROVIDER, event_id=event.event_id,
-                    partner_order_id=event.partner_order_id,
-                    event_type=event.status, event_hash=fingerprint,
-                    status="observed", detail=event.detail, created_at=now,
-                ).on_conflict_do_nothing().returning(cash_fiat_events.c.event_id))
-                if inserted is None:
-                    # A duplicate is expected and harmless. The same event id
-                    # carrying different content is neither: apply nothing and
-                    # let an operator decide which delivery was the truth.
-                    stored = (await session.execute(select(cash_fiat_events).where(
-                        cash_fiat_events.c.provider == PROVIDER,
-                        cash_fiat_events.c.event_id == event.event_id,
-                    ).with_for_update())).mappings().one()
-                    changed = stored["event_hash"] not in (None, fingerprint)
-                    if changed and stored["status"] != "review_required":
-                        await session.execute(update(cash_fiat_events).where(
-                            cash_fiat_events.c.provider == PROVIDER,
-                            cash_fiat_events.c.event_id == event.event_id,
-                        ).values(
-                            status="review_required", processed_at=now,
-                            detail=f"partner redelivered event {event.event_id} as {event.status}"[:500],
-                        ))
-                    return
                 order = (await session.execute(select(cash_fiat_orders).where(
-                    cash_fiat_orders.c.partner_order_id == event.partner_order_id,
-                ).with_for_update())).mappings().first()
-                if order is None:
-                    await session.execute(update(cash_fiat_events).where(
-                        cash_fiat_events.c.provider == PROVIDER,
-                        cash_fiat_events.c.event_id == event.event_id,
-                    ).values(status="review_required", detail="unknown partner order", processed_at=now))
+                    cash_fiat_orders.c.id == order_id,
+                ).with_for_update())).mappings().one_or_none()
+                if order is None or order["status"] in TERMINAL_STATES:
                     return
-                event_values = {"fiat_order_id": order["id"], "status": "processed", "processed_at": now}
-                terminal = order["status"] in {"credited", "expired", "cancelled", "review_required"}
-                if event.status == "completed" and not terminal:
+                values = {"updated_at": now}
+                # Requisites and the fiat amount only mean anything once a trader
+                # is on the order; before that pservice has nothing to show.
+                if status.fiat_kopecks is not None:
+                    values["fiat_kopecks"] = status.fiat_kopecks
+                if status.requisites is not None:
+                    values["requisites"] = status.requisites
+                if status.trader_username is not None:
+                    values["trader_username"] = status.trader_username
+                if status.expires_at is not None:
+                    values["expires_at"] = status.expires_at
+                if status.detail is not None:
+                    values["detail"] = status.detail
+                # A user who has confirmed payment must not be walked back to
+                # awaiting_user by a lagging TRADER_FOUND read.
+                if order["user_confirmed"] and target == "awaiting_user":
+                    target = "waiting_trader"
+                if target == "credited":
                     await self.ledger.post(
-                        session, scope="fiat-deposit", key=f"{PROVIDER}:{event.event_id}",
-                        kind="deposit", reference_id=order["id"], actor="case8-p2p-reconciler",
+                        session, scope="fiat-deposit", key=f"{PROVIDER}:{order_id}",
+                        kind="deposit", reference_id=order_id, actor="case8-p2p-reconciler",
                         postings=await fiat_credit_postings(session, order, self._account),
                     )
-                    await session.execute(update(cash_fiat_orders).where(
-                        cash_fiat_orders.c.id == order["id"],
-                    ).values(status="credited", updated_at=now))
-                elif event.status in {"expired", "cancelled"} and order["status"] != "credited":
-                    await session.execute(update(cash_fiat_orders).where(
-                        cash_fiat_orders.c.id == order["id"],
-                    ).values(status=event.status, detail=event.detail, updated_at=now))
-                elif event.status == "clarifying" and not terminal:
-                    await session.execute(update(cash_fiat_orders).where(
-                        cash_fiat_orders.c.id == order["id"],
-                    ).values(status="clarifying", detail=event.detail, updated_at=now))
-                elif event.status == "completed":
-                    event_values.update(status="review_required", detail="completion for terminal order")
-                await session.execute(update(cash_fiat_events).where(
-                    cash_fiat_events.c.provider == PROVIDER,
-                    cash_fiat_events.c.event_id == event.event_id,
-                ).values(**event_values))
+                values["status"] = target
+                await session.execute(update(cash_fiat_orders).where(
+                    cash_fiat_orders.c.id == order_id,
+                ).values(**values))
 
     @staticmethod
     async def _account(session, kind, user_id, reference_id):

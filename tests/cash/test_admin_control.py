@@ -8,12 +8,11 @@ from cash.access import CashOperator
 from cash.admin import CashAdminService, OperatorAccessDenied
 from cash.deposits import DepositService
 from cash.fiat_orders import FiatOrderService
-from cash.fiat_p2p import MockCase8Partner, PartnerEvent
 from cash.ledger import IdempotencyConflict
 from cash.trc20 import MOCK_ADDRESS, MOCK_NETWORK, TransferEvent
 from cash.withdrawals import WithdrawalService
 from online.schema import (
-    cash_accounts, cash_audit_events, cash_fiat_events, cash_fiat_orders, cash_payment_events,
+    cash_accounts, cash_audit_events, cash_payment_events,
     cash_transactions,
 )
 
@@ -177,139 +176,3 @@ async def test_user_lookup_reports_separate_balances_and_obeys_tenant_scope(cash
     with pytest.raises(OperatorAccessDenied):
         await service.user(OTHER, "alice")
 
-
-class LostOrderPartner:
-    """A partner event for an order Poker8 never managed to store."""
-
-    def __init__(self, event_id=41, partner_order_id=999):
-        self.event = PartnerEvent(event_id, partner_order_id, "completed")
-
-    async def poll_events(self, offset):
-        return [self.event], max(offset, self.event.event_id)
-
-
-async def wallet_balance(cash_db, user_id="alice"):
-    async with cash_db() as session:
-        return await session.scalar(select(cash_accounts.c.balance_micros).where(
-            cash_accounts.c.kind == "available", cash_accounts.c.reference_id == user_id,
-        ))
-
-
-async def stranded_order_and_event(cash_db, *, request_key="rub-1", event_id=41):
-    order = await FiatOrderService(cash_db, partner=MockCase8Partner()).create(
-        user_id="alice", tenant_id="tenant", amount_usdt="20", request_key=request_key,
-    )
-    await FiatOrderService(cash_db, partner=LostOrderPartner(event_id)).poll_once()
-    return order
-
-
-async def test_unknown_partner_event_is_bound_and_credited_exactly_once(cash_db):
-    order = await stranded_order_and_event(cash_db)
-    service = CashAdminService(cash_db)
-
-    resolved = await service.resolve_fiat_event(
-        41, OPERATOR, decision="credit", order_id=order["id"],
-        reason="trader confirmed the transfer by phone", key="fiat-1",
-    )
-    replay = await service.resolve_fiat_event(
-        41, OPERATOR, decision="credit", order_id=order["id"],
-        reason="trader confirmed the transfer by phone", key="fiat-1",
-    )
-
-    assert resolved == replay
-    assert resolved["status"] == "processed" and resolved["fiat_order_id"] == order["id"]
-    assert await wallet_balance(cash_db) == 20_000_000
-    assert await audit_count(cash_db) == 1
-    assert (await service.fiat_order(OPERATOR, order["id"]))["status"] == "credited"
-
-    # The partner resending the same completion must not credit a second time,
-    # and neither may a second operator decision on a fresh event id.
-    await FiatOrderService(cash_db, partner=LostOrderPartner(41)).poll_once()
-    assert await wallet_balance(cash_db) == 20_000_000
-    with pytest.raises(ValueError, match="not awaiting review"):
-        await service.resolve_fiat_event(
-            41, OPERATOR, decision="credit", order_id=order["id"],
-            reason="second attempt at the same money", key="fiat-2",
-        )
-
-    await FiatOrderService(cash_db, partner=LostOrderPartner(42)).poll_once()
-    with pytest.raises(ValueError, match="already credited"):
-        await service.resolve_fiat_event(
-            42, OPERATOR, decision="credit", order_id=order["id"],
-            reason="the partner sent the completion twice", key="fiat-3",
-        )
-    assert await wallet_balance(cash_db) == 20_000_000
-
-
-async def test_only_a_completed_event_credits_and_only_an_operator_decides(cash_db):
-    order = await stranded_order_and_event(cash_db)
-    service = CashAdminService(cash_db)
-
-    with pytest.raises(OperatorAccessDenied):
-        await service.resolve_fiat_event(
-            41, REVIEWER, decision="credit", order_id=order["id"],
-            reason="reviewer is read-only", key="fiat-reviewer",
-        )
-    with pytest.raises(OperatorAccessDenied):
-        await service.resolve_fiat_event(
-            41, OTHER, decision="credit", order_id=order["id"],
-            reason="wrong tenant", key="fiat-other",
-        )
-
-    async with cash_db() as session:
-        async with session.begin():
-            await session.execute(cash_fiat_events.update().where(
-                cash_fiat_events.c.event_id == 41
-            ).values(event_type="clarifying"))
-    with pytest.raises(ValueError, match="completed partner event"):
-        await service.resolve_fiat_event(
-            41, OPERATOR, decision="credit", order_id=order["id"],
-            reason="a clarification is not a payment", key="fiat-clarify",
-        )
-    assert await wallet_balance(cash_db) == 0
-
-
-async def test_rejecting_an_event_and_closing_a_stuck_order_move_no_money(cash_db):
-    order = await stranded_order_and_event(cash_db)
-    service = CashAdminService(cash_db)
-
-    rejected = await service.resolve_fiat_event(
-        41, OPERATOR, decision="reject", order_id=order["id"],
-        reason="the partner confirmed no transfer arrived", key="fiat-reject",
-    )
-    assert rejected["status"] == "processed"
-    assert await wallet_balance(cash_db) == 0
-
-    # The trader asked for a clarification and then went silent: the order now
-    # holds the user's only open slot and nothing but an operator frees it.
-    async with cash_db() as session:
-        async with session.begin():
-            await session.execute(cash_fiat_orders.update().where(
-                cash_fiat_orders.c.id == order["id"]
-            ).values(status="clarifying"))
-
-    closed = await service.close_fiat_order(
-        order["id"], OPERATOR, reason="user asked to drop the order", key="fiat-close",
-    )
-    assert closed["status"] == "cancelled"
-    assert await wallet_balance(cash_db) == 0
-    with pytest.raises(ValueError, match="stuck fiat order"):
-        await service.close_fiat_order(
-            order["id"], OPERATOR, reason="already closed", key="fiat-close-2",
-        )
-
-
-async def test_an_order_is_found_by_partner_number_with_masked_requisites(cash_db):
-    order = await stranded_order_and_event(cash_db)
-    service = CashAdminService(cash_db)
-
-    found = await service.fiat_order(OPERATOR, str(order["partner_order_id"]))
-
-    assert found["id"] == order["id"]
-    assert found["requisites_tail"] == "…" + order["requisites"][-4:]
-    assert "requisites" not in found
-    assert [event["event_id"] for event in found["events"]] == []
-    with pytest.raises(OperatorAccessDenied):
-        await service.fiat_order(OTHER, order["id"])
-    with pytest.raises(LookupError):
-        await service.fiat_order(OPERATOR, "404")

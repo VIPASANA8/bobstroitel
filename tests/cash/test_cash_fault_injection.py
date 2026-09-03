@@ -5,14 +5,13 @@ from sqlalchemy import func, insert, select
 
 from cash.deposits import DepositService
 from cash.fiat_orders import FiatOrderService
-from cash.fiat_p2p import MockCase8Partner, PartnerEvent
+from cash.fiat_p2p import MockPservice
 from cash.game import CashGameService
 from cash.ledger import CashLedger
 from cash.trc20 import MOCK_ADDRESS, MOCK_NETWORK, TransferEvent
 from cash.wallet import WalletService
 from online.schema import (
-    cash_accounts, cash_fiat_events, cash_partner_cursors, cash_transactions,
-    poker_tables, table_seats,
+    cash_accounts, cash_transactions, poker_tables, table_seats,
 )
 from poker.models import ActionType
 
@@ -30,7 +29,7 @@ class CrashAfterPosting(CashLedger):
 
 
 async def paid_order(factory):
-    service = FiatOrderService(factory, partner=MockCase8Partner())
+    service = FiatOrderService(factory, partner=MockPservice())
     order = await service.create(
         user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="rub-fault",
     )
@@ -38,46 +37,33 @@ async def paid_order(factory):
     return service, order
 
 
-async def counts(factory):
+async def transactions(factory):
     async with factory() as session:
-        return {
-            "transactions": await session.scalar(select(func.count()).select_from(cash_transactions)),
-            "events": await session.scalar(select(func.count()).select_from(cash_fiat_events)),
-            "cursor": await session.scalar(select(cash_partner_cursors.c.offset)) or 0,
-        }
+        return await session.scalar(select(func.count()).select_from(cash_transactions))
 
 
-async def test_a_crash_between_the_event_and_the_credit_leaves_nothing_behind(cash_db):
+async def test_a_crash_between_the_status_read_and_the_credit_leaves_nothing_behind(cash_db):
     service, order = await paid_order(cash_db)
-    crashing = FiatOrderService(
-        cash_db, partner=MockCase8Partner(), ledger=CrashAfterPosting(),
-    )
-    crashing.partner = service.partner
+    crashing = FiatOrderService(cash_db, partner=service.partner, ledger=CrashAfterPosting())
 
     with pytest.raises(RuntimeError, match="process died"):
         await crashing.poll_once()
 
-    # The event row, the ledger posting and the cursor were all in that one
-    # transaction, so the partner will simply deliver the event again.
-    assert await counts(cash_db) == {"transactions": 0, "events": 0, "cursor": 0}
+    # The credit posting and the status change were the one transaction, so the
+    # rollback leaves the order active and the next poll simply tries again.
+    assert await transactions(cash_db) == 0
     assert (await service.get(order["id"], "alice"))["status"] == "waiting_trader"
     assert (await WalletService(cash_db).get("alice"))["available_usdt"] == "0"
 
     assert await service.poll_once() == 1
     assert (await service.get(order["id"], "alice"))["status"] == "credited"
     assert (await WalletService(cash_db).get("alice"))["available_usdt"] == "20"
-    assert (await counts(cash_db))["transactions"] == 1
+    assert await transactions(cash_db) == 1
 
-    # And a partner redelivering after the recovery still credits once.
-    stored = await counts(cash_db)
-
-    class Resending:
-        async def poll_events(self, offset):
-            return [PartnerEvent(1, order["partner_order_id"], "completed")], max(offset, 1)
-
-    await FiatOrderService(cash_db, partner=Resending()).poll_once()
+    # A credited order is terminal, so polling it again credits nothing more.
+    assert await service.poll_once() == 0
     assert (await WalletService(cash_db).get("alice"))["available_usdt"] == "20"
-    assert await counts(cash_db) == stored
+    assert await transactions(cash_db) == 1
 
 
 async def seat_two(cash_db):

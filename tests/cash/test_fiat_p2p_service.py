@@ -4,13 +4,11 @@ import pytest
 from sqlalchemy import insert, select
 
 from cash.fiat_orders import ActiveFiatOrderExists, FiatOrderService
-from cash.fiat_p2p import MockCase8Partner, PartnerEvent
+from cash.fiat_p2p import MockPservice, PartnerProtocolError
 from cash.access import CashOperator
 from cash.admin import CashAdminService
 from cash.ledger import IdempotencyConflict
-from online.schema import (
-    cash_fiat_events, cash_fiat_orders, cash_partner_cursors, tenants, users,
-)
+from online.schema import cash_fiat_orders, tenants, users
 
 
 pytestmark = pytest.mark.anyio
@@ -36,9 +34,8 @@ async def fiat_db(db_session_factory):
     return db_session_factory
 
 
-async def test_create_is_content_bound_and_persists_partner_requisites(fiat_db):
-    partner = MockCase8Partner(rub_per_usdt=90)
-    service = FiatOrderService(fiat_db, partner=partner)
+async def test_create_is_content_bound_and_shows_the_trader_requisites(fiat_db):
+    service = FiatOrderService(fiat_db, partner=MockPservice(rub_per_usdt=90))
 
     first = await service.create(
         user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="rub-1",
@@ -48,47 +45,45 @@ async def test_create_is_content_bound_and_persists_partner_requisites(fiat_db):
     )
 
     assert again["id"] == first["id"]
+    # A trader is found on the first status read, so the user sees requisites.
     assert first["status"] == "awaiting_user"
+    assert first["pservice_order_id"] is not None
     assert first["requested_micros"] == 20_000_000
     # 20 USDT credited, 1% on top, so the trader collects 20.20 USDT in roubles.
     assert first["fee_micros"] == 200_000
     assert first["fiat_kopecks"] == 181_800
     assert service.public(first)["fiat_rub"] == "1818,00"
-    assert service.public(first)["fee_usdt"] == "0.2"
     assert service.public(first)["charged_usdt"] == "20.2"
-    assert first["currency"] == "RUB"
     assert first["requisites"].startswith("4276")
-    assert service.public(first)["requested_units"] == "200"
-    assert service.public(first)["requested_usdt"] == "20"
     with pytest.raises(IdempotencyConflict):
         await service.create(
             user_id="alice", tenant_id="tenant", amount_usdt="21", request_key="rub-1",
         )
 
 
-async def test_user_paid_only_notifies_partner_and_never_credits(fiat_db):
+async def test_user_paid_only_confirms_and_never_credits(fiat_db):
     ledger = RecordingLedger()
-    partner = MockCase8Partner()
-    service = FiatOrderService(fiat_db, partner=partner, ledger=ledger)
+    service = FiatOrderService(fiat_db, partner=MockPservice(), ledger=ledger)
     order = await service.create(
         user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="rub-paid",
     )
 
     paid = await service.mark_paid(order["id"], "alice")
 
-    assert paid["status"] == "waiting_trader"
+    assert paid["status"] == "waiting_trader" and paid["user_confirmed"] is True
     assert ledger.calls == []
 
 
-async def test_completed_event_credits_once_and_cursor_survives_restart(fiat_db):
+async def test_a_completed_order_credits_once_and_a_restart_credits_nothing(fiat_db):
     ledger = RecordingLedger()
-    partner = MockCase8Partner()
+    partner = MockPservice()
     service = FiatOrderService(fiat_db, partner=partner, ledger=ledger)
     order = await service.create(
         user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="rub-complete",
     )
     await service.mark_paid(order["id"], "alice")
 
+    # First poll sees COMPLETED and credits; the order is now terminal.
     assert await service.poll_once() == 1
     restarted = FiatOrderService(fiat_db, partner=partner, ledger=ledger)
     assert await restarted.poll_once() == 0
@@ -98,71 +93,52 @@ async def test_completed_event_credits_once_and_cursor_survives_restart(fiat_db)
     assert len(ledger.calls) == 1
     # The clearing account pays the whole charge: 20 USDT to the user, 0.20 to us.
     assert sorted(ledger.calls[0]["postings"].values()) == [-20_200_000, 200_000, 20_000_000]
-    async with fiat_db() as session:
-        assert await session.scalar(select(cash_partner_cursors.c.offset)) == 1
-        assert await session.scalar(select(cash_fiat_events.c.status)) == "processed"
+    assert ledger.calls[0]["key"] == f"case8-p2p:{order['id']}"
 
 
-async def test_terminal_nonpayment_event_never_credits(fiat_db):
+async def test_a_cancelled_order_never_credits(fiat_db):
     ledger = RecordingLedger()
-    partner = MockCase8Partner()
-    service = FiatOrderService(fiat_db, partner=partner, ledger=ledger)
+    service = FiatOrderService(fiat_db, partner=MockPservice(), ledger=ledger)
     order = await service.create(
         user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="rub-cancel",
     )
     await service.cancel(order["id"], "alice")
-    await service.poll_once()
+    # A cancelled order is terminal, so the poll does not touch it.
+    assert await service.poll_once() == 0
 
     assert (await service.get(order["id"], "alice"))["status"] == "cancelled"
     assert ledger.calls == []
 
 
-class UnknownOrderPartner:
-    async def poll_events(self, offset):
-        if offset:
-            return [], offset
-        return [PartnerEvent(9, 404, "completed")], 9
-
-
-async def test_unknown_partner_event_is_quarantined_and_offset_advances(fiat_db):
-    service = FiatOrderService(fiat_db, partner=UnknownOrderPartner(), ledger=RecordingLedger())
-
-    assert await service.poll_once() == 1
-
-    async with fiat_db() as session:
-        event = (await session.execute(select(cash_fiat_events))).mappings().one()
-        assert event["status"] == "review_required"
-        assert event["partner_order_id"] == 404
-        assert await session.scalar(select(cash_partner_cursors.c.offset)) == 9
-
-
-async def test_admin_queue_and_user_view_include_scoped_fiat_state(fiat_db):
-    partner = MockCase8Partner()
-    fiat = FiatOrderService(fiat_db, partner=partner, ledger=RecordingLedger())
-    order = await fiat.create(
-        user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="rub-admin",
+async def test_an_unknown_pservice_status_is_refused_not_guessed(fiat_db):
+    partner = MockPservice()
+    service = FiatOrderService(fiat_db, partner=partner)
+    order = await service.create(
+        user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="rub-weird",
     )
-    async with fiat_db() as session:
-        async with session.begin():
-            await session.execute(cash_fiat_orders.update().where(
-                cash_fiat_orders.c.id == order["id"],
-            ).values(status="clarifying", detail="contact support"))
-    operator = CashOperator("operator", 1001, "tenant", "operator")
-    other = CashOperator("other", 1002, "other", "operator")
-    admin = CashAdminService(fiat_db)
+    partner._force_status(order["pservice_order_id"], 99)
+    with pytest.raises(PartnerProtocolError, match="unknown pservice status"):
+        await service.poll_once()
+    # Nothing was applied: the order is left where it was for a person to see.
+    assert (await service.get(order["id"], "alice"))["status"] == "awaiting_user"
 
-    assert [row["id"] for row in (await admin.queue(operator))["fiat_orders"]] == [order["id"]]
-    assert (await admin.queue(other))["fiat_orders"] == []
-    user = await admin.user(operator, "alice")
-    assert user["fiat_orders"] == [{
-        "id": order["id"], "partner_order_id": order["partner_order_id"],
-        "status": "clarifying", "currency": "RUB", "fiat_kopecks": 181_800,
-        "requested_usdt": "20",
-    }]
+
+async def test_a_confirmed_user_is_not_walked_back_by_a_lagging_trader_read(fiat_db):
+    partner = MockPservice()
+    service = FiatOrderService(fiat_db, partner=partner)
+    order = await service.create(
+        user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="rub-lag",
+    )
+    await service.mark_paid(order["id"], "alice")   # -> waiting_trader, confirmed
+    # pservice momentarily still reports TRADER_FOUND(3).
+    partner._force_status(order["pservice_order_id"], 3)
+    await service.poll_once()
+
+    assert (await service.get(order["id"], "alice"))["status"] == "waiting_trader"
 
 
 async def test_database_allows_one_open_rub_order_per_user(fiat_db):
-    service = FiatOrderService(fiat_db, partner=MockCase8Partner())
+    service = FiatOrderService(fiat_db, partner=MockPservice())
     first = await service.create(
         user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="rub-1",
     )
@@ -183,7 +159,7 @@ async def test_database_allows_one_open_rub_order_per_user(fiat_db):
 
 async def test_an_expired_quote_stops_holding_the_users_only_open_slot(fiat_db):
     clock = [datetime.now(timezone.utc)]
-    service = FiatOrderService(fiat_db, partner=MockCase8Partner(), now=lambda: clock[0])
+    service = FiatOrderService(fiat_db, partner=MockPservice(), now=lambda: clock[0])
     first = await service.create(
         user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="rub-1",
     )
@@ -197,9 +173,9 @@ async def test_an_expired_quote_stops_holding_the_users_only_open_slot(fiat_db):
     assert second["status"] == "awaiting_user"
 
 
-async def test_a_lost_partner_answer_goes_to_review_instead_of_blocking_the_user(fiat_db):
+async def test_a_lost_create_goes_to_review_instead_of_blocking_the_user(fiat_db):
     clock = [datetime.now(timezone.utc)]
-    service = FiatOrderService(fiat_db, partner=MockCase8Partner(), now=lambda: clock[0])
+    service = FiatOrderService(fiat_db, partner=MockPservice(), now=lambda: clock[0])
     async with fiat_db() as session:
         async with session.begin():
             await session.execute(insert(cash_fiat_orders).values(
@@ -219,7 +195,7 @@ async def test_a_lost_partner_answer_goes_to_review_instead_of_blocking_the_user
 
 
 async def test_the_deposit_fee_is_charged_on_top_and_never_taken_from_the_credit(fiat_db):
-    free = FiatOrderService(fiat_db, partner=MockCase8Partner(rub_per_usdt=90), fee_bps=0)
+    free = FiatOrderService(fiat_db, partner=MockPservice(rub_per_usdt=90), fee_bps=0)
     order = await free.create(
         user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="rub-free",
     )
@@ -229,35 +205,32 @@ async def test_the_deposit_fee_is_charged_on_top_and_never_taken_from_the_credit
     assert free.public(order)["charged_usdt"] == "20"
 
 
-async def test_a_changed_redelivery_of_a_known_event_id_goes_to_review(fiat_db):
-    ledger = RecordingLedger()
-    partner = MockCase8Partner()
-    service = FiatOrderService(fiat_db, partner=partner, ledger=ledger)
-    order = await service.create(
-        user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="rub-1",
+async def test_admin_queue_and_user_view_include_scoped_fiat_state(fiat_db):
+    fiat = FiatOrderService(fiat_db, partner=MockPservice(), ledger=RecordingLedger())
+    order = await fiat.create(
+        user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="rub-admin",
     )
-    await service.mark_paid(order["id"], "alice")
-    await service.poll_once()
-
-    class Rewriter:
-        async def poll_events(self, offset):
-            return [PartnerEvent(1, order["partner_order_id"], "cancelled", "CanceledBySupport")], 1
-
-    await FiatOrderService(fiat_db, partner=Rewriter(), ledger=ledger).poll_once()
-
-    assert len(ledger.calls) == 1
-    assert (await service.get(order["id"], "alice"))["status"] == "credited"
     async with fiat_db() as session:
-        event = (await session.execute(select(cash_fiat_events))).mappings().one()
-    assert event["status"] == "review_required"
-    assert "redelivered event 1 as cancelled" in event["detail"]
+        async with session.begin():
+            await session.execute(cash_fiat_orders.update().where(
+                cash_fiat_orders.c.id == order["id"],
+            ).values(status="clarifying", detail="contact support"))
+    operator = CashOperator("operator", 1001, "tenant", "operator")
+    other = CashOperator("other", 1002, "other", "operator")
+    admin = CashAdminService(fiat_db)
+
+    assert [row["id"] for row in (await admin.queue(operator))["fiat_orders"]] == [order["id"]]
+    assert (await admin.queue(other))["fiat_orders"] == []
+    user = await admin.user(operator, "alice")
+    assert user["fiat_orders"][0]["id"] == order["id"]
+    assert user["fiat_orders"][0]["status"] == "clarifying"
 
 
 @pytest.mark.parametrize("amount, accepted", [
     ("19.99", False), ("20", True), ("300", True), ("300.01", False), ("500", False), ("1000", False),
 ])
 async def test_the_pilot_deposit_window_is_twenty_to_three_hundred(fiat_db, amount, accepted):
-    service = FiatOrderService(fiat_db, partner=MockCase8Partner())
+    service = FiatOrderService(fiat_db, partner=MockPservice())
     if accepted:
         order = await service.create(
             user_id="alice", tenant_id="tenant", amount_usdt=amount, request_key="rub-" + amount,

@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import insert
 
 from cash.fiat_orders import FiatOrderService
-from cash.fiat_p2p import MockCase8Partner
+from cash.fiat_p2p import MockPservice
 from cash.fiat_reconciliation import daily_fiat_reconciliation
 from online.schema import cash_fiat_orders
 
@@ -13,7 +13,7 @@ pytestmark = [pytest.mark.anyio, pytest.mark.postgres]
 
 
 async def credited_order(cash_db, *, request_key="rub-1"):
-    service = FiatOrderService(cash_db, partner=MockCase8Partner(rub_per_usdt=90))
+    service = FiatOrderService(cash_db, partner=MockPservice(rub_per_usdt=90))
     order = await service.create(
         user_id="alice", tenant_id="tenant", amount_usdt="20", request_key=request_key,
     )
