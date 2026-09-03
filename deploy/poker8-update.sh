@@ -13,6 +13,6 @@ git reset --hard -q "origin/$BRANCH"
 AFTER=$(git rev-parse HEAD)
 echo "$BEFORE -> $AFTER"
 [ "$BEFORE" = "$AFTER" ] && echo "nothing new" || true
-docker compose -f compose.pilot.yaml up -d --build
+docker compose -f compose.pilot.yaml -f deploy/compose.caddy.yaml up -d --build
 sleep 15
 curl -fsS -o /dev/null -w 'ready:%{http_code}\n' http://127.0.0.1:8000/health/ready
