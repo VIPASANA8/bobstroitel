@@ -31,6 +31,10 @@ services:
       POKER8_COORDINATOR_ENABLED: "1"
       POKER8_SEAT_IDLE_BOTS: ${POKER8_SEAT_IDLE_BOTS:-0}
       POKER8_DEFAULT_BOT_TOKEN: ${POKER8_DEFAULT_BOT_TOKEN:-}
+      # Без hosts за прокси /api/auth отвечает 404 Unknown tenant host: сюда
+      # должны попасть все имена, которыми Caddy отдаёт приложение.
+      POKER8_DEFAULT_TENANT: ${POKER8_DEFAULT_TENANT:-poker8}
+      POKER8_TENANTS_JSON: ${POKER8_TENANTS_JSON:-}
       POKER8_DEV_PROFILES: ${POKER8_DEV_PROFILES:-101:Dev Player,202:Observer}
       # CASH pilot
       POKER8_CASH_MODE: ${POKER8_CASH_MODE:-mock}
