@@ -60,7 +60,7 @@ Telegram ──initData──► Caddy (TLS) ──X-Forwarded-For──► app 
 | Флуд по логину | `WindowLimiter` на `/api/auth/*`, ключ — адрес, дописанный прокси, а не присланный вызывающим | `test_rate_limit.py` |
 | Утечка реквизитов в логи | Проверка отсутствия в логах | `test_requisites_and_the_partner_token_never_reach_the_logs` |
 | Расхождение эскроу | Останавливает только свой стол, резерв сохраняется | `test_escrow_mismatch_pauses_only_cash_table_without_faucet` |
-| Аварийная остановка | `POKER8_CASH_MODE=off`, PLAY продолжает работать | `test_the_kill_switch_closes_cash_for_everyone_it_should` |
+| Аварийная остановка | `POKER8_CASH_MODE=off`, PLAY продолжает работать | тест + учения на бою, `cash-kill-switch.md` |
 
 ## 5. Чего не хватает — то, что ревью должно проверять первым
 
