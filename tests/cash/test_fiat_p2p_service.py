@@ -254,9 +254,9 @@ async def test_a_changed_redelivery_of_a_known_event_id_goes_to_review(fiat_db):
 
 
 @pytest.mark.parametrize("amount, accepted", [
-    ("19.99", False), ("20", True), ("500", True), ("500.01", False), ("1000", False),
+    ("19.99", False), ("20", True), ("300", True), ("300.01", False), ("500", False), ("1000", False),
 ])
-async def test_the_pilot_deposit_window_is_twenty_to_five_hundred(fiat_db, amount, accepted):
+async def test_the_pilot_deposit_window_is_twenty_to_three_hundred(fiat_db, amount, accepted):
     service = FiatOrderService(fiat_db, partner=MockCase8Partner())
     if accepted:
         order = await service.create(
@@ -264,7 +264,7 @@ async def test_the_pilot_deposit_window_is_twenty_to_five_hundred(fiat_db, amoun
         )
         assert order["status"] == "awaiting_user"
     else:
-        with pytest.raises(ValueError, match="between 20 and 500"):
+        with pytest.raises(ValueError, match="between 20 and 300"):
             await service.create(
                 user_id="alice", tenant_id="tenant", amount_usdt=amount, request_key="rub-" + amount,
             )

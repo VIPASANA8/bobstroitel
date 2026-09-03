@@ -44,12 +44,20 @@ async def test_unique_amounts_are_exact_bounded_and_never_reused(cash_db):
     assert sorted(row["expected_micros"] for row in rows) == [10_000_000 + i * 10_000 for i in range(10)]
     with pytest.raises(DepositUnavailable):
         await service.create(user_id="bob", tenant_id="tenant", amount_usdt="10", request_key="exhausted")
-    with pytest.raises(ValueError, match="between 1 and 100"):
+    with pytest.raises(ValueError, match="between 1 and 100000"):
         await service.create(user_id="alice", tenant_id="tenant", amount_usdt="0.99", request_key="small")
-    top = await service.create(user_id="alice", tenant_id="tenant", amount_usdt="100", request_key="top")
-    assert top["expected_micros"] == 100_000_000
+    # C2C is uncapped by policy, so a deposit far past the old 100 USDT ceiling
+    # is now ordinary -- and still gets its own exact amount.
+    big = await service.create(user_id="alice", tenant_id="tenant", amount_usdt="5000", request_key="big")
+    assert big["expected_micros"] == 5_000_000_000
+    # The ceiling that remains is the one the nudge searches within: at the very
+    # top there is nowhere left to move a colliding amount to.
+    top = await service.create(user_id="alice", tenant_id="tenant",
+                               amount_usdt="100000", request_key="top")
+    assert top["expected_micros"] == DepositService.MAX
     with pytest.raises(DepositUnavailable):
-        await service.create(user_id="bob", tenant_id="tenant", amount_usdt="100", request_key="top-2")
+        await service.create(user_id="bob", tenant_id="tenant",
+                             amount_usdt="100000", request_key="top-2")
 
 
 async def test_deposit_idempotency_is_content_bound(cash_db):

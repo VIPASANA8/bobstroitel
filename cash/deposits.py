@@ -25,7 +25,12 @@ def _hash(data: dict) -> str:
 
 class DepositService:
     MIN = 1_000_000
-    MAX = 100_000_000
+    # A C2C deposit is not capped by policy: the chain does not care and an
+    # incoming transfer costs us nothing to receive. It is still bounded,
+    # because the ceiling is what the uniqueness nudge below searches within --
+    # two pending deposits are told apart by their exact amount, so the range
+    # has to be finite. 100_000 USDT is past anything a pilot will see.
+    MAX = 100_000_000_000
     STEP = 10_000
 
     def __init__(self, session_factory, *, ledger=None, now=None,
@@ -41,7 +46,7 @@ class DepositService:
     async def create(self, *, user_id: str, tenant_id: str, amount_usdt: str, request_key: str):
         amount = usdt_to_micros(amount_usdt)
         if not self.MIN <= amount <= self.MAX:
-            raise ValueError("deposit amount must be between 1 and 100 USDT")
+            raise ValueError("deposit amount must be between 1 and 100000 USDT")
         if not request_key or len(request_key) > 200:
             raise ValueError("invalid request key")
         fingerprint = _hash({"amount_micros": amount, "tenant_id": tenant_id})
