@@ -10,7 +10,7 @@ from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import insert
 
 from cash.holds import assert_not_frozen
-from cash.amounts import micros_to_units, micros_to_usdt, usdt_to_micros
+from cash.amounts import kopecks_to_rub, micros_to_units, micros_to_usdt, usdt_to_micros
 from cash.ledger import CashLedger, IdempotencyConflict
 from cash.trc20 import MOCK_NETWORK
 from online.schema import cash_accounts, cash_withdrawals
@@ -18,6 +18,16 @@ from online.schema import cash_accounts, cash_withdrawals
 
 #: House revenue, kept as a clearing account beside the fiat deposit fee.
 FEE_ACCOUNT = "withdrawal-fee"
+
+#: The two ways money leaves. TRC20 is executed by a payout provider; P2P_RUB is
+#: paid by an operator out of band, exactly as CASE8 does it, and therefore has
+#: no executor at all -- the operator is the executor.
+TRC20 = MOCK_NETWORK
+P2P_RUB = "P2P_RUB"
+RAILS = (TRC20, P2P_RUB)
+
+#: Where a paid-out P2P payout lands, beside the C2C clearing account.
+P2P_CLEARING = "p2p-payout"
 
 
 class WithdrawalStateError(ValueError):
@@ -60,7 +70,9 @@ class WithdrawalService:
         self.fee_micros = fee_micros
 
     async def create(self, *, user_id: str, tenant_id: str, amount_usdt: str,
-                     destination_address: str, request_key: str):
+                     destination_address: str, request_key: str, rail: str = TRC20):
+        if rail not in RAILS:
+            raise ValueError(f"withdrawal rail must be one of {', '.join(RAILS)}")
         amount = usdt_to_micros(amount_usdt)
         if not self.MIN <= amount <= self.MAX:
             raise ValueError("withdrawal amount must be between 0.01 and 100000 USDT")
@@ -76,7 +88,7 @@ class WithdrawalService:
         if not request_key or len(request_key) > 200:
             raise ValueError("invalid request key")
         fingerprint = _hash({"amount_micros": amount, "address": destination_address,
-                             "network": MOCK_NETWORK, "tenant_id": tenant_id,
+                             "network": rail, "tenant_id": tenant_id,
                              "fee_micros": self.fee_micros})
         now = self.now()
         async with self.sessions() as session:
@@ -102,7 +114,7 @@ class WithdrawalService:
                 wallet_id = await self._account(session, "available", user_id, user_id)
                 await session.execute(cash_withdrawals.insert().values(
                     id=withdrawal_id, user_id=user_id, tenant_id=tenant_id,
-                    request_key=request_key, request_hash=fingerprint, network=MOCK_NETWORK,
+                    request_key=request_key, request_hash=fingerprint, network=rail,
                     destination_address=destination_address, amount_micros=amount,
                     fee_micros=self.fee_micros, reserve_account_id=reserve_id,
                     payout_id=uuid4().hex,
@@ -119,6 +131,48 @@ class WithdrawalService:
                 row = (await session.execute(select(cash_withdrawals).where(
                     cash_withdrawals.c.id == withdrawal_id))).mappings().one()
                 return dict(row)
+
+    async def settle_p2p(self, withdrawal_id: str, *, fiat_kopecks: int, actor: str,
+                         detail: str | None = None):
+        """Record a RUB payout a person made by hand, outside this system.
+
+        There is no executor to call and nothing to poll: the operator has
+        already sent the money, so this writes down what they sent and moves the
+        reserve out. The USDT debit stays the authoritative amount; the kopecks
+        are the receipt beside it.
+        """
+        if type(fiat_kopecks) is not int or fiat_kopecks <= 0:
+            raise ValueError("a P2P payout must record the RUB actually sent, in kopecks")
+        now = self.now()
+        async with self.sessions() as session:
+            async with session.begin():
+                row = (await session.execute(select(cash_withdrawals).where(
+                    cash_withdrawals.c.id == withdrawal_id
+                ).with_for_update())).mappings().one_or_none()
+                if row is None:
+                    return None
+                if row["network"] != P2P_RUB:
+                    raise WithdrawalStateError("only a P2P payout is settled by hand")
+                if row["status"] in {"submitted", "confirmed"}:
+                    return dict(row)
+                if row["status"] != "approved":
+                    raise WithdrawalStateError("only an approved payout can be recorded as paid")
+                fee = row["fee_micros"]
+                clearing = await self._account(session, "clearing", None, P2P_CLEARING)
+                postings = {row["reserve_account_id"]: -row["amount_micros"],
+                            clearing: row["amount_micros"] - fee}
+                if fee:
+                    postings[await self._account(session, "clearing", None, FEE_ACCOUNT)] = fee
+                await self.ledger.post(
+                    session, scope="withdrawal-payout", key=row["payout_id"], kind="payout",
+                    reference_id=withdrawal_id, actor=actor, postings=postings,
+                )
+                values = {"status": "submitted", "fiat_kopecks": fiat_kopecks,
+                          "detail": detail, "submitted_at": now, "updated_at": now}
+                await session.execute(update(cash_withdrawals).where(
+                    cash_withdrawals.c.id == withdrawal_id
+                ).values(**values))
+                return dict(row) | values
 
     async def get(self, withdrawal_id: str, user_id: str | None = None):
         conditions = [cash_withdrawals.c.id == withdrawal_id]
@@ -174,6 +228,10 @@ class WithdrawalService:
                     return None
                 if row["status"] in {"submitted", "confirmed", "rejected", "unknown"}:
                     return dict(row)
+                if row["network"] != TRC20:
+                    raise WithdrawalStateError(
+                        "a P2P payout is settled by an operator, not by a payout provider"
+                    )
                 if row["status"] != "approved":
                     raise WithdrawalStateError("withdrawal is not approved")
                 await session.execute(update(cash_withdrawals).where(
@@ -254,6 +312,7 @@ class WithdrawalService:
                 "amount_usdt": micros_to_usdt(row["amount_micros"]),
                 "amount_units": micros_to_units(row["amount_micros"]),
                 "fee_usdt": micros_to_usdt(row["fee_micros"]),
-                # What actually leaves for the chain: the debit minus the fee.
+                # What actually leaves: the debit minus the fee.
                 "payout_usdt": micros_to_usdt(row["amount_micros"] - row["fee_micros"]),
+                "fiat_rub": kopecks_to_rub(row["fiat_kopecks"]) if row["fiat_kopecks"] else None,
                 "tx_hash": row["tx_hash"]}

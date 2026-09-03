@@ -14,11 +14,16 @@ def test_the_fee_must_be_a_nonnegative_integer_of_micros():
 
 def test_the_public_projection_separates_the_debit_from_the_payout():
     row = {"id": "w1", "status": "reserved", "network": "TRC20", "destination_address": "T",
-           "amount_micros": 5_000_000, "fee_micros": 1_500_000, "tx_hash": None}
+           "amount_micros": 5_000_000, "fee_micros": 1_500_000, "tx_hash": None,
+           "fiat_kopecks": None}
     public = WithdrawalService.public(row)
     assert public["amount_usdt"] == "5"       # taken off the wallet
     assert public["fee_usdt"] == "1.5"        # kept by the house
     assert public["payout_usdt"] == "3.5"     # what reaches the chain
+    assert public["fiat_rub"] is None         # nothing was paid in RUB
+    # A settled P2P payout carries the receipt beside the USDT debit.
+    paid = WithdrawalService.public(row | {"network": "P2P_RUB", "fiat_kopecks": 185_075})
+    assert paid["fiat_rub"] == "1850,75"
 
 
 def test_the_withdrawal_ceiling_matches_the_deposit_one():

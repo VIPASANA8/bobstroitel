@@ -22,6 +22,12 @@ class ExecuteRequest(ReasonRequest):
     outcome: Literal["success", "failure", "unknown"]
 
 
+class P2pSettlement(ReasonRequest):
+    """What the operator actually sent, in kopecks, after sending it."""
+
+    fiat_kopecks: int = Field(gt=0, le=10**12)
+
+
 class WithdrawalResolution(ReasonRequest):
     decision: Literal["confirmed", "rejected"]
     tx_hash: str | None = Field(default=None, max_length=128)
@@ -104,6 +110,19 @@ async def execute_withdrawal(withdrawal_id: str, body: ExecuteRequest, request: 
     try:
         return await request.app.state.cash_admin.execute_mock(
             withdrawal_id, operator, outcome=body.outcome, reason=body.reason, key=key,
+        )
+    except (ValueError, LookupError) as exc:
+        raise _error(exc) from exc
+
+
+@router.post("/withdrawals/{withdrawal_id}/settle-p2p")
+async def settle_p2p_withdrawal(withdrawal_id: str, body: P2pSettlement, request: Request,
+                                key: str = Header(alias="Idempotency-Key"),
+                                operator: CashOperator = Depends(get_cash_operator)):
+    """Record a RUB payout the operator already made by hand."""
+    try:
+        return await request.app.state.cash_admin.settle_p2p_withdrawal(
+            withdrawal_id, operator, fiat_kopecks=body.fiat_kopecks, reason=body.reason, key=key,
         )
     except (ValueError, LookupError) as exc:
         raise _error(exc) from exc

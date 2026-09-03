@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -23,7 +24,9 @@ class DepositRequest(BaseModel):
 
 class WithdrawalRequest(BaseModel):
     amount_usdt: str
+    # A TRC20 address, or the card/phone an operator will pay by hand.
     address: str = Field(min_length=1, max_length=128)
+    rail: Literal["TRC20", "P2P_RUB"] = "TRC20"
     request_id: str = Field(min_length=1, max_length=200)
 
 
@@ -182,7 +185,7 @@ async def create_withdrawal(body: WithdrawalRequest, request: Request,
     try:
         row = await request.app.state.cash_withdrawals.create(
             user_id=user.user_id, tenant_id=user.tenant_id, amount_usdt=body.amount_usdt,
-            destination_address=body.address, request_key=body.request_id,
+            destination_address=body.address, request_key=body.request_id, rail=body.rail,
         )
     except CashUserFrozen as exc:
         raise _guard(exc) from exc

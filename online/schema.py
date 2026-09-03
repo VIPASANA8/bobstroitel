@@ -624,6 +624,10 @@ cash_withdrawals = Table(
     Column("reserve_account_id", String(64), ForeignKey("cash_accounts.id"), nullable=False),
     Column("payout_id", String(64), nullable=False, unique=True),
     Column("tx_hash", String(128)),
+    # What the operator actually sent, for a P2P payout that a human pays by
+    # hand. Null on every TRC20 row and until the payment is recorded: the USDT
+    # debit is the authoritative amount, this is the receipt for it.
+    Column("fiat_kopecks", BIGINT),
     Column("status", String(32), nullable=False),
     Column("detail", String(500)),
     Column("created_at", timestamp, **created_at),
@@ -633,6 +637,8 @@ cash_withdrawals = Table(
     UniqueConstraint("user_id", "request_key", name="uq_cash_withdrawal_request"),
     CheckConstraint("amount_micros BETWEEN 10000 AND 100000000000", name="ck_cash_withdrawal_amount"),
     CheckConstraint("fee_micros >= 0", name="ck_cash_withdrawal_fee"),
+    CheckConstraint("network IN ('TRC20', 'P2P_RUB')", name="ck_cash_withdrawal_network"),
+    CheckConstraint("fiat_kopecks IS NULL OR fiat_kopecks > 0", name="ck_cash_withdrawal_fiat"),
     CheckConstraint("status IN ('requested','reserved','approved','sending','submitted','confirmed','rejected','cancelled','unknown')", name="ck_cash_withdrawal_status"),
 )
 

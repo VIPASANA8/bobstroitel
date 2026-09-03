@@ -14,7 +14,9 @@ from cash.amounts import micros_to_units, micros_to_usdt
 from cash.fiat_orders import fiat_credit_postings
 from cash.fiat_reconciliation import daily_fiat_reconciliation
 from cash.ledger import CashLedger, IdempotencyConflict
-from cash.withdrawals import MockPayoutExecutor, WithdrawalStateError
+from cash.withdrawals import (
+    FEE_ACCOUNT, MockPayoutExecutor, P2P_CLEARING, P2P_RUB, TRC20, WithdrawalStateError,
+)
 from online.catalogue import CASH_USDT
 from online.schema import (
     cash_accounts, cash_audit_events, cash_deposits, cash_payment_events,
@@ -43,8 +45,8 @@ def _fingerprint(payload):
 
 WITHDRAWAL_FIELDS = (
     "id", "user_id", "tenant_id", "network", "destination_address", "amount_micros",
-    "fee_micros", "reserve_account_id", "payout_id", "tx_hash", "status", "detail",
-    "submitted_at", "confirmed_at",
+    "fee_micros", "reserve_account_id", "payout_id", "tx_hash", "fiat_kopecks",
+    "status", "detail", "submitted_at", "confirmed_at",
 )
 EVENT_FIELDS = (
     "id", "provider", "external_event_id", "tx_hash", "event_index", "network",
@@ -262,6 +264,10 @@ class CashAdminService:
                     return replay
                 row = await self._withdrawal(session, withdrawal_id)
                 self._require_scope(operator, row["tenant_id"])
+                if row["network"] != TRC20:
+                    raise WithdrawalStateError(
+                        "a P2P payout is settled by an operator, not by a payout provider"
+                    )
                 if row["status"] != "approved":
                     raise WithdrawalStateError("only an approved withdrawal can be sent")
                 before = _snapshot(row, WITHDRAWAL_FIELDS)
@@ -291,6 +297,54 @@ class CashAdminService:
                 ).values(**values))
                 after = before | {name: _json(value) for name, value in values.items() if name in WITHDRAWAL_FIELDS}
                 await self._audit(session, operator, row["tenant_id"], "withdrawal.execute_mock",
+                                  "withdrawal", withdrawal_id, reason, key, fingerprint, before, after)
+                return after
+
+    async def settle_p2p_withdrawal(self, withdrawal_id, operator, *, fiat_kopecks, reason, key):
+        """The operator has already paid the RUB by hand; this records it.
+
+        The whole rail exists because nothing automatic can be trusted to send
+        fiat. So the money moves here only after a named person says they sent
+        it, and the audit row carries both who and how much.
+        """
+        self._require_mutation(operator)
+        if type(fiat_kopecks) is not int or fiat_kopecks <= 0:
+            raise ValueError("a P2P payout must record the RUB actually sent, in kopecks")
+        async with self.sessions() as session:
+            async with session.begin():
+                replay, fingerprint = await self._claim(
+                    session, operator, key, "withdrawal.settle_p2p", withdrawal_id,
+                    reason, {"fiat_kopecks": fiat_kopecks},
+                )
+                if replay is not None:
+                    return replay
+                row = await self._withdrawal(session, withdrawal_id)
+                self._require_scope(operator, row["tenant_id"])
+                if row["network"] != P2P_RUB:
+                    raise WithdrawalStateError("only a P2P payout is settled by hand")
+                if row["status"] != "approved":
+                    raise WithdrawalStateError("only an approved payout can be recorded as paid")
+                before = _snapshot(row, WITHDRAWAL_FIELDS)
+                now = self.now()
+                fee = row["fee_micros"]
+                clearing = await self._account(session, "clearing", None, P2P_CLEARING)
+                postings = {row["reserve_account_id"]: -row["amount_micros"],
+                            clearing: row["amount_micros"] - fee}
+                if fee:
+                    postings[await self._account(session, "clearing", None, FEE_ACCOUNT)] = fee
+                await self.ledger.post(
+                    session, scope="withdrawal-payout", key=row["payout_id"], kind="payout",
+                    reference_id=withdrawal_id, actor=f"operator:{operator.telegram_user_id}",
+                    postings=postings,
+                )
+                values = {"status": "submitted", "fiat_kopecks": fiat_kopecks,
+                          "detail": reason, "submitted_at": now, "updated_at": now}
+                await session.execute(update(cash_withdrawals).where(
+                    cash_withdrawals.c.id == withdrawal_id
+                ).values(**values))
+                after = before | {name: _json(value) for name, value in values.items()
+                                  if name in WITHDRAWAL_FIELDS}
+                await self._audit(session, operator, row["tenant_id"], "withdrawal.settle_p2p",
                                   "withdrawal", withdrawal_id, reason, key, fingerprint, before, after)
                 return after
 
