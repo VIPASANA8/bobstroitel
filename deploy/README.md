@@ -5,14 +5,16 @@ Let's Encrypt сертификат и прозрачно проксирует We
 не нужен.
 
 ## Предпосылки
-- DNS: A-запись домена из `Caddyfile` указывает на сервер (`64.188.67.9`).
+- DNS: A-записи всех имён из `Caddyfile` указывают на сервер (`45.9.150.209`),
+  через Cloudflare без проксирования (серое облако) — иначе Caddy не пройдёт
+  ACME-проверку Let's Encrypt.
 - Порты 80 и 443 свободны.
-- `/root/poker8/.env` заполнен (см. `.env.production.example`).
+- `/opt/poker8/.env` заполнен (см. `.env.production.example`).
 
 ## Запуск
 ```
-cd /root/poker8
-# домен в deploy/Caddyfile заменить на реальный
+cd /opt/poker8
+# домены в deploy/Caddyfile — donbass.win и вариант написания donbas.win
 docker compose -f compose.server.yaml -f deploy/compose.caddy.yaml up -d --build
 docker compose -f compose.server.yaml -f deploy/compose.caddy.yaml logs -f caddy
 ```
@@ -20,7 +22,7 @@ docker compose -f compose.server.yaml -f deploy/compose.caddy.yaml logs -f caddy
 Caddy при первом старте сам выпустит сертификат (нужен доступный 80/443 порт и
 корректный DNS). После этого:
 ```
-curl -fsS https://bubbledouble.cc/health/ready
+curl -fsS https://donbass.win/health/ready
 ```
 
 ## Заметки

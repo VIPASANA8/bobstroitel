@@ -1,34 +1,35 @@
 # Poker8 — чек-лист прод-запуска
 
-Что нужно поднять на сервере (`64.188.67.9`), чтобы Poker8 Online заработал
-как Telegram Mini App. Доступы — в `servers.md`.
+Что нужно поднять на сервере (`45.9.150.209`), чтобы Poker8 Online заработал
+как Telegram Mini App. Доступы — в `prod.md`.
 
-Боевой домен — **`bubbledouble.cc`** (Caddy + авто-TLS, стек развёрнут в
-`/root/poker8`). `share.play2go.cloud` указывает на тот же хост, но занят
-autorek и для Poker8 не используется.
+Боевой домен — **`donbass.win`** (Caddy + авто-TLS, стек развёрнут в
+`/opt/poker8`). `donbas.win` — то же приложение под написанием без второй "s",
+обслуживается тем же site-блоком. Старый хост `64.188.67.9` с доменом
+`bubbledouble.cc` остановлен.
 
 ## 1. Предусловия на сервере
 
 - [ ] Docker + docker compose установлены (`docker --version`, `docker compose version`).
-- [ ] Каталог проекта `/root/poker8` (код через `git clone`/`rsync`).
+- [ ] Каталог проекта `/opt/poker8` (код через `git clone`/`rsync`).
 - [ ] Порт `:8000` свободен (autorek его не занимает), порты `80/443` свободны для прокси.
-- [ ] DNS: A-запись домена (напр. `bubbledouble.cc` или `share.play2go.cloud`)
-      указывает на `64.188.67.9`.
+- [ ] DNS: A-записи `donbass.win`, `www.donbass.win`, `donbas.win`,
+      `www.donbas.win` указывают на `45.9.150.209` (Cloudflare, серое облако).
 
 ## 2. Секреты и конфиг
 
-- [ ] Создан `/root/poker8/.env` (в `.gitignore`, на диск сервера — вручную):
+- [ ] Создан `/opt/poker8/.env` (в `.gitignore`, на диск сервера — вручную):
       ```
       POKER8_ENV=production
       POKER8_DATABASE_URL=postgresql+psycopg://poker8:<STRONG_PASS>@postgres:5432/poker8
       POKER8_DEFAULT_BOT_TOKEN=<TELEGRAM_BOT_TOKEN>
-      POKER8_TENANTS_JSON=[{"slug":"poker8","hosts":["bubbledouble.cc"],"name":"Poker8","token_env":"POKER8_DEFAULT_BOT_TOKEN"}]
+      POKER8_TENANTS_JSON=[{"slug":"poker8","hosts":["donbass.win","www.donbass.win","donbas.win","www.donbas.win"],"name":"Poker8","token_env":"POKER8_DEFAULT_BOT_TOKEN"}]
       POSTGRES_PASSWORD=<STRONG_PASS>
       POKER8_COORDINATOR_ENABLED=1
       POKER8_OPEN_ACCESS=0
       ```
-- [ ] `hosts` в `POKER8_TENANTS_JSON` совпадает с реальным доменом (иначе `/api/auth`
-      вернёт `404 Unknown tenant host`).
+- [ ] `hosts` в `POKER8_TENANTS_JSON` перечисляет ВСЕ имена за прокси (иначе
+      `/api/auth` вернёт `404 Unknown tenant host` на том, которого нет в списке).
 - [ ] Telegram-бот создан у @BotFather, токен — **отдельный** от autorek.
 
 ## 3. Запуск стека
@@ -48,17 +49,17 @@ Telegram Mini App работает только по HTTPS. Нужен nginx (и
 ```nginx
 server {
     listen 80;
-    server_name bubbledouble.cc;
+    server_name donbass.win www.donbass.win donbas.win www.donbas.win;
     location /.well-known/acme-challenge/ { root /var/www/certbot; }
     location / { return 301 https://$host$request_uri; }
 }
 
 server {
     listen 443 ssl http2;
-    server_name bubbledouble.cc;
+    server_name donbass.win www.donbass.win donbas.win www.donbas.win;
 
-    ssl_certificate     /etc/letsencrypt/live/bubbledouble.cc/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/bubbledouble.cc/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/donbass.win/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/donbass.win/privkey.pem;
 
     # WebSocket: /ws/tables/{id}
     location /ws/ {
@@ -82,7 +83,7 @@ server {
 ```
 
 - [ ] `ln -s .../sites-available/poker8.conf /etc/nginx/sites-enabled/ && nginx -t && systemctl reload nginx`
-- [ ] TLS-сертификат: `certbot --nginx -d bubbledouble.cc` (или webroot).
+- [ ] TLS-сертификат: `certbot --nginx -d donbass.win -d www.donbass.win -d donbas.win -d www.donbas.win` (или webroot).
 - [ ] Автопродление certbot включено (`systemctl status certbot.timer`).
 - [ ] `Host`-заголовок доходит до приложения (нужно для маппинга tenant→host).
 - [ ] Сессия-cookie `poker8_session` в проде идёт с флагом `secure` — работает
@@ -90,7 +91,7 @@ server {
 
 ## 5. Привязка к Telegram
 
-- [ ] У @BotFather для бота задан Mini App / Menu Button с URL `https://bubbledouble.cc/`.
+- [ ] У @BotFather для бота задан Mini App / Menu Button с URL `https://donbass.win/`.
 - [ ] Проверен вход через Telegram `initData` (не guest): открыть Mini App из бота.
 - [ ] `POKER8_OPEN_ACCESS=0` подтверждён (гостевой вход в проде отключён).
 
@@ -113,7 +114,7 @@ node --check static/app.js
 
 ## Открытые вопросы / решения по инфраструктуре
 
-- ~~Домен~~ — решено: `bubbledouble.cc`.
+- ~~Домен~~ — решено: `donbass.win` (+ `donbas.win` как второе написание).
 - ~~Прокси~~ — решено: Caddy с авто-TLS (`deploy/compose.caddy.yaml`), развёрнут.
   Секция nginx выше оставлена как запасной вариант.
 - Размещение БД: Postgres в Compose (как сейчас) или вынести на управляемый инстанс.
