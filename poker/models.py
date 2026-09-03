@@ -78,6 +78,10 @@ class GameState:
     # but not raise. Cleared by a full raise and by every new street.
     raise_capped: set[str] = field(default_factory=set)
 
+    # Chips the house kept out of the pots this hand. Zero on every PLAY table
+    # and in float mode; only an exact-chip table with a rake ever sets it.
+    rake: ChipAmount = 0
+
     winner: Optional[str] = None
     winners: list[str] = field(default_factory=list)
     result_text: str = ""
@@ -165,6 +169,7 @@ class GameState:
             "acting_player": self.acting_player,
             "current_bet": round(self.current_bet, 2),
             "min_raise_size": round(self.min_raise_size, 2),
+            "rake": self.rake,
             "winner": self.winner,
             "winners": self.winners,
             "result_text": self.result_text,

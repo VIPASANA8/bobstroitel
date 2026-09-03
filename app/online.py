@@ -39,7 +39,7 @@ from online.schema import cash_operators, metadata, tenant_bots, tenants
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
-EXPECTED_MIGRATION_REVISION = "20260902_0020"
+EXPECTED_MIGRATION_REVISION = "20260903_0021"
 
 # Revalidate every time. Without it these responses carry an ETag and a
 # Last-Modified but no Cache-Control at all, which puts a browser into
@@ -181,7 +181,9 @@ def create_app(
                 session_factory, poller=app.state.cash_fiat_poller,
                 chain=app.state.cash_trc20_watcher, fiat=app.state.cash_fiat_orders,
             )
-        app.state.cash_withdrawals = WithdrawalService(session_factory)
+        app.state.cash_withdrawals = WithdrawalService(
+            session_factory, fee_micros=settings.cash_withdrawal_fee_micros,
+        )
         app.state.cash_wallet = WalletService(session_factory)
         app.state.cash_admin = CashAdminService(session_factory)
         app.state.cash_game = CashGameService(session_factory)

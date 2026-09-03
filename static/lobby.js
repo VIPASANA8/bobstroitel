@@ -566,7 +566,7 @@
     const details = $("withdrawDetails");
     details.hidden = false;
     details.innerHTML = `<strong>${escape(payload.amount_units)} CASH зарезервировано</strong><br>
-      К выплате: ${escape(payload.amount_usdt)} USDT<br>Комиссия: ${escape(payload.fee_usdt)} USDT<br>
+      К выплате: ${escape(payload.payout_usdt)} USDT<br>Комиссия: ${escape(payload.fee_usdt)} USDT<br>
       Статус: ${escape(payload.status)} · ${escape(payload.network)}`;
     await load();
   });

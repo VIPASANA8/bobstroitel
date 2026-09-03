@@ -26,11 +26,19 @@ CASH_MOCK_TABLE = {
     "name": "CASH Micro · TEST",
     # Compatibility chip counts for the current table client. Money remains
     # authoritative only in the exact *_micros columns below.
-    "small_blind_units": 1,
-    "big_blind_units": 2,
-    "small_blind_micros": 10_000,
-    "big_blind_micros": 20_000,
+    "small_blind_units": 5,
+    "big_blind_units": 10,
+    # 0.05 / 0.10 USDT. The blinds are set by the deposit floor, not the other
+    # way round: CASE8 will not take less than 20 USDT, and at 0.01/0.02 that
+    # first deposit was twenty-five maximum buy-ins -- a bankroll nobody spends
+    # and therefore nobody tops up. At 0.05/0.10 it is two to five buy-ins.
+    "small_blind_micros": 50_000,
+    "big_blind_micros": 100_000,
+    # Unchanged at 0.01 USDT, but now a tenth of the big blind instead of half
+    # of it. That is what makes a percentage rake expressible at all: at the
+    # old size the smallest possible cut was 50% of a big blind.
     "chip_micros": 10_000,
+    "rake_bps": 1_000,
 }
 
 PLAY = "PLAY"

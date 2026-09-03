@@ -42,6 +42,9 @@ services:
       POKER8_CASH_FIAT_FEE_BPS: ${POKER8_CASH_FIAT_FEE_BPS:-100}
       POKER8_CASH_ORDERS_PER_HOUR: ${POKER8_CASH_ORDERS_PER_HOUR:-6}
       POKER8_CASH_DAILY_DEPOSIT_USDT: ${POKER8_CASH_DAILY_DEPOSIT_USDT:-0}
+      # Что стоит одна выплата TRC20. Ноль означает, что сеть оплачивается из
+      # своего кармана -- допустимо только пока выплаты исполняет mock.
+      POKER8_CASH_WITHDRAWAL_FEE_USDT: ${POKER8_CASH_WITHDRAWAL_FEE_USDT:-0}
       POKER8_CASH_ADMIN_API_KEY: ${POKER8_CASH_ADMIN_API_KEY:-}
       POKER8_CASH_ADMIN_OPERATORS_JSON: ${POKER8_CASH_ADMIN_OPERATORS_JSON:-[]}
       # Read-only TRC20 deposit watcher; unset means it does not start.

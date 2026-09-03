@@ -21,6 +21,10 @@ from poker.engine import InvalidAction, PokerEngine
 from poker.models import ActionType, GameState
 
 
+#: House rake, kept as a clearing account beside the fiat deposit fee.
+RAKE_ACCOUNT = "table-rake"
+
+
 class CashSeatError(ValueError):
     pass
 
@@ -482,7 +486,16 @@ class CashGameService:
         chip = table["chip_micros"]
         starts = {row["participant_id"]: row["start_stack_micros"] for row in rows}
         ends = {pid: player.stack * chip for pid, player in state.players.items()}
-        if any(type(value) is not int for value in ends.values()) or sum(starts.values()) != sum(ends.values()):
+        rake_micros = state.rake * chip
+        # The hand is no longer zero-sum: what leaves the seats has to equal
+        # what the players kept plus what the house took, and the rake is
+        # posted inside this same transaction so the daily reconciliation and
+        # the escrow balances never disagree by the width of the rake.
+        if (
+            any(type(value) is not int for value in ends.values())
+            or type(rake_micros) is not int or rake_micros < 0
+            or sum(starts.values()) != sum(ends.values()) + rake_micros
+        ):
             return "cash escrow invariant failed: hand did not conserve exact chips"
         postings = {}
         for participant_id in state.seat_order:
@@ -490,6 +503,11 @@ class CashGameService:
             delta = ends[participant_id] - starts[participant_id]
             if delta:
                 postings[seat["cash_escrow_account_id"]] = delta
+        if rake_micros:
+            # ponytail: one house rake account for the whole network. Splitting
+            # it per tenant or paying a room creator a share is a second
+            # reference_id here, not a new mechanism.
+            postings[await self._rake_account(session)] = rake_micros
         if postings:
             try:
                 await self.ledger.post(
@@ -616,6 +634,23 @@ class CashGameService:
             cash_accounts.c.kind == "available", cash_accounts.c.reference_id == user_id,
         ).with_for_update())
 
+    async def _rake_account(self, session: AsyncSession) -> str:
+        """House revenue, kept as a clearing account like the fiat deposit fee."""
+        account_id = await session.scalar(select(cash_accounts.c.id).where(
+            cash_accounts.c.kind == "clearing", cash_accounts.c.reference_id == RAKE_ACCOUNT,
+        ))
+        if account_id:
+            return account_id
+        candidate = uuid4().hex
+        await session.execute(pg_insert(cash_accounts).values(
+            id=candidate, kind="clearing", user_id=None, reference_id=RAKE_ACCOUNT,
+        ).on_conflict_do_nothing(
+            index_elements=[cash_accounts.c.kind, cash_accounts.c.reference_id]
+        ))
+        return await session.scalar(select(cash_accounts.c.id).where(
+            cash_accounts.c.kind == "clearing", cash_accounts.c.reference_id == RAKE_ACCOUNT,
+        ))
+
     async def _escrow_account(self, session: AsyncSession, user_id: str) -> str:
         candidate = uuid4().hex
         await session.execute(insert(cash_accounts).values(
@@ -659,6 +694,7 @@ class CashGameService:
             exact_chips=True,
             small_blind=table["small_blind_micros"] // chip,
             big_blind=table["big_blind_micros"] // chip,
+            rake_bps=table["rake_bps"] or 0,
         )
 
     @staticmethod

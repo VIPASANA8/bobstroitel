@@ -145,6 +145,9 @@ poker_tables = Table(
     Column("chip_micros", BIGINT),
     Column("min_buy_in_bb", Integer, nullable=False),
     Column("max_buy_in_bb", Integer, nullable=False),
+    # House rake in basis points of what a winner takes off the other players.
+    # Zero everywhere except a CASH table: PLAY chips are not money.
+    Column("rake_bps", Integer, nullable=False, server_default=text("0")),
     Column("max_seats", Integer, nullable=False, server_default=text("6")),
     Column("status", String(32), nullable=False, server_default=text("'open'")),
     Column("button_seat", Integer),

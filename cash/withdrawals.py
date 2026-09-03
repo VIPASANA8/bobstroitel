@@ -16,6 +16,10 @@ from cash.trc20 import MOCK_NETWORK
 from online.schema import cash_accounts, cash_withdrawals
 
 
+#: House revenue, kept as a clearing account beside the fiat deposit fee.
+FEE_ACCOUNT = "withdrawal-fee"
+
+
 class WithdrawalStateError(ValueError):
     pass
 
@@ -39,23 +43,35 @@ class WithdrawalService:
     MIN = 10_000
     MAX = 100_000_000
 
-    def __init__(self, session_factory, *, ledger=None, executor=None, now=None):
+    def __init__(self, session_factory, *, ledger=None, executor=None, now=None,
+                 fee_micros: int = 0):
         self.sessions = session_factory
         self.ledger = ledger or CashLedger()
         self.executor = executor or MockPayoutExecutor()
         self.now = now or (lambda: datetime.now(timezone.utc))
+        if type(fee_micros) is not int or fee_micros < 0:
+            raise ValueError("the withdrawal fee must be a nonnegative integer of micros")
+        self.fee_micros = fee_micros
 
     async def create(self, *, user_id: str, tenant_id: str, amount_usdt: str,
                      destination_address: str, request_key: str):
         amount = usdt_to_micros(amount_usdt)
         if not self.MIN <= amount <= self.MAX:
             raise ValueError("withdrawal amount must be between 0.01 and 100 USDT")
+        # A payout costs real money to send on chain. Below the fee the request
+        # is not a small withdrawal, it is a way to make us pay for a transfer
+        # of nothing, so the floor is the fee rather than a second constant.
+        if amount <= self.fee_micros:
+            raise ValueError(
+                f"withdrawal must exceed the {micros_to_usdt(self.fee_micros)} USDT payout fee"
+            )
         if not destination_address or len(destination_address) > 128:
             raise ValueError("invalid destination address")
         if not request_key or len(request_key) > 200:
             raise ValueError("invalid request key")
         fingerprint = _hash({"amount_micros": amount, "address": destination_address,
-                             "network": MOCK_NETWORK, "tenant_id": tenant_id})
+                             "network": MOCK_NETWORK, "tenant_id": tenant_id,
+                             "fee_micros": self.fee_micros})
         now = self.now()
         async with self.sessions() as session:
             async with session.begin():
@@ -82,7 +98,8 @@ class WithdrawalService:
                     id=withdrawal_id, user_id=user_id, tenant_id=tenant_id,
                     request_key=request_key, request_hash=fingerprint, network=MOCK_NETWORK,
                     destination_address=destination_address, amount_micros=amount,
-                    fee_micros=0, reserve_account_id=reserve_id, payout_id=uuid4().hex,
+                    fee_micros=self.fee_micros, reserve_account_id=reserve_id,
+                    payout_id=uuid4().hex,
                     status="requested", updated_at=now,
                 ))
                 await self.ledger.post(
@@ -159,11 +176,20 @@ class WithdrawalService:
                 result = self.executor.send(row["payout_id"], outcome)
                 if result["status"] == "submitted":
                     clearing_id = await self._account(session, "clearing", None, "c2c-mock")
+                    # The fee is realised here and nowhere earlier: a cancelled
+                    # or rejected withdrawal refunds the whole reserve, because
+                    # nothing was sent and nothing was spent.
+                    fee = row["fee_micros"]
+                    postings = {row["reserve_account_id"]: -row["amount_micros"],
+                                clearing_id: row["amount_micros"] - fee}
+                    if fee:
+                        postings[await self._account(
+                            session, "clearing", None, FEE_ACCOUNT
+                        )] = fee
                     await self.ledger.post(
                         session, scope="withdrawal-payout", key=row["payout_id"], kind="payout",
                         reference_id=withdrawal_id, actor="mock-payout-executor",
-                        postings={row["reserve_account_id"]: -row["amount_micros"],
-                                  clearing_id: row["amount_micros"]},
+                        postings=postings,
                     )
                     values = {"status": "submitted", "tx_hash": result["tx_hash"],
                               "submitted_at": now, "updated_at": now}
@@ -221,4 +247,7 @@ class WithdrawalService:
                 "address": row["destination_address"],
                 "amount_usdt": micros_to_usdt(row["amount_micros"]),
                 "amount_units": micros_to_units(row["amount_micros"]),
-                "fee_usdt": micros_to_usdt(row["fee_micros"]), "tx_hash": row["tx_hash"]}
+                "fee_usdt": micros_to_usdt(row["fee_micros"]),
+                # What actually leaves for the chain: the debit minus the fee.
+                "payout_usdt": micros_to_usdt(row["amount_micros"] - row["fee_micros"]),
+                "tx_hash": row["tx_hash"]}

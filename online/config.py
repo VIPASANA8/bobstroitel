@@ -5,6 +5,10 @@ import re
 from dataclasses import dataclass, field
 from typing import Mapping
 
+# Pure decimal parsing, no database and no cycle: the money amounts in this
+# file are the same amounts the cash package validates.
+from cash.amounts import usdt_to_micros
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -27,6 +31,7 @@ class Settings:
     cash_trc20_api_key: str
     cash_orders_per_hour: int
     cash_daily_deposit_micros: int
+    cash_withdrawal_fee_micros: int
     cash_allowlist: tuple[int, ...]
     cash_admin_api_key: str
     cash_admin_operators: tuple[dict[str, object], ...]
@@ -77,6 +82,18 @@ class Settings:
             raise ValueError("POKER8_CASH_ORDERS_PER_HOUR and POKER8_CASH_DAILY_DEPOSIT_USDT must be integers") from exc
         if cash_orders_per_hour < 0 or cash_daily_deposit_usdt < 0:
             raise ValueError("cash antifraud limits cannot be negative")
+        # What a TRC20 payout costs us, charged to whoever asks for one. Left at
+        # zero the house pays the network for every withdrawal, including the
+        # one-cent ones, which is why this has to be measured and set before a
+        # real payout executor is ever switched on.
+        try:
+            cash_withdrawal_fee_micros = usdt_to_micros(
+                source.get("POKER8_CASH_WITHDRAWAL_FEE_USDT", "0").strip() or "0"
+            )
+        except ValueError as exc:
+            raise ValueError("POKER8_CASH_WITHDRAWAL_FEE_USDT must be a USDT amount") from exc
+        if cash_withdrawal_fee_micros >= 100_000_000:
+            raise ValueError("POKER8_CASH_WITHDRAWAL_FEE_USDT must stay below the withdrawal ceiling")
         # The deposit watcher is read-only: an endpoint, an address it reads and
         # the one token contract that counts. No key of any kind signs anything.
         trc20_api_url = source.get("POKER8_CASH_TRC20_API_URL", "").strip()
@@ -178,6 +195,7 @@ class Settings:
             cash_trc20_api_key=trc20_api_key,
             cash_orders_per_hour=cash_orders_per_hour,
             cash_daily_deposit_micros=cash_daily_deposit_usdt * 1_000_000,
+            cash_withdrawal_fee_micros=cash_withdrawal_fee_micros,
             cash_allowlist=cash_allowlist,
             cash_admin_api_key=cash_admin_api_key,
             cash_admin_operators=cash_admin_operators,

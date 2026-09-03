@@ -51,8 +51,10 @@ async def test_mock_seed_adds_one_idempotent_cash_table(table_services):
     await catalogue.seed_cash_mock()
     rows = await catalogue.list_tables(per_page=100, asset=CASH_USDT)
     assert [row.id for row in rows] == [CASH_MOCK_TABLE["id"]]
-    assert rows[0].min_buy_in_micros == 800_000
-    assert rows[0].max_buy_in_micros == 2_000_000
+    # 0.05/0.10 USDT, so 40-100 big blinds is 4.00-10.00 USDT: a 20 USDT
+    # deposit -- the floor CASE8 will accept -- is two to five buy-ins.
+    assert rows[0].min_buy_in_micros == 4_000_000
+    assert rows[0].max_buy_in_micros == 10_000_000
 
 
 @pytest.mark.anyio
