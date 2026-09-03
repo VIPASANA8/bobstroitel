@@ -102,7 +102,7 @@ Telegram ──initData──► Caddy (TLS) ──X-Forwarded-For──► app 
 ## 7. Как проверять
 
 ```bash
-python -m pytest -q                       # 886
+python -m pytest -q                       # 894
 python -m pytest -m postgres -q           # 100, денежные пути
 COMPOSE_PROJECT_NAME=poker python tools/cash_backup_restore_check.py
 ```
