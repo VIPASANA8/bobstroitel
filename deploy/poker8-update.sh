@@ -5,6 +5,7 @@
 # is already on the remote. A dirty working tree is not a merge to resolve here:
 # reset is deliberate, the server is not where anybody edits.
 set -e
+DOMAIN=${1:-donbass.win}
 BRANCH=$(git -C /opt/poker8 rev-parse --abbrev-ref HEAD)
 cd /opt/poker8
 git fetch --depth 1 -q origin
