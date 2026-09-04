@@ -50,6 +50,9 @@ services:
       # .env; ноль по умолчанию означает, что сеть оплачивается из своего
       # кармана, и это допустимо только на dev-стеке.
       POKER8_CASH_WITHDRAWAL_FEE_USDT: ${POKER8_CASH_WITHDRAWAL_FEE_USDT:-0}
+      # Авто-вывод C2C до порога (04.09: 50 USDT), выше -- оператор. Работает
+      # только с реальным automatic-исполнителем; в mock-пилоте не срабатывает.
+      POKER8_CASH_AUTO_WITHDRAWAL_USDT: ${POKER8_CASH_AUTO_WITHDRAWAL_USDT:-0}
       # Потолок проигрыша за скользящие сутки. Ноль -- выключено.
       POKER8_CASH_DAILY_LOSS_USDT: ${POKER8_CASH_DAILY_LOSS_USDT:-0}
       POKER8_CASH_ADMIN_API_KEY: ${POKER8_CASH_ADMIN_API_KEY:-}

@@ -61,19 +61,26 @@ async def play_a_raked_hand(cash_db):
     service = CashGameService(cash_db)
     await service.seat("alice", TABLE, 0, BUY_IN, "seat-alice")
     await service.seat("bob", TABLE, 1, BUY_IN, "seat-bob")
-    result = await service.start_hand(TABLE, button_seat=0)
-    step = 0
-    while not result.state.terminal:
-        state, actor = result.state, result.state.acting_player
-        owed = state.current_bet - state.players[actor].street_invested
-        step += 1
-        result = await service.act(
-            TABLE, actor, ActionType.CALL if owed else ActionType.CHECK,
-            amount_micros=0, command_id=f"s{step}", expected_revision=result.revision,
-        )
+    # A checked-down hand splits on a tie, and a split pot pays no rake (each
+    # winner only takes their own stake back). Play hands until one is actually
+    # raked, so the test is deterministic rather than deck-lucky.
+    total_rake, step = 0, 0
+    for hand in range(20):
+        result = await service.start_hand(TABLE, button_seat=hand % 2)
+        while not result.state.terminal:
+            state, actor = result.state, result.state.acting_player
+            owed = state.current_bet - state.players[actor].street_invested
+            step += 1
+            result = await service.act(
+                TABLE, actor, ActionType.CALL if owed else ActionType.CHECK,
+                amount_micros=0, command_id=f"s{step}", expected_revision=result.revision,
+            )
+        total_rake += result.state.rake * CHIP
+        if total_rake:
+            break
     await service.leave("alice", TABLE, "leave-alice")
     await service.leave("bob", TABLE, "leave-bob")
-    return result.state.rake * CHIP
+    return total_rake
 
 
 async def ledger_state(cash_db):

@@ -49,7 +49,16 @@ def _hash(data):
 
 
 class MockPayoutExecutor:
-    def send(self, payout_id: str, outcome: str):
+    #: A real payout provider sets this True. The auto-withdrawal path refuses to
+    #: run against a non-automatic executor, so the mock cannot silently send.
+    automatic = False
+
+    def __init__(self, *, automatic: bool = False, outcome: str = "success"):
+        self.automatic = automatic
+        self._outcome = outcome
+
+    def send(self, payout_id: str, outcome: str | None = None):
+        outcome = outcome or self._outcome
         if outcome == "success":
             return {"status": "submitted", "tx_hash": f"mock-{payout_id}"}
         if outcome == "failure":
@@ -70,7 +79,7 @@ class WithdrawalService:
     MAX = 100_000_000_000
 
     def __init__(self, session_factory, *, ledger=None, executor=None, now=None,
-                 fee_micros: int = 0):
+                 fee_micros: int = 0, auto_micros: int = 0):
         self.sessions = session_factory
         self.ledger = ledger or CashLedger()
         self.executor = executor or MockPayoutExecutor()
@@ -78,6 +87,13 @@ class WithdrawalService:
         if type(fee_micros) is not int or fee_micros < 0:
             raise ValueError("the withdrawal fee must be a nonnegative integer of micros")
         self.fee_micros = fee_micros
+        # A TRC20 withdrawal at or below this sends itself, no operator. Zero is
+        # off. It never applies to P2P (a human pays that), and it refuses to
+        # run unless the executor is a real, automatic one -- so the pilot's
+        # mock never auto-sends however the threshold is set.
+        if type(auto_micros) is not int or auto_micros < 0:
+            raise ValueError("the auto-withdrawal ceiling must be a nonnegative integer of micros")
+        self.auto_micros = auto_micros
 
     async def create(self, *, user_id: str, tenant_id: str, amount_usdt: str,
                      destination_address: str, request_key: str, rail: str = TRC20):
@@ -102,7 +118,7 @@ class WithdrawalService:
                              "fee_micros": self.fee_micros})
         now = self.now()
         try:
-            return await self._reserve(
+            row = await self._reserve(
                 user_id=user_id, tenant_id=tenant_id, amount=amount, rail=rail,
                 destination_address=destination_address, request_key=request_key,
                 fingerprint=fingerprint, now=now,
@@ -119,6 +135,19 @@ class WithdrawalService:
             if replay is not None and replay["request_hash"] == fingerprint:
                 return dict(replay)
             raise ActiveWithdrawalExists("finish or cancel the open withdrawal first") from exc
+
+        # A small TRC20 withdrawal sends itself. Above the ceiling, on the P2P
+        # rail, or without a real automatic executor it stays reserved for an
+        # operator -- so this can never fire in the mock pilot.
+        if (row["network"] == TRC20 and self.auto_micros and amount <= self.auto_micros
+                and getattr(self.executor, "automatic", False)):
+            try:
+                return await self._auto_execute(row["id"])
+            except Exception:
+                # The reserve is committed; a failed auto-send just leaves it in
+                # the operator queue rather than losing the withdrawal.
+                return await self.get(row["id"], user_id) or row
+        return row
 
     async def _reserve(self, *, user_id, tenant_id, amount, rail, destination_address,
                        request_key, fingerprint, now):
@@ -277,41 +306,69 @@ class WithdrawalService:
                     cash_withdrawals.c.id == withdrawal_id
                 ).values(status="sending", updated_at=now))
                 result = self.executor.send(row["payout_id"], outcome)
-                if result["status"] == "submitted":
-                    clearing_id = await self._account(session, "clearing", None, "c2c-mock")
-                    # The fee is realised here and nowhere earlier: a cancelled
-                    # or rejected withdrawal refunds the whole reserve, because
-                    # nothing was sent and nothing was spent.
-                    fee = row["fee_micros"]
-                    postings = {row["reserve_account_id"]: -row["amount_micros"],
-                                clearing_id: row["amount_micros"] - fee}
-                    if fee:
-                        postings[await self._account(
-                            session, "clearing", None, FEE_ACCOUNT
-                        )] = fee
-                    await self.ledger.post(
-                        session, scope="withdrawal-payout", key=row["payout_id"], kind="payout",
-                        reference_id=withdrawal_id, actor="mock-payout-executor",
-                        postings=postings,
-                    )
-                    values = {"status": "submitted", "tx_hash": result["tx_hash"],
-                              "submitted_at": now, "updated_at": now}
-                elif result["status"] == "unknown":
-                    values = {"status": "unknown", "detail": result["detail"], "updated_at": now}
-                else:
-                    wallet_id = await self._account(session, "available", row["user_id"], row["user_id"])
-                    await self.ledger.post(
-                        session, scope="withdrawal-release", key=withdrawal_id, kind="release",
-                        reference_id=withdrawal_id, actor="mock-payout-executor",
-                        postings={row["reserve_account_id"]: -row["amount_micros"],
-                                  wallet_id: row["amount_micros"]},
-                    )
-                    values = {"status": "rejected", "detail": result["detail"], "updated_at": now}
+                return await self._apply_send_result(session, dict(row), result, now,
+                                                     actor="mock-payout-executor")
+
+    async def _auto_execute(self, withdrawal_id: str):
+        """Send a small TRC20 withdrawal with no operator in the loop.
+
+        Same money path as execute(), reached automatically from create(). The
+        executor decides the outcome (a real send has no predetermined result),
+        so no outcome is passed. Only a reserved TRC20 row is eligible.
+        """
+        now = self.now()
+        async with self.sessions() as session:
+            async with session.begin():
+                row = (await session.execute(select(cash_withdrawals).where(
+                    cash_withdrawals.c.id == withdrawal_id
+                ).with_for_update())).mappings().one_or_none()
+                if row is None or row["status"] != "reserved" or row["network"] != TRC20:
+                    return dict(row) if row else None
                 await session.execute(update(cash_withdrawals).where(
                     cash_withdrawals.c.id == withdrawal_id
-                ).values(**values))
-                final = dict(row); final.update(values)
-                return final
+                ).values(status="sending", updated_at=now))
+                result = self.executor.send(row["payout_id"])
+                return await self._apply_send_result(session, dict(row), result, now,
+                                                     actor="auto-payout")
+
+    async def _apply_send_result(self, session, row, result, now, *, actor):
+        """Post the ledger for one payout attempt and land its final status.
+
+        Shared by the operator path and the auto path so the money accounting is
+        written in exactly one place. The fee is realised only on a real send:
+        a rejected payout refunds the whole reserve, fee included, because
+        nothing left the wallet.
+        """
+        withdrawal_id = row["id"]
+        if result["status"] == "submitted":
+            clearing_id = await self._account(session, "clearing", None, "c2c-mock")
+            fee = row["fee_micros"]
+            postings = {row["reserve_account_id"]: -row["amount_micros"],
+                        clearing_id: row["amount_micros"] - fee}
+            if fee:
+                postings[await self._account(session, "clearing", None, FEE_ACCOUNT)] = fee
+            await self.ledger.post(
+                session, scope="withdrawal-payout", key=row["payout_id"], kind="payout",
+                reference_id=withdrawal_id, actor=actor, postings=postings,
+            )
+            values = {"status": "submitted", "tx_hash": result["tx_hash"],
+                      "submitted_at": now, "updated_at": now}
+        elif result["status"] == "unknown":
+            values = {"status": "unknown", "detail": result["detail"], "updated_at": now}
+        else:
+            wallet_id = await self._account(session, "available", row["user_id"], row["user_id"])
+            await self.ledger.post(
+                session, scope="withdrawal-release", key=withdrawal_id, kind="release",
+                reference_id=withdrawal_id, actor=actor,
+                postings={row["reserve_account_id"]: -row["amount_micros"],
+                          wallet_id: row["amount_micros"]},
+            )
+            values = {"status": "rejected", "detail": result["detail"], "updated_at": now}
+        await session.execute(update(cash_withdrawals).where(
+            cash_withdrawals.c.id == withdrawal_id
+        ).values(**values))
+        final = dict(row); final.update(values)
+        return final
 
     async def confirm(self, withdrawal_id: str):
         return await self._transition(withdrawal_id, {"submitted"}, "confirmed", confirmed_at=self.now())

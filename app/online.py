@@ -214,6 +214,7 @@ def create_app(
             )
         app.state.cash_withdrawals = WithdrawalService(
             session_factory, fee_micros=settings.cash_withdrawal_fee_micros,
+            auto_micros=settings.cash_auto_withdrawal_micros,
             executor=_payout_executor(settings),
         )
         app.state.cash_wallet = WalletService(session_factory)
