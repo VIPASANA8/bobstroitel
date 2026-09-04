@@ -133,13 +133,39 @@ def _order_status_from(raw: dict[str, Any]) -> PserviceOrderStatus:
     )
 
 
+def is_internal_url(url: str) -> bool:
+    """True for a target that never leaves the host's private network.
+
+    A Docker service name has no dot; loopback and RFC1918 addresses are private
+    by definition. Plain http is acceptable to exactly these, because the
+    transport is a bridge network on one machine, never the public internet.
+    Everything with a public hostname must still be HTTPS.
+    """
+    from urllib.parse import urlparse
+    host = (urlparse(url).hostname or "").lower()
+    if host in ("localhost",) or "." not in host:
+        return True
+    if host.startswith(("127.", "10.", "192.168.")):
+        return True
+    if host.startswith("172."):
+        second = host.split(".")[1] if host.count(".") >= 1 else ""
+        return second.isdigit() and 16 <= int(second) <= 31
+    return False
+
+
 class PserviceClient:
     """pservice REST transport. Verifies TLS; a self-signed endpoint is refused."""
 
     def __init__(self, base_url: str, service_key: str, *,
                  transport: httpx.AsyncBaseTransport | None = None):
-        if not base_url.startswith("https://") or not service_key:
-            raise ValueError("pservice requires an HTTPS URL and a service key")
+        if not service_key:
+            raise ValueError("pservice requires a service key")
+        # Public targets must be HTTPS; an internal service on a private bridge
+        # network may be plain http, which is how pservice is reached on-host.
+        if not base_url.startswith("https://") and not (
+            base_url.startswith("http://") and is_internal_url(base_url)
+        ):
+            raise ValueError("pservice requires HTTPS unless the target is internal")
         self._client = httpx.AsyncClient(
             base_url=base_url.rstrip("/") + "/api/v1",
             headers={"X-Service-Key": service_key},

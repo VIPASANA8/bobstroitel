@@ -38,6 +38,10 @@ services:
       POKER8_DEV_PROFILES: ${POKER8_DEV_PROFILES:-101:Dev Player,202:Observer}
       # CASH pilot
       POKER8_CASH_MODE: ${POKER8_CASH_MODE:-mock}
+      # Own pservice instance on this host, reached over the poker8link network.
+      POKER8_CASH_FIAT_API_URL: ${POKER8_CASH_FIAT_API_URL:-}
+      POKER8_CASH_FIAT_TOKEN: ${POKER8_CASH_FIAT_TOKEN:-}
+      POKER8_CASH_PAYOUT_PROVIDER: ${POKER8_CASH_PAYOUT_PROVIDER:-}
       POKER8_CASH_ALLOWLIST: ${POKER8_CASH_ALLOWLIST:-}
       POKER8_CASH_FIAT_FEE_BPS: ${POKER8_CASH_FIAT_FEE_BPS:-100}
       POKER8_CASH_ORDERS_PER_HOUR: ${POKER8_CASH_ORDERS_PER_HOUR:-6}
@@ -63,6 +67,7 @@ services:
     # rate limiter counts. Trusting every hop is safe only because the app
     # publishes no port of its own: Caddy is the only way a request arrives.
     command: ["sh", "-c", "python -m alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips=*"]
+    networks: [default, poker8link]
     # Localhost only. Public exposure waits for a domain and a certificate.
     ports:
       - "127.0.0.1:8000:8000"
@@ -75,3 +80,7 @@ services:
 
 volumes:
   poker8_pgdata:
+
+networks:
+  poker8link:
+    external: true

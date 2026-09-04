@@ -38,11 +38,15 @@ def test_every_pservice_status_maps_to_a_state_and_only_completed_credits():
     assert [k for k, v in PSERVICE_STATUS.items() if v == "credited"] == [7]
 
 
-def test_the_client_requires_https_and_a_key():
-    with pytest.raises(ValueError, match="HTTPS URL and a service key"):
-        PserviceClient("http://pservice.example", "k")
-    with pytest.raises(ValueError, match="HTTPS URL and a service key"):
+def test_the_client_requires_a_key_and_https_for_public_targets():
+    with pytest.raises(ValueError, match="requires a service key"):
         PserviceClient("https://pservice.example", "")
+    # A public host over plain http is refused; an internal one is allowed,
+    # because on a private bridge network the transport never leaves the host.
+    with pytest.raises(ValueError, match="HTTPS unless the target is internal"):
+        PserviceClient("http://pservice.example", "k")
+    PserviceClient("http://p2p-service:8000", "k")      # docker service name
+    PserviceClient("http://127.0.0.1:8000", "k")        # loopback
 
 
 @pytest.mark.anyio

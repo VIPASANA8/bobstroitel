@@ -165,8 +165,9 @@ class Settings:
                 raise ValueError(
                     "POKER8_CASH_MODE=production requires " + ", ".join(missing)
                 )
-            if not cash_fiat_api_url.startswith("https://"):
-                raise ValueError("POKER8_CASH_FIAT_API_URL must be HTTPS")
+            from cash.fiat_p2p import is_internal_url
+            if not (cash_fiat_api_url.startswith("https://") or is_internal_url(cash_fiat_api_url)):
+                raise ValueError("POKER8_CASH_FIAT_API_URL must be HTTPS unless internal")
 
         cash_admin_api_key = source.get("POKER8_CASH_ADMIN_API_KEY", "").strip()
         raw_cash_operators = source.get("POKER8_CASH_ADMIN_OPERATORS_JSON", "[]").strip()
