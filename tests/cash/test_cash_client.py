@@ -93,3 +93,47 @@ def test_the_client_makes_no_claim_about_how_real_the_money_is():
     assert 'cashTab.hidden = config.cash_mode === "off";' in LOBBY_JS
     assert "$('cashModeTab').hidden = false;" in PROFILE_JS
     assert "cash_mode" not in PROFILE_JS
+
+
+def _js_keys(source: str, name: str) -> set[str]:
+    """The keys of a flat object literal in the cashier, by name."""
+    import re
+
+    block = source[source.index("const " + name + " = {"):]
+    return set(re.findall(r"^\s+(\w+):", block[:block.index("\n  };")], re.M))
+
+
+def test_the_client_renders_every_state_the_partner_can_reach():
+    """cash/fiat_p2p.py folds eleven pservice statuses into these local ones.
+    A state with no branch of its own fell through to "оплата отмечена, ждём
+    подтверждения трейдера" -- which told a player their payment was being
+    confirmed while the order was still out looking for a trader.
+    """
+    from cash.fiat_p2p import PSERVICE_STATUS
+
+    covered = _js_keys(CASHIER_JS, "FIAT_OPEN") | _js_keys(CASHIER_JS, "FIAT_CLOSED")
+    assert set(PSERVICE_STATUS.values()) <= covered, set(PSERVICE_STATUS.values()) - covered
+
+
+def test_cancelling_stops_being_offered_once_the_player_says_they_paid():
+    """Between "я оплатил" and the trader's answer the rubles have already
+    left; cancelling there is how they go missing."""
+    block = CASHIER_JS[CASHIER_JS.index("const FIAT_OPEN = {"):]
+    block = block[:block.index("\n  };")]
+    for state in ("waiting_trader", "clarifying"):
+        line = next(row for row in block.splitlines() if row.strip().startswith(state + ":"))
+        assert "cancel: false" in line, state
+
+
+def test_the_payment_panel_can_be_copied_rather_than_retyped():
+    """A card number read off a phone screen by eye is how a transfer reaches
+    the wrong account -- and the mock printed `4276 **** **** 1000`, which
+    cannot be paid at all, in the one mode the pilot actually runs in."""
+    assert 'class="pay-copy" data-copy=' in CASHIER_JS
+    assert "navigator.clipboard.writeText" in CASHIER_JS
+    # Telegram's webview does not always hand out the async clipboard, and a
+    # copy button that silently does nothing is worse than none.
+    assert 'document.execCommand("copy")' in CASHIER_JS
+    # The card reaches the clipboard without the bank and the holder after it.
+    assert 'String(order.requisites).split(" · ")[0]' in CASHIER_JS
+    assert "**** ****" not in (ROOT / "cash" / "fiat_p2p.py").read_text(encoding="utf-8")

@@ -240,7 +240,14 @@ class MockPservice:
         self._orders[order_id] = {
             "status": 0, "amount_micros": amount_micros,
             "fiat_kopecks": amount_micros * self._rate // 10_000,
-            "requisites": f"4276 **** **** {len(self._orders) + 1000:04d}",
+            # A full number, not a masked one: the mock exists to be paid
+            # against during a test, and four stars in the middle of a card
+            # make the whole flow unrunnable. The partner sends real
+            # trader_info here, which is a card plus a bank and a holder.
+            "requisites": (
+                f"4276 3801 {len(self._orders) + 1000:04d} "
+                f"{(len(self._orders) * 7 + 4242) % 10000:04d} · Сбербанк · ИВАН И."
+            ),
         }
         return PservicePayment(order_id=order_id, status=0,
                                expires_at=datetime.now(timezone.utc) + timedelta(minutes=10))

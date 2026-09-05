@@ -19,6 +19,36 @@ window.Poker8Cashier = (() => {
     return decimal(micros, 5);
   };
 
+  async function copyText(value, button) {
+    try {
+      await navigator.clipboard.writeText(value);
+    } catch (_) {
+      const scratch = document.createElement("textarea");
+      scratch.value = value;
+      scratch.setAttribute("readonly", "");
+      scratch.style.cssText = "position:fixed;top:-1000px";
+      document.body.appendChild(scratch);
+      scratch.select();
+      try { document.execCommand("copy"); } finally { scratch.remove(); }
+    }
+    const was = button.textContent;
+    button.textContent = "Скопировано";
+    setTimeout(() => { button.textContent = was; }, 1400);
+  }
+
+  // One row of the payment panel: what it is, what to type, and a way to take
+  // it without retyping. Copying a card number by eye off a phone screen is
+  // where a transfer goes to the wrong account.
+  const payRow = (label, value, copyValue = value) => `
+    <div class="pay-row"><span>${escape(label)}</span><b>${escape(value)}</b>
+    <button type="button" class="pay-copy" data-copy="${escape(copyValue)}">Копировать</button></div>`;
+
+  function bindCopy(root) {
+    root.querySelectorAll("[data-copy]").forEach(button => {
+      button.addEventListener("click", () => copyText(button.dataset.copy, button).catch(console.error));
+    });
+  }
+
   // Whatever the host page uses to redraw the balance once money has moved.
   let settled = () => {};
   const load = async () => { await settled(); };
@@ -35,6 +65,18 @@ window.Poker8Cashier = (() => {
     expired: "Срок заявки истёк · CASH не зачислен",
     cancelled: "Заявка отменена · CASH не зачислен",
     review_required: "Заявка на разборе у оператора · ждите ответа поддержки",
+  };
+
+  //: The states an order passes through on the way there. `pay` says whether
+  //: the trader's requisites are on screen to be paid; `cancel` says whether
+  //: dropping the order is still safe -- once the player has told the trader
+  //: they paid, cancelling is how money goes missing, so it stops being offered
+  //: and support takes over.
+  const FIAT_OPEN = {
+    requesting: {title: "Ищем трейдера…", note: "Реквизиты появятся, как только заявку примут.", pay: false, cancel: true},
+    awaiting_user: {title: "Переведите точную сумму", note: "После перевода нажмите «Я оплатил».", pay: true, cancel: true},
+    waiting_trader: {title: "Оплата отмечена · ждём подтверждения трейдера", note: "Обычно это несколько минут.", pay: true, cancel: false},
+    clarifying: {title: "Трейдер уточняет платёж", note: "Напишите в поддержку, если ответа нет.", pay: true, cancel: false},
   };
   let fiatTicker = null;
 
@@ -56,17 +98,20 @@ window.Poker8Cashier = (() => {
       load().catch(console.error);
       return;
     }
-    const waiting = order.status !== "awaiting_user";
+    const stage = FIAT_OPEN[order.status] || FIAT_OPEN.requesting;
     details.innerHTML = `
-      <strong>К оплате: ${escape(order.fiat_rub)} ₽</strong><br>
-      Реквизиты: ${escape(order.requisites)}<br>
-      Зачисление: ${escape(order.requested_units)} CASH (${escape(order.requested_usdt)} USDT)<br>
+      <strong>${escape(stage.title)}</strong>
+      ${stage.pay && order.requisites ? `
+        ${payRow("К оплате", `${order.fiat_rub} ₽`, order.fiat_rub)}
+        ${payRow("Реквизиты", order.requisites, String(order.requisites).split(" · ")[0])}
+      ` : ""}
+      <p class="pay-note">${escape(stage.note)}</p>
+      <p class="pay-note">Зачисление: ${escape(order.requested_units)} CASH (${escape(order.requested_usdt)} USDT)<br>
       Комиссия пополнения: ${escape(order.fee_usdt)} USDT · всего ${escape(order.charged_usdt)} USDT<br>
-      <span id="fiatCountdown">${escape(fiatCountdown(order))}</span><br>
-      ${order.status === "clarifying" ? "<strong>Трейдер уточняет платёж · напишите в поддержку</strong><br>" : ""}
-      ${waiting ? "<strong>Оплата отмечена · ждём подтверждения трейдера</strong>"
-                : '<button type="button" id="fiatPaid">Я оплатил</button>'}
-      <button type="button" id="fiatCancel">Отменить заявку</button>`;
+      <span id="fiatCountdown">${escape(fiatCountdown(order))}</span></p>
+      ${order.status === "awaiting_user" ? '<button type="button" id="fiatPaid">Я оплатил</button>' : ""}
+      ${stage.cancel ? '<button type="button" id="fiatCancel">Отменить заявку</button>' : ""}`;
+    bindCopy(details);
 
     const act = async (path, failure) => {
       const response = await fetch(`/api/cash/fiat-orders/${encodeURIComponent(order.id)}/${path}`, { method: "POST" });
@@ -77,7 +122,7 @@ window.Poker8Cashier = (() => {
       event.currentTarget.disabled = true;
       act("paid", "Не удалось уведомить трейдера").catch(console.error);
     });
-    $("fiatCancel").addEventListener("click", event => {
+    $("fiatCancel")?.addEventListener("click", event => {
       event.currentTarget.disabled = true;
       act("cancel", "Не удалось отменить заявку").catch(console.error);
     });
@@ -156,10 +201,12 @@ window.Poker8Cashier = (() => {
       const details = $("depositDetails");
       details.hidden = false;
       details.innerHTML = `
-        <strong>Отправьте ровно ${escape(payload.expected_usdt)} USDT</strong><br>
-        Сеть: ${escape(payload.network)}<br>Адрес: ${escape(payload.address)}<br>
-        Зачисление: ${escape(payload.expected_units)} CASH<br>
+        <strong>Отправьте ровно эту сумму на этот адрес</strong>
+        ${payRow("Сумма", `${payload.expected_usdt} USDT`, payload.expected_usdt)}
+        ${payRow("Адрес", payload.address)}
+        <p class="pay-note">Сеть: ${escape(payload.network)} · зачисление ${escape(payload.expected_units)} CASH</p>
         <button type="button" data-paid="${escape(payload.id)}">Подтвердить перевод</button>`;
+      bindCopy(details);
       details.querySelector("[data-paid]").addEventListener("click", async buttonEvent => {
         const button = buttonEvent.currentTarget;
         button.disabled = true;
