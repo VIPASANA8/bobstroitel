@@ -13,6 +13,7 @@ from app.dependencies import AuthenticatedUser, get_current_user
 from online import missions as missions_module
 from online.achievements import ACHIEVEMENTS
 from online.catalogue import PLAY
+from online.faucet import refill_if_broke
 from online.progression import (
     MIN_SESSION_HANDS,
     level_for_xp,
@@ -75,6 +76,11 @@ async def _profile(request: Request, user: AuthenticatedUser) -> dict[str, objec
             )
         ).scalar_one_or_none() or 0
     level = level_for_xp(xp)
+    # Read last, and through the faucet: a player who cannot afford a seat
+    # anywhere is put back in the game before being told what they have.
+    available_units, refill_at = await refill_if_broke(
+        request.app.state.session_factory, request.app.state.ledger, user.user_id,
+    )
     return {
         "user_id": row["id"],
         "telegram_user_id": row["telegram_user_id"],
@@ -85,7 +91,10 @@ async def _profile(request: Request, user: AuthenticatedUser) -> dict[str, objec
         "level": level,
         "rank": rank_for_level(level),
         "xp_to_next_level": xp_to_next_level(xp),
-        "available_units": await request.app.state.ledger.available_units(user.user_id),
+        "available_units": available_units,
+        # Only set while they are under the floor and the faucet is shut --
+        # the one moment the client has something to tell them.
+        "play_refill_at": refill_at.isoformat() if refill_at else None,
         "active_table_stack_units": sum(stack_units),
         "active_table_id": active_table_id,
     }

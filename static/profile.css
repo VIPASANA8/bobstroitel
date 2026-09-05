@@ -13,8 +13,7 @@
 .profile-back:hover{color:var(--ink)!important}
 .profile-back>span{font-size:21px}
 .profile-brand{display:flex;align-items:center;font:700 18px/1 'Unbounded',sans-serif;letter-spacing:-1px}
-.profile-brand>span{color:var(--accent)}
-.profile-brand>i{font:20px/1 Georgia,serif;margin-left:9px;color:var(--accent)}
+.profile-brand>i{font:18px/1 Georgia,serif;margin-left:3px;color:var(--accent)}
 .profile-hero{position:relative;display:grid;grid-template-columns:minmax(0,1fr) 280px;column-gap:48px;padding:30px 32px;background:radial-gradient(ellipse at 0 0,#24202f,transparent 65%),var(--panel);border:1px solid #3a3445;border-radius:20px;overflow:hidden}
 .player-identity{display:flex;align-items:center;gap:20px;min-width:0}
 .player-avatar{width:82px;height:90px;flex:none;display:grid;place-content:center;position:relative;transform:rotate(-5deg);border:1px solid #776390;border-radius:17px;background:linear-gradient(145deg,#41324f,#231d30);box-shadow:5px 5px 0 #29232f;font-weight:800;font-size:26px;color:#e2d1fd}

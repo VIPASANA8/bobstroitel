@@ -17,12 +17,12 @@
   <div class="profile-shell">
     <header class="profile-header">
       <a class="profile-back" href="/" aria-label="Вернуться в лобби"><span aria-hidden="true">←</span> В лобби</a>
-      <a class="profile-brand" href="/" aria-label="Poker8, лобби">poker<span>8</span><i aria-hidden="true">♠</i></a>
+      <a class="profile-brand" href="/" aria-label="Poker8, лобби">poker<i aria-hidden="true">♠</i></a>
     </header>
     <main id="profileMain">
       <nav class="profile-modes lobby-modes" role="tablist" aria-label="Разделы профиля" hidden>
-        <button id="playModeTab" class="mode-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="playSection">Профиль</button>
         <button id="cashModeTab" class="mode-tab" type="button" role="tab" aria-selected="false" aria-controls="cashSection" tabindex="-1" hidden>CASH-касса <small>$$$</small></button>
+        <button id="playModeTab" class="mode-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="playSection">Профиль</button>
       </nav>
 
       <div id="playSection" role="tabpanel" aria-labelledby="playModeTab" tabindex="0">
@@ -40,7 +40,7 @@
           <p class="profile-lifetime"><span><b id="hands">—</b> <span id="handsLabel">раздач</span></span><span><b id="wins">—</b> <span id="winsLabel">побед</span></span><span>за всё время</span></p>
         </div>
         <aside id="topup" class="profile-wallet" aria-label="Игровой баланс">
-          <span class="profile-kicker">ДОСТУПНО ФИШЕК</span>
+          <span class="profile-kicker">ТРЕНИРОВОЧНЫЕ ФИШКИ</span>
           <strong id="walletBalance">—</strong>
           <p class="wallet-table"><span>За столом</span><b id="tableStack">—</b></p>
           <a id="returnToTable" class="return-link" href="/table" hidden>Продолжить игру <span aria-hidden="true">↗</span></a>

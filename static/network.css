@@ -21,7 +21,7 @@ button,input,select,textarea{font:inherit}small{font-size:12px}body{font-size:15
    that job now, so both stay short verbs/nouns rather than sentences. */
 .lobby-control{grid-template-columns:1fr}
 .lobby-ctas{grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;gap:10px}
-.lobby-ctas #activeSession{grid-column:1/-1}
+.lobby-ctas #activeSession,.lobby-ctas #sessionReport{grid-column:1/-1}
 .entry-action{display:flex;align-items:center;justify-content:center;gap:10px;min-height:52px;padding:12px 14px;border-radius:14px;cursor:pointer;font:inherit;transition:transform .16s,filter .16s}
 .entry-action:hover{transform:translateY(-1px);filter:brightness(1.05)}
 .entry-action:active{transform:translateY(0)}
@@ -125,5 +125,6 @@ button,input,select,textarea{font:inherit}small{font-size:12px}body{font-size:15
 .report-grid-4:has(#reportDailyCell:not([hidden])){grid-template-columns:repeat(4,1fr)}
 .report-grid span{display:block;color:var(--muted);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
 .report-grid strong{display:block;margin-top:3px;font-size:16px}
+@media(max-width:620px){.report-grid,.report-grid-4:has(#reportDailyCell:not([hidden])){grid-template-columns:repeat(2,1fr)}}
 .report-grid .up{color:var(--mint)}
 .report-grid .down{color:var(--orange)}

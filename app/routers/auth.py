@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from fastapi.responses import JSONResponse
 
 from online.auth import AuthenticationError
+from online.faucet import WELCOME_UNITS, refill_if_broke
 from online.ratelimit import WindowLimiter, caller
 
 
@@ -80,8 +81,12 @@ def _set_session_cookie(response: JSONResponse, request: Request, token: str) ->
 async def _finish_login(request: Request, result):
     ledger = request.app.state.ledger
     await ledger.ensure_user_wallet(result.user_id)
-    await ledger.grant(result.user_id, 100_000, f"welcome:{result.user_id}")
-    available_units = await ledger.available_units(result.user_id)
+    await ledger.grant(result.user_id, WELCOME_UNITS, f"welcome:{result.user_id}")
+    # Opening the app is the moment a refill is worth anything, and the lobby
+    # reads its balance from this response rather than from /api/profile.
+    available_units, _ = await refill_if_broke(
+        request.app.state.session_factory, ledger, result.user_id,
+    )
     response = JSONResponse(_public_auth(result, available_units))
     _set_session_cookie(response, request, result.token)
     return response

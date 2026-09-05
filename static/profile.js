@@ -73,6 +73,7 @@
     $('handsLabel').textContent = noun(profile.hands_played, 'раздача', 'раздачи', 'раздач');
     $('winsLabel').textContent = noun(profile.wins, 'победа', 'победы', 'побед');
     $('walletBalance').textContent = units(profile.available_units);
+    refillAt = profile.play_refill_at || null;
     $('tableStack').textContent = units(profile.active_table_stack_units);
     const left = profile.xp_to_next_level;
     $('levelProgress').textContent = left == null ? 'Максимальный уровень' : `Ещё ${number(left)} XP до ${profile.level + 1} уровня`;
@@ -241,13 +242,18 @@
     $('showLedger').hidden = rows.length <= 5;
   }
 
+  // Set from the profile payload; only ever non-null while the player is out
+  // of chips and the faucet is still shut.
+  let refillAt = null;
   let topupEnabled = false;
   let toppingUp = false;
   function renderTopUp(enabled) {
     topupEnabled = enabled;
     $('topupDetails').hidden = !enabled;
     $('topupForm').querySelectorAll('input, button').forEach(control => { control.disabled = !enabled; });
-    $('topupNote').textContent = enabled ? 'Только виртуальные фишки.' : 'Пополнение пока недоступно.';
+    $('topupNote').textContent = enabled ? 'Только виртуальные фишки.'
+      : refillAt ? `Фишки закончились. Новые — ${dateText(refillAt)}.`
+      : 'Пополнение пока недоступно.';
     if (enabled && location.hash === '#topup') $('topupDetails').open = true;
   }
 
@@ -333,10 +339,10 @@
     window.Poker8Cashier.mount({
       onSettled: () => json('/api/cash/wallet').then(renderCashWallet).catch(console.error),
     });
+    // The money is what the profile opens on, here and from the lobby's
+    // "Открыть CASH-кассу" alike. Profile stays one tap to the right.
+    document.querySelector('.profile-modes').selectTab($('cashModeTab'));
     await loadBlock('/api/profile/hands?limit=20&asset=CASH_USDT', 'cashHandHistory', renderCashHistory, 'Не удалось загрузить историю CASH.');
-    // The lobby's "Открыть CASH-кассу" lands here; open the half of the page
-    // the player actually asked for.
-    if (location.hash === '#cash') document.querySelector('.profile-modes').selectTab($('cashModeTab'));
   }
 
   async function load() {
