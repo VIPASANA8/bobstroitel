@@ -102,3 +102,8 @@
 .pay-copy:hover{border-color:var(--accent)}
 .pay-note{margin:10px 0 0;color:var(--muted);font-size:11px;line-height:1.5}
 .payment-details>button{width:100%;margin-top:9px}
+
+/* The code carries its own white ground and quiet zone -- a scanner needs
+   both, and the panel around it is nearly black. */
+.pay-qr{width:168px;height:168px;margin:12px auto 0;padding:8px;border-radius:12px;background:#fff}
+.pay-qr svg{display:block}

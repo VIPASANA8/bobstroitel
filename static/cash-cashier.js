@@ -200,8 +200,13 @@ window.Poker8Cashier = (() => {
       if (!response.ok) return alert(payload.detail || "Не удалось создать заявку");
       const details = $("depositDetails");
       details.hidden = false;
+      // Scanning beats copying on a phone, where the wallet is the app the
+      // player is about to switch to anyway. Null when the address somehow
+      // will not fit a code, and then the rows below still carry it.
+      const code = window.Poker8QR?.svg(payload.address, {label: "QR-код адреса пополнения"});
       details.innerHTML = `
         <strong>Отправьте ровно эту сумму на этот адрес</strong>
+        ${code ? `<div class="pay-qr">${code}</div>` : ""}
         ${payRow("Сумма", `${payload.expected_usdt} USDT`, payload.expected_usdt)}
         ${payRow("Адрес", payload.address)}
         <p class="pay-note">Сеть: ${escape(payload.network)} · зачисление ${escape(payload.expected_units)} CASH</p>

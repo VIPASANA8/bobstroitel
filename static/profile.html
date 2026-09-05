@@ -144,6 +144,7 @@
   <dialog id="withdrawDialog" class="buyin-dialog cash-dialog"><form method="dialog" id="withdrawForm"><button class="dialog-close" type="button" aria-label="Закрыть">×</button><p class="eyebrow">C2C · TRC20</p><h2>Вывод</h2><label for="withdrawUsdt">Сумма, USDT</label><input id="withdrawUsdt" type="text" inputmode="decimal" required value="10" pattern="[0-9]+([.][0-9]{1,6})?" /><label for="withdrawAddress">Адрес TRC20</label><input id="withdrawAddress" type="text" maxlength="128" required placeholder="T..." /><p class="cash-conversion"><strong id="withdrawCash">100</strong> единиц CASH</p><button class="primary-action" value="default" type="submit">Создать вывод <strong>→</strong></button><section id="withdrawDetails" class="payment-details" hidden></section></form></dialog>
 
   <script src="/static/auth-client.js?v=cash-pilot-2"></script>
+  <script src="/static/qr.js?v=cash-pilot-2"></script>
   <script src="/static/cash-cashier.js?v=cash-pilot-2"></script>
   <script src="/static/profile.js?v=cash-pilot-2"></script>
 </body>
