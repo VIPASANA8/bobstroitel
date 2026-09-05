@@ -65,3 +65,31 @@
 .pay-currency small{font-size:12px;font-weight:800;color:var(--ink)}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .pay-method{padding:16px 8px}
+
+/* On a phone the cashier's dialogs are bottom sheets: they slide up from the
+   bottom edge and stay pinned to it, which is where a thumb is and where the
+   keyboard pushes from. showModal() centres a <dialog> through UA styles, so
+   pinning it takes top:auto and margin:0 as well as bottom:0.
+
+   Desktop keeps the centred dialog it always had -- there the sheet would be
+   a full-width band across a wide screen, and the method step it belongs to
+   does not exist there at all. */
+@media (max-width:640px){
+  .cash-dialog{
+    position:fixed;left:0;right:0;bottom:0;top:auto;margin:0;
+    width:100%;max-width:none;max-height:88vh;overflow-y:auto;
+    border-radius:20px 20px 0 0;border-bottom:0;
+    padding:22px 18px calc(20px + env(safe-area-inset-bottom,0px));
+    animation:cash-sheet-up .26s cubic-bezier(.22,.68,.24,1) both;
+  }
+  /* The grab handle every sheet has, so it reads as one before it moves. */
+  .cash-dialog form::before{
+    content:"";display:block;width:38px;height:4px;margin:-8px auto 14px;
+    border-radius:99px;background:var(--line);
+  }
+  .cash-dialog .dialog-close{top:12px;right:14px}
+  @keyframes cash-sheet-up{from{transform:translateY(100%)}to{transform:translateY(0)}}
+}
+@media (max-width:640px) and (prefers-reduced-motion:reduce){
+  .cash-dialog{animation:none}
+}

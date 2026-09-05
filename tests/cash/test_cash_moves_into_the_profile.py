@@ -26,6 +26,7 @@ PROFILE = (ROOT / "static" / "profile.html").read_text(encoding="utf-8")
 PROFILE_JS = (ROOT / "static" / "profile.js").read_text(encoding="utf-8")
 AUTH_JS = (ROOT / "static" / "auth-client.js").read_text(encoding="utf-8")
 CASH_CSS = (ROOT / "static" / "cash-ui.css").read_text(encoding="utf-8")
+CASHIER_JS = (ROOT / "static" / "cash-cashier.js").read_text(encoding="utf-8")
 
 
 def test_a_stale_telegram_launch_falls_back_to_the_session_cookie():
@@ -53,6 +54,23 @@ def test_the_profile_separates_the_money_from_the_game():
     # ...and the practice history stays out of it.
     assert 'id="handHistory"' not in cash_half
     assert 'id="ledger"' not in cash_half
+
+
+def test_the_deposit_sheet_belongs_to_the_phone_and_only_the_phone():
+    """CASE8's flow -- pick a rail, then an amount -- is a phone shape: the
+    dialog slides up from the bottom edge and stays pinned to it, where the
+    thumb is. On a desktop that same rule is a full-width band across a wide
+    screen, and the method step does not exist there at all: both rails are
+    buttons, each opening its own dialog, centred as they always were."""
+    query = "@media (max-width:640px){"
+    sheet = CASH_CSS[CASH_CSS.index(query):]
+    assert "bottom:0" in sheet and "translateY(100%)" in sheet
+    # Nothing pins a dialog to the bottom edge outside that query.
+    assert "translateY(100%)" not in CASH_CSS.replace(sheet, "")
+    # Desktop keeps the pair of buttons and never reaches the chooser.
+    assert 'id="cashFiatDeposit"' in PROFILE
+    assert 'window.matchMedia("(max-width: 640px)")' in CASHIER_JS
+    assert 'phone.matches ? "depositMethodDialog" : "depositDialog"' in CASHIER_JS
 
 
 def test_each_tablist_moves_only_its_own_panels():

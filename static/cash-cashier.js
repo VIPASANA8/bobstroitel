@@ -112,9 +112,26 @@ window.Poker8Cashier = (() => {
     bindConversion("depositUsdt", "depositCash");
     bindConversion("fiatDepositUsdt", "fiatDepositCash");
     bindConversion("withdrawUsdt", "withdrawCash");
-    // "Пополнить" asks how before it asks how much: the rail is a detail of
-    // paying, not a decision to make on the wallet screen.
-    $("cashDeposit").addEventListener("click", () => $("depositMethodDialog").showModal());
+    // Two flows, one per screen. On a phone the rail is a step of its own --
+    // one "Пополнить" opens a sheet that asks how, the way CASE8 does it,
+    // because two buttons of equal weight is a decision nobody wants to make
+    // on a wallet screen. On a desktop there is room to just show both, and
+    // an extra modal in the way is only an extra click.
+    const phone = window.matchMedia("(max-width: 640px)");
+    const syncDepositFlow = () => {
+      $("cashDeposit").textContent = phone.matches ? "Пополнить" : "Пополнить TRC20";
+      $("cashFiatDeposit").hidden = phone.matches;
+      // A sheet left open across a resize would be a centred dialog pinned to
+      // the bottom edge, or the reverse.
+      if ($("depositMethodDialog").open && !phone.matches) $("depositMethodDialog").close("cancel");
+    };
+    syncDepositFlow();
+    phone.addEventListener("change", syncDepositFlow);
+
+    $("cashDeposit").addEventListener("click", () => {
+      $(phone.matches ? "depositMethodDialog" : "depositDialog").showModal();
+    });
+    $("cashFiatDeposit").addEventListener("click", () => $("fiatDepositDialog").showModal());
     $("depositMethodForm").addEventListener("click", event => {
       const chosen = event.target.closest("[data-method]");
       if (!chosen) return;
