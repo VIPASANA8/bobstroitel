@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Manrope:wght@400;600;700;800&display=swap" />
-  <link rel="stylesheet" href="/static/network.css?v=cash-pilot-1" />
-  <link rel="stylesheet" href="/static/cash-ui.css?v=cash-pilot-1" />
+  <link rel="stylesheet" href="/static/network.css?v=cash-pilot-2" />
+  <link rel="stylesheet" href="/static/cash-ui.css?v=cash-pilot-2" />
 </head>
 <body>
   <a class="skip-link" href="#tableGrid">К столам</a>
@@ -23,17 +23,15 @@
 
     <main>
       <nav class="lobby-modes" aria-label="Режим игры">
-        <button class="mode-tab is-active" type="button" data-asset="PLAY" aria-selected="true">Тренировочные</button>
         <button class="mode-tab" type="button" data-asset="CASH_USDT" aria-selected="false">REAL CASH <small>TEST</small></button>
+        <button class="mode-tab is-active" type="button" data-asset="PLAY" aria-selected="true">Тренировочные</button>
       </nav>
       <section id="cashPilot" class="cash-pilot" hidden aria-live="polite">
         <div class="cash-warning"><strong>ТЕСТ — средства ненастоящие</strong><span>Изолированный C2C-пилот · USDT TRC20 mock · без внешних переводов</span></div>
-        <div class="cash-wallet-grid">
+        <div class="cash-wallet-grid cash-wallet-solo">
           <div><span>Доступно</span><strong id="cashAvailable">—</strong><small id="cashAvailableUsdt">— USDT</small></div>
-          <div><span>За столами</span><strong id="cashEscrow">—</strong><small id="cashEscrowUsdt">— USDT</small></div>
-          <div><span>Ожидает вывода</span><strong id="cashWithdrawal">—</strong><small id="cashWithdrawalUsdt">— USDT</small></div>
         </div>
-        <div class="cash-actions"><button id="cashDeposit" type="button">Пополнить TRC20</button><button id="cashFiatDeposit" type="button">Пополнить ₽ P2P</button><button id="cashWithdraw" type="button">Вывести mock USDT</button></div>
+        <div class="cash-actions"><a class="cash-cashier" href="/static/profile.html#cash">Открыть CASH-кассу <span aria-hidden="true">↗</span></a></div>
         <p class="cash-rate">1 USDT = 10 единиц CASH · комиссия пилота: 0 USDT</p>
       </section>
       <section class="lobby-control" aria-label="Начать игру">
@@ -85,11 +83,8 @@
 
   <dialog id="buyInDialog" class="buyin-dialog"><form method="dialog" id="buyInForm"><button class="dialog-close" type="button" aria-label="Закрыть">×</button><p class="eyebrow">ПОСАДКА ЗА СТОЛ</p><h2>Выберите бай-ин</h2><p id="buyInTable" class="dialog-muted"></p><label for="buyInUnits">Фишки</label><input id="buyInUnits" type="number" required /><p class="dialog-hint">Лимиты стола · виртуальный баланс</p><button id="confirmReady" class="primary-action" value="default" type="submit">Встать в очередь <strong>→</strong></button></form></dialog>
   <dialog id="roomDialog" class="buyin-dialog"><form method="dialog" id="roomForm"><button class="dialog-close" type="button" aria-label="Закрыть">×</button><p class="eyebrow">СВОЯ КОМНАТА</p><h2>Создать комнату</h2><label for="roomName">Название</label><input id="roomName" type="text" maxlength="40" required placeholder="Вечерний стол" /><label for="roomLevel">Ставки</label><select id="roomLevel"></select><label for="roomPassword">Пароль (необязательно)</label><input id="roomPassword" type="password" minlength="4" maxlength="32" autocomplete="new-password" placeholder="Оставьте пустым — комната открыта всем" /><p class="dialog-hint">Стол на шесть мест · закроется через 1,5 минуты без игроков</p><button id="confirmRoom" class="primary-action" value="default" type="submit">Создать <strong>→</strong></button></form></dialog>
-  <dialog id="depositDialog" class="buyin-dialog cash-dialog"><form method="dialog" id="depositForm"><button class="dialog-close" type="button" aria-label="Закрыть">×</button><p class="eyebrow">C2C · TRC20 MOCK</p><h2>Пополнение</h2><label for="depositUsdt">Сумма, USDT</label><input id="depositUsdt" type="text" inputmode="decimal" required value="10" pattern="[0-9]+([.][0-9]{1,6})?" /><p class="cash-conversion"><strong id="depositCash">100</strong> единиц CASH · комиссия 0 USDT</p><button class="primary-action" value="default" type="submit">Создать заявку <strong>→</strong></button><section id="depositDetails" class="payment-details" hidden></section></form></dialog>
-  <dialog id="fiatDepositDialog" class="buyin-dialog cash-dialog"><form method="dialog" id="fiatDepositForm"><button class="dialog-close" type="button" aria-label="Закрыть">×</button><p class="eyebrow">P2P · RUB MOCK</p><h2>Пополнение рублями</h2><label for="fiatDepositUsdt">Сумма зачисления, USDT</label><input id="fiatDepositUsdt" type="text" inputmode="decimal" required value="20" pattern="[0-9]+([.][0-9]{1,2})?" /><p class="cash-conversion"><strong id="fiatDepositCash">200</strong> единиц CASH · 20–500 USDT · комиссия 1%</p><button class="primary-action" value="default" type="submit">Получить реквизиты <strong>→</strong></button><section id="fiatDepositDetails" class="payment-details" hidden></section></form></dialog>
-  <dialog id="withdrawDialog" class="buyin-dialog cash-dialog"><form method="dialog" id="withdrawForm"><button class="dialog-close" type="button" aria-label="Закрыть">×</button><p class="eyebrow">C2C · TRC20 MOCK</p><h2>Вывод</h2><label for="withdrawUsdt">Сумма, USDT</label><input id="withdrawUsdt" type="text" inputmode="decimal" required value="10" pattern="[0-9]+([.][0-9]{1,6})?" /><label for="withdrawAddress">Адрес TRC20</label><input id="withdrawAddress" type="text" maxlength="128" required placeholder="T..." /><p class="cash-conversion"><strong id="withdrawCash">100</strong> единиц CASH · комиссия 0 USDT</p><button class="primary-action" value="default" type="submit">Создать вывод <strong>→</strong></button><section id="withdrawDetails" class="payment-details" hidden></section></form></dialog>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="/static/auth-client.js?v=cash-pilot-1"></script><script src="/static/table-guide.js?v=cash-pilot-1"></script>
-  <script src="/static/lobby.js?v=cash-pilot-1"></script>
+  <script src="/static/auth-client.js?v=cash-pilot-2"></script><script src="/static/table-guide.js?v=cash-pilot-2"></script>
+  <script src="/static/lobby.js?v=cash-pilot-2"></script>
 </body>
 </html>

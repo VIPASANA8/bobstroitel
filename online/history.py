@@ -7,7 +7,7 @@ from typing import Any
 from sqlalchemy import insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from online.schema import hand_players, hands, system_players, users
+from online.schema import hand_players, hands, poker_tables, system_players, users
 
 
 LEVEL_THRESHOLDS = (0, 10, 50, 100, 200, 500)
@@ -110,14 +110,24 @@ class HistoryService:
             level=self.level_for(row["wins"]),
         )
 
-    async def last_hands(self, user_id: str, limit: int = 20) -> list[dict[str, Any]]:
+    async def last_hands(
+        self, user_id: str, limit: int = 20, asset: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Practice hands and cash hands are separate histories -- the money
+        they are counted in is not the same money. `asset` picks one; without
+        it the caller gets both, as before."""
         async with self.session_factory() as session:
+            query = (
+                select(hand_players.c.hand_id, hands.c.completed_at, hands.c.started_at)
+                .join(hands, hands.c.id == hand_players.c.hand_id)
+                .join(poker_tables, poker_tables.c.id == hands.c.table_id)
+                .where(hand_players.c.user_id == user_id)
+            )
+            if asset is not None:
+                query = query.where(poker_tables.c.asset == asset)
             hand_ids = (
                 await session.execute(
-                    select(hand_players.c.hand_id, hands.c.completed_at, hands.c.started_at)
-                    .join(hands, hands.c.id == hand_players.c.hand_id)
-                    .where(hand_players.c.user_id == user_id)
-                    .order_by(hands.c.completed_at.desc(), hands.c.started_at.desc())
+                    query.order_by(hands.c.completed_at.desc(), hands.c.started_at.desc())
                     .limit(max(1, min(limit, 20)))
                 )
             ).all()
@@ -141,6 +151,7 @@ class HistoryService:
                         "participant_id": row["participant_id"],
                         "seat_no": row["seat_no"],
                         "net_units": row["net_units"],
+                        "net_micros": row["net_micros"],
                         "hole_cards": list(row["hole_cards_json"] or []) if visible else None,
                     })
                 output.append({"hand_id": hand_id, "completed_at": completed_at, "started_at": started_at, "players": players})

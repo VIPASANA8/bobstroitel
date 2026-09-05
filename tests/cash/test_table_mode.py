@@ -7,7 +7,7 @@ from fastapi.routing import APIRoute
 from sqlalchemy import insert, select
 from types import SimpleNamespace
 
-from online.catalogue import CASH_MOCK_TABLE, CASH_USDT, PLAY, Catalogue, RoomError
+from online.catalogue import CASH_MOCK_TABLE, CASH_ROOM_LEVEL, CASH_USDT, PLAY, Catalogue, RoomError
 from online.integrity import EscrowIntegrityMonitor
 from online.ledger import PlayLedger
 from online.schema import integrity_events, poker_tables, system_players, table_seats, tenants, users
@@ -152,7 +152,9 @@ async def test_play_startup_does_not_hold_cash_seats(table_services):
 
 
 @pytest.mark.anyio
-async def test_play_room_management_refuses_cash_table(table_services):
+async def test_play_room_management_looks_past_a_cash_room(table_services):
+    """A CASH room is a room, but not a PLAY one: the practice lobby must not
+    offer it, and the PLAY leave pipeline still cannot move cash escrow."""
     catalogue, seating, factory = table_services
     async with factory() as session:
         await session.execute(insert(poker_tables).values(
@@ -162,10 +164,50 @@ async def test_play_room_management_refuses_cash_table(table_services):
         ))
         await session.commit()
     assert await catalogue.own_room("u1") is None
-    with pytest.raises(RoomError, match="PLAY"):
-        await catalogue.close_room("cash-room", "u1")
+    assert (await catalogue.own_room("u1", asset=CASH_USDT)).id == "cash-room"
     with pytest.raises(CashRuntimeUnavailable):
         await seating.evict_table("cash-room")
+
+
+@pytest.mark.anyio
+async def test_a_cash_room_with_players_still_in_it_will_not_close(table_services):
+    """Closing stops the table being advanced, and the PLAY leave pipeline
+    cannot return cash escrow -- so a seated player would be locked out of
+    their own stack."""
+    catalogue, _, factory = table_services
+    room = await catalogue.create_room("u1", "Вечерний CASH", CASH_ROOM_LEVEL, asset=CASH_USDT)
+    assert room.asset == CASH_USDT
+    async with factory() as session:
+        await session.execute(insert(table_seats).values(
+            id="cash-room-seat", table_id=room.id, seat_no=0,
+            occupant_kind="user", user_id="u1", stack_micros=1_000_000, state="seated",
+        ))
+        await session.commit()
+    with pytest.raises(RoomError, match="still has players"):
+        await catalogue.close_room(room.id, "u1")
+    assert [table_id for table_id, _ in await catalogue.idle_room_ids()] == []
+
+    async with factory() as session:
+        await session.execute(table_seats.delete().where(table_seats.c.id == "cash-room-seat"))
+        await session.commit()
+    assert await catalogue.idle_room_ids() == [(room.id, CASH_USDT)]
+    await catalogue.close_room(room.id, "u1")
+    assert await catalogue.own_room("u1", asset=CASH_USDT) is None
+
+
+@pytest.mark.anyio
+async def test_a_cash_room_is_the_pilot_table_under_another_name(table_services):
+    """One set of blinds, one chip size, one rake -- the only parameters the
+    escrow and the rake are proved against."""
+    catalogue, _, _ = table_services
+    room = await catalogue.create_room("u1", "Мой CASH", CASH_ROOM_LEVEL, asset=CASH_USDT)
+    money = {key: value for key, value in CASH_MOCK_TABLE.items() if key.endswith("_micros")}
+    payload = room.public_dict()
+    assert payload["small_blind_micros"] == money["small_blind_micros"]
+    assert payload["big_blind_micros"] == money["big_blind_micros"]
+    assert payload["chip_micros"] == money["chip_micros"]
+    with pytest.raises(RoomError, match="blind level"):
+        await catalogue.create_room("u1", "Не тот уровень", "micro", asset=CASH_USDT)
 
 
 @pytest.mark.anyio

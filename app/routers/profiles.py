@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from datetime import datetime, timezone
@@ -107,9 +109,12 @@ async def play_journal(
 async def hand_history(
     request: Request,
     limit: int = Query(20, ge=1, le=20),
+    asset: Literal["PLAY", "CASH_USDT"] | None = None,
     user: AuthenticatedUser = Depends(get_current_user),
 ):
-    return {"hands": await request.app.state.history.last_hands(user.user_id, limit=limit)}
+    return {"hands": await request.app.state.history.last_hands(
+        user.user_id, limit=limit, asset=asset,
+    )}
 
 
 @router.post("/play-top-up")

@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import delete, select
 
-from online.catalogue import Catalogue
+from online.catalogue import PLAY, Catalogue
 from online.integrity import EscrowIntegrityMonitor
 from online.runtime import TableRuntimeManager, bot_think_delay
 from online.schema import game_commands, integrity_events
@@ -187,17 +187,20 @@ class OnlineCoordinator:
         emptied first -- a closed table stops being advanced, so anything left
         seated would keep its chips locked in the table's escrow.
         """
-        idle_now = set(await self.catalogue.idle_room_ids())
+        idle_now = dict(await self.catalogue.idle_room_ids())
         for table_id in list(self._room_idle_since):
             if table_id not in idle_now:
                 self._room_idle_since.pop(table_id, None)
         now = self.now()
-        for table_id in idle_now:
+        for table_id, asset in idle_now.items():
             since = self._room_idle_since.setdefault(table_id, now)
             if now - since < ROOM_IDLE_TTL:
                 continue
             self._room_idle_since.pop(table_id, None)
-            await self.seating.evict_table(table_id)
+            # Idle means no human is seated, so a CASH room has no escrow to
+            # move -- and the PLAY leave pipeline could not move it anyway.
+            if asset == PLAY:
+                await self.seating.evict_table(table_id)
             await self.catalogue.close_room(table_id)
             logger.info("poker8_room_retired", extra={"table_id": table_id})
 

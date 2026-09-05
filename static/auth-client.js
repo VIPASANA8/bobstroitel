@@ -45,12 +45,24 @@ window.Poker8Auth = (() => {
         method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({init_data:initData}),
       });
       if (!response.ok) {
-        // Carry the server's reason. A rejected signature and an unreachable
-        // server look identical on screen otherwise, and that is exactly how a
-        // bot token pointing at the wrong bot stayed invisible: every player
-        // saw "profile did not load" while the server was answering 401 all
-        // along.
+        // initData is captured once, when Telegram opens the Mini App, and it
+        // is never refreshed -- the server stops accepting it after fifteen
+        // minutes. Every page move after that (lobby to profile and back, or
+        // switching game mode) re-posted the same stale blob, was told
+        // "expired", and the lobby printed "войдите через Telegram" at a
+        // player who had never left Telegram. The session cookie set at the
+        // first login is good for a week, so ask who it belongs to, and take
+        // it only when that is the same person Telegram says is looking.
+        //
+        // A bot token pointing at the wrong bot still fails loudly, which is
+        // the whole reason this branch carries the server's own reason: there
+        // is no session behind a login that never succeeded, so there is
+        // nothing here for it to fall back to.
         const detail = await response.json().then(body => body.detail).catch(() => null);
+        const telegramId = window.Telegram.WebApp.initDataUnsafe?.user?.id;
+        const existing = await fetch('/api/profile')
+          .then(profileResponse => profileResponse.ok ? profileResponse.json() : null).catch(() => null);
+        if (existing && telegramId && Number(existing.telegram_user_id) === Number(telegramId)) return existing;
         throw signIn(new Error(`Telegram session rejected: ${detail || response.status}`));
       }
       return response.json();

@@ -76,6 +76,10 @@ ROOM_BLIND_LEVELS = {
     "low": (100, 200),
     "mid": (500, 1000),
 }
+# A CASH room opens at the pilot's own money parameters and nothing else: the
+# escrow, rake and chip size are proved against exactly one set of blinds, so a
+# player-made table is that table under a different name.
+CASH_ROOM_LEVEL = "cash-micro"
 ROOM_NAME_MAX = 40
 # Seat count is not a room setting: every seat layout is drawn for six.
 ROOM_SEATS = 6
@@ -283,7 +287,8 @@ class Catalogue:
         return replace(chosen, join_mode="buy_in" if chosen.human_join_available else "queue")
 
     async def create_room(
-        self, user_id: str, name: str, level: str, password: str | None = None
+        self, user_id: str, name: str, level: str, password: str | None = None,
+        asset: str = PLAY,
     ) -> TableSummary:
         """Open a room for a player. One at a time, so the lobby cannot be flooded.
 
@@ -291,7 +296,9 @@ class Catalogue:
         secret URL gating the listing (see hash_room_password's docstring for
         why the old link-only rooms did not actually protect anything).
         """
-        if level not in ROOM_BLIND_LEVELS:
+        if asset not in TABLE_ASSETS:
+            raise RoomError("unknown table asset")
+        if level not in (ROOM_BLIND_LEVELS if asset == PLAY else {CASH_ROOM_LEVEL: None}):
             raise RoomError("unknown blind level")
         name = re.sub(r"\s+", " ", str(name or "")).strip()
         if not name:
@@ -302,7 +309,13 @@ class Catalogue:
         if password is not None and not (ROOM_PASSWORD_MIN <= len(password) <= ROOM_PASSWORD_MAX):
             raise RoomError(f"password must be {ROOM_PASSWORD_MIN}-{ROOM_PASSWORD_MAX} characters")
 
-        small_blind, big_blind = ROOM_BLIND_LEVELS[level]
+        if asset == CASH_USDT:
+            # Everything but the identity: same blinds, same chip, same rake as
+            # the seeded mock table.
+            money = {key: value for key, value in CASH_MOCK_TABLE.items() if key not in ("id", "name")}
+        else:
+            small_blind, big_blind = ROOM_BLIND_LEVELS[level]
+            money = {"small_blind_units": small_blind, "big_blind_units": big_blind}
         async with self.session_factory() as session:
             async with session.begin():
                 existing = (
@@ -310,6 +323,7 @@ class Catalogue:
                         select(poker_tables.c.id).where(
                             poker_tables.c.created_by == user_id,
                             poker_tables.c.status == "open",
+                            poker_tables.c.asset == asset,
                         )
                     )
                 ).scalar_one_or_none()
@@ -319,10 +333,9 @@ class Catalogue:
                 await session.execute(poker_tables.insert().values(
                     id=table_id,
                     scope="network",
-                    asset=PLAY,
+                    asset=asset,
                     name=name,
-                    small_blind_units=small_blind,
-                    big_blind_units=big_blind,
+                    **money,
                     min_buy_in_bb=40,
                     max_buy_in_bb=100,
                     max_seats=ROOM_SEATS,
@@ -335,14 +348,14 @@ class Catalogue:
             ).mappings().one()
             return await self._summary(session, row)
 
-    async def own_room(self, user_id: str) -> TableSummary | None:
+    async def own_room(self, user_id: str, asset: str = PLAY) -> TableSummary | None:
         async with self.session_factory() as session:
             row = (
                 await session.execute(
                     select(poker_tables).where(
                         poker_tables.c.created_by == user_id,
                         poker_tables.c.status == "open",
-                        poker_tables.c.asset == PLAY,
+                        poker_tables.c.asset == asset,
                     )
                 )
             ).mappings().first()
@@ -361,40 +374,49 @@ class Catalogue:
                 ).mappings().first()
                 if row is None or row["created_by"] is None:
                     raise RoomError("not a player room")
-                if row["asset"] != PLAY:
-                    raise RoomError("not a PLAY room")
                 if user_id is not None and row["created_by"] != user_id:
                     raise RoomError("not your room")
+                if row["asset"] != PLAY and (
+                    await session.execute(select(table_seats.c.id).where(
+                        table_seats.c.table_id == table_id,
+                        table_seats.c.state != "empty",
+                    ))
+                ).first():
+                    # A closed table stops being advanced and the PLAY leave
+                    # pipeline cannot move cash escrow, so anyone still seated
+                    # would be locked out of their own stack.
+                    raise RoomError("cash room still has players")
                 await session.execute(
                     update(poker_tables).where(poker_tables.c.id == table_id).values(status="closed")
                 )
 
-    async def idle_room_ids(self) -> list[str]:
-        """Open player rooms with nobody human in them right now."""
+    async def idle_room_ids(self) -> list[tuple[str, str]]:
+        """Open player rooms with nobody human in them right now, as
+        (table_id, asset) -- retiring a CASH room takes a different path to a
+        PLAY one, and the caller cannot tell them apart from the id."""
         async with self.session_factory() as session:
             rows = (
                 await session.execute(
-                    select(poker_tables.c.id).where(
+                    select(poker_tables.c.id, poker_tables.c.asset).where(
                         poker_tables.c.status == "open",
                         poker_tables.c.created_by.is_not(None),
-                        poker_tables.c.asset == PLAY,
                     )
                 )
-            ).scalars().all()
+            ).all()
             if not rows:
                 return []
             busy = set(
                 (
                     await session.execute(
                         select(table_seats.c.table_id).where(
-                            table_seats.c.table_id.in_(rows),
+                            table_seats.c.table_id.in_([row[0] for row in rows]),
                             table_seats.c.occupant_kind == "user",
                             table_seats.c.state.in_(("seated", "held", "leaving")),
                         )
                     )
                 ).scalars()
             )
-        return [table_id for table_id in rows if table_id not in busy]
+        return [(table_id, asset) for table_id, asset in rows if table_id not in busy]
 
     async def _summary(self, session: AsyncSession, row) -> TableSummary:
         seats = (

@@ -8,9 +8,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Manrope:wght@400;600;700;800&display=swap" />
-  <link rel="stylesheet" href="/static/network.css?v=cash-pilot-1" />
-  <link rel="stylesheet" href="/static/profile.css?v=cash-pilot-1" />
-  <link rel="stylesheet" href="/static/cash-ui.css?v=cash-pilot-1" />
+  <link rel="stylesheet" href="/static/network.css?v=cash-pilot-2" />
+  <link rel="stylesheet" href="/static/profile.css?v=cash-pilot-2" />
+  <link rel="stylesheet" href="/static/cash-ui.css?v=cash-pilot-2" />
 </head>
 <body class="profile-page">
   <a class="skip-link" href="#profileMain">К профилю</a>
@@ -20,6 +20,12 @@
       <a class="profile-brand" href="/" aria-label="Poker8, лобби">poker<span>8</span><i aria-hidden="true">♠</i></a>
     </header>
     <main id="profileMain">
+      <nav class="profile-modes lobby-modes" role="tablist" aria-label="Разделы профиля" hidden>
+        <button id="playModeTab" class="mode-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="playSection">Профиль</button>
+        <button id="cashModeTab" class="mode-tab" type="button" role="tab" aria-selected="false" aria-controls="cashSection" tabindex="-1" hidden>CASH-касса <small>TEST</small></button>
+      </nav>
+
+      <div id="playSection" role="tabpanel" aria-labelledby="playModeTab" tabindex="0">
       <section class="profile-hero" aria-labelledby="profileName" aria-busy="true">
         <div class="player-identity">
           <div class="player-avatar" aria-hidden="true"><span id="avatarInitials">P8</span><i>♠</i></div>
@@ -56,16 +62,6 @@
         <p id="profileError" class="profile-error" role="alert" hidden></p>
       </section>
       <div class="profile-dashboard">
-        <section id="profileCash" class="profile-section cash-profile-section" aria-labelledby="cashHeading" hidden>
-          <div class="profile-section-heading"><div><p class="profile-kicker">REAL CASH · TEST</p><h2 id="cashHeading">Баланс CASH</h2></div><span class="section-count">1 USDT = 10 CASH</span></div>
-          <p class="section-caption">ТЕСТ — средства ненастоящие · USDT TRC20 mock</p>
-          <div class="cash-wallet-grid">
-            <div><span>Доступно</span><strong id="profileCashAvailable">—</strong><small id="profileCashAvailableUsdt">—</small></div>
-            <div><span>За столами</span><strong id="profileCashEscrow">—</strong><small id="profileCashEscrowUsdt">—</small></div>
-            <div><span>Ожидает вывода</span><strong id="profileCashWithdrawal">—</strong><small id="profileCashWithdrawalUsdt">—</small></div>
-          </div>
-          <a class="return-link" href="/static/lobby.html#cash">Открыть CASH-кассу <span aria-hidden="true">↗</span></a>
-        </section>
         <section class="profile-section missions-section" aria-labelledby="missionsHeading" aria-busy="true">
           <div class="profile-section-heading"><h2 id="missionsHeading">Задания дня</h2><span id="missionsCount" class="section-count">— / 3</span></div>
           <p class="section-caption" id="missionsReset">Обновляются в 00:00 МСК</p>
@@ -99,7 +95,7 @@
           <p id="achievementsError" class="profile-error" role="status" hidden></p>
         </section>
         <section class="profile-section activity-section" aria-labelledby="activityHeading">
-          <div class="profile-section-heading"><h2 id="activityHeading">История</h2><span class="section-caption">Последние события</span></div>
+          <div class="profile-section-heading"><h2 id="activityHeading">История</h2><span class="section-caption">Тренировочные фишки</span></div>
           <div class="history-tabs" role="tablist" aria-label="Тип истории">
             <button id="handsTab" type="button" role="tab" aria-selected="true" aria-controls="handsPanel">Раздачи</button>
             <button id="ledgerTab" type="button" role="tab" aria-selected="false" aria-controls="ledgerPanel" tabindex="-1">Операции</button>
@@ -114,10 +110,41 @@
           </div>
         </section>
       </div>
+      </div>
+
+      <div id="cashSection" role="tabpanel" aria-labelledby="cashModeTab" tabindex="0" hidden>
+        <div class="profile-dashboard">
+          <section id="profileCash" class="profile-section cash-profile-section" aria-labelledby="cashHeading">
+            <div class="profile-section-heading"><div><p class="profile-kicker">REAL CASH · TEST</p><h2 id="cashHeading">CASH-касса</h2></div><span class="section-count">1 USDT = 10 CASH</span></div>
+            <p class="section-caption" id="cashCaption">ТЕСТ — средства ненастоящие · USDT TRC20 mock</p>
+            <div class="cash-wallet-grid">
+              <div><span>Доступно</span><strong id="profileCashAvailable">—</strong><small id="profileCashAvailableUsdt">—</small></div>
+              <div><span>За столами</span><strong id="profileCashEscrow">—</strong><small id="profileCashEscrowUsdt">—</small></div>
+              <div><span>Ожидает вывода</span><strong id="profileCashWithdrawal">—</strong><small id="profileCashWithdrawalUsdt">—</small></div>
+            </div>
+            <div class="cash-actions"><button id="cashDeposit" type="button">Пополнить TRC20</button><button id="cashFiatDeposit" type="button">Пополнить ₽ P2P</button><button id="cashWithdraw" type="button">Вывести mock USDT</button></div>
+            <p class="cash-rate">1 USDT = 10 единиц CASH · комиссия пилота: 0 USDT</p>
+            <a class="return-link" href="/static/lobby.html#cash">К CASH-столам <span aria-hidden="true">↗</span></a>
+          </section>
+          <section class="profile-section activity-section" aria-labelledby="cashActivityHeading">
+            <div class="profile-section-heading"><h2 id="cashActivityHeading">История CASH</h2><span class="section-caption">Раздачи за реальные столы</span></div>
+            <div id="cashHandsPanel" aria-busy="true">
+              <div id="cashHandHistory" class="history-list"><p class="profile-message">Загружаем раздачи…</p></div>
+              <button id="showCashHands" class="disclosure-button" type="button" aria-expanded="false" aria-controls="cashHandHistory" hidden>Все раздачи <span aria-hidden="true">↓</span></button>
+            </div>
+          </section>
+        </div>
+      </div>
     </main>
     <footer class="profile-footer"><span>Poker8</span><span>Игра на виртуальные фишки</span></footer>
   </div>
-  <script src="/static/auth-client.js?v=cash-pilot-1"></script>
-  <script src="/static/profile.js?v=cash-pilot-1"></script>
+
+  <dialog id="depositDialog" class="buyin-dialog cash-dialog"><form method="dialog" id="depositForm"><button class="dialog-close" type="button" aria-label="Закрыть">×</button><p class="eyebrow">C2C · TRC20 MOCK</p><h2>Пополнение</h2><label for="depositUsdt">Сумма, USDT</label><input id="depositUsdt" type="text" inputmode="decimal" required value="10" pattern="[0-9]+([.][0-9]{1,6})?" /><p class="cash-conversion"><strong id="depositCash">100</strong> единиц CASH · комиссия 0 USDT</p><button class="primary-action" value="default" type="submit">Создать заявку <strong>→</strong></button><section id="depositDetails" class="payment-details" hidden></section></form></dialog>
+  <dialog id="fiatDepositDialog" class="buyin-dialog cash-dialog"><form method="dialog" id="fiatDepositForm"><button class="dialog-close" type="button" aria-label="Закрыть">×</button><p class="eyebrow">P2P · RUB MOCK</p><h2>Пополнение рублями</h2><label for="fiatDepositUsdt">Сумма зачисления, USDT</label><input id="fiatDepositUsdt" type="text" inputmode="decimal" required value="20" pattern="[0-9]+([.][0-9]{1,2})?" /><p class="cash-conversion"><strong id="fiatDepositCash">200</strong> единиц CASH · 20–500 USDT · комиссия 1%</p><button class="primary-action" value="default" type="submit">Получить реквизиты <strong>→</strong></button><section id="fiatDepositDetails" class="payment-details" hidden></section></form></dialog>
+  <dialog id="withdrawDialog" class="buyin-dialog cash-dialog"><form method="dialog" id="withdrawForm"><button class="dialog-close" type="button" aria-label="Закрыть">×</button><p class="eyebrow">C2C · TRC20 MOCK</p><h2>Вывод</h2><label for="withdrawUsdt">Сумма, USDT</label><input id="withdrawUsdt" type="text" inputmode="decimal" required value="10" pattern="[0-9]+([.][0-9]{1,6})?" /><label for="withdrawAddress">Адрес TRC20</label><input id="withdrawAddress" type="text" maxlength="128" required placeholder="T..." /><p class="cash-conversion"><strong id="withdrawCash">100</strong> единиц CASH · комиссия 0 USDT</p><button class="primary-action" value="default" type="submit">Создать вывод <strong>→</strong></button><section id="withdrawDetails" class="payment-details" hidden></section></form></dialog>
+
+  <script src="/static/auth-client.js?v=cash-pilot-2"></script>
+  <script src="/static/cash-cashier.js?v=cash-pilot-2"></script>
+  <script src="/static/profile.js?v=cash-pilot-2"></script>
 </body>
 </html>

@@ -8,7 +8,10 @@ from sqlalchemy import func, select
 
 from app.dependencies import AuthenticatedUser, get_current_user
 from cash.access import CashAccessDenied, ensure_cash_access
-from online.catalogue import CASH_USDT, PLAY, ROOM_BLIND_LEVELS, ROOM_NAME_MAX, ROOM_PASSWORD_MAX, RoomError, RoomLimitReached
+from online.catalogue import (
+    CASH_MOCK_TABLE, CASH_ROOM_LEVEL, CASH_USDT, PLAY, ROOM_BLIND_LEVELS, ROOM_NAME_MAX,
+    ROOM_PASSWORD_MAX, RoomError, RoomLimitReached,
+)
 from online.schema import cash_accounts, poker_tables, seat_queue, table_runtimes, table_seats
 
 
@@ -141,8 +144,25 @@ async def quick_play(
 
 
 @router.get("/room-levels")
-async def room_levels(request: Request, _: AuthenticatedUser = Depends(get_current_user)):
+async def room_levels(
+    request: Request,
+    user: AuthenticatedUser = Depends(get_current_user),
+    asset: Literal["PLAY", "CASH_USDT"] = PLAY,
+):
     """Blind levels a room may be opened at. Bots are not a setting."""
+    _cash_gate(request, user, asset)
+    if asset == CASH_USDT:
+        return {
+            "enabled": True,
+            "levels": [{
+                "key": CASH_ROOM_LEVEL,
+                "small_blind_units": CASH_MOCK_TABLE["small_blind_units"],
+                "big_blind_units": CASH_MOCK_TABLE["big_blind_units"],
+                "small_blind_micros": CASH_MOCK_TABLE["small_blind_micros"],
+                "big_blind_micros": CASH_MOCK_TABLE["big_blind_micros"],
+            }],
+            "name_max": ROOM_NAME_MAX,
+        }
     return {
         "enabled": request.app.state.settings.legacy_play_rooms_enabled,
         "levels": [
@@ -158,15 +178,17 @@ async def create_room(
     payload: CreateRoomRequest,
     request: Request,
     user: AuthenticatedUser = Depends(get_current_user),
+    asset: Literal["PLAY", "CASH_USDT"] = PLAY,
 ):
-    if not request.app.state.settings.legacy_play_rooms_enabled:
+    _cash_gate(request, user, asset)
+    if asset == PLAY and not request.app.state.settings.legacy_play_rooms_enabled:
         raise HTTPException(status_code=409, detail={
             "code": "cash_runtime_pending",
             "message": "new PLAY rooms are disabled until CASH runtime is ready",
         })
     try:
         room = await request.app.state.catalogue.create_room(
-            user.user_id, payload.name, payload.level, payload.password
+            user.user_id, payload.name, payload.level, payload.password, asset=asset,
         )
     except RoomLimitReached as exc:
         # Name the room they already have, so the client can offer to open it
@@ -182,19 +204,30 @@ async def create_room(
 
 
 @router.get("/rooms/mine")
-async def my_room(request: Request, user: AuthenticatedUser = Depends(get_current_user)):
-    room = await request.app.state.catalogue.own_room(user.user_id)
+async def my_room(
+    request: Request,
+    user: AuthenticatedUser = Depends(get_current_user),
+    asset: Literal["PLAY", "CASH_USDT"] = PLAY,
+):
+    _cash_gate(request, user, asset)
+    room = await request.app.state.catalogue.own_room(user.user_id, asset=asset)
     return {"room": room.public_dict() if room else None}
 
 
 @router.post("/rooms/{table_id}/close")
-async def close_room(table_id: str, request: Request, user: AuthenticatedUser = Depends(get_current_user)):
+async def close_room(
+    table_id: str,
+    request: Request,
+    user: AuthenticatedUser = Depends(get_current_user),
+    asset: Literal["PLAY", "CASH_USDT"] = PLAY,
+):
+    _cash_gate(request, user, asset)
     # Prove ownership before touching a single seat. Eviction is not part of the
     # close transaction and cannot be rolled back, so doing it first would let
     # anyone clear any table just by naming it and swallowing the error that
     # follows. One open room per player is the invariant, so a match here is the
     # whole proof.
-    own = await request.app.state.catalogue.own_room(user.user_id)
+    own = await request.app.state.catalogue.own_room(user.user_id, asset=asset)
     if own is None or own.id != table_id:
         raise HTTPException(status_code=400, detail={
             "code": "invalid_room", "message": "not your room",
@@ -202,7 +235,10 @@ async def close_room(table_id: str, request: Request, user: AuthenticatedUser = 
     # Empty it only now: a closed table stops being advanced, so anyone still
     # seated would keep their chips locked in its escrow.
     try:
-        await request.app.state.seating.evict_table(table_id)
+        # A CASH room refuses to close while anyone is seated (its escrow is
+        # not the PLAY leave pipeline's to move), so there is nothing to evict.
+        if asset == PLAY:
+            await request.app.state.seating.evict_table(table_id)
         await request.app.state.catalogue.close_room(table_id, user.user_id)
     except RoomError as exc:
         raise HTTPException(status_code=400, detail={

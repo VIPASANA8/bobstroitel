@@ -82,8 +82,17 @@
     document.querySelector('.profile-hero').setAttribute('aria-busy', 'false');
   }
 
+  // CASH is exact money in micro-USDT; it never goes through the play-chip
+  // formatter, which divides by 100.
+  const usdt = micros => {
+    const amount = BigInt(micros || 0);
+    const sign = amount < 0n ? '-' : amount > 0n ? '+' : '';
+    const absolute = amount < 0n ? -amount : amount;
+    const tail = String(absolute % 1000000n).padStart(6, '0').replace(/0+$/, '');
+    return sign + (absolute / 1000000n) + (tail ? '.' + tail : '') + ' USDT';
+  };
+
   function renderCashWallet(wallet) {
-    $('profileCash').hidden = false;
     $('profileCashAvailable').textContent = `${wallet.available_units} CASH`;
     $('profileCashAvailableUsdt').textContent = `${wallet.available_usdt} USDT`;
     $('profileCashEscrow').textContent = `${wallet.escrow_units} CASH`;
@@ -205,6 +214,27 @@
     $('showHands').hidden = rows.length <= 5;
   }
 
+  function cashHandRow(hand) {
+    const mine = (hand.players || []).find(player => player.you);
+    const net = Number(mine?.net_micros || 0);
+    const seated = (hand.players || []).length;
+    const title = net > 0 ? 'Выигрыш' : net < 0 ? 'Проигрыш' : 'Без изменений';
+    const detail = dateText(hand.completed_at || hand.started_at) +
+      ' \u00b7 ' + seated + ' ' + noun(seated, 'игрок', 'игрока', 'игроков');
+    const outcome = net > 0 ? 'win' : net < 0 ? 'loss' : 'flat';
+    const sign = net > 0 ? '\u2197' : net < 0 ? '\u2199' : '\u2013';
+    return '<article class="history-row ' + outcome + '">' +
+      '<div class="history-what"><span class="history-sign" aria-hidden="true">' + sign + '</span>' +
+      '<div><strong>' + title + '</strong><small>' + escapeHtml(detail) + '</small></div></div>' +
+      '<span class="history-amount">' + escapeHtml(usdt(mine?.net_micros)) + '</span></article>';
+  }
+
+  function renderCashHistory(payload) {
+    const rows = (payload.hands || []).map(cashHandRow);
+    fill('cashHandHistory', rows, 'Раздач за CASH-столами пока нет.');
+    $('showCashHands').hidden = rows.length <= 5;
+  }
+
   function renderLedger(payload) {
     const rows = (payload.entries || []).map(ledgerRow);
     fill('ledger', rows, 'Операций пока нет. Здесь будут движения игровых фишек.');
@@ -253,7 +283,8 @@
     });
     $('topupForm').addEventListener('submit', event => { event.preventDefault(); topUp($('topupAmount').value); });
     for (const [buttonId, listId, label] of [
-      ['showAchievements', 'achievementList', 'Все достижения'], ['showHands', 'handHistory', 'Все раздачи'], ['showLedger', 'ledger', 'Все операции'],
+      ['showAchievements', 'achievementList', 'Все достижения'], ['showHands', 'handHistory', 'Все раздачи'],
+      ['showLedger', 'ledger', 'Все операции'], ['showCashHands', 'cashHandHistory', 'Все раздачи'],
     ]) {
       $(buttonId).addEventListener('click', () => {
         const expanded = $(listId).classList.toggle('expanded');
@@ -261,10 +292,19 @@
         $(buttonId).innerHTML = `${expanded ? 'Свернуть' : label} <span aria-hidden="true">${expanded ? '↑' : '↓'}</span>`;
       });
     }
-    const tabs = [...document.querySelectorAll('[role="tab"]')];
+    // Per tablist, not per page: the profile has two independent groups now
+    // (Профиль / CASH-касса above, Раздачи / Операции inside), and one flat
+    // list of every [role="tab"] would hide one group's panel whenever the
+    // other group was used.
+    document.querySelectorAll('[role="tablist"]').forEach(bindTabs);
+  }
+
+  function bindTabs(list) {
+    const tabs = [...list.querySelectorAll('[role="tab"]')];
     const selectTab = selected => tabs.forEach(tab => {
       const active = tab === selected;
       tab.setAttribute('aria-selected', String(active));
+      tab.classList.toggle('is-active', active);
       tab.tabIndex = active ? 0 : -1;
       $(tab.getAttribute('aria-controls')).hidden = !active;
     });
@@ -273,25 +313,51 @@
       tab.addEventListener('keydown', event => {
         if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
         event.preventDefault();
-        const next = event.key === 'Home' ? tabs[0] : event.key === 'End' ? tabs.at(-1) : tabs[1 - index];
+        const step = event.key === 'ArrowLeft' ? -1 : 1;
+        const next = event.key === 'Home' ? tabs[0] : event.key === 'End' ? tabs.at(-1)
+          : tabs[(index + step + tabs.length) % tabs.length];
         selectTab(next);
         next.focus();
       });
     });
+    list.selectTab = selectTab;
+  }
+
+  // The cashier only exists for a player the pilot actually lets in, so its
+  // tab appears with the wallet and not before.
+  async function openCashier(config) {
+    renderCashWallet(await json('/api/cash/wallet'));
+    const test = config.cash_mode === 'mock';
+    $('cashModeTab').hidden = false;
+    // One tab is not a choice: the switch appears only once there are two.
+    document.querySelector('.profile-modes').hidden = false;
+    $('cashModeTab').querySelector('small').hidden = !test;
+    $('cashCaption').textContent = test
+      ? 'ТЕСТ — средства ненастоящие · USDT TRC20 mock'
+      : 'USDT TRC20 · реальные средства';
+    window.Poker8Cashier.mount({
+      testMode: test,
+      onSettled: () => json('/api/cash/wallet').then(renderCashWallet).catch(console.error),
+    });
+    await loadBlock('/api/profile/hands?limit=20&asset=CASH_USDT', 'cashHandHistory', renderCashHistory, 'Не удалось загрузить историю CASH.');
+    // The lobby's "Открыть CASH-кассу" lands here; open the half of the page
+    // the player actually asked for.
+    if (location.hash === '#cash') document.querySelector('.profile-modes').selectTab($('cashModeTab'));
   }
 
   async function load() {
     await window.Poker8Auth.ensureSession();
     // First login returns an auth receipt, not XP/level/balance-at-table.
     renderProfile(await json('/api/profile'));
+    const config = await json('/api/config').catch(() => ({}));
+    renderTopUp(Boolean(config.self_top_up_enabled));
     await Promise.all([
       loadBlock('/api/profile/missions', 'missionList', renderMissions, 'Не удалось загрузить задания. Обновите страницу.', 'missionsError'),
       loadBlock('/api/profile/stats', 'statsGrid', renderStats, 'Не удалось загрузить статистику. Обновите страницу.', 'statsError'),
       loadBlock('/api/profile/achievements', 'achievementList', renderAchievements, 'Не удалось загрузить достижения. Обновите страницу.', 'achievementsError'),
-      loadBlock('/api/profile/hands?limit=20', 'handHistory', renderHistory, 'Не удалось загрузить историю.'),
+      loadBlock('/api/profile/hands?limit=20&asset=PLAY', 'handHistory', renderHistory, 'Не удалось загрузить историю.'),
       loadBlock('/api/profile/play-journal?limit=20', 'ledger', renderLedger, 'Не удалось загрузить журнал.'),
-      json('/api/config').then(config => renderTopUp(Boolean(config.self_top_up_enabled))).catch(() => renderTopUp(false)),
-      json('/api/cash/wallet').then(renderCashWallet).catch(() => { $('profileCash').hidden = true; }),
+      openCashier(config).catch(() => { $('cashModeTab').hidden = true; }),
     ]);
   }
 

@@ -12,7 +12,7 @@ from cash.amounts import usdt_to_micros
 from cash.game import CashIntegrityError, CashRuntimeError, CashSeatError
 from cash.holds import CashUserFrozen
 from cash.ledger import IdempotencyConflict, InsufficientCash
-from online.catalogue import CASH_USDT
+from online.catalogue import CASH_USDT, hash_room_password
 from online.runtime import EMPTY_SNAPSHOT
 from online.schema import poker_tables, seat_queue, table_seats
 from online.seating import AlreadySeated, InsufficientFunds, SeatingError, WrongPassword
@@ -20,6 +20,39 @@ from poker.models import ActionType
 
 
 logger = logging.getLogger(__name__)
+
+#: The CASH engine's own words are English and internal -- the logs read them,
+#: and so does the "requires 2 to 6" check in ready() below. They are also the
+#: exact text the client puts in an alert() on the felt, which is why they get
+#: translated here, at the edge, instead of at the raise.
+CASH_MESSAGES_RU = {
+    "user already has an active seat": "Вы уже сидите за столом",
+    "seat is occupied": "Место занято",
+    "cash table is paused": "Стол приостановлен",
+    "system occupants are forbidden at CASH tables": "За CASH-столами играют только люди",
+    "a cash hand requires 2 to 6 seated users": "Для раздачи нужно от 2 до 6 игроков за столом",
+    "cash add-on must be a positive whole chip amount": "Докупка должна быть целым числом фишек",
+    "cash add-on is only allowed between hands": "Докупить фишки можно только между раздачами",
+    "cash seat not found": "Ваше место за столом не найдено",
+    "cash stack exceeds the table maximum": "Стек превысит максимум стола",
+    "cash hand is not active": "Раздача уже завершена",
+    "cash seat has no escrow account": "У места нет счёта эскроу — напишите в поддержку",
+    "cash escrow does not match seat stack": "Расхождение эскроу и стека — стол приостановлен",
+    "CASH table not found": "CASH-стол не найден",
+    "CASH table has invalid exact-chip parameters": "Неверные параметры стола",
+    "CASH blinds must be whole chips": "Неверные блайнды стола",
+    "invalid seat number": "Неверный номер места",
+    "cash buy-in must be a positive whole chip amount": "Бай-ин должен быть целым числом фишек",
+    "cash buy-in is outside the table limits": "Бай-ин вне лимитов стола",
+    "cash game requires PostgreSQL row locks": "CASH-режим сейчас недоступен",
+    "insufficient available or reserved cash": "Недостаточно CASH на балансе",
+}
+
+
+def _cash_message(exc: Exception) -> str:
+    """Untranslated text falls through unchanged: a message nobody has written
+    Russian for is still more use on screen than a blank alert."""
+    return CASH_MESSAGES_RU.get(str(exc), str(exc))
 
 router = APIRouter(prefix="/api/tables", tags=["tables"])
 
@@ -145,6 +178,18 @@ async def ready(table_id: str, payload: ReadyRequest, request: Request, user: Au
     row = await _table(request, table_id)
     if row["asset"] == CASH_USDT:
         chip = row["chip_micros"]
+        # SeatingService.ready() is what checks the password for a PLAY room,
+        # and CASH seating does not go through it -- without this a padlocked
+        # cash room would let anyone straight in.
+        if row["has_password"]:
+            async with request.app.state.session_factory() as session:
+                expected = await session.scalar(
+                    select(poker_tables.c.password_hash).where(poker_tables.c.id == table_id)
+                )
+            if hash_room_password(table_id, payload.password or "") != expected:
+                raise HTTPException(status_code=403, detail={
+                    "code": "wrong_password", "message": "Неверный пароль",
+                })
         try:
             seat = await request.app.state.cash_game.seat(
                 user.user_id, table_id, payload.seat_no,
@@ -157,18 +202,18 @@ async def ready(table_id: str, payload: ReadyRequest, request: Request, user: Au
                     raise
         except CashUserFrozen as exc:
             raise HTTPException(status_code=403, detail={
-                "code": "account_on_hold", "message": str(exc),
+                "code": "account_on_hold", "message": _cash_message(exc),
             }) from exc
         except InsufficientCash as exc:
             wallet = await request.app.state.cash_wallet.get(user.user_id)
             raise HTTPException(status_code=409, detail={
-                "code": "insufficient_funds", "message": str(exc),
+                "code": "insufficient_funds", "message": _cash_message(exc),
                 "required_units": payload.buy_in_units,
                 "available_units": usdt_to_micros(wallet["available_usdt"]) // chip,
             }) from exc
         except (CashSeatError, CashRuntimeError, CashIntegrityError, IdempotencyConflict) as exc:
             raise HTTPException(status_code=409, detail={
-                "code": "invalid_seating_request", "message": str(exc),
+                "code": "invalid_seating_request", "message": _cash_message(exc),
             }) from exc
         return {
             "request_id": seat.id, "queue_state": "seated", "position_seq": 0,
@@ -194,7 +239,7 @@ async def cancel_ready(table_id: str, request: Request, user: AuthenticatedUser 
     row = await _table(request, table_id)
     if row["asset"] == CASH_USDT:
         raise HTTPException(status_code=409, detail={
-            "code": "cash_has_no_queue", "message": "CASH seating is immediate; use leave instead",
+            "code": "cash_has_no_queue", "message": "За CASH-столом очереди нет — просто выйдите из-за стола",
         })
     await request.app.state.seating.cancel_ready(user.user_id, table_id)
     return {"viewer_state": "spectator", "queue_state": "cancelled"}
@@ -214,13 +259,13 @@ async def ready_up(table_id: str, request: Request, user: AuthenticatedUser = De
             ))
         if seated is None:
             raise HTTPException(status_code=409, detail={
-                "code": "not_seated", "message": "take a seat before starting a cash hand",
+                "code": "not_seated", "message": "Сначала займите место за столом",
             })
         try:
             result = await request.app.state.cash_game.start_hand(table_id)
         except (CashRuntimeError, CashIntegrityError) as exc:
             raise HTTPException(status_code=409, detail={
-                "code": "cash_hand_not_ready", "message": str(exc),
+                "code": "cash_hand_not_ready", "message": _cash_message(exc),
             }) from exc
         return {"seat_no": None, "ready": True, "revision": result.revision}
     seat_no = await request.app.state.seating.user_seat_number(user.user_id, table_id)
@@ -245,7 +290,7 @@ async def leave(table_id: str, request: Request, user: AuthenticatedUser = Depen
                 )
             await request.app.state.cash_game.leave(user.user_id, table_id, f"leave:{uuid4().hex}")
         except (CashRuntimeError, CashIntegrityError, CashSeatError) as exc:
-            raise HTTPException(status_code=409, detail=str(exc)) from exc
+            raise HTTPException(status_code=409, detail=_cash_message(exc)) from exc
         return {"viewer_state": "leaving"}
     # Fold it now if it's their turn, rather than leaving the hand hanging on
     # the 30s clock. A no-op whenever it isn't actually their turn.
@@ -283,7 +328,7 @@ async def add_on(table_id: str, payload: AddOnRequest, request: Request, user: A
             )
         except (CashSeatError, CashRuntimeError, CashIntegrityError, InsufficientCash) as exc:
             raise HTTPException(status_code=409, detail={
-                "code": "invalid_seating_request", "message": str(exc),
+                "code": "invalid_seating_request", "message": _cash_message(exc),
             }) from exc
         return {"ok": True, "amount_units": payload.amount_units}
     try:

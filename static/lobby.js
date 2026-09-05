@@ -19,7 +19,7 @@
   let selected = null;
   let activeSession = null;
   let myRoom = null;
-  let roomLevels = [];
+  let roomLevels = {};
   let asset = "PLAY";
   let cashMode = "off";
   let cashWallet = null;
@@ -31,12 +31,6 @@
     const whole = amount / scale;
     const tail = String(amount % scale).padStart(digits, "0").replace(/0+$/, "");
     return tail ? `${whole}.${tail}` : String(whole);
-  };
-  const cashFromUsdt = value => {
-    const match = String(value || "").trim().match(/^(\d+)(?:\.(\d{1,6}))?$/);
-    if (!match) return "—";
-    const micros = BigInt(match[1]) * 1000000n + BigInt((match[2] || "").padEnd(6, "0"));
-    return decimal(micros, 5);
   };
   const cashUnitsToChips = (value, chipMicros) => {
     const match = String(value || "").trim().match(/^(\d+)(?:\.(\d{1,5}))?$/);
@@ -203,7 +197,7 @@
     const [tablesResponse, sessionResponse, roomResponse, walletResponse] = await Promise.all([
       fetch(`/api/lobby/tables?page=1&per_page=12&${query}`),
       fetch(`/api/lobby/session?${query}`),
-      asset === "PLAY" ? fetch("/api/lobby/rooms/mine") : Promise.resolve(null),
+      fetch(`/api/lobby/rooms/mine?${query}`),
       asset === "CASH_USDT" ? fetch("/api/cash/wallet") : Promise.resolve(null),
     ]);
     if (!tablesResponse.ok || !sessionResponse.ok) throw new Error("lobby data is unavailable");
@@ -216,10 +210,6 @@
       $("wallet").textContent = `${cashWallet.available_units} CASH`;
       $("cashAvailable").textContent = `${cashWallet.available_units} CASH`;
       $("cashAvailableUsdt").textContent = `${cashWallet.available_usdt} USDT`;
-      $("cashEscrow").textContent = `${cashWallet.escrow_units} CASH`;
-      $("cashEscrowUsdt").textContent = `${cashWallet.escrow_usdt} USDT`;
-      $("cashWithdrawal").textContent = `${cashWallet.withdrawal_units} CASH`;
-      $("cashWithdrawalUsdt").textContent = `${cashWallet.withdrawal_usdt} USDT`;
     } else {
       $("wallet").textContent = format(profile.available_units);
     }
@@ -294,8 +284,11 @@
   $("quickPlay").addEventListener("click", async () => {
     const response = await fetch(`/api/lobby/quick-play?asset=${asset}`, { method: "POST" });
     if (response.ok) return openBuyIn((await response.json()).table);
-    if (asset === "CASH_USDT") $("depositDialog").showModal();
-    alert(asset === "CASH_USDT" ? "Для входа нужен CASH-баланс. Создайте mock-пополнение." : "Быстрый вход сейчас недоступен");
+    if (asset === "CASH_USDT") {
+      if (window.confirm("Для входа нужен CASH-баланс. Открыть CASH-кассу?")) location.href = "/static/profile.html#cash";
+      return;
+    }
+    alert("Быстрый вход сейчас недоступен");
   });
 
   $("dismissReport").addEventListener("click", async () => {
@@ -323,7 +316,7 @@
 
   async function closeRoom(id) {
     if (!window.confirm("Закрыть комнату? Все, кто за столом, выйдут, а фишки вернутся на балансы.")) return;
-    const response = await fetch(`/api/lobby/rooms/${encodeURIComponent(id)}/close`, { method: "POST" });
+    const response = await fetch(`/api/lobby/rooms/${encodeURIComponent(id)}/close?asset=${asset}`, { method: "POST" });
     if (!response.ok) return alert("Не удалось закрыть комнату. Попробуйте ещё раз.");
     await load();
   }
@@ -335,13 +328,15 @@
       if (window.confirm(`У вас уже открыта комната «${myRoom.name}». Перейти к ней?`)) openTable(myRoom.id);
       return;
     }
-    if (!roomLevels.length) {
-      const response = await fetch("/api/lobby/room-levels");
+    if (!roomLevels[asset]) {
+      const response = await fetch(`/api/lobby/room-levels?asset=${asset}`);
       if (!response.ok) return alert("Создание комнат сейчас недоступно");
-      roomLevels = (await response.json()).levels;
+      roomLevels[asset] = (await response.json()).levels;
     }
-    $("roomLevel").innerHTML = roomLevels
-      .map(level => `<option value="${escape(level.key)}">${format(level.small_blind_units)} / ${format(level.big_blind_units)}</option>`)
+    $("roomLevel").innerHTML = roomLevels[asset]
+      .map(level => `<option value="${escape(level.key)}">${asset === "CASH_USDT"
+        ? `${decimal(level.small_blind_micros, 6)} / ${decimal(level.big_blind_micros, 6)} USDT`
+        : `${format(level.small_blind_units)} / ${format(level.big_blind_units)}`}</option>`)
       .join("");
     $("roomName").value = "";
     $("roomPassword").value = "";
@@ -373,7 +368,7 @@
       level: $("roomLevel").value,
       password: $("roomPassword").value || null,
     };
-    const response = await fetch("/api/lobby/rooms", {
+    const response = await fetch(`/api/lobby/rooms?asset=${asset}`, {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
     });
     $("roomDialog").close();
@@ -426,154 +421,6 @@
     tab.addEventListener("click", () => selectAsset(tab.dataset.asset).catch(console.error));
   });
 
-  function bindConversion(inputId, outputId) {
-    const update = () => { $(outputId).textContent = cashFromUsdt($(inputId).value); };
-    $(inputId).addEventListener("input", update);
-    update();
-  }
-  bindConversion("depositUsdt", "depositCash");
-  bindConversion("fiatDepositUsdt", "fiatDepositCash");
-  bindConversion("withdrawUsdt", "withdrawCash");
-  $("cashDeposit").addEventListener("click", () => $("depositDialog").showModal());
-  $("cashFiatDeposit").addEventListener("click", () => $("fiatDepositDialog").showModal());
-  $("cashWithdraw").addEventListener("click", () => $("withdrawDialog").showModal());
-
-  $("depositForm").addEventListener("submit", async event => {
-    event.preventDefault();
-    const response = await fetch("/api/cash/deposits", {
-      method: "POST", headers: {"content-type": "application/json"},
-      body: JSON.stringify({amount_usdt: $("depositUsdt").value, request_id: requestId()}),
-    });
-    const payload = await response.json();
-    if (!response.ok) return alert(payload.detail || "Не удалось создать заявку");
-    const details = $("depositDetails");
-    details.hidden = false;
-    details.innerHTML = `
-      <strong>Отправьте ровно ${escape(payload.expected_usdt)} USDT</strong><br>
-      Сеть: ${escape(payload.network)}<br>Адрес: ${escape(payload.address)}<br>
-      Зачисление: ${escape(payload.expected_units)} CASH<br>
-      <button type="button" data-paid="${escape(payload.id)}">Симулировать подтверждение сети</button>`;
-    details.querySelector("[data-paid]").addEventListener("click", async buttonEvent => {
-      const button = buttonEvent.currentTarget;
-      button.disabled = true;
-      const confirmed = await fetch(`/api/cash/deposits/${encodeURIComponent(button.dataset.paid)}/simulate-transfer`, {method: "POST"});
-      if (!confirmed.ok) {
-        button.disabled = false;
-        return alert("Mock-подтверждение не прошло");
-      }
-      button.textContent = "Mock-перевод подтверждён";
-      await load();
-    });
-  });
-
-  const FIAT_CLOSED = {
-    unavailable: "Свободный трейдер не найден · попробуйте позже",
-    credited: "Трейдер подтвердил · CASH зачислен",
-    expired: "Срок заявки истёк · CASH не зачислен",
-    cancelled: "Заявка отменена · CASH не зачислен",
-    review_required: "Заявка на разборе у оператора · ждите ответа поддержки",
-  };
-  let fiatTicker = null;
-
-  function fiatCountdown(order) {
-    if (!order.expires_at) return "";
-    const left = Math.round((new Date(order.expires_at).getTime() - Date.now()) / 1000);
-    if (left <= 0) return "Время оплаты истекло, подтверждение зависит от трейдера";
-    return `Осталось ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
-  }
-
-  function renderFiatOrder(order) {
-    const details = $("fiatDepositDetails");
-    if (fiatTicker) { clearInterval(fiatTicker); fiatTicker = null; }
-    if (!order) { details.hidden = true; details.innerHTML = ""; return; }
-    details.hidden = false;
-    if (FIAT_CLOSED[order.status]) {
-      details.innerHTML = `<strong>${escape(FIAT_CLOSED[order.status])}</strong>` +
-        (order.detail ? `<br>${escape(order.detail)}` : "");
-      load().catch(console.error);
-      return;
-    }
-    const waiting = order.status !== "awaiting_user";
-    details.innerHTML = `
-      <strong>К оплате: ${escape(order.fiat_rub)} ₽</strong><br>
-      Реквизиты: ${escape(order.requisites)}<br>
-      Зачисление: ${escape(order.requested_units)} CASH (${escape(order.requested_usdt)} USDT)<br>
-      Комиссия пополнения: ${escape(order.fee_usdt)} USDT · всего ${escape(order.charged_usdt)} USDT<br>
-      <span id="fiatCountdown">${escape(fiatCountdown(order))}</span><br>
-      ${order.status === "clarifying" ? "<strong>Трейдер уточняет платёж · напишите в поддержку</strong><br>" : ""}
-      ${waiting ? "<strong>Оплата отмечена · ждём подтверждения трейдера</strong>"
-                : '<button type="button" id="fiatPaid">Я оплатил</button>'}
-      <button type="button" id="fiatCancel">Отменить заявку</button>`;
-
-    const act = async (path, failure) => {
-      const response = await fetch(`/api/cash/fiat-orders/${encodeURIComponent(order.id)}/${path}`, {method: "POST"});
-      if (!response.ok) return alert(failure);
-      renderFiatOrder(await response.json());
-    };
-    $("fiatPaid")?.addEventListener("click", event => {
-      event.currentTarget.disabled = true;
-      act("paid", "Не удалось уведомить трейдера").catch(console.error);
-    });
-    $("fiatCancel").addEventListener("click", event => {
-      event.currentTarget.disabled = true;
-      act("cancel", "Не удалось отменить заявку").catch(console.error);
-    });
-
-    // The trader answers through the partner poller, so the page asks the
-    // server rather than guessing that a notification means money.
-    let ticks = 0;
-    fiatTicker = setInterval(async () => {
-      const countdown = $("fiatCountdown");
-      if (countdown) countdown.textContent = fiatCountdown(order);
-      if (++ticks % 3) return;
-      const response = await fetch(`/api/cash/fiat-orders/${encodeURIComponent(order.id)}`);
-      if (!response.ok) return;
-      const fresh = await response.json();
-      if (fresh.status !== order.status) renderFiatOrder(fresh);
-    }, 1000);
-  }
-
-  async function restoreFiatOrder() {
-    const response = await fetch("/api/cash/fiat-orders/active");
-    if (!response.ok) return;
-    const order = await response.json();
-    if (!order) return;
-    renderFiatOrder(order);
-    $("fiatDepositDialog").showModal();
-  }
-
-  $("fiatDepositForm").addEventListener("submit", async event => {
-    event.preventDefault();
-    const response = await fetch("/api/cash/fiat-orders", {
-      method: "POST", headers: {"content-type": "application/json"},
-      body: JSON.stringify({amount_usdt: $("fiatDepositUsdt").value, request_id: requestId()}),
-    });
-    const payload = await response.json();
-    if (response.status === 409) return restoreFiatOrder();
-    if (!response.ok) return alert(payload.detail || "Не удалось получить реквизиты");
-    renderFiatOrder(payload);
-  });
-
-  $("withdrawForm").addEventListener("submit", async event => {
-    event.preventDefault();
-    const response = await fetch("/api/cash/withdrawals", {
-      method: "POST", headers: {"content-type": "application/json"},
-      body: JSON.stringify({
-        amount_usdt: $("withdrawUsdt").value,
-        address: $("withdrawAddress").value,
-        request_id: requestId(),
-      }),
-    });
-    const payload = await response.json();
-    if (!response.ok) return alert(payload.detail || "Не удалось создать вывод");
-    const details = $("withdrawDetails");
-    details.hidden = false;
-    details.innerHTML = `<strong>${escape(payload.amount_units)} CASH зарезервировано</strong><br>
-      К выплате: ${escape(payload.payout_usdt)} USDT<br>Комиссия: ${escape(payload.fee_usdt)} USDT<br>
-      Статус: ${escape(payload.status)} · ${escape(payload.network)}`;
-    await load();
-  });
-
   // Every place that tells the player whether the money is real. Getting this
   // wrong is not a cosmetic bug: "средства ненастоящие" printed over a real
   // balance is a lie, and the same words over a mock balance are the only
@@ -581,14 +428,13 @@
   function applyCashWording(mode) {
     const test = mode === "mock";
     const tab = document.querySelector('[data-asset="CASH_USDT"] small');
-    if (tab) tab.textContent = test ? "TEST" : "";
+    // Hidden, not just emptied: an empty <small> still draws its own pill.
+    if (tab) { tab.textContent = test ? "TEST" : ""; tab.hidden = !test; }
     const warning = document.querySelector("#cashPilot .cash-warning");
     if (warning) {
       warning.hidden = !test;
       warning.querySelector("strong").textContent = "ТЕСТ — средства ненастоящие";
     }
-    const withdraw = $("cashWithdraw");
-    if (withdraw) withdraw.textContent = test ? "Вывести mock USDT" : "Вывести USDT";
   }
 
   async function boot() {
@@ -602,7 +448,6 @@
     if (location.hash === "#cash" && config.cash_mode !== "off") {
       await selectAsset("CASH_USDT");
     }
-    if (config.cash_mode !== "off") await restoreFiatOrder().catch(console.error);
   }
 
   boot().catch(error => {
