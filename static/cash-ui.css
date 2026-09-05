@@ -22,14 +22,14 @@
    buttons are one control, not two that nearly match. */
 .cash-actions{display:flex;gap:8px}
 .cash-actions button,.cash-actions .cash-cashier{flex:1;padding:12px;border:1px solid var(--line);border-radius:11px;background:var(--panel);color:var(--ink);font-weight:800;text-align:center;text-decoration:none;cursor:pointer;transition:border-color .18s,color .18s}
-.cash-actions button:hover,.cash-actions .cash-cashier:hover{border-color:var(--mint);color:var(--mint)}
+.cash-actions button:hover,.cash-actions .cash-cashier:hover{border-color:var(--accent);color:var(--accent)}
 .cash-rate{margin:11px 0 0;color:var(--muted);font-size:10px;text-align:center}
 .cash-conversion{margin:5px 0 15px;color:var(--muted);font-size:12px}
-.cash-conversion strong{color:var(--mint)}
+.cash-conversion strong{color:var(--accent)}
 .payment-details{margin-top:15px;padding:13px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--muted);font-size:12px;line-height:1.6;overflow-wrap:anywhere}
 .payment-details[hidden]{display:none}
 .payment-details strong{color:var(--ink)}
-.payment-details button{width:100%;margin-top:9px;padding:10px;border:0;border-radius:9px;background:var(--mint);color:#041f14;font-weight:900;cursor:pointer}
+.payment-details button{width:100%;margin-top:9px;padding:10px;border:0;border-radius:9px;background:var(--accent);color:#1c0f33;font-weight:900;cursor:pointer}
 @media(max-width:620px){.cash-wallet-grid{grid-template-columns:repeat(2,1fr)}.cash-wallet-grid>div:first-child{grid-column:1/-1}.cash-wallet-solo{grid-template-columns:1fr}.cash-actions{flex-direction:column}}
 @media(prefers-reduced-motion:reduce){.mode-tab,.cash-actions button,.cash-actions .cash-cashier{transition:none}}
 

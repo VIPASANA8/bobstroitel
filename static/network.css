@@ -128,3 +128,78 @@ button,input,select,textarea{font:inherit}small{font-size:12px}body{font-size:15
 @media(max-width:620px){.report-grid,.report-grid-4:has(#reportDailyCell:not([hidden])){grid-template-columns:repeat(2,1fr)}}
 .report-grid .up{color:var(--mint)}
 .report-grid .down{color:var(--orange)}
+
+
+/* ── The lobby, in the profile's clothes ────────────────────────────────────
+   Two screens of one app should not look like two apps. The lobby was a green
+   felt under a rotating aurora with gold-shimmering cards; the profile is a
+   flat graphite sheet with violet accents and quiet 1px borders. This block
+   moves the lobby onto the profile's tokens and turns off the decoration that
+   has no counterpart there.
+
+   The mode tabs keep their green on purpose -- they are the one thing asked to
+   stay, and they are also the only control that says which money you are in,
+   so being the single coloured thing on the page is the point. Their colours
+   are literals in cash-ui.css, not tokens, so nothing here reaches them.
+
+   Green that still means something stays green: a winning result reads mint on
+   the profile too, and that is a value, not chrome. */
+:root{
+  --ink:#f1f1f4;--muted:#a2a1ac;--line:#303039;
+  /* One grey, not two: the lobby's cards and its dialogs are the same
+     surface, and a second value a hair away would be a rename. */
+  --panel:#18191f;--panel-2:var(--panel);
+  --accent:#c8b3f6;--violet:#c8b3f6;--violet-deep:#2a2440;
+  /* Kept a real mint: below, every place the lobby used it as *the* accent is
+     repointed at --accent by name, and what is left of it carries meaning. */
+  --mint:#9cddbc;--mint-deep:#22322b;
+  --danger:#f39b9f;--orange:#e0b57a;
+}
+body{background:#101115}
+/* The aurora and the film-grain are the felt's, not the profile's. */
+body:before,body:after{display:none}
+
+.brand-chip{color:#1c0f33;background:linear-gradient(145deg,#e2d1fd,var(--accent));box-shadow:none}
+.wallet-pill{color:var(--accent)}
+.profile-chip:hover{border-color:var(--accent)}
+.network-header{border-bottom-color:var(--line)}
+.lobby-copy h1 em{color:var(--accent)}
+.eyebrow{color:var(--muted)}
+.status-dot{color:var(--accent)}
+.table-index,.card-bottom,.network-footer{color:var(--muted)}
+
+.primary-action,.entry-primary{box-shadow:none}
+.secondary-action,.leave-action{background:var(--panel)}
+.secondary-action:hover{border-color:var(--accent);color:var(--accent)}
+.entry-guide:hover{border-color:var(--accent)}
+
+.active-session{border-color:var(--line);background:var(--panel);box-shadow:none}
+.session-label{color:var(--accent)}
+.session-spinner{border-color:rgba(200,179,246,.22);border-top-color:var(--accent)}
+
+/* A panel like any other on the profile: no gold rule, no grain, no glow. */
+.felt-strip{background:var(--panel-2);border-color:var(--line)}
+.felt-strip::after{display:none}
+.live-dot{color:var(--accent)}
+.live-dot i{background:var(--accent);box-shadow:none;animation:none}
+
+/* The cards stop breathing gold and just sit there, like the profile's
+   sections do. Hover is the only colour left on them. */
+.table-card{
+  animation:rise .38s var(--delay) both;
+  border-color:var(--line);background:var(--panel-2);
+}
+.table-card:hover,.table-card:active{border-color:var(--accent);box-shadow:none}
+.table-card:before{display:none}
+@media (prefers-reduced-motion: reduce){.table-card{animation:none;border-color:var(--line)}}
+.tier-tag.micro{color:var(--accent);background:var(--violet-deep)}
+.tier-tag.low{color:var(--orange);background:#33291a}
+.tier-tag.mid{color:var(--danger);background:#3a2426}
+.seats i{background:var(--line)}
+.seats i.on{background:var(--accent)}
+
+.buyin-dialog{border-color:var(--line);background:var(--panel);box-shadow:0 25px 90px #000b}
+.buyin-dialog::backdrop{background:#0b0b0fb8}
+.buyin-dialog input,#roomDialog select{border-color:var(--line);background:var(--panel-2)}
+.buyin-dialog input:focus,#roomDialog select:focus{border-color:var(--accent)}
+.session-report{border-color:var(--line);background:var(--panel-2)}

@@ -176,9 +176,17 @@ def test_no_two_colours_are_the_same_colour():
     # The requested deck rim is #35F0C0. Keep the existing sizing-control
     # mint unchanged; only this explicitly chosen near-neighbour is allowed.
     deck_and_sizing_mint = frozenset(((53, 240, 192), (63, 238, 188)))
+    # #303039 is the profile's border line, and the lobby now uses that exact
+    # value rather than a near-miss of its own -- which is what this test is
+    # for. #34333b is the dark face of the 100-chip graphic in style.css. They
+    # are the same grey and different things, they never share a screen edge,
+    # and moving either one apart would create the real duplicate: two line
+    # colours, one per page, a hair apart.
+    line_and_chip_face = frozenset(((48, 48, 57), (52, 51, 59)))
+    allowed = (deck_and_sizing_mint, line_and_chip_face)
     twins = [(a[0], b[0]) for i, a in enumerate(labs) for b in labs[i + 1:]
              if math.dist(a[1], b[1]) <= 2.0
-             and frozenset((a[0], b[0])) != deck_and_sizing_mint]
+             and frozenset((a[0], b[0])) not in allowed]
     assert not twins, f"Colours written twice: {twins}"
 
 
