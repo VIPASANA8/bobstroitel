@@ -56,14 +56,20 @@
        player. The markup stays for local mode; Phase 2 fills this space
        with the table's own name and blinds. */
     .poker8-online .topbar .brand-wrap .eyebrow,.poker8-online .topbar h1{display:none!important}
-    .poker8-online .mobile-drawer-divider{height:1px;margin:8px 0;border:0;background:rgba(126,202,165,.20)}
-    .poker8-online .mobile-drawer .network-table-action{display:block;width:100%;margin:6px 0;padding:12px;border:1px solid rgba(95,237,170,.34);border-radius:10px;background:rgba(4,31,20,.84);color:#c9ffe3;text-align:left;font-weight:850}
+    .poker8-online .mobile-drawer-divider{height:1px;margin:8px 0;border:0;background:#303039}
+    .poker8-online .mobile-drawer .network-table-action{display:block;width:100%;margin:6px 0;padding:12px;border:1px solid #303039;border-radius:10px;background:#18191f;color:#f1f1f4;text-align:left;font-weight:850}
+    /* The one thing the drawer is opened to do keeps the accent. */
+    .poker8-online .mobile-drawer #mobileDrawerTakeSeat{border-color:#c8b3f6;background:#c8b3f6;color:#1c0f33}
     /* [hidden] is only display:none in the user-agent sheet, so the rule above
        -- which does set display -- silently outranked it and every button the
        drawer meant to hide stayed on screen: "Занять место" while already
        seated, and both room-owner controls to people who own nothing. */
     .poker8-online .mobile-drawer .network-table-action[hidden]{display:none}
-    .poker8-online .mobile-drawer .network-table-action.danger{border-color:rgba(255,125,111,.34);color:#ffc1b6;background:rgba(52,14,12,.58)}
+    .poker8-online .mobile-drawer .network-table-action.danger{border-color:rgba(243,155,159,.38);color:#f39b9f;background:#231a1c}
+    .poker8-online .mobile-drawer{background:#101115;border-right-color:#303039}
+    .poker8-online .mobile-drawer-head strong{color:#f1f1f4}
+    .poker8-online .mobile-drawer-head button{color:#a2a1ac}
+    .poker8-online .mobile-drawer p{color:#a2a1ac}
     .poker8-online.p8-observer-mode #actionButtons,.poker8-online.p8-observer-mode #sizingWrap,.poker8-online.p8-observer-mode .mobile-turn-tools,.poker8-online.p8-observer-mode #mobileAutoActionBar,.poker8-online.p8-observer-mode .v038-hud-summary{display:none!important}
     .poker8-online.p8-observer-mode #mobileTimerCard,.poker8-online.p8-observer-mode #mobileSelectedCard{display:none!important}
     .poker8-online.p8-observer-mode .action-panel{border-color:rgba(64,237,167,.34)}
@@ -92,17 +98,17 @@
     .p8-funds-close{width:100%;margin-top:14px;padding:12px;border:1px solid rgba(95,237,170,.34);border-radius:10px;background:rgba(4,31,20,.84);color:#c9ffe3;font:800 12px/1 Inter,ui-sans-serif,system-ui;cursor:pointer}
     /* Same mint tokens as .p8-funds-dialog just above -- this is the same
        kind of modal (a stop on the way into a seat), not a new colour. */
-    .p8-buyin-dialog{width:min(92vw,340px);padding:22px 20px 18px;border:1px solid rgba(64,237,167,.42);border-radius:16px;background:linear-gradient(160deg,#031b13,#07100f);color:#dcf7e8;box-shadow:0 24px 70px rgba(0,0,0,.62)}
-    .p8-buyin-dialog::backdrop{background:rgba(0,8,5,.72)}
-    .p8-buyin-dialog h2{margin:0 0 6px;color:#eaffef;font:800 20px/1.15 Inter,ui-sans-serif,system-ui;letter-spacing:-.01em}
-    .p8-buyin-note{margin:0 0 18px;color:#a9c6b8;font-size:12px;line-height:1.45}
-    .p8-buyin-value{margin:0 0 10px;color:#eaffef;font:800 27px/1 Inter,ui-sans-serif,system-ui;font-variant-numeric:tabular-nums;text-align:center}
-    .p8-buyin-value span{margin-left:6px;color:#8ff2c0;font-size:12px;font-weight:800}
-    .p8-buyin-dialog input[type="range"]{width:100%;margin:0 0 20px;accent-color:#3defb0}
+    .p8-buyin-dialog{width:min(92vw,340px);padding:22px 20px 18px;border:1px solid #303039;border-radius:16px;background:#18191f;color:#f1f1f4;box-shadow:0 24px 70px rgba(0,0,0,.62)}
+    .p8-buyin-dialog::backdrop{background:rgba(16,17,21,.72)}
+    .p8-buyin-dialog h2{margin:0 0 6px;color:#f1f1f4;font:800 20px/1.15 Inter,ui-sans-serif,system-ui;letter-spacing:-.01em}
+    .p8-buyin-note{margin:0 0 18px;color:#a2a1ac;font-size:12px;line-height:1.45}
+    .p8-buyin-value{margin:0 0 10px;color:#f1f1f4;font:800 27px/1 Inter,ui-sans-serif,system-ui;font-variant-numeric:tabular-nums;text-align:center}
+    .p8-buyin-value span{margin-left:6px;color:#c8b3f6;font-size:12px;font-weight:800}
+    .p8-buyin-dialog input[type="range"]{width:100%;margin:0 0 20px;accent-color:#c8b3f6}
     .p8-buyin-actions{display:flex;gap:8px}
     .p8-buyin-actions button{flex:1;padding:13px;border:0;border-radius:11px;font:800 15px/1 Inter,ui-sans-serif,system-ui;cursor:pointer}
-    .p8-buyin-actions [data-cancel]{background:rgba(4,31,20,.84);border:1px solid rgba(95,237,170,.34);color:#c9ffe3}
-    .p8-buyin-actions [data-confirm]{background:linear-gradient(120deg,#3defb0,#2aa87c);color:#04211c}
+    .p8-buyin-actions [data-cancel]{background:#18191f;border:1px solid #303039;color:#f1f1f4}
+    .p8-buyin-actions [data-confirm]{background:#c8b3f6;color:#1c0f33}
     .poker8-online.p8-action-pending #actionButtons{opacity:.62;pointer-events:none;filter:saturate(.72)}
     @media(max-width:780px){
       .poker8-online .felt > .online-state-panel{position:absolute;left:50%;top:59%;right:auto;bottom:auto;z-index:76;width:min(84vw,348px);margin:0;padding:10px 12px;transform:translate(-50%,-50%);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 12px;border-color:rgba(64,237,167,.48);background:linear-gradient(135deg,rgba(4,31,20,.94),rgba(7,16,15,.96));box-shadow:0 12px 28px rgba(0,0,0,.42),0 0 20px rgba(44,247,169,.10);transition:width 180ms ease,padding 180ms ease,top 180ms ease}
@@ -210,7 +216,7 @@
          rather than stranding desktop with no way to sit down. */
       .poker8-online.p8-desktop-header-actions #readyPanel{display:none!important}
       .poker8-online .mobile-header-seat-actions button{
-        min-height:38px;padding:7px 8px;border:1px solid rgba(255,212,71,.42);border-radius:12px;
+        min-height:38px;padding:7px 6px;border:1px solid rgba(255,212,71,.42);border-radius:12px;
         background:rgba(4,31,20,.86);color:#fff6e0;font:800 12px/1 Inter,ui-sans-serif,system-ui;
         white-space:nowrap;cursor:pointer;
         /* Both labels at full width leave ~16px of slack on a 374px screen and
@@ -786,7 +792,20 @@
     if (!widest) return;
     const chrome = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight)
       + parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth);
-    const width = Math.min(Math.ceil(widest + chrome) + 2, Math.round(window.innerWidth * 0.34));
+    // The ceiling is what the row actually has spare, not a third of the
+    // viewport. The hamburger and the chat/hint pair are 42px each and never
+    // shrink, so a guessed fraction left the buttons a few pixels short of
+    // their own labels and flex quietly took the difference back -- which is
+    // how "Занять место" rendered as "Занять ме..." at a legible size.
+    const row = wrap.parentElement;
+    const taken = row ? [...row.children].reduce(
+      (sum, el) => sum + (el === wrap || el.hidden ? 0 : el.getBoundingClientRect().width), 0,
+    ) : 0;
+    const spare = row ? row.getBoundingClientRect().width - taken - 24 : Infinity;
+    const width = Math.min(
+      Math.ceil(widest + chrome) + 2,
+      Math.max(72, Math.floor((spare - 8) / 2)),
+    );
     wrap.style.setProperty("--p8-seat-action-w", `${width}px`);
   }
 

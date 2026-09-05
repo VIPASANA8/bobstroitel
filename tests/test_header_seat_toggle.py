@@ -182,7 +182,10 @@ def test_the_seat_pair_is_as_wide_as_its_widest_label_really_renders():
         assert label in source
     assert "SEAT_ACTION_LABELS" in sizer
     assert "getComputedStyle" in sizer, "measured in the rendered font, not assumed"
-    assert "innerWidth" in sizer, "capped so a wide face cannot push the row apart"
+    # Capped so a wide face cannot push the row apart -- by what the row
+    # actually has spare, because a guessed fraction of the viewport left
+    # the pair a few pixels short of its own labels once they were legible.
+    assert "getBoundingClientRect" in sizer and "Math.min" in sizer
 
     # placeHeaderActions is the one that already runs on every render and on
     # the resize/breakpoint change -- the two moments the font or the width
