@@ -37,6 +37,10 @@ services:
       POKER8_DEFAULT_TENANT: ${POKER8_DEFAULT_TENANT:-poker8}
       POKER8_TENANTS_JSON: ${POKER8_TENANTS_JSON:-}
       POKER8_DEV_PROFILES: ${POKER8_DEV_PROFILES:-101:Dev Player,202:Observer}
+      # Off unless the host asks for it. A guest identity reaches CASH only
+      # in mock mode -- cash/access.py refuses anything but Telegram once the
+      # money is real -- so this is a test switch, not a door.
+      POKER8_OPEN_ACCESS: ${POKER8_OPEN_ACCESS:-0}
       # CASH pilot
       POKER8_CASH_MODE: ${POKER8_CASH_MODE:-mock}
       # Own pservice instance on this host, reached over the poker8link network.
