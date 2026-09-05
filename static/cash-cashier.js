@@ -1,4 +1,4 @@
-// The CASH cashier: deposits (TRC20 mock and ₽ P2P) and withdrawals. Lifted
+// The CASH cashier: deposits (TRC20 and ₽ P2P) and withdrawals. Lifted
 // out of the lobby when the money moved into the profile -- the lobby is for
 // picking a table, and a balance shown in two places gives two answers.
 window.Poker8Cashier = (() => {
@@ -107,9 +107,8 @@ window.Poker8Cashier = (() => {
     $("fiatDepositDialog").showModal();
   }
 
-  function mount({ onSettled, testMode }) {
+  function mount({ onSettled }) {
     settled = onSettled || (() => {});
-    $("cashWithdraw").textContent = testMode ? "Вывести mock USDT" : "Вывести USDT";
     bindConversion("depositUsdt", "depositCash");
     bindConversion("fiatDepositUsdt", "fiatDepositCash");
     bindConversion("withdrawUsdt", "withdrawCash");
@@ -136,16 +135,16 @@ window.Poker8Cashier = (() => {
         <strong>Отправьте ровно ${escape(payload.expected_usdt)} USDT</strong><br>
         Сеть: ${escape(payload.network)}<br>Адрес: ${escape(payload.address)}<br>
         Зачисление: ${escape(payload.expected_units)} CASH<br>
-        <button type="button" data-paid="${escape(payload.id)}">Симулировать подтверждение сети</button>`;
+        <button type="button" data-paid="${escape(payload.id)}">Подтвердить перевод</button>`;
       details.querySelector("[data-paid]").addEventListener("click", async buttonEvent => {
         const button = buttonEvent.currentTarget;
         button.disabled = true;
         const confirmed = await fetch(`/api/cash/deposits/${encodeURIComponent(button.dataset.paid)}/simulate-transfer`, { method: "POST" });
         if (!confirmed.ok) {
           button.disabled = false;
-          return alert("Mock-подтверждение не прошло");
+          return alert("Подтверждение не прошло");
         }
-        button.textContent = "Mock-перевод подтверждён";
+        button.textContent = "Перевод подтверждён";
         await load();
       });
     });

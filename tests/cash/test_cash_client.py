@@ -13,7 +13,7 @@ TABLE_JS = (ROOT / "static" / "online-table.js").read_text(encoding="utf-8")
 def test_lobby_has_explicit_training_and_cash_catalogues():
     assert 'data-asset="PLAY"' in LOBBY
     assert 'data-asset="CASH_USDT"' in LOBBY
-    assert "ТЕСТ — средства ненастоящие" in LOBBY
+    assert "<small>$$$</small>" in LOBBY
     assert "asset=${asset}" in LOBBY_JS
     assert "/api/lobby/quick-play?asset=${asset}" in LOBBY_JS
 
@@ -54,28 +54,33 @@ def test_cash_ui_exposes_rub_p2p_without_changing_trc20_withdrawals():
     assert 'id="withdrawAddress"' in PROFILE
 
 
-def test_profile_and_table_keep_the_mock_warning_visible():
+def test_the_money_surfaces_are_marked_without_naming_a_mode():
+    """CASH is still marked apart from practice chips everywhere it appears --
+    the tab, the cashier and the felt -- but the mark is the money, not a
+    claim about how real it is."""
     assert "Доступно" in PROFILE and "За столами" in PROFILE and "Ожидает вывода" in PROFILE
-    assert "ТЕСТ — средства ненастоящие" in PROFILE
-    assert "ТЕСТ · CASH НЕНАСТОЯЩИЙ" in TABLE_JS
+    assert "<small>$$$</small>" in PROFILE
+    assert '"$$$"' in TABLE_JS
 
 
-def test_the_client_never_calls_real_money_fake():
-    """`средства ненастоящие` is keyed on the mock mode, not on the CASH tab.
+def test_the_client_makes_no_claim_about_how_real_the_money_is():
+    """It used to say both, keyed on the mode: "средства ненастоящие" over a
+    mock balance and "реальные средства" over a live one. The first was asked
+    for and removed; the second must not survive it alone, because that is the
+    half that lies -- it would print "real funds" over the mock pilot.
 
-    Printed over a production balance those words are a lie; removed from a
-    mock balance, they are the only thing telling a tester the chips are not
-    savings. So the wording follows the mode, and the tab itself follows only
-    whether CASH is on at all.
+    So the client says neither, and what CASH is stays a deployment question
+    the operator answers, not a sentence on the felt.
     """
+    for name, source in (
+        ("lobby.html", LOBBY), ("lobby.js", LOBBY_JS),
+        ("profile.html", PROFILE), ("profile.js", PROFILE_JS),
+        ("cash-cashier.js", CASHIER_JS),
+    ):
+        for claim in ("ненастоящ", "реальные средства", "ТЕСТ", "TEST", "mock", "MOCK", "Mock"):
+            assert claim not in source, f"{name} still says {claim!r}"
+    # The tab follows only whether CASH is on at all, and the cashier follows
+    # the wallet -- neither is gated on which mode CASH happens to run in.
     assert 'cashTab.hidden = config.cash_mode === "off";' in LOBBY_JS
-    assert 'const test = mode === "mock";' in LOBBY_JS
-    assert '"USDT TRC20 · реальные средства"' in LOBBY_JS
-    assert "'USDT TRC20 · реальные средства'" in PROFILE_JS
-    # Nothing may gate a live CASH surface on the mock mode specifically.
-    assert 'cash_mode === "mock"' not in LOBBY_JS.replace('cashMode === "mock"', "")
-    # The profile's cashier tab follows the wallet, never the mock mode: the
-    # mode picks the wording and the withdraw button's label, nothing else.
     assert "$('cashModeTab').hidden = false;" in PROFILE_JS
-    assert "hidden = !test" not in PROFILE_JS.replace(
-        "$('cashModeTab').querySelector('small').hidden = !test;", "")
+    assert "cash_mode" not in PROFILE_JS

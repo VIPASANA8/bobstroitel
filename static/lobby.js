@@ -21,7 +21,6 @@
   let myRoom = null;
   let roomLevels = {};
   let asset = "PLAY";
-  let cashMode = "off";
   let cashWallet = null;
 
   const format = units => (Number(units || 0) / 100).toFixed(2);
@@ -390,9 +389,7 @@
     $("cashPilot").hidden = asset !== "CASH_USDT";
     $("modeFooter").textContent = asset !== "CASH_USDT"
       ? "Виртуальные фишки · без реальных денег"
-      : cashMode === "mock"
-        ? "ТЕСТ · mock USDT · средства ненастоящие"
-        : "USDT TRC20 · реальные средства";
+      : "USDT TRC20";
     document.querySelectorAll("[data-asset]").forEach(tab => {
       const active = tab.dataset.asset === asset;
       tab.classList.toggle("is-active", active);
@@ -421,29 +418,11 @@
     tab.addEventListener("click", () => selectAsset(tab.dataset.asset).catch(console.error));
   });
 
-  // Every place that tells the player whether the money is real. Getting this
-  // wrong is not a cosmetic bug: "средства ненастоящие" printed over a real
-  // balance is a lie, and the same words over a mock balance are the only
-  // thing stopping someone from treating test chips as savings.
-  function applyCashWording(mode) {
-    const test = mode === "mock";
-    const tab = document.querySelector('[data-asset="CASH_USDT"] small');
-    // Hidden, not just emptied: an empty <small> still draws its own pill.
-    if (tab) { tab.textContent = test ? "TEST" : ""; tab.hidden = !test; }
-    const warning = document.querySelector("#cashPilot .cash-warning");
-    if (warning) {
-      warning.hidden = !test;
-      warning.querySelector("strong").textContent = "ТЕСТ — средства ненастоящие";
-    }
-  }
-
   async function boot() {
     const configResponse = await fetch("/api/config").catch(() => null);
     const config = configResponse?.ok ? await configResponse.json() : {cash_mode: "off"};
-    cashMode = config.cash_mode;
     const cashTab = document.querySelector('[data-asset="CASH_USDT"]');
     cashTab.hidden = config.cash_mode === "off";
-    applyCashWording(config.cash_mode);
     await load();
     if (location.hash === "#cash" && config.cash_mode !== "off") {
       await selectAsset("CASH_USDT");

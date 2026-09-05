@@ -325,18 +325,12 @@
 
   // The cashier only exists for a player the pilot actually lets in, so its
   // tab appears with the wallet and not before.
-  async function openCashier(config) {
+  async function openCashier() {
     renderCashWallet(await json('/api/cash/wallet'));
-    const test = config.cash_mode === 'mock';
     $('cashModeTab').hidden = false;
     // One tab is not a choice: the switch appears only once there are two.
     document.querySelector('.profile-modes').hidden = false;
-    $('cashModeTab').querySelector('small').hidden = !test;
-    $('cashCaption').textContent = test
-      ? 'ТЕСТ — средства ненастоящие · USDT TRC20 mock'
-      : 'USDT TRC20 · реальные средства';
     window.Poker8Cashier.mount({
-      testMode: test,
       onSettled: () => json('/api/cash/wallet').then(renderCashWallet).catch(console.error),
     });
     await loadBlock('/api/profile/hands?limit=20&asset=CASH_USDT', 'cashHandHistory', renderCashHistory, 'Не удалось загрузить историю CASH.');
@@ -357,7 +351,7 @@
       loadBlock('/api/profile/achievements', 'achievementList', renderAchievements, 'Не удалось загрузить достижения. Обновите страницу.', 'achievementsError'),
       loadBlock('/api/profile/hands?limit=20&asset=PLAY', 'handHistory', renderHistory, 'Не удалось загрузить историю.'),
       loadBlock('/api/profile/play-journal?limit=20', 'ledger', renderLedger, 'Не удалось загрузить журнал.'),
-      openCashier(config).catch(() => { $('cashModeTab').hidden = true; }),
+      openCashier().catch(() => { $('cashModeTab').hidden = true; }),
     ]);
   }
 
