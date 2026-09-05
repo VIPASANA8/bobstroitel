@@ -29,6 +29,15 @@ def test_cash_ui_keeps_usdt_payment_fields_separate_from_cash_units():
     assert "BigInt" in CASHIER_JS
 
 
+def test_the_deposit_limits_on_screen_are_the_ones_the_server_enforces():
+    """The P2P hint read 20-500 while the service refused anything over 300:
+    a player typing 400 got the raw refusal instead of the form saying no."""
+    from cash.fiat_orders import MAX_DEPOSIT_MICROS, MIN_DEPOSIT_MICROS
+
+    low, high = MIN_DEPOSIT_MICROS // 1_000_000, MAX_DEPOSIT_MICROS // 1_000_000
+    assert f"Введите сумму ({low}$–{high}$)" in PROFILE
+
+
 def test_the_lobby_sends_the_player_to_one_cashier():
     """Two places showing the same balance is two answers. The lobby shows
     what is spendable at a table and links to the profile for the rest."""
@@ -41,7 +50,7 @@ def test_the_lobby_sends_the_player_to_one_cashier():
 
 
 def test_cash_ui_exposes_rub_p2p_without_changing_trc20_withdrawals():
-    assert 'id="cashFiatDeposit"' in PROFILE
+    assert 'data-method="fiat"' in PROFILE
     assert 'id="fiatDepositUsdt"' in PROFILE
     assert "/api/cash/fiat-orders" in CASHIER_JS
     assert "Я оплатил" in CASHIER_JS

@@ -48,7 +48,7 @@ def test_the_profile_separates_the_money_from_the_game():
     assert 'aria-controls="cashSection"' in PROFILE
     # The cashier's own controls sit inside that half of the page.
     cash_half = PROFILE[PROFILE.index('id="cashSection"'):]
-    for element_id in ("cashDeposit", "cashFiatDeposit", "cashWithdraw", "cashHandHistory"):
+    for element_id in ("cashDeposit", "cashWithdraw", "cashHandHistory"):
         assert f'id="{element_id}"' in cash_half, element_id
     # ...and the practice history stays out of it.
     assert 'id="handHistory"' not in cash_half

@@ -39,3 +39,29 @@
 .cash-profile-section .profile-kicker{margin:0}
 .profile-modes{margin-top:0}
 .profile-modes[hidden]{display:none}
+
+/* The deposit flow, borrowed from CASE8: pick a rail, then an amount. Their
+   paint is bright green and ours is not, so this is the shape of it in the
+   profile's palette -- and without the promo-code panel, which we have no
+   bonus behind. */
+.cash-dialog{position:relative}
+.cash-dialog .dialog-close{position:absolute;top:16px;right:18px;float:none;margin:0}
+.cash-dialog h2{font-size:19px;text-align:center;padding:0 28px;letter-spacing:-.02em}
+.dialog-sub{margin:0 0 18px;color:var(--muted);font-size:12px;text-align:center}
+.buyin-dialog h2+.dialog-sub{margin-top:6px}
+.pay-methods{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pay-method{display:grid;justify-items:center;gap:6px;padding:18px 12px;border:1px solid var(--line);border-radius:14px;background:var(--panel-2);color:var(--ink);cursor:pointer;transition:border-color .18s,transform .16s}
+.pay-method:hover{border-color:var(--accent);transform:translateY(-1px)}
+.pay-method b{font-size:15px}
+.pay-method small{color:var(--muted);font-size:10px;text-align:center}
+.pay-mark{display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:var(--panel);font-size:22px;line-height:1}
+.pay-mark-usdt{background:#26a17b;color:#fff;font-weight:800}
+.amount-field{position:relative;display:block;margin-top:18px}
+.amount-field input{padding-right:62px!important}
+.amount-suffix{position:absolute;top:50%;right:16px;transform:translateY(-50%);color:var(--muted);font-size:13px;font-weight:700;pointer-events:none}
+.pay-currencies{display:flex;gap:8px;margin:12px 0 4px}
+.pay-currency{display:grid;justify-items:center;gap:1px;padding:8px 14px;border:1px solid var(--accent);border-radius:11px;background:var(--panel-2)}
+.pay-currency b{font-size:10px;letter-spacing:.08em;color:var(--muted)}
+.pay-currency small{font-size:12px;font-weight:800;color:var(--ink)}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.pay-method{padding:16px 8px}

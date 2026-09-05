@@ -112,8 +112,15 @@ window.Poker8Cashier = (() => {
     bindConversion("depositUsdt", "depositCash");
     bindConversion("fiatDepositUsdt", "fiatDepositCash");
     bindConversion("withdrawUsdt", "withdrawCash");
-    $("cashDeposit").addEventListener("click", () => $("depositDialog").showModal());
-    $("cashFiatDeposit").addEventListener("click", () => $("fiatDepositDialog").showModal());
+    // "Пополнить" asks how before it asks how much: the rail is a detail of
+    // paying, not a decision to make on the wallet screen.
+    $("cashDeposit").addEventListener("click", () => $("depositMethodDialog").showModal());
+    $("depositMethodForm").addEventListener("click", event => {
+      const chosen = event.target.closest("[data-method]");
+      if (!chosen) return;
+      $("depositMethodDialog").close("cancel");
+      $(chosen.dataset.method === "fiat" ? "fiatDepositDialog" : "depositDialog").showModal();
+    });
     $("cashWithdraw").addEventListener("click", () => $("withdrawDialog").showModal());
     // A button with no type inside a form is a submit button, so the dialog
     // cross would submit the form it was meant to abandon.
