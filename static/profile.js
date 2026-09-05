@@ -190,10 +190,18 @@
     $('showAchievements').hidden = items.length <= 6;
   }
 
+  //: One arrow, drawn once: up-right for money in, the same path turned
+  //: half a turn for money out, a bar for neither. The glyphs it replaces were
+  //: whatever ↗ ↙ – happened to be in the system font, which is why they sat
+  //: at three different weights and three different optical sizes.
+  const ARROW = '<svg class="ui-arrow" viewBox="0 0 16 16"><path d="M4 12 12 4M6 4h6v6"/></svg>';
+  const FLAT = '<svg class="ui-arrow" viewBox="0 0 16 16"><path d="M3.5 8h9"/></svg>';
+  const signIcon = amount => (amount > 0 ? ARROW : amount < 0 ? ARROW : FLAT);
+
   function historyRow(title, detail, amount) {
     const outcome = amount > 0 ? 'win' : amount < 0 ? 'loss' : 'flat';
     return `<article class="history-row ${outcome}">
-      <div class="history-what"><span class="history-sign" aria-hidden="true">${amount > 0 ? '↗' : amount < 0 ? '↙' : '–'}</span><div><strong>${escapeHtml(title)}</strong><small>${escapeHtml(detail)}</small></div></div>
+      <div class="history-what"><span class="history-sign" aria-hidden="true">${signIcon(amount)}</span><div><strong>${escapeHtml(title)}</strong><small>${escapeHtml(detail)}</small></div></div>
       <span class="history-amount">${signed(amount)}</span>
     </article>`;
   }
@@ -223,7 +231,7 @@
     const detail = dateText(hand.completed_at || hand.started_at) +
       ' \u00b7 ' + seated + ' ' + noun(seated, 'игрок', 'игрока', 'игроков');
     const outcome = net > 0 ? 'win' : net < 0 ? 'loss' : 'flat';
-    const sign = net > 0 ? '\u2197' : net < 0 ? '\u2199' : '\u2013';
+    const sign = signIcon(net);
     return '<article class="history-row ' + outcome + '">' +
       '<div class="history-what"><span class="history-sign" aria-hidden="true">' + sign + '</span>' +
       '<div><strong>' + title + '</strong><small>' + escapeHtml(detail) + '</small></div></div>' +
@@ -253,7 +261,9 @@
     $('topupForm').querySelectorAll('input, button').forEach(control => { control.disabled = !enabled; });
     $('topupNote').textContent = enabled ? 'Только виртуальные фишки.'
       : refillAt ? `Фишки закончились. Новые — ${dateText(refillAt)}.`
-      : 'Пополнение пока недоступно.';
+      // Nothing at all when there is nothing to say: "пополнение пока
+      // недоступно" is a line about a feature the player never asked for.
+      : '';
     if (enabled && location.hash === '#topup') $('topupDetails').open = true;
   }
 
@@ -346,9 +356,12 @@
   }
 
   async function load() {
-    await window.Poker8Auth.ensureSession();
-    // First login returns an auth receipt, not XP/level/balance-at-table.
-    renderProfile(await json('/api/profile'));
+    const session = await window.Poker8Auth.ensureSession();
+    // ensureSession publishes the profile when it got there through the
+    // session cookie, which is the usual way in; only a fresh login returns an
+    // auth receipt instead, and that one has no XP, level or table stack.
+    renderProfile(window.Poker8Profile || await json('/api/profile'));
+    void session;
     const config = await json('/api/config').catch(() => ({}));
     renderTopUp(Boolean(config.self_top_up_enabled));
     await Promise.all([

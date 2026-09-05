@@ -29,19 +29,27 @@ CASH_CSS = (ROOT / "static" / "cash-ui.css").read_text(encoding="utf-8")
 CASHIER_JS = (ROOT / "static" / "cash-cashier.js").read_text(encoding="utf-8")
 
 
-def test_a_stale_telegram_launch_falls_back_to_the_session_cookie():
+def test_the_session_cookie_answers_before_telegram_is_asked_again():
     """initData is captured once, when Telegram opens the Mini App, and the
-    server stops accepting it after fifteen minutes. Every page move after that
-    re-posted the same blob and the lobby printed "войдите через Telegram" at a
-    player who had never left Telegram."""
+    server stops accepting it after fifteen minutes -- so re-posting it on
+    every page move printed "войдите через Telegram" at a player who had never
+    left Telegram. It was also a POST and a signature check standing between
+    the tap and the first pixel, on every move between pages.
+
+    So the cookie is asked first, and the Telegram identity still wins: the
+    cookie is only accepted when it belongs to the person Telegram says is
+    looking, which is what stops a retained dev/guest session masking the
+    current @username at a live table.
+    """
     assert "/api/auth/telegram" in AUTH_JS
-    fallback = AUTH_JS[AUTH_JS.index("if (!response.ok)"):]
-    assert "initDataUnsafe?.user?.id" in fallback
-    assert "'/api/profile'" in fallback
-    # Only for the same person Telegram says is looking -- a wrong bot token
-    # has nobody signed in behind it and must still fail loudly.
-    assert "Number(existing.telegram_user_id) === Number(telegramId)" in fallback
-    assert "throw signIn(" in fallback
+    cookie_first = AUTH_JS.index("'/api/profile'") < AUTH_JS.index("/api/auth/telegram")
+    assert cookie_first, "the cookie has to be tried before signing in again"
+    assert "Number(existing.telegram_user_id) === Number(telegramId)" in AUTH_JS
+    # A wrong bot token has nobody signed in behind it and must fail loudly.
+    assert "throw signIn(" in AUTH_JS[AUTH_JS.index("if (!response.ok)"):]
+    # And the page that needs the whole profile gets the one already fetched.
+    assert "window.Poker8Profile = existing" in AUTH_JS
+    assert "window.Poker8Profile || await json('/api/profile')" in PROFILE_JS
 
 
 def test_the_profile_separates_the_money_from_the_game():

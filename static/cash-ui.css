@@ -23,6 +23,9 @@
 .cash-actions{display:flex;gap:8px}
 .cash-actions button,.cash-actions .cash-cashier{flex:1;padding:12px;border:1px solid var(--line);border-radius:11px;background:var(--panel);color:var(--ink);font-weight:800;text-align:center;text-decoration:none;cursor:pointer;transition:border-color .18s,color .18s}
 .cash-actions button:hover,.cash-actions .cash-cashier:hover{border-color:var(--accent);color:var(--accent)}
+/* Depositing is the one thing this panel exists for; it keeps its outline
+   instead of waiting to be hovered. */
+.cash-actions #cashDeposit{border-color:var(--accent);color:var(--accent)}
 .cash-rate{margin:11px 0 0;color:var(--muted);font-size:10px;text-align:center}
 .cash-conversion{margin:5px 0 15px;color:var(--muted);font-size:12px}
 .cash-conversion strong{color:var(--accent)}

@@ -311,6 +311,71 @@
         --table-stage-h:calc(100dvh - 50px)!important;
       }
     }
+
+    /* ---- The header, in the lobby's clothes -------------------------------
+       The felt keeps its own light, but the bar above it is chrome, and it was
+       chrome from three different products at once: a gold hairline on the
+       seat pair, bright green for "Занять место", violet for "Наблюдать", and
+       cyan with a glow on chat and hint. Beside a lobby that is graphite with
+       one violet accent, that read as four apps stacked.
+
+       Same tokens as network.css, written out because this page does not link
+       it. Specificity matches what it overrides -- v037 styles the chat and
+       hint buttons through body.v014.poker8-v2-sixmax, and this sheet is
+       appended after it, so equal weight is enough. */
+    .poker8-online .mobile-header-seat-actions button{
+      border-color:#303039;background:#18191f;color:#f1f1f4;
+    }
+    /* The one call to action on the bar, filled like the lobby's primary. */
+    .poker8-online .mobile-header-seat-actions #mobileHeaderTakeSeat{
+      border-color:#c8b3f6;background:#c8b3f6;color:#1c0f33;
+    }
+    .poker8-online .mobile-header-seat-actions #mobileHeaderObserve{
+      border-color:#303039;background:#18191f;color:#f1f1f4;
+    }
+    /* A mode you are already in is a state, not an offer: it stops being
+       filled and keeps the outline, which is the same distinction the lobby
+       draws between its primary and secondary entries. */
+    .poker8-online .mobile-header-seat-actions button.mode-active{color:#c8b3f6;}
+    .poker8-online .mobile-header-seat-actions #mobileHeaderTakeSeat.mode-active{
+      border-color:#c8b3f6!important;background:#18191f;color:#c8b3f6;box-shadow:none;
+    }
+    .poker8-online .mobile-header-seat-actions #mobileHeaderTakeSeat.mode-active::before{
+      background:#c8b3f6;box-shadow:none;
+    }
+    .poker8-online .mobile-header-seat-actions #mobileHeaderObserve.mode-active{
+      border-color:#c8b3f6!important;color:#c8b3f6;
+    }
+    /* The prompt is the same go-ahead as "Занять место", so it is the same
+       button: filled accent, and the ring it pulses recoloured with it. This
+       one is addressed by id because the rule it replaces is, a few hundred
+       lines up in this same sheet. */
+    .poker8-online .mobile-header-seat-actions #mobileHeaderReadyUp{
+      border-color:#c8b3f6;background:#c8b3f6;color:#1c0f33;
+      animation:p8HeaderReadyAccent 1.6s ease-in-out infinite;
+    }
+    @keyframes p8HeaderReadyAccent{
+      0%,100%{box-shadow:0 0 0 0 rgba(200,179,246,.40)}
+      50%{box-shadow:0 0 0 4px rgba(200,179,246,0)}
+    }
+    @media (prefers-reduced-motion:reduce){
+      .poker8-online .mobile-header-seat-actions #mobileHeaderReadyUp{animation:none}
+    }
+    /* The hamburger came from v032 in cyan and the chat/hint pair from a later
+       layer in violet, both stamped !important -- so these have to be too.
+       Three sheets had an opinion about one row of buttons. */
+    body.v014.poker8-v2-sixmax .mobile-menu-button,
+    body.v014.poker8-v2-sixmax .mobile-chat-button,
+    body.v014.poker8-v2-sixmax .mobile-hint-button{
+      border:1px solid #303039!important;background:#18191f!important;
+      box-shadow:none!important;color:#a2a1ac!important;
+    }
+    body.v014.poker8-v2-sixmax .mobile-chat-button:hover,
+    body.v014.poker8-v2-sixmax .mobile-hint-button:hover,
+    body.v014.poker8-v2-sixmax .mobile-menu-button:hover{
+      border-color:#c8b3f6!important;color:#c8b3f6!important;
+    }
+    body.v014.poker8-v2-sixmax .mobile-chat-button .chat-bubble{fill:rgba(200,179,246,.18)!important;}
   `;
   document.head.appendChild(tablePageStyle);
   document.body.classList.add("poker8-online");

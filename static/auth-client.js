@@ -41,34 +41,42 @@ window.Poker8Auth = (() => {
       // without this it can also be read as "pull to minimize the app".
       window.Telegram.WebApp.disableVerticalSwipes?.();
       publishTelegramProfile();
+      // Ask the session cookie first, and only sign in again if it cannot
+      // answer. Every move between pages inside the Mini App is a fresh page
+      // load, and re-posting initData meant a POST plus a signature check
+      // standing between the tap and the first pixel -- on every one of them.
+      // The cookie is good for a week; this is one GET, and it is the same GET
+      // the profile page was about to make anyway.
+      //
+      // The Telegram identity still wins, because the cookie is only accepted
+      // when it belongs to the person Telegram says is looking: a retained
+      // dev/guest session cannot mask the current @username at a live table.
+      // It also covers the case this check was first written for -- initData
+      // is captured once, when Telegram opens the app, and the server stops
+      // accepting it after fifteen minutes, which used to print "войдите через
+      // Telegram" at a player who had never left Telegram.
+      const telegramId = window.Telegram.WebApp.initDataUnsafe?.user?.id;
+      const existing = await fetch('/api/profile')
+        .then(profileResponse => profileResponse.ok ? profileResponse.json() : null).catch(() => null);
+      if (existing && telegramId && Number(existing.telegram_user_id) === Number(telegramId)) {
+        // The page that needs the full profile can have this one rather than
+        // asking for it a second time.
+        window.Poker8Profile = existing;
+        return existing;
+      }
       const response = await fetch('/api/auth/telegram', {
         method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({init_data:initData}),
       });
       if (!response.ok) {
-        // initData is captured once, when Telegram opens the Mini App, and it
-        // is never refreshed -- the server stops accepting it after fifteen
-        // minutes. Every page move after that (lobby to profile and back, or
-        // switching game mode) re-posted the same stale blob, was told
-        // "expired", and the lobby printed "войдите через Telegram" at a
-        // player who had never left Telegram. The session cookie set at the
-        // first login is good for a week, so ask who it belongs to, and take
-        // it only when that is the same person Telegram says is looking.
-        //
-        // A bot token pointing at the wrong bot still fails loudly, which is
-        // the whole reason this branch carries the server's own reason: there
-        // is no session behind a login that never succeeded, so there is
-        // nothing here for it to fall back to.
+        // Carry the server's reason: a wrong bot token has no session behind
+        // it, so there is nothing to fall back to and it must fail loudly.
         const detail = await response.json().then(body => body.detail).catch(() => null);
-        const telegramId = window.Telegram.WebApp.initDataUnsafe?.user?.id;
-        const existing = await fetch('/api/profile')
-          .then(profileResponse => profileResponse.ok ? profileResponse.json() : null).catch(() => null);
-        if (existing && telegramId && Number(existing.telegram_user_id) === Number(telegramId)) return existing;
         throw signIn(new Error(`Telegram session rejected: ${detail || response.status}`));
       }
       return response.json();
     }
     const profile = await fetch('/api/profile').then(response => response.ok ? response.json() : null).catch(() => null);
-    if (profile) return profile;
+    if (profile) { window.Poker8Profile = profile; return profile; }
     const config = await fetch('/api/config').then(response => response.json());
     if (config.development_profiles?.length) {
       const chosen = config.development_profiles[0];

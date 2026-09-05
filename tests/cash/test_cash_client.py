@@ -23,7 +23,12 @@ def test_cash_ui_keeps_usdt_payment_fields_separate_from_cash_units():
     assert 'id="depositUsdt"' in PROFILE
     assert 'id="withdrawUsdt"' in PROFILE
     assert 'id="withdrawAddress"' in PROFILE
-    assert "1 USDT = 10 единиц CASH" in LOBBY and "1 USDT = 10 единиц CASH" in PROFILE
+    # Stated once per surface: the lobby under its balance, the cashier in
+    # its own heading. It used to be printed twice on the profile, once in
+    # the heading and again under the withdraw button.
+    assert "1 USDT = 10 единиц CASH" in LOBBY
+    assert "1 USDT = 10 CASH" in PROFILE
+    assert PROFILE.count("1 USDT = 10") == 1
     assert "BigInt" in LOBBY_JS
     assert "cashUnitsToChips" in LOBBY_JS
     assert "BigInt" in CASHIER_JS

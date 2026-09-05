@@ -386,9 +386,6 @@
     const previous = asset;
     asset = next;
     $("cashPilot").hidden = asset !== "CASH_USDT";
-    $("modeFooter").textContent = asset !== "CASH_USDT"
-      ? "Виртуальные фишки · без реальных денег"
-      : "USDT TRC20";
     document.querySelectorAll("[data-asset]").forEach(tab => {
       const active = tab.dataset.asset === asset;
       tab.classList.toggle("is-active", active);

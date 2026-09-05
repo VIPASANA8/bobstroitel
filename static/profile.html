@@ -16,7 +16,7 @@
   <a class="skip-link" href="#profileMain">К профилю</a>
   <div class="profile-shell">
     <header class="profile-header">
-      <a class="profile-back" href="/" aria-label="Вернуться в лобби"><span aria-hidden="true">←</span> В лобби</a>
+      <a class="profile-back" href="/" aria-label="Вернуться в лобби"><svg class="ui-arrow" viewBox="0 0 16 16" aria-hidden="true"><path d="M12.5 8h-9M7 3.5 2.5 8 7 12.5"/></svg> В лобби</a>
       <a class="profile-brand" href="/" aria-label="Poker8, лобби">poker<i aria-hidden="true">♠</i></a>
     </header>
     <main id="profileMain">
@@ -43,7 +43,7 @@
           <span class="profile-kicker">ТРЕНИРОВОЧНЫЕ ФИШКИ</span>
           <strong id="walletBalance">—</strong>
           <p class="wallet-table"><span>За столом</span><b id="tableStack">—</b></p>
-          <a id="returnToTable" class="return-link" href="/table" hidden>Продолжить игру <span aria-hidden="true">↗</span></a>
+          <a id="returnToTable" class="return-link" href="/table" hidden>Продолжить игру <svg class="ui-arrow" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 12 12 4M6 4h6v6"/></svg></a>
           <details id="topupDetails" hidden>
             <summary>Пополнить баланс <span aria-hidden="true">+</span></summary>
             <form id="topupForm" class="topup-card">
@@ -122,8 +122,6 @@
               <div><span>Ожидает вывода</span><strong id="profileCashWithdrawal">—</strong><small id="profileCashWithdrawalUsdt">—</small></div>
             </div>
             <div class="cash-actions"><button id="cashDeposit" type="button">Пополнить TRC20</button><button id="cashFiatDeposit" type="button">Пополнить ₽ P2P</button><button id="cashWithdraw" type="button">Вывести USDT</button></div>
-            <p class="cash-rate">1 USDT = 10 единиц CASH</p>
-            <a class="return-link" href="/static/lobby.html#cash">К CASH-столам <span aria-hidden="true">↗</span></a>
           </section>
           <section class="profile-section activity-section" aria-labelledby="cashActivityHeading">
             <div class="profile-section-heading"><h2 id="cashActivityHeading">История CASH</h2><span class="section-caption">Раздачи за реальные столы</span></div>
@@ -135,7 +133,6 @@
         </div>
       </div>
     </main>
-    <footer class="profile-footer"><span>Poker8</span><span>Игра на виртуальные фишки</span></footer>
   </div>
 
   <dialog id="depositMethodDialog" class="buyin-dialog cash-dialog"><form method="dialog" id="depositMethodForm"><button class="dialog-close" type="button" aria-label="Закрыть">×</button><h2>Пополнение</h2><p class="dialog-sub">Выберите способ пополнения</p><div class="pay-methods"><button class="pay-method" type="button" data-method="fiat"><span class="pay-mark" aria-hidden="true">💳</span><b>Картой</b><small>Visa, Mastercard, МИР</small></button><button class="pay-method" type="button" data-method="crypto"><span class="pay-mark pay-mark-usdt" aria-hidden="true">₮</span><b>Крипта</b><small>USDT TRC-20</small></button></div></form></dialog>
