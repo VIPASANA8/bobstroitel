@@ -30,7 +30,7 @@
 .payment-details[hidden]{display:none}
 .payment-details strong{color:var(--ink)}
 .payment-details button{width:100%;margin-top:9px;padding:10px;border:0;border-radius:9px;background:var(--mint);color:#041f14;font-weight:900;cursor:pointer}
-@media(max-width:620px){.cash-wallet-grid{grid-template-columns:1fr}.cash-actions{flex-direction:column}}
+@media(max-width:620px){.cash-wallet-grid{grid-template-columns:repeat(2,1fr)}.cash-wallet-grid>div:first-child{grid-column:1/-1}.cash-wallet-solo{grid-template-columns:1fr}.cash-actions{flex-direction:column}}
 @media(prefers-reduced-motion:reduce){.mode-tab,.cash-actions button,.cash-actions .cash-cashier{transition:none}}
 
 .cash-profile-section{grid-column:1/-1}

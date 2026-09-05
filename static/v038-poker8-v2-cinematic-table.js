@@ -373,13 +373,31 @@
       body.v014.poker8-v2-sixmax.p8-player-count-6{--p8-prompt-y:47%;}
       body.v014.poker8-v2-sixmax .v038-room-prompt strong{display:block;color:#7dffd0;font-size:15px;line-height:1.05;letter-spacing:.06em;}
       body.v014.poker8-v2-sixmax .v038-room-prompt span{display:block;margin-top:5px;color:#dfffee;font-size:10px;line-height:1.1;}
+      /* The pulse rides on the outline, not on the avatar's border and glow,
+         because .v011 .player-avatar declares both of those !important -- and
+         an !important declaration outranks an animation, while !important
+         inside @keyframes is ignored by the spec. So the animation had been
+         running the whole time and painting nothing; heads-up, with no other
+         movement on the felt to cover for it, that read as no animation at
+         all. Nothing in any layer touches outline, which is exactly why these
+         two declarations must stay un-important: !important here would beat
+         the keyframes the same way the border does. */
       body.v014.poker8-v2-sixmax.v038-room-awaiting .seat[data-visual-seat="0"] .avatar-wrap:not(.v038-viewer-ready) .player-avatar,
       body.v014.poker8-v2-sixmax.p8-can-ready .seat[data-visual-seat="0"] .avatar-wrap:not(.v038-viewer-ready) .player-avatar{
+        outline:2px solid transparent;outline-offset:2px;
         animation:v038ReadyPulse 1.7s ease-in-out infinite;
+      }
+      /* Without motion the avatar still has to say "tap me", so the ring
+         stays lit instead of breathing. */
+      @media(prefers-reduced-motion:reduce){
+        body.v014.poker8-v2-sixmax.v038-room-awaiting .seat[data-visual-seat="0"] .avatar-wrap:not(.v038-viewer-ready) .player-avatar,
+        body.v014.poker8-v2-sixmax.p8-can-ready .seat[data-visual-seat="0"] .avatar-wrap:not(.v038-viewer-ready) .player-avatar{
+          animation:none;outline-color:rgba(110,220,255,.85);
+        }
       }
       body.v014.poker8-v2-sixmax .felt{transition:opacity 260ms ease,filter 260ms ease!important;}
       body.v014.poker8-v2-sixmax.v038-room-resetting .felt{opacity:.18!important;filter:brightness(.42) blur(2px)!important;}
-      @keyframes v038ReadyPulse{50%{border-color:#6edcff;box-shadow:0 0 0 3px rgba(0,0,0,.92),0 0 28px rgba(53,198,255,.82),inset 0 -10px 18px rgba(0,0,0,.50)}}
+      @keyframes v038ReadyPulse{50%{outline-color:rgba(110,220,255,.95);outline-offset:6px}}
 
       body.v014.poker8-v2-sixmax .player-cards{
         position:absolute!important;z-index:2!important;left:50%!important;top:-13px!important;bottom:auto!important;transform:translateX(-50%)!important;margin:0!important;min-height:0!important;gap:2px!important;
