@@ -385,7 +385,6 @@
     if (next === asset) return;
     const previous = asset;
     asset = next;
-    document.body.classList.toggle("cash-mode", asset === "CASH_USDT");
     $("cashPilot").hidden = asset !== "CASH_USDT";
     $("modeFooter").textContent = asset !== "CASH_USDT"
       ? "Виртуальные фишки · без реальных денег"
@@ -401,7 +400,6 @@
     } catch (error) {
       if (next === "CASH_USDT") {
         asset = previous;
-        document.body.classList.remove("cash-mode");
         $("cashPilot").hidden = true;
         document.querySelectorAll("[data-asset]").forEach(tab => {
           const active = tab.dataset.asset === asset;

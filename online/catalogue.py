@@ -23,7 +23,7 @@ DEFAULT_TABLES = (
 
 CASH_MOCK_TABLE = {
     "id": "cash-micro-test",
-    "name": "CASH Micro · TEST",
+    "name": "CASH Micro",
     # Compatibility chip counts for the current table client. Money remains
     # authoritative only in the exact *_micros columns below.
     "small_blind_units": 5,
@@ -211,9 +211,20 @@ class Catalogue:
                     poker_tables.c.id == CASH_MOCK_TABLE["id"]
                 ))).mappings().one_or_none()
                 if existing:
-                    expected = {**CASH_MOCK_TABLE, "asset": CASH_USDT}
+                    expected = {
+                        key: value for key, value in CASH_MOCK_TABLE.items() if key != "name"
+                    }
+                    expected["asset"] = CASH_USDT
                     if any(existing[key] != value for key, value in expected.items()):
                         raise RuntimeError("existing mock CASH table has incompatible parameters")
+                    # The name is a label, not a money parameter. Refusing to
+                    # boot over a renamed table would make renaming it a
+                    # migration; adopting the new name costs nothing, and the
+                    # blinds, chip and rake above are still checked exactly.
+                    if existing["name"] != CASH_MOCK_TABLE["name"]:
+                        await session.execute(update(poker_tables).where(
+                            poker_tables.c.id == CASH_MOCK_TABLE["id"]
+                        ).values(name=CASH_MOCK_TABLE["name"]))
                     return
                 await session.execute(poker_tables.insert().values(
                     **CASH_MOCK_TABLE,

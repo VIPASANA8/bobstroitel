@@ -1,23 +1,41 @@
+/* CASH shares the lobby's design language rather than having one of its own.
+   It used to be a maroon-and-orange module bolted onto a mint-and-violet app,
+   which read as a different product; the only thing that still marks it apart
+   is the $$$ pill on its tab. Everything here is built from the same tokens as
+   network.css so the two modes stay in step when those change. */
 .lobby-modes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:22px 0 12px;padding:5px;border:1px solid rgba(145,232,186,.17);border-radius:16px;background:rgba(3,18,14,.72)}
 .mode-tab{min-height:52px;border:0;border-radius:11px;background:transparent;color:var(--muted);font:800 13px Manrope,sans-serif;letter-spacing:.04em;cursor:pointer}
-.mode-tab small{margin-left:7px;padding:3px 6px;border-radius:99px;background:rgba(255,153,103,.15);color:#ffb37f;font-size:9px}
+.mode-tab small{margin-left:7px;padding:3px 6px;border-radius:99px;background:rgba(239,173,105,.16);color:var(--orange);font-size:9px;letter-spacing:.06em}
 .mode-tab.is-active{background:linear-gradient(135deg,rgba(54,221,157,.18),rgba(77,115,255,.12));color:var(--ink);box-shadow:inset 0 0 0 1px rgba(145,232,186,.24)}
-.cash-mode .mode-tab.is-active{background:linear-gradient(135deg,rgba(255,144,87,.20),rgba(114,71,255,.16));box-shadow:inset 0 0 0 1px rgba(255,177,117,.34)}
-.cash-pilot{margin:0 0 14px;padding:16px;border:1px solid rgba(255,155,94,.32);border-radius:18px;background:linear-gradient(145deg,rgba(45,20,13,.78),rgba(17,13,39,.86));box-shadow:0 18px 45px rgba(0,0,0,.18)}
-.cash-pilot[hidden]{display:none}
-.cash-wallet-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:13px 0}
-.cash-wallet-solo{grid-template-columns:1fr}
-.cash-wallet-grid>div{display:grid;gap:4px;padding:12px;border:1px solid rgba(255,255,255,.08);border-radius:13px;background:rgba(0,0,0,.16)}
-.cash-wallet-grid span,.cash-wallet-grid small{color:#a99c98;font-size:10px}.cash-wallet-grid strong{color:#fff2e9;font:700 18px Unbounded,sans-serif}.cash-wallet-grid small{font-variant-numeric:tabular-nums}
-.cash-actions{display:flex;gap:8px}.cash-actions button,.cash-actions .cash-cashier{flex:1;padding:12px;border:1px solid rgba(255,177,117,.28);border-radius:11px;background:rgba(255,144,87,.11);color:#ffd6bd;font-weight:800;text-align:center;text-decoration:none;cursor:pointer}
-.cash-actions .cash-cashier:hover{border-color:rgba(255,177,117,.6);color:#fff1e7}
-.cash-rate{margin:11px 0 0;color:#a99c98;font-size:10px;text-align:center}
-.cash-conversion{margin:5px 0 15px;color:#b7aaa3;font-size:12px}.cash-conversion strong{color:#ffbd91}
-.payment-details{margin-top:15px;padding:13px;border:1px solid rgba(255,177,117,.22);border-radius:12px;background:rgba(0,0,0,.20);color:#d9cbc4;font-size:12px;line-height:1.6;overflow-wrap:anywhere}.payment-details[hidden]{display:none}.payment-details strong{color:#fff1e7}.payment-details button{width:100%;margin-top:9px;padding:10px;border:0;border-radius:9px;background:#ffad78;color:#2a1006;font-weight:900;cursor:pointer}
-.cash-mode .table-card{border-color:rgba(255,153,103,.22);background:linear-gradient(155deg,rgba(31,18,15,.92),rgba(12,20,27,.94))}.cash-mode .tier-tag{color:#ffb37f!important}.cash-mode .table-state{color:#ffb37f}
-@media(max-width:620px){.cash-wallet-grid{grid-template-columns:1fr}.cash-actions{flex-direction:column}}
-@media(prefers-reduced-motion:reduce){.mode-tab,.cash-actions button{transition:none}}
-.cash-profile-section{grid-column:1/-1;border-color:rgba(255,155,94,.28)!important;background:linear-gradient(145deg,rgba(45,20,13,.70),rgba(17,13,39,.76))!important}.cash-profile-section[hidden]{display:none}.cash-profile-section .profile-section-heading>div{display:grid;gap:5px}.cash-profile-section .profile-kicker{margin:0;color:#ffb07d}
 
+/* Same card as .table-card in network.css, deliberately. */
+.cash-pilot{margin:0 0 14px;padding:16px;border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(145deg,var(--panel-2),var(--panel))}
+.cash-pilot[hidden]{display:none}
+.cash-wallet-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:0 0 13px}
+.cash-wallet-solo{grid-template-columns:1fr}
+.cash-wallet-grid>div{display:grid;gap:4px;padding:12px;border:1px solid var(--line);border-radius:13px;background:var(--panel)}
+.cash-wallet-grid span,.cash-wallet-grid small{color:var(--muted);font-size:10px}
+.cash-wallet-grid strong{color:var(--ink);font:700 18px Unbounded,sans-serif}
+.cash-wallet-grid small{font-variant-numeric:tabular-nums}
+
+/* Same as .entry-secondary, so the cashier's buttons and the lobby's entry
+   buttons are one control, not two that nearly match. */
+.cash-actions{display:flex;gap:8px}
+.cash-actions button,.cash-actions .cash-cashier{flex:1;padding:12px;border:1px solid var(--line);border-radius:11px;background:var(--panel);color:var(--ink);font-weight:800;text-align:center;text-decoration:none;cursor:pointer;transition:border-color .18s,color .18s}
+.cash-actions button:hover,.cash-actions .cash-cashier:hover{border-color:var(--mint);color:var(--mint)}
+.cash-rate{margin:11px 0 0;color:var(--muted);font-size:10px;text-align:center}
+.cash-conversion{margin:5px 0 15px;color:var(--muted);font-size:12px}
+.cash-conversion strong{color:var(--mint)}
+.payment-details{margin-top:15px;padding:13px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--muted);font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+.payment-details[hidden]{display:none}
+.payment-details strong{color:var(--ink)}
+.payment-details button{width:100%;margin-top:9px;padding:10px;border:0;border-radius:9px;background:var(--mint);color:#041f14;font-weight:900;cursor:pointer}
+@media(max-width:620px){.cash-wallet-grid{grid-template-columns:1fr}.cash-actions{flex-direction:column}}
+@media(prefers-reduced-motion:reduce){.mode-tab,.cash-actions button,.cash-actions .cash-cashier{transition:none}}
+
+.cash-profile-section{grid-column:1/-1}
+.cash-profile-section[hidden]{display:none}
+.cash-profile-section .profile-section-heading>div{display:grid;gap:5px}
+.cash-profile-section .profile-kicker{margin:0}
 .profile-modes{margin-top:0}
 .profile-modes[hidden]{display:none}

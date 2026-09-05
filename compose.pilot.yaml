@@ -29,7 +29,8 @@ services:
       POKER8_ENV: test
       POKER8_DATABASE_URL: postgresql+psycopg://poker8:${POSTGRES_PASSWORD}@postgres:5432/poker8
       POKER8_COORDINATOR_ENABLED: "1"
-      POKER8_SEAT_IDLE_BOTS: ${POKER8_SEAT_IDLE_BOTS:-0}
+      POKER8_SEAT_IDLE_BOTS: ${POKER8_SEAT_IDLE_BOTS:-1}
+      POKER8_LEGACY_PLAY_ROOMS: ${POKER8_LEGACY_PLAY_ROOMS:-1}
       POKER8_DEFAULT_BOT_TOKEN: ${POKER8_DEFAULT_BOT_TOKEN:-}
       # Без hosts за прокси /api/auth отвечает 404 Unknown tenant host: сюда
       # должны попасть все имена, которыми Caddy отдаёт приложение.

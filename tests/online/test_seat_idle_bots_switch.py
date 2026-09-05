@@ -1,18 +1,17 @@
-"""TEMPORARY -- bots do not take free seats beside a player right now.
+"""POKER8_SEAT_IDLE_BOTS -- whether a bot may take a free seat beside a player.
 
-Turned off while live testing needs the free seats to stay free. It is
-deliberately narrow: only the arrival of new bots *at a table someone is
-sitting at* is suppressed. An empty room still fills to its own count, or
-the lobby would drain to nothing and there would be no five-player table
-to find a five-player bug at. Whoever is already seated stays and keeps
-playing, and a table over its count still sheds the extras, because the
-removals run before this point.
+On by default, and on everywhere now: it was held off while live testing
+needed the seats next to a tester to stay free, and that cost a lone player
+their game -- at a table whose one bot had left, nobody could ever arrive, so
+the hand could not start and the seat was a dead end.
 
-**Restore before the MVP release**: delete `POKER8_SEAT_IDLE_BOTS` from
-compose.server.yaml. Nothing else has to change -- the setting defaults to
-on, which is why every other test in this suite still seats bots normally.
-This file exists as much to make that deletion hard to forget as to check
-the behaviour.
+The switch is deliberately narrow and stays supported for that kind of
+testing: only the arrival of new bots *at a table someone is sitting at* is
+suppressed. An empty room still fills to its own count, or the lobby would
+drain to nothing and there would be no five-player table to find a
+five-player bug at. Whoever is already seated stays and keeps playing, and a
+table over its count still sheds the extras, because the removals run before
+this point.
 """
 
 import asyncio
@@ -74,10 +73,14 @@ def test_the_switch_defaults_to_on():
     assert Settings.from_mapping({"POKER8_SEAT_IDLE_BOTS": "0"}).seat_idle_bots is False
 
 
-def test_the_server_currently_has_it_off():
-    """Delete that line at MVP and this test goes with it."""
-    compose = Path("compose.server.yaml").read_text(encoding="utf-8")
-    assert "POKER8_SEAT_IDLE_BOTS: ${POKER8_SEAT_IDLE_BOTS:-0}" in compose
+def test_no_deployment_holds_bots_off_by_default():
+    """A lone player at a table whose only bot has left can never start a
+    hand: two seats are the minimum, and with arrivals suppressed nobody can
+    ever be the second. Overriding the switch stays possible; defaulting to
+    it does not."""
+    for name in ("compose.server.yaml", "compose.pilot.yaml"):
+        compose = Path(name).read_text(encoding="utf-8")
+        assert "POKER8_SEAT_IDLE_BOTS:-0" not in compose, name
 
 
 @pytest.mark.anyio
@@ -89,6 +92,17 @@ async def test_no_bot_takes_a_free_seat_beside_a_player(lobby):
     await _seat_user(session_factory, "micro-a", seat_no=0)
     await off.process_boundary("micro-a", now=START)
     assert await _bots(session_factory, "micro-a") == 0
+
+
+@pytest.mark.anyio
+async def test_a_lone_player_gets_someone_to_play_against(lobby):
+    """The switch off left this table a dead end: one person, no bot, and a
+    hand needs two seats. With arrivals allowed, micro-a refills to its own
+    count beside them and the table can deal."""
+    ledger, session_factory = lobby
+    await _seat_user(session_factory, "micro-a", seat_no=0)
+    await SeatingService(session_factory, ledger).process_boundary("micro-a", now=START)
+    assert await _bots(session_factory, "micro-a") == IDLE_BOT_COUNTS["micro-a"]
 
 
 @pytest.mark.anyio
