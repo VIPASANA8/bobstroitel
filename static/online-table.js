@@ -211,7 +211,7 @@
       .poker8-online.p8-desktop-header-actions #readyPanel{display:none!important}
       .poker8-online .mobile-header-seat-actions button{
         min-height:38px;padding:7px 8px;border:1px solid rgba(255,212,71,.42);border-radius:12px;
-        background:rgba(4,31,20,.86);color:#fff6e0;font:800 10px/1 Inter,ui-sans-serif,system-ui;
+        background:rgba(4,31,20,.86);color:#fff6e0;font:800 12px/1 Inter,ui-sans-serif,system-ui;
         white-space:nowrap;cursor:pointer;
         /* Both labels at full width leave ~16px of slack on a 374px screen and
            none at all below ~358px. Shrinking to an ellipsis is the only
@@ -376,6 +376,35 @@
       border-color:#c8b3f6!important;color:#c8b3f6!important;
     }
     body.v014.poker8-v2-sixmax .mobile-chat-button .chat-bubble{fill:rgba(200,179,246,.18)!important;}
+
+    /* ---- and the same header on a desktop --------------------------------
+       v039 relocates these buttons into .topbar and dresses them there in its
+       own green and red, with the section kickers in gold. Every one of those
+       rules is !important and this sheet is appended before v039's, so equal
+       weight would lose on order alone -- the html prefix is what outranks it
+       rather than a race. */
+    html body.v014.poker8-desktop-v2 .top-actions #mobileDrawerLobby{
+      border-color:#303039!important;background:#18191f!important;color:#f1f1f4!important;
+    }
+    /* Still the destructive one of the pair -- it gives up a seat, and the
+       button beside it only stops watching -- so it keeps a danger colour,
+       in the palette's own. */
+    html body.v014.poker8-desktop-v2 .top-actions #mobileDrawerLeave{
+      border-color:rgba(243,155,159,.38)!important;background:#231a1c!important;color:#f39b9f!important;
+    }
+    html body.v014.poker8-desktop-v2 .topbar h1{color:#f1f1f4!important;}
+    html body.v014.poker8-desktop-v2 .eyebrow,
+    html body.v014.poker8-desktop-v2 .panel-kicker{color:#a2a1ac!important;}
+    /* The last two green things in the bar. The mark matches the lobby's
+       brand chip; #newHand is the local trainer's and stays hidden on a
+       network table, but it is styled here and would show through the moment
+       it were not. */
+    html body.v014.poker8-desktop-v2 .brand-mark,
+    html body.v014.poker8-v2-sixmax .brand-mark{
+      border-color:#c8b3f6!important;background:#221d33!important;color:#c8b3f6!important;
+      box-shadow:none!important;
+    }
+    html body.v014 .topbar #newHand{border-color:#303039!important;color:#f1f1f4!important;}
   `;
   document.head.appendChild(tablePageStyle);
   document.body.classList.add("poker8-online");
