@@ -697,3 +697,26 @@ cash_audit_events = Table(
     CheckConstraint("length(reason) >= 3", name="ck_cash_audit_reason"),
 )
 Index("ix_cash_audit_tenant_time", cash_audit_events.c.tenant_id, cash_audit_events.c.created_at)
+
+cube_rounds = Table(
+    "cube_rounds", metadata,
+    Column("id", String(64), primary_key=True),
+    Column("user_id", String(64), ForeignKey("users.id"), nullable=False),
+    # The id the browser picked for this round. Two posts of the same one are
+    # one round: the unique constraint below is what a retried roll collides
+    # with, and the stored row is what it is answered with -- otherwise the
+    # ledger would (correctly) refuse the second move while the client showed a
+    # freshly drawn face that never settled.
+    Column("request_id", String(200), nullable=False),
+    Column("stake_units", BIGINT, nullable=False),
+    # The chosen faces, ascending: "2,5". One to three of six, never a query.
+    Column("selected", String(16), nullable=False),
+    Column("roll", Integer, nullable=False),
+    Column("payout_units", BIGINT, nullable=False),
+    Column("created_at", timestamp, **created_at),
+    UniqueConstraint("user_id", "request_id", name="uq_cube_round_request"),
+    CheckConstraint("roll BETWEEN 1 AND 6", name="ck_cube_round_face"),
+    CheckConstraint("stake_units > 0", name="ck_cube_round_stake"),
+    CheckConstraint("payout_units >= 0", name="ck_cube_round_payout"),
+)
+Index("ix_cube_rounds_user_time", cube_rounds.c.user_id, cube_rounds.c.created_at)

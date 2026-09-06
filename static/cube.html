@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#08090a" />
+  <title>Poker · CUBE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Manrope:wght@400;600;700;800&display=swap" />
+  <link rel="stylesheet" href="/static/cube.css?v=cube-1" />
+</head>
+<body class="cube-page">
+  <a class="skip-link" href="#cubeMain">К игре</a>
+  <div class="cube-shell">
+    <header class="cube-header">
+      <a class="cube-back" href="/" aria-label="Вернуться в лобби"><svg class="ui-arrow" viewBox="0 0 16 16" aria-hidden="true"><path d="M12.5 8h-9M7 3.5 2.5 8 7 12.5"/></svg> В лобби</a>
+      <a class="brand-word" href="/" aria-label="Poker, лобби">poker<i aria-hidden="true">♠</i></a>
+    </header>
+  </div>
+
+  <main id="cubeMain" class="cube-embed">
+    <section class="screen game-screen">
+      <section id="diceCard" class="dice-card">
+        <div class="cube-scene">
+          <canvas id="cubeCanvas" class="neon-cube-canvas" role="img" tabindex="0"
+                  aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight Enter Space"
+                  aria-label="Интерактивный неоновый кубик"></canvas>
+        </div>
+        <div id="resultLine" class="result-line" aria-live="polite">
+          <small>КУБИК ГОТОВ</small><strong>Настрой ставку и запускай</strong>
+        </div>
+      </section>
+
+      <section class="control-card">
+        <div class="section-heading">
+          <div><span>01</span><h2>Сумма ставки</h2></div>
+          <small>шаг 0.05 · до 1000</small>
+        </div>
+        <!-- A plain box, not a label: the balance next to the amount is a button,
+             and a label would swallow its clicks by forwarding them to the input. -->
+        <div class="stake-input">
+          <span aria-hidden="true">♠</span>
+          <input id="stakeInput" value="2.00" inputmode="decimal" min="0.05" max="1000" step="0.05" aria-label="Сумма ставки" />
+          <div class="stake-steps">
+            <button id="stakeUp" class="step-up" type="button" aria-label="Увеличить ставку на 0.50">+</button>
+            <button id="stakeDown" class="step-down" type="button" aria-label="Уменьшить ставку на 0.50">−</button>
+          </div>
+          <button id="stakeBalance" class="stake-balance" type="button" aria-label="Баланс, пополнить">
+            <span>БАЛАНС</span><strong id="balanceAmount">—</strong>
+          </button>
+        </div>
+
+        <div class="section-heading face-heading">
+          <div><span>02</span><h2>Выбери 1–3 грани</h2></div>
+          <small id="selectedCount">2/3</small>
+        </div>
+        <div id="faceGrid" class="face-grid"></div>
+
+        <div class="bet-summary">
+          <div><span>Выбрано</span><strong id="summarySelected">—</strong></div>
+          <div><span>Коэффициент</span><strong id="summaryMultiplier">—</strong></div>
+          <div><span>Возможная выплата</span><strong id="summaryPayout">—</strong></div>
+        </div>
+
+        <p id="cubeError" class="error-message" role="alert" hidden></p>
+        <button id="playButton" class="play-button" type="button">
+          <span id="playLabel">БРОСИТЬ КУБИК</span>
+          <!-- Drawn, not typed: the arrow glyph renders as a different shape
+               (or an emoji) per platform. -->
+          <b aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 12h13" /><path d="M12.5 6.5 19 12l-6.5 5.5" />
+            </svg>
+          </b>
+        </button>
+        <p class="fair-note"><i>◇</i> Раунд рассчитывается на сервере, на тренировочные фишки</p>
+      </section>
+    </section>
+  </main>
+
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="/static/auth-client.js?v=cube-1"></script>
+  <script src="/static/cube-motion.js?v=cube-1"></script>
+  <script src="/static/cube-canvas.js?v=cube-1"></script>
+  <script src="/static/cube.js?v=cube-1"></script>
+</body>
+</html>

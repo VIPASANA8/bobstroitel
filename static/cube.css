@@ -1,0 +1,858 @@
+/* CUBE, lifted from CASE8 (src/features/cube/game/cube.css) unchanged.
+   Every rule is scoped under .cube-embed there already, which is why it can
+   sit next to the lobby stylesheet without a single collision. The poker8
+   page chrome around it is at the bottom of this file. */
+.cube-embed {
+  font-family: Inter, "Segoe UI", system-ui, sans-serif;
+  color: #f5f7f7;
+  background: #08090a;
+  font-synthesis: none;
+  color-scheme: dark;
+  --lime: #c8ff31;
+  --lime-soft: #a8db1d;
+  --panel: #111315;
+  --panel-2: #171a1d;
+  --line: rgba(255, 255, 255, 0.09);
+  --muted: #81878d;
+}
+
+.cube-embed * {
+  box-sizing: border-box;
+}
+
+.cube-embed {
+  background: #08090a;
+}
+
+.cube-embed {
+  margin: 0;
+  min-width: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 50% -10%, rgba(200, 255, 49, 0.08), transparent 30rem),
+    #08090a;
+}
+
+.cube-embed button, .cube-embed input {
+  font: inherit;
+}
+
+.cube-embed button {
+  color: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cube-embed button:focus-visible, .cube-embed input:focus-visible {
+  outline: 2px solid var(--lime);
+  outline-offset: 3px;
+}
+
+.cube-embed {
+  position: relative;
+  width: min(100%, 480px);
+  min-height: 100vh;
+  margin: 0 auto;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, transparent 24px, rgba(255, 255, 255, 0.016) 25px, transparent 26px),
+    #0b0c0d;
+  box-shadow: 0 0 100px rgba(0, 0, 0, 0.65);
+}
+
+.cube-embed .screen {
+  min-height: 100vh;
+  padding: 14px 16px calc(16px + env(safe-area-inset-bottom));
+}
+
+.cube-embed .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--lime);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+}
+
+.cube-embed .eyebrow::before {
+  width: 16px;
+  height: 1px;
+  background: currentColor;
+  content: "";
+}
+
+.cube-embed h1, .cube-embed h2, .cube-embed p {
+  margin-top: 0;
+}
+
+.cube-embed .text-screen h1 {
+  margin: 9px 0 0;
+  color: #f8f9f9;
+  font-size: clamp(31px, 8.4vw, 42px);
+  line-height: 0.98;
+  letter-spacing: -0.065em;
+}
+
+.cube-embed .dice-card, .cube-embed .control-card, .cube-embed .empty-card, .cube-embed .explain-card, .cube-embed .warning-card {
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--panel);
+}
+
+.cube-embed .dice-card {
+  position: relative;
+  /* Sized by the cube plus room for the result strip, so a short screen shrinks instead of scrolling. */
+  padding-bottom: 46px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 43%, rgba(139, 76, 255, 0.12), transparent 33%),
+    linear-gradient(145deg, #171a1c, #0d0f10 70%);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.cube-embed .cube-scene {
+  position: relative;
+  z-index: 2;
+  /* Square, and never taller than what is left once the controls below have taken their fixed share —
+     but never smaller than a cube you can still read: a window too short to fit it scrolls instead. */
+  width: max(168px, min(312px, calc(100vw - 32px), calc(100vh - 512px)));
+  aspect-ratio: 1;
+  margin: 12px auto 8px;
+  user-select: none;
+}
+
+.cube-embed .neon-cube-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 22px;
+  cursor: grab;
+  touch-action: none;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cube-embed .neon-cube-canvas:active {
+  cursor: grabbing;
+}
+
+.cube-embed .neon-cube-canvas:focus-visible {
+  box-shadow: 0 0 0 2px #21e8ff, 0 0 24px rgba(33, 232, 255, 0.35);
+}
+
+.cube-embed .result-line {
+  position: absolute;
+  z-index: 5;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: grid;
+  min-height: 68px;
+  align-content: center;
+  padding: 13px 19px;
+  border-top: 1px solid var(--line);
+  /* Opaque instead of blurred: the canvas repaints under this strip every frame, and a backdrop filter
+     would re-blur it every one of them, which is what heats a phone up. */
+  background: #0b0d0e;
+}
+
+.cube-embed .result-line small {
+  color: #737a7f;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.cube-embed .result-line small b {
+  color: var(--lime);
+}
+
+.cube-embed .result-line strong {
+  margin-top: 3px;
+  font-size: 14px;
+  letter-spacing: -0.02em;
+}
+
+.cube-embed .result-win .result-line strong { color: var(--lime); }
+.cube-embed .result-loss .result-line strong { color: #ff778f; }
+
+.cube-embed .control-card {
+  margin-top: 10px;
+  padding: 15px 16px 13px;
+}
+
+.cube-embed .section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.cube-embed .section-heading > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cube-embed .section-heading div > span {
+  display: grid;
+  width: 23px;
+  height: 23px;
+  place-items: center;
+  border: 1px solid rgba(200, 255, 49, 0.2);
+  border-radius: 7px;
+  color: var(--lime);
+  background: rgba(200, 255, 49, 0.05);
+  font-size: 8px;
+  font-weight: 900;
+}
+
+.cube-embed .section-heading h2 {
+  margin: 0;
+  font-size: 14px;
+  letter-spacing: -0.02em;
+}
+
+.cube-embed .section-heading small {
+  color: #6e7479;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.cube-embed .stake-input {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  height: 61px;
+  padding: 0 15px;
+  border: 1px solid rgba(200, 255, 49, 0.16);
+  border-radius: 14px;
+  background: #0b0d0e;
+  box-shadow: inset 0 0 20px rgba(200, 255, 49, 0.018);
+}
+
+.cube-embed .stake-input > span {
+  color: var(--lime);
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.cube-embed .stake-input input {
+  /* Fixed to the widest amount so the step buttons keep their place instead of shifting with every digit. */
+  width: 7ch;
+  min-width: 0;
+  padding: 0 4px;
+  border: 0;
+  outline: 0;
+  color: #fff;
+  background: transparent;
+  font-size: 27px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+}
+
+.cube-embed .stake-input i {
+  padding: 4px 6px;
+  border-radius: 5px;
+  color: #0a0c0c;
+  background: var(--lime);
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+}
+
+.cube-embed .stake-steps {
+  display: grid;
+  gap: 5px;
+  grid-auto-flow: column;
+}
+
+.cube-embed .stake-steps button {
+  width: 38px;
+  height: 38px;
+  border: 1px solid;
+  border-radius: 10px;
+  background: #0f1112;
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cube-embed .stake-steps .step-up {
+  border-color: rgba(200, 255, 49, 0.45);
+  color: var(--lime);
+}
+
+.cube-embed .stake-steps .step-down {
+  border-color: rgba(255, 88, 117, 0.45);
+  color: #ff778f;
+}
+
+.cube-embed .stake-steps button:disabled {
+  border-color: var(--line);
+  color: #4d5257;
+  cursor: not-allowed;
+}
+
+.cube-embed .stake-balance {
+  display: grid;
+  margin-left: auto;
+  gap: 1px;
+  padding: 7px 11px;
+  border: 1px solid rgba(200, 255, 49, 0.18);
+  border-radius: 10px;
+  background: #15181a;
+  text-align: right;
+  cursor: pointer;
+}
+
+.cube-embed .stake-balance span {
+  color: #7e8589;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+}
+
+.cube-embed .stake-balance strong {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  animation: balance-roll 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes balance-roll {
+  from { transform: rotateX(-90deg); opacity: 0.15; }
+  to { transform: none; opacity: 1; }
+}
+
+.cube-embed .stake-balance:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.cube-embed .stake-balance.is-win {
+  border-color: rgba(200, 255, 49, 0.5);
+  background: rgba(200, 255, 49, 0.07);
+}
+
+.cube-embed .stake-balance.is-win strong { color: var(--lime); }
+
+.cube-embed .stake-balance.is-loss {
+  border-color: rgba(255, 88, 117, 0.4);
+  background: rgba(255, 88, 117, 0.06);
+}
+
+.cube-embed .stake-balance.is-loss strong { color: #ff778f; }
+
+/* Nothing left to bet with: the field says it before the play button has to. */
+.cube-embed .stake-balance.is-empty {
+  border-color: rgba(255, 88, 117, 0.6);
+  background: rgba(255, 88, 117, 0.1);
+}
+
+.cube-embed .stake-balance.is-empty span, .cube-embed .stake-balance.is-empty strong { color: #ff8ba0; }
+
+.cube-embed .stake-input:has(.is-empty) {
+  border-color: rgba(255, 88, 117, 0.32);
+}
+
+.cube-embed .face-heading {
+  margin-top: 15px;
+}
+
+.cube-embed .face-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 7px;
+}
+
+.cube-embed .face-choice {
+  --face-color: #fff;
+  position: relative;
+  aspect-ratio: 1;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  color: #858b90;
+  background: #0c0e0f;
+  font-size: 17px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: 160ms ease;
+}
+
+.cube-embed .face-choice-1 { --face-color: #ff3daf; }
+.cube-embed .face-choice-2 { --face-color: #21e8ff; }
+.cube-embed .face-choice-3 { --face-color: #56f08c; }
+.cube-embed .face-choice-4 { --face-color: #ffe24b; }
+.cube-embed .face-choice-5 { --face-color: #ff8b38; }
+.cube-embed .face-choice-6 { --face-color: #ad66ff; }
+
+/* The picker wears the same pip layout the cube does, so a face reads the same in both places. */
+.cube-embed .face-pips {
+  display: grid;
+  width: 62%;
+  margin: auto;
+  aspect-ratio: 1;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12%;
+  place-items: center;
+}
+
+.cube-embed .face-pips b {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+
+.cube-embed .face-pips b.is-on {
+  background: currentColor;
+  box-shadow: 0 0 7px currentColor;
+}
+
+.cube-embed .face-choice.is-selected {
+  transform: translateY(-2px);
+  border-color: var(--face-color);
+  color: var(--face-color);
+  background: color-mix(in srgb, var(--face-color) 10%, #0c0e0f);
+  box-shadow: 0 0 17px color-mix(in srgb, var(--face-color) 17%, transparent);
+}
+
+.cube-embed .bet-summary {
+  display: grid;
+  margin-top: 18px;
+  padding: 13px 0;
+  grid-template-columns: 0.78fr 0.92fr 1.3fr;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.cube-embed .bet-summary div {
+  display: grid;
+  gap: 3px;
+  padding: 0 9px;
+  border-right: 1px solid var(--line);
+}
+
+.cube-embed .bet-summary div:first-child { padding-left: 0; }
+.cube-embed .bet-summary div:last-child { padding-right: 0; border-right: 0; }
+
+.cube-embed .bet-summary span {
+  color: #6d7377;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.cube-embed .bet-summary strong {
+  overflow: hidden;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cube-embed .bet-summary div:last-child strong { color: var(--lime); }
+
+.cube-embed .play-button {
+  display: flex;
+  width: 100%;
+  min-height: 60px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 15px;
+  padding: 0 9px 0 20px;
+  border: 0;
+  border-radius: 14px;
+  color: #0a0c0c;
+  background: var(--lime);
+  box-shadow: 0 8px 32px rgba(200, 255, 49, 0.12);
+  font-size: 13px;
+  font-weight: 950;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: transform 120ms ease, filter 120ms ease;
+}
+
+.cube-embed .play-button:not(:disabled):active {
+  transform: translateY(2px) scale(0.995);
+}
+
+.cube-embed .play-button:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.75) brightness(0.55);
+}
+
+.cube-embed .play-button b {
+  display: grid;
+  width: 43px;
+  height: 43px;
+  place-items: center;
+  border-radius: 11px;
+  color: var(--lime);
+  background: #0b0d0e;
+  font-size: 20px;
+}
+
+.cube-embed .play-button b svg {
+  width: 21px;
+  height: 21px;
+}
+
+.cube-embed .fair-note {
+  margin: 11px 0 0;
+  color: #656b70;
+  font-size: 9px;
+  text-align: center;
+}
+
+.cube-embed .fair-note i {
+  color: var(--lime);
+  font-style: normal;
+}
+
+.cube-embed .error-message {
+  margin: 11px 0 0;
+  color: #ff8b9e;
+  font-size: 12px;
+}
+
+.cube-embed .text-screen {
+  padding-top: 38px;
+}
+
+.cube-embed .text-screen > h1 {
+  margin-bottom: 28px;
+}
+
+.cube-embed .lead {
+  margin: -14px 0 22px;
+  color: #92989c;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.cube-embed .empty-card {
+  padding: 56px 20px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.cube-embed .history-list {
+  display: grid;
+  gap: 8px;
+}
+
+.cube-embed .history-list article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-left: 3px solid #6f757a;
+  border-radius: 14px;
+  background: var(--panel);
+}
+
+.cube-embed .history-list article.history-win { border-left-color: var(--lime); }
+.cube-embed .history-list article.history-loss { border-left-color: #ff5875; }
+
+.cube-embed .history-list article > div {
+  display: grid;
+  gap: 3px;
+}
+
+.cube-embed .history-list article > div:last-child { text-align: right; }
+.cube-embed .history-list strong { font-size: 13px; }
+.cube-embed .history-win > div:last-child strong { color: var(--lime); }
+.cube-embed .history-loss > div:last-child strong { color: #ff778e; }
+.cube-embed .history-list span { color: #757b80; font-size: 10px; }
+
+.cube-embed .rules-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+}
+
+.cube-embed .rules-grid article {
+  display: grid;
+  min-width: 0;
+  padding: 15px 11px;
+  gap: 5px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: var(--panel);
+}
+
+.cube-embed .rules-grid span, .cube-embed .rules-grid small, .cube-embed .stats-grid span, .cube-embed .stats-grid small {
+  color: #777e83;
+  font-size: 10px;
+}
+
+.cube-embed .rules-grid strong {
+  color: var(--lime);
+  font-size: 23px;
+  letter-spacing: -0.05em;
+}
+
+.cube-embed .explain-card, .cube-embed .warning-card {
+  margin-top: 10px;
+  padding: 20px;
+}
+
+.cube-embed .explain-card h2 {
+  margin-bottom: 9px;
+  font-size: 17px;
+}
+
+.cube-embed .explain-card p {
+  color: #93999d;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.cube-embed .explain-card code {
+  display: block;
+  padding: 13px;
+  overflow-x: auto;
+  border-radius: 10px;
+  color: var(--lime);
+  background: #090b0b;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.cube-embed .warning-card {
+  border-color: rgba(255, 184, 59, 0.2);
+  color: #c7a867;
+  background: rgba(255, 184, 59, 0.05);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.cube-embed .stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.cube-embed .stats-grid article {
+  display: grid;
+  min-height: 108px;
+  align-content: space-between;
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel);
+}
+
+.cube-embed .stats-grid strong {
+  overflow: hidden;
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.05em;
+  text-overflow: ellipsis;
+}
+
+.cube-embed .stats-grid .stats-wide {
+  min-height: 120px;
+  grid-column: 1 / -1;
+  border-color: rgba(200, 255, 49, 0.16);
+  background: linear-gradient(135deg, rgba(200, 255, 49, 0.07), var(--panel) 58%);
+}
+
+.cube-embed .stats-wide strong { color: var(--lime); font-size: 31px; }
+.cube-embed .positive { color: var(--lime); }
+.cube-embed .negative { color: #ff778e; }
+
+.cube-embed .score-row {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  color: #898f94;
+  background: var(--panel);
+  font-size: 11px;
+}
+
+.cube-embed .reset-button {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 18px;
+  padding: 13px;
+  border: 1px solid rgba(255, 81, 111, 0.3);
+  border-radius: 12px;
+  color: #ff788f;
+  background: rgba(255, 81, 111, 0.05);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.cube-embed .modal-backdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(0, 0, 0, 0.74);
+  backdrop-filter: blur(8px);
+}
+
+.cube-embed .modal {
+  position: relative;
+  width: min(100%, 448px);
+  padding: 28px 20px 20px;
+  border: 1px solid rgba(200, 255, 49, 0.15);
+  border-radius: 24px;
+  background: #151719;
+  box-shadow: 0 -20px 80px rgba(0, 0, 0, 0.5);
+  animation: modal-in 220ms ease-out both;
+}
+
+.cube-embed .modal h2 {
+  margin: 8px 0;
+  font-size: 28px;
+  letter-spacing: -0.05em;
+}
+
+.cube-embed .modal > p {
+  margin-bottom: 18px;
+  color: #8c9297;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.cube-embed .modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: #858b90;
+  background: #0c0e0f;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.cube-embed .faucet-input { margin-top: 5px; }
+
+.cube-embed .partner-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 11px;
+  background: #0c0e0f;
+}
+
+.cube-embed .partner-note > i {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 7px;
+  color: #ffbd45;
+  background: rgba(255, 189, 69, 0.09);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.cube-embed .partner-note span {
+  display: grid;
+  gap: 2px;
+  color: #72787d;
+  font-size: 10px;
+}
+
+.cube-embed .partner-note strong { color: #a8adb0; font-size: 11px; }
+
+.cube-embed .modal > .error-message {
+  margin: -6px 0 14px;
+  color: #ff8b9e;
+}
+
+.cube-embed .modal-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.cube-embed .secondary-button, .cube-embed .reset-confirm {
+  min-height: 49px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.cube-embed .secondary-button {
+  border: 1px solid var(--line);
+  color: #a0a5a9;
+  background: #0c0e0f;
+}
+
+.cube-embed .reset-confirm {
+  border: 1px solid rgba(255, 81, 111, 0.36);
+  color: #ff8a9e;
+  background: rgba(255, 81, 111, 0.1);
+}
+
+@keyframes modal-in {
+  from { transform: translateY(28px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@media (max-width: 370px) {
+    .cube-embed .screen { padding-right: 12px; padding-left: 12px; }
+    .cube-embed .control-card { padding-right: 12px; padding-left: 12px; }
+    .cube-embed .cube-scene { width: min(286px, calc(100vw - 24px), 42vh); }
+    .cube-embed .face-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 7px;
+  }
+    .cube-embed .face-choice { border-radius: 10px; }
+    .cube-embed .stake-input { gap: 6px; padding: 0 11px; }
+    .cube-embed .stake-steps button { width: 34px; height: 34px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cube-embed *, .cube-embed *::before, .cube-embed *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* --- poker8 page chrome -----------------------------------------------------
+   The game arrives as a 480px phone column with its own dark ground. All this
+   adds is the header the lobby and the profile share, and the room for it. */
+.cube-page{margin:0;background:#08090a;color:#f5f7f7;color-scheme:dark}
+.cube-page .skip-link{position:absolute;left:-999px}
+.cube-page .skip-link:focus{left:12px;top:12px;z-index:10;background:#171a1d;padding:12px}
+.cube-shell,.cube-shell *{box-sizing:border-box}
+.cube-shell{width:min(100%,480px);margin:auto;padding:18px 16px 0}
+.cube-header{display:flex;align-items:center;justify-content:space-between;min-height:44px}
+.cube-back{display:inline-flex;align-items:center;gap:10px;min-height:44px;color:#81878d;font-size:13px;text-decoration:none}
+.cube-back:hover{color:#f5f7f7}
+.cube-back .ui-arrow{width:15px;height:15px;flex:none;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.cube-page .brand-word{display:flex;align-items:center;color:#f5f7f7;text-decoration:none;font:700 18px/1 'Unbounded',sans-serif;letter-spacing:-1px}
+.cube-page .brand-word>i{font:24px/1 Georgia,serif;margin-left:4px;color:#c8ff31}
+/* The game measures itself against the viewport; the header above it is height
+   the viewport does not know about, so hand it back the same 62px. */
+.cube-embed,.cube-embed .screen{min-height:calc(100vh - 62px)}
+.cube-embed .screen{padding-top:8px}

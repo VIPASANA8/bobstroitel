@@ -323,6 +323,40 @@ class PlayLedger:
             session=session,
         )
 
+    async def settle_cube_round(
+        self,
+        user_id: str,
+        round_id: str,
+        stake_units: int,
+        payout_units: int,
+        idempotency_key: str,
+        *,
+        session: AsyncSession | None = None,
+    ) -> LedgerResult:
+        """Move one CUBE round between the player and the faucet, net.
+
+        A round is a stake out and a payout back, and posting both would be two
+        entries that cancel for no reason: the multipliers are 6, 3 and 2, so
+        the two legs are never equal and one signed amount says the same thing.
+        Losses fund the faucet, wins are minted by it -- which is what the
+        faucet is for, and why it is the one account allowed to go negative.
+
+        The player's own leg is checked against their balance under the row
+        lock, so a stake they can no longer cover is refused here even if it
+        was affordable when the face was drawn.
+        """
+        net_units = payout_units - stake_units
+        return await self._transfer(
+            kind="settlement",
+            reference_type="cube",
+            reference_id=round_id,
+            idempotency_key=idempotency_key,
+            entries=[("user", user_id, "wallet"), FAUCET_OWNER],
+            amounts=[net_units, -net_units],
+            available_owner=("user", user_id, "wallet"),
+            session=session,
+        )
+
     async def escrow_balances(self, table_id: str, *, session: AsyncSession | None = None) -> list[int]:
         """Return all balances participating in a table's escrow conservation check."""
         async def operation(db: AsyncSession) -> list[int]:
