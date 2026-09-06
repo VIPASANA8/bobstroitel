@@ -9,7 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.online import create_app
-from online.auth import AuthenticationError, verify_login_widget
+from online.auth import AuthenticationError, app_link, verify_login_widget
 from online.config import Settings
 
 
@@ -103,3 +103,20 @@ def test_the_page_can_offer_the_button_before_it_asks_for_a_session():
     assert "Poker8TgLogin?.prompt(config)" in Path(
         "static/auth-client.js"
     ).read_text(encoding="utf-8")
+
+
+def test_the_button_goes_into_the_app_when_the_bot_has_one():
+    """Telegram's browser login wants a phone number and a code before it says
+    who you are. A player with Telegram on the same device should not be sent
+    the long way round, so the card leads with the app itself."""
+    assert app_link("DonbassWinBot", True) == "https://t.me/DonbassWinBot?startapp"
+    # No main Mini App: the chat, where the menu button opens it.
+    assert app_link("DonbassWinBot", False) == "https://t.me/DonbassWinBot"
+
+
+def test_the_card_leads_with_the_app_and_keeps_the_browser_login_behind_it():
+    source = Path("static/tg-login.js").read_text(encoding="utf-8")
+    assert source.index("tg-gate-open") < source.index("tg-gate-alt")
+    assert "telegram-widget.js" in source, "the browser login is still offered"
+    # And the widget is only fetched once somebody asks for it.
+    assert source.index('addEventListener("click"') < source.index("telegram-widget.js")

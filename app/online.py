@@ -24,7 +24,7 @@ from cash.cube import CashCubeService
 from cash.game import CashGameService
 from cash.wallet import WalletService
 from cash.withdrawals import WithdrawalService
-from online.auth import AuthService, resolve_bot_usernames
+from online.auth import AuthService, resolve_login_bots
 from online.catalogue import Catalogue
 from online.config import Settings
 from online.coordinator import OnlineCoordinator
@@ -233,7 +233,7 @@ def create_app(
         app.state.telegram_login_bots = {}
 
         async def _resolve_login_bots():
-            app.state.telegram_login_bots = await resolve_bot_usernames(
+            app.state.telegram_login_bots = await resolve_login_bots(
                 {slug: (config or {}).get("token", "") for slug, config in settings.tenant_configs.items()}
             )
 

@@ -434,7 +434,7 @@
 
   if (!document.querySelector('script[data-v031-pot-cluster-mobile-fix]')) {
     const v031 = document.createElement("script");
-    v031.src = "/static/v031-pot-cluster-mobile-fix.js?v=tg-login-3";
+    v031.src = "/static/v031-pot-cluster-mobile-fix.js?v=tg-app-1";
     v031.dataset.v031PotClusterMobileFix = "1";
     document.body.appendChild(v031);
   }

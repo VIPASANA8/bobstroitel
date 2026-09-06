@@ -4,6 +4,11 @@ from fastapi import APIRouter, Request
 router = APIRouter(prefix="/api/config", tags=["config"])
 
 
+def _login_bot(request: Request, tenant_slug: str) -> dict[str, str]:
+    """What startup learned about this tenant's bot, or nothing yet."""
+    return getattr(request.app.state, "telegram_login_bots", {}).get(tenant_slug, {})
+
+
 @router.get("")
 async def public_config(request: Request):
     settings = request.app.state.settings
@@ -14,9 +19,10 @@ async def public_config(request: Request):
         "network_brand": "Poker8",
         # The browser has no initData, so this is how somebody arriving at the
         # site signs in as themselves rather than being turned away.
-        "telegram_login_bot": getattr(
-            request.app.state, "telegram_login_bots", {},
-        ).get(tenant_slug),
+        # How somebody who arrived at the site gets in: the app first, and the
+        # browser login for whoever would rather stay in the browser.
+        "telegram_app_url": _login_bot(request, tenant_slug).get("app_url"),
+        "telegram_login_bot": _login_bot(request, tenant_slug).get("username"),
         "open_access": settings.open_access,
         # Off on a deployment by design -- money there has to arrive through a
         # payment, not through /api/profile/play-top-up. The profile page reads

@@ -88,26 +88,45 @@ def verify_login_widget(
     return {**pairs, "id": telegram_user_id}
 
 
-async def resolve_bot_usernames(tenant_tokens: Mapping[str, str]) -> dict[str, str]:
-    """Ask Telegram which bot each tenant's token belongs to.
+def app_link(username: str, has_main_web_app: bool) -> str:
+    """Where "открыть в Telegram" goes.
 
-    The login widget needs the bot's @username, and the token already says
-    which bot it is -- a second setting carrying the same fact would only be
-    wrong when the two disagreed. Anything that fails is simply left out: the
-    page then offers no button instead of one that cannot work.
+    A bot with a main Mini App opens straight into it; without one the link
+    lands in the bot's chat, where its menu button is. Both are t.me links
+    rather than tg:// ones, so a browser with no Telegram installed gets
+    Telegram's own page instead of a dead scheme.
     """
-    resolved: dict[str, str] = {}
+    return f"https://t.me/{username}" + ("?startapp" if has_main_web_app else "")
+
+
+async def resolve_login_bots(tenant_tokens: Mapping[str, str]) -> dict[str, dict[str, str]]:
+    """Ask Telegram what each tenant's token belongs to, and where its app lives.
+
+    The token already says which bot it is, so a second setting carrying the
+    same fact would only ever be wrong when the two disagreed. Two things come
+    back: the @username the login widget needs, and the link that opens the
+    Mini App itself -- `?startapp` when the bot has a main one, the bot's chat
+    otherwise, where its menu button is.
+
+    Anything that fails is left out, and the page then offers what it can.
+    """
+    resolved: dict[str, dict[str, str]] = {}
     for slug, token in tenant_tokens.items():
         if not token:
             continue
         try:
             async with httpx.AsyncClient(timeout=4) as client:
                 response = await client.get(f"https://api.telegram.org/bot{token}/getMe")
-            username = response.json()["result"]["username"]
+            bot = response.json()["result"]
+            username = bot["username"]
         except Exception:
             continue
-        if isinstance(username, str) and username:
-            resolved[slug] = username
+        if not isinstance(username, str) or not username:
+            continue
+        resolved[slug] = {
+            "username": username,
+            "app_url": app_link(username, bool(bot.get("has_main_web_app"))),
+        }
     return resolved
 
 
