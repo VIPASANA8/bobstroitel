@@ -8,13 +8,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Manrope:wght@400;600;700;800&display=swap" />
-  <link rel="stylesheet" href="/static/cube.css?v=cube-1" />
+  <link rel="stylesheet" href="/static/cube.css?v=cube-tabs-1" />
+  <link rel="stylesheet" href="/static/game-tabs.css?v=cube-tabs-1" />
 </head>
 <body class="cube-page">
   <a class="skip-link" href="#cubeMain">К игре</a>
   <div class="cube-shell">
     <header class="cube-header">
-      <a class="cube-back" href="/" aria-label="Вернуться в лобби"><svg class="ui-arrow" viewBox="0 0 16 16" aria-hidden="true"><path d="M12.5 8h-9M7 3.5 2.5 8 7 12.5"/></svg> В лобби</a>
       <a class="brand-word" href="/" aria-label="Poker, лобби">poker<i aria-hidden="true">♠</i></a>
     </header>
   </div>
@@ -79,10 +79,15 @@
     </section>
   </main>
 
+  <nav class="game-tabs" aria-label="Игры">
+    <a class="game-tab game-tab-poker" href="/"><i aria-hidden="true">♠</i>POKER</a>
+    <a class="game-tab game-tab-cube is-active" href="/static/cube.html" aria-current="page"><i aria-hidden="true">⬢</i>CUBE</a>
+  </nav>
+
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="/static/auth-client.js?v=cube-1"></script>
-  <script src="/static/cube-motion.js?v=cube-1"></script>
-  <script src="/static/cube-canvas.js?v=cube-1"></script>
-  <script src="/static/cube.js?v=cube-1"></script>
+  <script src="/static/auth-client.js?v=cube-tabs-1"></script>
+  <script src="/static/cube-motion.js?v=cube-tabs-1"></script>
+  <script src="/static/cube-canvas.js?v=cube-tabs-1"></script>
+  <script src="/static/cube.js?v=cube-tabs-1"></script>
 </body>
 </html>
