@@ -29,6 +29,7 @@ button,input,select,textarea{font:inherit}small{font-size:12px}body{font-size:15
 .entry-action:active{transform:translateY(0)}
 .entry-mark{display:grid;place-items:center;width:26px;height:26px;flex:none;border-radius:9px;font-size:15px;font-weight:800;line-height:1}
 .entry-mark svg{width:16px;height:16px;fill:currentColor}
+.profile-chip svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round}
 .grid-footer{margin-top:12px}
 .grid-footer .entry-action{width:100%}
 .entry-text b{font-size:15px;font-weight:800;letter-spacing:-.01em;white-space:nowrap}
