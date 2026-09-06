@@ -5,7 +5,7 @@ import hmac
 from fastapi import APIRouter, Header, HTTPException, Request
 
 from online.auth import AuthenticationError, login_code
-from online.telegram import answer_callback, send_message, webhook_secret
+from online.telegram import answer_callback, edit_message, send_message, webhook_secret
 
 
 router = APIRouter(prefix="/api/telegram", tags=["telegram"])
@@ -58,10 +58,12 @@ async def admin_webhook(
 
     callback = update.get("callback_query")
     if isinstance(callback, dict):
-        chat_id = ((callback.get("message") or {}).get("chat") or {}).get("id")
+        origin = callback.get("message") or {}
+        chat_id = (origin.get("chat") or {}).get("id")
         if chat_id:
             await _ops(request, token, chat_id, callback.get("from") or {},
-                       data=callback.get("data") or "", callback_id=callback.get("id"))
+                       data=callback.get("data") or "", callback_id=callback.get("id"),
+                       message_id=origin.get("message_id"))
         return {"ok": True}
 
     message = update.get("message")
@@ -180,11 +182,11 @@ async def _confirm(auth, token: str, tenant_slug: str, callback: dict) -> None:
 
 async def _ops(request: Request, token: str, chat_id: int, sender: dict, *,
                text: str | None = None, data: str | None = None,
-               callback_id: str | None = None) -> bool:
+               callback_id: str | None = None, message_id: int | None = None) -> bool:
     """Hand one update to the operator panel. False means it was not theirs.
 
-    Silence for everybody else, the existence of the commands included: a
-    refusal would tell a stranger there is something here worth guessing at.
+    Silence for everybody else, the existence of the panel included: a refusal
+    would tell a stranger there is something here worth guessing at.
     """
     bot = getattr(request.app.state, "opsbot", None)
     if bot is None:
@@ -193,14 +195,18 @@ async def _ops(request: Request, token: str, chat_id: int, sender: dict, *,
     if operator is None:
         return False
     if callback_id:
+        # Clears the spinner on the button straight away; the screen it leads
+        # to can take as long as its query does.
         await answer_callback(token, callback_id, "")
     replies = await (
         bot.callback(operator, data) if data is not None else bot.message(operator, text or "")
     )
-    for body, keyboard in replies:
-        await send_message(
-            token, chat_id, body,
-            reply_markup={"inline_keyboard": keyboard} if keyboard else None,
-            parse_mode="HTML",
-        )
+    for how, body, keyboard in replies:
+        markup = {"inline_keyboard": keyboard} if keyboard else None
+        # "edit" is the panel redrawing itself. Without a message to redraw --
+        # a typed answer, say -- it becomes a new one.
+        if how == "edit" and message_id:
+            await edit_message(token, chat_id, message_id, body, markup, "HTML")
+        else:
+            await send_message(token, chat_id, body, markup, "HTML")
     return bool(replies)

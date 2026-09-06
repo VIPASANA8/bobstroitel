@@ -44,6 +44,24 @@ async def send_message(
         logger.warning("poker8_telegram_send_failed", extra={"chat_id": chat_id})
 
 
+async def edit_message(
+    bot_token: str, chat_id: int, message_id: int, text: str,
+    reply_markup: dict | None = None, parse_mode: str | None = None,
+) -> None:
+    """Redraw the screen in place. A panel that answers by appending is a chat
+    log; one that replaces itself is a panel."""
+    payload = {"chat_id": chat_id, "message_id": message_id, "text": text}
+    if reply_markup is not None:
+        payload["reply_markup"] = reply_markup
+    if parse_mode is not None:
+        payload["parse_mode"] = parse_mode
+    try:
+        async with httpx.AsyncClient(timeout=4) as client:
+            await client.post(f"{API}/bot{bot_token}/editMessageText", json=payload)
+    except httpx.HTTPError:
+        logger.warning("poker8_telegram_edit_failed", extra={"chat_id": chat_id})
+
+
 async def answer_callback(bot_token: str, callback_id: str, text: str) -> None:
     """Clear the spinner on the button that was just pressed."""
     try:

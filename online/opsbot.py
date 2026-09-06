@@ -1,16 +1,13 @@
-"""The operator panel, inside the bot players already talk to.
+"""The operator panel: a menu of inline buttons, on the bot built for it.
 
-This is `admin_bot/` moved in rather than rewritten: the same queue, the same
-buttons, the same reason-then-confirm before anything moves. What changed is
-where it runs. That package is a second process that long-polls the Bot API and
-reaches the decisions over HTTP with an operator key -- and the moment the app
-took the bot's webhook, a second consumer of the same updates became a thing
-that could not work. Here the updates already arrive, and the decision is one
-call away instead of one round trip.
+Typed commands were a list somebody had to already know. This is the shape the
+job actually has -- a screen with what is waiting on it, and buttons that lead
+somewhere. One message is the panel and it redraws itself; only queue cards,
+which each carry their own buttons, arrive as messages of their own.
 
-Every action still goes through `CashAdminService`, which is what writes the
+Every decision still ends up at `CashAdminService`: that is what writes the
 reason into the audit log and enforces what a role may touch. Nothing here
-moves money on its own.
+moves money on its own, and nothing skips the reason.
 """
 from __future__ import annotations
 
@@ -29,16 +26,15 @@ from cash.amounts import micros_to_usdt
 from online.schema import cash_operators
 
 
-HELP = (
-    "🛠 <b>Панель оператора</b>\n"
-    "Роль: <b>{role}</b>\n\n"
-    "/panel — сводка по деньгам\n"
-    "/queue — очередь решений\n"
-    "/audit — последние действия\n"
-    "/user ID — карточка игрока, заморозка кнопкой\n"
-    "/order ID — заявка RUB P2P по нашему или партнёрскому номеру\n"
-    "/recon [ГГГГ-ММ-ДД] — сверка RUB за день"
-)
+#: What the queue calls each kind, and what an operator calls it.
+KINDS = {
+    "withdrawal": "💸 Выводы",
+    "payment": "🔎 Платежи",
+    "fiat_order": "₽ Заявки",
+    "fiat_event": "₽ События",
+}
+BACK = [{"text": "⬅️ Меню", "callback_data": "nav:main"}]
+CANCEL = [{"text": "Отмена", "callback_data": "nav:main"}]
 
 #: Which button leads to which decision, and what it already knows.
 ACTIONS = {
@@ -57,12 +53,14 @@ ACTIONS = {
     "freeze": ("freeze_user", {}),
     "unfreeze": ("release_user", {}),
 }
-#: What has to be asked for before the reason, and how to ask.
+#: What has to be asked for before the reason, and how to ask for it.
 EXTRA_STEP = {"confirmed": "tx_hash", "bindcredit": "order_id"}
 PROMPTS = {
-    "tx_hash": "Введите проверенный reference транзакции",
-    "order_id": "Введите ID заявки Poker8 или «-», если он уже известен",
-    "reason": "Укажите причину решения (от 3 до 500 символов)",
+    "tx_hash": "Пришлите проверенный reference транзакции",
+    "order_id": "Пришлите ID заявки Poker8 или «-», если он уже известен",
+    "reason": "Пришлите причину решения (от 3 до 500 символов)",
+    "user": "Пришлите ID игрока или его telegram-номер",
+    "order": "Пришлите номер заявки — наш или партнёрский",
 }
 
 
@@ -77,10 +75,10 @@ class Pending:
     key: str = field(default_factory=lambda: uuid4().hex)
 
 
-def _buttons(kind: str, target_id: str, status: str) -> list | None:
+def _card_buttons(kind: str, target_id: str, status: str) -> list | None:
     if kind == "withdrawal" and status == "reserved":
-        return [[{"text": "Разрешить", "callback_data": f"approve:{target_id}"},
-                 {"text": "Отклонить", "callback_data": f"reject:{target_id}"}]]
+        return [[{"text": "✅ Разрешить", "callback_data": f"approve:{target_id}"},
+                 {"text": "🚫 Отклонить", "callback_data": f"reject:{target_id}"}]]
     if kind == "withdrawal" and status == "approved":
         return [[{"text": "Mock success", "callback_data": f"success:{target_id}"},
                  {"text": "Mock unknown", "callback_data": f"unknown:{target_id}"},
@@ -91,11 +89,11 @@ def _buttons(kind: str, target_id: str, status: str) -> list | None:
     if kind == "withdrawal" and status == "submitted":
         return [[{"text": "Подтвердить по сверке", "callback_data": f"confirmed:{target_id}"}]]
     if kind == "payment":
-        return [[{"text": "Зачислить", "callback_data": f"credit:{target_id}"},
-                 {"text": "Отклонить", "callback_data": f"payreject:{target_id}"}]]
+        return [[{"text": "✅ Зачислить", "callback_data": f"credit:{target_id}"},
+                 {"text": "🚫 Отклонить", "callback_data": f"payreject:{target_id}"}]]
     if kind == "fiat_event":
         return [[{"text": "Привязать и зачислить", "callback_data": f"bindcredit:{target_id}"},
-                 {"text": "Отклонить", "callback_data": f"fiatreject:{target_id}"}]]
+                 {"text": "🚫 Отклонить", "callback_data": f"fiatreject:{target_id}"}]]
     if kind == "fiat_order" and status in {"requesting", "clarifying", "review_required"}:
         return [[{"text": "Закрыть заявку", "callback_data": f"fiatclose:{target_id}"}]]
     return None
@@ -109,6 +107,8 @@ class OpsBot:
         # restart and is not shared across workers. The pilot runs one; the day
         # it runs two this belongs in a table beside the audit log.
         self.pending: dict[int, Pending] = {}
+        #: Screens that are waiting to be told an id rather than a decision.
+        self.awaiting: dict[int, str] = {}
 
     async def operator(self, telegram_id) -> CashOperator | None:
         """Who this is, according to the table the operator API reads."""
@@ -121,52 +121,90 @@ class OpsBot:
             return None
         return CashOperator(row["id"], row["telegram_user_id"], row["tenant_id"], row["role"])
 
-    # --- messages ------------------------------------------------------------
+    # --- what arrives --------------------------------------------------------
 
-    async def message(self, operator: CashOperator, text: str) -> list[tuple[str, list | None]]:
-        """Answer one command, as (text, keyboard) pairs to send in order."""
+    async def message(self, operator: CashOperator, text: str) -> list[tuple[str, str, list | None]]:
+        """A typed message: either an answer the panel asked for, or /start."""
         text = text.strip()
-        if text in {"/admin", "/help"}:
-            return [(HELP.format(role=escape(operator.role)), None)]
-        if text == "/panel":
-            return [(await self._panel(operator), None)]
-        if text == "/queue":
-            return await self._queue(operator)
-        if text == "/audit":
+        if text in {"/start", "/admin", "/menu", "/help"}:
+            self._forget(operator)
+            return [("send", *await self._main(operator))]
+        waiting = self.awaiting.get(operator.telegram_user_id)
+        if waiting:
+            self.awaiting.pop(operator.telegram_user_id, None)
+            return [("send", *await self._lookup(operator, waiting, text))]
+        pending = self.pending.get(operator.telegram_user_id)
+        if pending:
+            return [("send", *self._fill(pending, text))]
+        return [("send", *await self._main(operator))]
+
+    async def callback(self, operator: CashOperator, data: str) -> list[tuple[str, str, list | None]]:
+        """A button. Navigation redraws the panel; a decision starts a prompt."""
+        head, _, rest = data.partition(":")
+        if head == "nav":
+            self._forget(operator)
+            return await self._navigate(operator, rest)
+        if head == "q":
+            return await self._queue_cards(operator, rest)
+        if head == "confirm":
+            return [("edit", *await self._decide(operator))]
+        if head == "ask":
+            if not operator.can_mutate() and rest not in {"user", "order"}:
+                return [("edit", "🚫 Роль reviewer только читает", [BACK])]
+            self.awaiting[operator.telegram_user_id] = rest
+            return [("edit", PROMPTS.get(rest, "Пришлите значение"), [CANCEL])]
+        if head in ACTIONS:
+            return [("edit", *self._begin(operator, head, rest))]
+        return []
+
+    def _forget(self, operator: CashOperator) -> None:
+        self.pending.pop(operator.telegram_user_id, None)
+        self.awaiting.pop(operator.telegram_user_id, None)
+
+    # --- screens -------------------------------------------------------------
+
+    async def _navigate(self, operator: CashOperator, where: str):
+        if where == "money":
+            return [("edit", await self._money(operator), [BACK])]
+        if where == "queue":
+            return [("edit", *await self._queue(operator))]
+        if where == "audit":
             rows = await self.admin.audit(operator, limit=20)
-            rendered = "\n".join(
+            body = "\n".join(
                 f"• {escape(row['action'])} <code>{escape(row['target_id'])}</code>"
                 f" — {escape(row['reason'])}" for row in rows
             ) or "Журнал пуст"
-            return [(rendered, None)]
-        if text.startswith("/user "):
-            user = await self.admin.user(operator, text.split(maxsplit=1)[1])
-            keyboard = None
-            if operator.can_mutate():
-                held = bool(user.get("hold"))
-                keyboard = [[{
-                    "text": "Разморозить" if held else "Заморозить",
-                    "callback_data": f"{'unfreeze' if held else 'freeze'}:{user['id']}",
-                }]]
-            return [(user_card(user), keyboard)]
-        if text.startswith("/order "):
-            order = await self.admin.fiat_order(operator, text.split(maxsplit=1)[1])
-            return [(fiat_order_message(order), None)]
-        if text == "/recon" or text.startswith("/recon "):
-            day = text.split(maxsplit=1)[1] if " " in text else None
-            return [(reconciliation_message(await self.admin.fiat_reconciliation(operator, day)), None)]
-        return await self._continue(operator, text)
+            return [("edit", "🧾 <b>Последние решения</b>\n\n" + body, [BACK])]
+        if where == "recon":
+            report = await self.admin.fiat_reconciliation(operator, None)
+            return [("edit", reconciliation_message(report), [BACK])]
+        return [("edit", *await self._main(operator))]
 
-    async def _panel(self, operator: CashOperator) -> str:
+    async def _main(self, operator: CashOperator):
+        waiting = len(queue_messages(await self.admin.queue(operator)))
+        text = (
+            "🛠 <b>Панель оператора</b>\n"
+            f"Роль: <b>{escape(operator.role)}</b>\n\n"
+            + (f"В очереди ждёт решений: <b>{waiting}</b>" if waiting else "Очередь пуста.")
+        )
+        keyboard = [
+            [{"text": "💰 Деньги", "callback_data": "nav:money"},
+             {"text": f"📋 Очередь ({waiting})", "callback_data": "nav:queue"}],
+            [{"text": "👤 Игрок", "callback_data": "ask:user"},
+             {"text": "₽ Заявка", "callback_data": "ask:order"}],
+            [{"text": "📊 Сверка за сегодня", "callback_data": "nav:recon"},
+             {"text": "🧾 Аудит", "callback_data": "nav:audit"}],
+        ]
+        return text, keyboard
+
+    async def _money(self, operator: CashOperator) -> str:
         try:
             summary = await self.admin.overview(operator)
         except OperatorAccessDenied:
             return "Сводка по деньгам — только для глобального админа."
-        money = (
-            lambda label, micros: f"{label}: <b>{micros_to_usdt(micros)}</b> USDT"
-        )
+        money = lambda label, micros: f"{label}: <b>{micros_to_usdt(micros)}</b> USDT"
         return "\n".join([
-            "🛠 <b>Сводка</b>",
+            "💰 <b>Деньги</b>",
             f"Игроков: <b>{summary['players']}</b> · под холдом: <b>{summary['frozen']}</b>",
             money("На балансах", summary["available_micros"]),
             money("В игре", summary["escrow_micros"]),
@@ -177,78 +215,107 @@ class OpsBot:
             money("Касса кубика", summary["cube_house_micros"]),
         ])
 
-    async def _queue(self, operator: CashOperator) -> list[tuple[str, list | None]]:
+    async def _queue(self, operator: CashOperator):
         items = queue_messages(await self.admin.queue(operator))
-        if not items:
-            return [("Очередь пуста", None)]
-        return [
-            (body, _buttons(kind, target, status) if operator.can_mutate() else None)
-            for kind, target, status, body in items
+        counts: dict[str, int] = {}
+        for kind, *_ in items:
+            counts[kind] = counts.get(kind, 0) + 1
+        if not counts:
+            return "📋 <b>Очередь</b>\n\nПусто — разбирать нечего.", [BACK]
+        rows = [
+            [{"text": f"{KINDS.get(kind, kind)} ({count})", "callback_data": f"q:{kind}"}]
+            for kind, count in counts.items()
         ]
+        return "📋 <b>Очередь</b>\n\nВыберите, что разбирать.", rows + [BACK]
 
-    async def _continue(self, operator: CashOperator, text: str) -> list[tuple[str, list | None]]:
-        """Whatever was typed while a decision was waiting for its details."""
-        pending = self.pending.get(operator.telegram_user_id)
-        if not pending:
-            return [("Неизвестная команда. /queue — очередь, /panel — сводка", None)]
-        if pending.step == "order_id":
-            if text != "-" and (not text or len(text) > 64):
-                return [("Введите ID заявки Poker8 или «-»", None)]
-            pending.body["order_id"] = None if text == "-" else text
-            pending.step = "reason"
-            return [(PROMPTS["reason"], None)]
-        if pending.step == "tx_hash":
-            if not text or len(text) > 128:
-                return [("Введите корректный reference транзакции", None)]
-            pending.body["tx_hash"] = text
-            pending.step = "reason"
-            return [(PROMPTS["reason"], None)]
-        if not 3 <= len(text) <= 500:
-            return [("Причина должна содержать от 3 до 500 символов", None)]
-        pending.body["reason"] = text
-        pending.step = "confirm"
-        return [(
-            f"Подтвердить <b>{escape(pending.action)}</b> для "
-            f"<code>{escape(pending.target_id)}</code>?\nПричина: {escape(text)}",
-            [[{"text": "✅ Подтвердить", "callback_data": "confirm"},
-              {"text": "Отмена", "callback_data": "cancel"}]],
-        )]
+    async def _queue_cards(self, operator: CashOperator, kind: str):
+        items = [item for item in queue_messages(await self.admin.queue(operator))
+                 if item[0] == kind]
+        if not items:
+            return [("edit", "Здесь уже пусто.", [BACK])]
+        # The list is redrawn in place; the cards follow as their own messages,
+        # because each carries the buttons that belong to it.
+        screen = [("edit", f"{KINDS.get(kind, kind)}: <b>{len(items)}</b>", [BACK])]
+        # ponytail: the oldest ten. A phone is not a console, and the operator
+        # API is where a backlog that does not fit gets worked through.
+        for _kind, target, status, body in items[:10]:
+            buttons = _card_buttons(kind, target, status) if operator.can_mutate() else None
+            screen.append(("send", body, buttons))
+        return screen
 
-    # --- buttons -------------------------------------------------------------
+    async def _lookup(self, operator: CashOperator, what: str, value: str):
+        """The id the panel asked for came back."""
+        try:
+            if what == "user":
+                user = await self.admin.user(operator, value)
+                keyboard = [BACK]
+                if operator.can_mutate():
+                    held = bool(user.get("hold"))
+                    keyboard = [[{
+                        "text": "Разморозить" if held else "Заморозить",
+                        "callback_data": f"{'unfreeze' if held else 'freeze'}:{user['id']}",
+                    }], BACK]
+                return user_card(user), keyboard
+            order = await self.admin.fiat_order(operator, value)
+            return fiat_order_message(order), [BACK]
+        except (OperatorAccessDenied, ValueError, KeyError) as exc:
+            return f"🚫 {escape(str(exc)) or 'не найдено'}", [BACK]
 
-    async def callback(self, operator: CashOperator, data: str) -> list[tuple[str, list | None]]:
-        if data == "cancel":
-            self.pending.pop(operator.telegram_user_id, None)
-            return [("Отменено", None)]
-        if data == "confirm":
-            return await self._decide(operator)
-        verb, _, target_id = data.partition(":")
-        if verb not in ACTIONS or not target_id:
-            return []
+    # --- decisions -----------------------------------------------------------
+
+    def _begin(self, operator: CashOperator, verb: str, target_id: str):
+        if not target_id:
+            return "Кнопка устарела — откройте очередь заново.", [BACK]
         if not operator.can_mutate():
-            return [("🚫 Роль reviewer только читает", None)]
+            return "🚫 Роль reviewer только читает", [BACK]
         action, body = ACTIONS[verb]
         step = EXTRA_STEP.get(verb, "reason")
         self.pending[operator.telegram_user_id] = Pending(action, target_id, dict(body), step)
-        return [(PROMPTS[step], None)]
+        return PROMPTS[step], [CANCEL]
 
-    async def _decide(self, operator: CashOperator) -> list[tuple[str, list | None]]:
+    def _fill(self, pending: Pending, text: str):
+        """Whatever was typed while a decision waited for its details."""
+        if pending.step == "order_id":
+            if text != "-" and (not text or len(text) > 64):
+                return PROMPTS["order_id"], [CANCEL]
+            pending.body["order_id"] = None if text == "-" else text
+            pending.step = "reason"
+            return PROMPTS["reason"], [CANCEL]
+        if pending.step == "tx_hash":
+            if not text or len(text) > 128:
+                return PROMPTS["tx_hash"], [CANCEL]
+            pending.body["tx_hash"] = text
+            pending.step = "reason"
+            return PROMPTS["reason"], [CANCEL]
+        if not 3 <= len(text) <= 500:
+            return "Причина должна содержать от 3 до 500 символов", [CANCEL]
+        pending.body["reason"] = text
+        pending.step = "confirm"
+        return (
+            f"Подтвердить <b>{escape(pending.action)}</b> для "
+            f"<code>{escape(pending.target_id)}</code>?\nПричина: {escape(text)}",
+            [[{"text": "✅ Подтвердить", "callback_data": "confirm:"},
+              {"text": "Отмена", "callback_data": "nav:main"}]],
+        )
+
+    async def _decide(self, operator: CashOperator):
         pending = self.pending.get(operator.telegram_user_id)
         if not pending or pending.step != "confirm":
-            return [("Подтверждение устарело. Откройте /queue заново", None)]
+            return "Подтверждение устарело — откройте очередь заново.", [BACK]
         try:
             result = await self._apply(operator, pending)
         except (OperatorAccessDenied, ValueError) as exc:
-            # The service refused. The half-filled decision goes with it, so
-            # the next confirmation is a fresh one rather than a retry of a
-            # refusal.
+            # The service refused. The half-filled decision goes with it, so the
+            # next confirmation is a fresh one rather than a retry of a refusal.
             self.pending.pop(operator.telegram_user_id, None)
-            return [(f"🚫 {escape(str(exc))}", None)]
+            return f"🚫 {escape(str(exc))}", [BACK]
         self.pending.pop(operator.telegram_user_id, None)
         status = (result or {}).get("status") or (
             "заморожен" if (result or {}).get("held") else "разморожен"
         )
-        return [(f"✅ Новый статус: <b>{escape(str(status))}</b>", None)]
+        return f"✅ Новый статус: <b>{escape(str(status))}</b>", [
+            [{"text": "📋 В очередь", "callback_data": "nav:queue"}], BACK,
+        ]
 
     async def _apply(self, operator: CashOperator, pending: Pending):
         """One decision, on the service that writes the audit entry for it."""
