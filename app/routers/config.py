@@ -12,6 +12,11 @@ async def public_config(request: Request):
     branding = settings.tenant_configs.get(tenant_slug, {})
     return {
         "network_brand": "Poker8",
+        # The browser has no initData, so this is how somebody arriving at the
+        # site signs in as themselves rather than being turned away.
+        "telegram_login_bot": getattr(
+            request.app.state, "telegram_login_bots", {},
+        ).get(tenant_slug),
         "open_access": settings.open_access,
         # Off on a deployment by design -- money there has to arrive through a
         # payment, not through /api/profile/play-top-up. The profile page reads

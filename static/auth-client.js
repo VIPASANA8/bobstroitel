@@ -87,6 +87,11 @@ window.Poker8Auth = (() => {
       const response = await fetch('/api/auth/guest', {method:'POST'});
       if (response.ok) return response.json();
     }
+    // Opened at the site rather than inside Telegram. There is a door for that
+    // -- the login widget -- and it leads to the same account. It never
+    // resolves: a successful login reloads the page, and until then there is
+    // nothing here to draw.
+    await window.Poker8TgLogin?.prompt(config);
     throw signIn(new Error('Откройте приложение внутри Telegram'));
   }
   return {ensureSession, telegramProfile, publishTelegramProfile, needsSignIn: error => Boolean(error?.needsSignIn)};

@@ -24,7 +24,7 @@ from cash.cube import CashCubeService
 from cash.game import CashGameService
 from cash.wallet import WalletService
 from cash.withdrawals import WithdrawalService
-from online.auth import AuthService
+from online.auth import AuthService, resolve_bot_usernames
 from online.catalogue import Catalogue
 from online.config import Settings
 from online.coordinator import OnlineCoordinator
@@ -226,6 +226,18 @@ def create_app(
         app.state.cube = CashCubeService(
             session_factory, daily_loss_micros=settings.cash_daily_loss_micros,
         )
+        # Which bot the browser's login button belongs to. Asked once, in the
+        # background: /api/config is on the boot path of every page and must
+        # never wait on Telegram, and until the answer lands the page simply
+        # offers no button.
+        app.state.telegram_login_bots = {}
+
+        async def _resolve_login_bots():
+            app.state.telegram_login_bots = await resolve_bot_usernames(
+                {slug: (config or {}).get("token", "") for slug, config in settings.tenant_configs.items()}
+            )
+
+        app.state.telegram_login_task = asyncio.create_task(_resolve_login_bots())
         await app.state.runtime.restore_all()
         await app.state.seating.hold_all_users(datetime.now(timezone.utc))
         if fixture is not None:
@@ -262,6 +274,13 @@ def create_app(
         try:
             yield
         finally:
+            # Nothing waits on this one, so shutting down while it is still in
+            # flight must not leave a task nobody ever collects.
+            app.state.telegram_login_task.cancel()
+            try:
+                await app.state.telegram_login_task
+            except asyncio.CancelledError:
+                pass
             if app.state.cash_trc20_watcher_task is not None:
                 app.state.cash_trc20_watcher.stop()
                 _, hung = await asyncio.wait({app.state.cash_trc20_watcher_task}, timeout=5)

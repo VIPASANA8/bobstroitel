@@ -104,6 +104,27 @@ async def telegram_login(payload: TelegramAuthRequest, request: Request):
     return await _finish_login(request, result)
 
 
+@router.post("/telegram/widget")
+async def telegram_widget_login(payload: dict[str, str | int], request: Request):
+    """Sign in from a browser, where there is no Mini App to hand over initData.
+
+    The body is whatever Telegram's login widget produced, forwarded verbatim:
+    every field it sent is part of what it signed, so dropping one or renaming
+    one breaks the check. Which fields may appear is decided in
+    `verify_login_widget`, not here.
+    """
+    _throttle(request)
+    if any(isinstance(value, str) and len(value) > 512 for value in payload.values()):
+        raise HTTPException(status_code=400, detail="invalid Telegram login data")
+    try:
+        result = await request.app.state.auth_service.authenticate_widget(
+            _tenant_slug(request), payload
+        )
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    return await _finish_login(request, result)
+
+
 @router.post("/guest")
 async def guest_login(request: Request):
     _throttle(request)

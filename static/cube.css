@@ -856,3 +856,51 @@
    the viewport does not know about, so hand it back the same 62px. */
 .cube-embed,.cube-embed .screen{min-height:calc(100vh - 62px)}
 .cube-embed .screen{padding-top:8px}
+
+/* --- desktop ----------------------------------------------------------------
+   The game was drawn as a phone column and stays one on a phone. Given a real
+   screen it stops being a column: the cube takes the left half at the size the
+   height allows, the controls take the right, and nothing has to be scrolled
+   to be reached. */
+@media (min-width: 900px) {
+  .cube-shell { width: min(100%, 1000px); padding-top: 24px; }
+  .cube-embed {
+    width: min(100%, 1000px);
+    /* Two columns are as tall as they need to be; stretching them to the
+       viewport only pushed the page past its own bottom by a few pixels. */
+    min-height: 0;
+    /* The phone column paints its own ground and a seam down the left edge;
+       at this width both would read as a stripe across the page. */
+    background: none;
+    box-shadow: none;
+  }
+  .cube-embed .screen {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(370px, 430px);
+    align-items: start;
+    gap: 18px;
+    padding: 4px 20px 108px;
+    min-height: 0;
+  }
+  .cube-embed .dice-card {
+    display: grid;
+    align-content: center;
+    /* Tall enough to hold the cube and its result line without the card
+       growing past the controls beside it. */
+    /* Everything above and below it -- header, page padding and the room
+       the floating bar needs -- comes off the viewport first, so a short
+       laptop window shrinks the card instead of growing a scrollbar. */
+    min-height: min(560px, calc(100vh - 210px));
+    /* The result strip is pinned to the card's foot; this is its room. */
+    padding-bottom: 46px;
+  }
+  .cube-embed .cube-scene {
+    width: min(410px, calc(100vh - 320px), 100%);
+    margin: 0 auto;
+  }
+  .cube-embed .result-line { min-height: 74px; padding: 15px 26px; }
+  .cube-embed .control-card { margin-top: 0; padding: 20px 22px 22px; }
+  .cube-embed .face-choice { border-radius: 14px; }
+  /* The bar floats over the page, so only the column under it needs the room. */
+  .cube-page .cube-embed .screen { padding-bottom: 108px; }
+}
