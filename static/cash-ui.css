@@ -110,3 +110,7 @@
    both, and the panel around it is nearly black. */
 .pay-qr{width:168px;height:168px;margin:12px auto 0;padding:8px;border-radius:12px;background:#fff}
 .pay-qr svg{display:block}
+
+/* Selected whole on one tap, so the reference can be copied with the
+   phone's own handle instead of a button beside it. */
+.pay-id{-webkit-user-select:all;user-select:all;word-break:break-all;font-variant-numeric:tabular-nums;cursor:text}

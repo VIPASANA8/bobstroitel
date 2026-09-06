@@ -274,3 +274,15 @@ def test_a_signed_out_visitor_is_not_told_the_site_is_down():
     for name in ("lobby.js", "profile.js"):
         source = Path("static") .joinpath(name).read_text(encoding="utf-8")
         assert "window.Poker8Auth.needsSignIn(error)" in source, name
+
+
+def test_the_cube_has_an_address_of_its_own(client):
+    """A game people are sent to needs a link that reads like one, and the
+    lobby's own links have to point at it rather than at the file."""
+    response = client.get("/cube")
+    assert response.status_code == 200
+    assert 'id="cubeCanvas"' in response.text
+    # And nothing of the lobby is on it.
+    assert 'id="tableGrid"' not in response.text
+    for name in ("lobby.html", "cube.html"):
+        assert "/static/cube.html" not in Path("static", name).read_text(encoding="utf-8")

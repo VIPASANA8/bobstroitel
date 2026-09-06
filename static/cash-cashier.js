@@ -43,6 +43,12 @@ window.Poker8Cashier = (() => {
     <div class="pay-row"><span>${escape(label)}</span><b>${escape(value)}</b>
     <button type="button" class="pay-copy" data-copy="${escape(copyValue)}">Копировать</button></div>`;
 
+  // No button on this one: one tap selects the whole id and the phone's own
+  // copy handle comes up, which is the gesture people already use on anything
+  // that looks like a reference number.
+  const idRow = (label, value) => `
+    <div class="pay-row"><span>${escape(label)}</span><b class="pay-id">${escape(value)}</b></div>`;
+
   function bindCopy(root) {
     root.querySelectorAll("[data-copy]").forEach(button => {
       button.addEventListener("click", () => copyText(button.dataset.copy, button).catch(console.error));
@@ -105,9 +111,9 @@ window.Poker8Cashier = (() => {
         ${payRow("К оплате", `${order.fiat_rub} ₽`, order.fiat_rub)}
         ${payRow("Реквизиты", order.requisites, String(order.requisites).split(" · ")[0])}
       ` : ""}
+      ${order.partner_order_id ? idRow("ID заявки", order.partner_order_id) : ""}
       <p class="pay-note">${escape(stage.note)}</p>
       <p class="pay-note">Зачисление: ${escape(order.requested_units)} CASH (${escape(order.requested_usdt)} USDT)<br>
-      Комиссия пополнения: ${escape(order.fee_usdt)} USDT · всего ${escape(order.charged_usdt)} USDT<br>
       <span id="fiatCountdown">${escape(fiatCountdown(order))}</span></p>
       ${order.status === "awaiting_user" ? '<button type="button" id="fiatPaid">Я оплатил</button>' : ""}
       ${stage.cancel ? '<button type="button" id="fiatCancel">Отменить заявку</button>' : ""}`;
@@ -251,8 +257,10 @@ window.Poker8Cashier = (() => {
       if (!response.ok) return alert(payload.detail || "Не удалось создать вывод");
       const details = $("withdrawDetails");
       details.hidden = false;
+      // "К выплате" is already the net amount; itemising what was taken off
+      // it only invites the arithmetic to be checked.
       details.innerHTML = `<strong>${escape(payload.amount_units)} CASH зарезервировано</strong><br>
-        К выплате: ${escape(payload.payout_usdt)} USDT<br>Комиссия: ${escape(payload.fee_usdt)} USDT<br>
+        К выплате: ${escape(payload.payout_usdt)} USDT<br>
         Статус: ${escape(payload.status)} · ${escape(payload.network)}`;
       await load();
     });

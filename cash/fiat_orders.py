@@ -302,6 +302,10 @@ class FiatOrderService:
             "charged_usdt": micros_to_usdt(row["requested_micros"] + row["fee_micros"]),
             "fiat_kopecks": row["fiat_kopecks"],
             "fiat_rub": None if row["fiat_kopecks"] is None else kopecks_to_rub(row["fiat_kopecks"]),
+            # The partner's own id for this payment. It is what an operator on
+            # their side searches by, so it is what the player has to be able
+            # to quote when something needs looking up.
+            "partner_order_id": row["pservice_order_id"],
             "requisites": row["requisites"],
             "trader_username": row["trader_username"], "detail": row["detail"],
             "expires_at": row["expires_at"],

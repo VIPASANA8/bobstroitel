@@ -343,4 +343,9 @@ def create_app(
     async def table_page():
         return FileResponse(STATIC_DIR / "index.html", headers=NO_STALE)
 
+    @app.get("/cube")
+    async def cube_page():
+        """The dice game has an address of its own, like the table does."""
+        return FileResponse(STATIC_DIR / "cube.html", headers=NO_STALE)
+
     return app

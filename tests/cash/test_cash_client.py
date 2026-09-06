@@ -63,7 +63,12 @@ def test_cash_ui_exposes_rub_p2p_without_changing_trc20_withdrawals():
     # The cashier survives a reload, shows the expiry and never credits itself.
     assert "/api/cash/fiat-orders/active" in CASHIER_JS
     assert "Осталось" in CASHIER_JS
-    assert "Комиссия пополнения" in CASHIER_JS
+    # The fee is inside the amount the player is asked to pay, not a line of
+    # its own beside it -- and the partner's id is on screen, selectable whole
+    # rather than sitting behind a copy button.
+    assert "Комиссия" not in CASHIER_JS
+    assert "ID заявки" in CASHIER_JS and "partner_order_id" in CASHIER_JS
+    assert "user-select:all" in (ROOT / "static" / "cash-ui.css").read_text(encoding="utf-8")
     assert "simulate-trader-confirmation" not in CASHIER_JS
     assert 'id="withdrawAddress"' in PROFILE
 
