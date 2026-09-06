@@ -41,7 +41,7 @@ window.Poker8TgLogin = (() => {
         <h2>Вход через Telegram</h2>
         <p>Аккаунт, баланс и стол — те же, что в мини-приложении.</p>
         <div class="tg-gate-slot"></div>
-        <p class="tg-gate-note">Нажимая кнопку, вы входите как ваш аккаунт Telegram.</p>
+        <p class="tg-gate-note">Нажимая кнопку, вы входите как ваш аккаунт Telegram.<br>Кнопка не работает — откройте игру из Telegram.</p>
       </section>`;
     const script = document.createElement("script");
     script.async = true;
