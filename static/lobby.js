@@ -386,9 +386,6 @@
     const previous = asset;
     asset = next;
     $("cashPilot").hidden = asset !== "CASH_USDT";
-    // CUBE settles on training chips only. Offering it under REAL CASH would
-    // read as a cash game, which is the one thing it is not.
-    $("playCube").hidden = asset === "CASH_USDT";
     document.querySelectorAll("[data-asset]").forEach(tab => {
       const active = tab.dataset.asset === asset;
       tab.classList.toggle("is-active", active);

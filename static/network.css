@@ -34,8 +34,6 @@ button,input,select,textarea{font:inherit}small{font-size:12px}body{font-size:15
 /* Quieter than the two it sits under: it is help, not a way to start. */
 .entry-guide{min-height:44px;border:1px solid var(--line);background:transparent;color:var(--muted);grid-column:1/-1}
 .entry-guide:hover{color:var(--ink);border-color:var(--mint)}
-.entry-cube{grid-column:1/-1;text-decoration:none}
-.entry-cube[hidden]{display:none}
 .entry-guide .entry-mark{background:transparent;border:1px solid var(--line);color:var(--muted)}
 /* The whole card opens the table, so it has to look pressable: on a phone
    every tap that missed the small "Войти" button did nothing at all. */

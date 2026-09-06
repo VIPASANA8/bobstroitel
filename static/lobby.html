@@ -20,9 +20,10 @@
     </header>
 
     <main>
-      <nav class="lobby-modes" aria-label="Режим игры">
+      <nav class="lobby-modes" aria-label="Игры и режимы">
         <button class="mode-tab" type="button" data-asset="CASH_USDT" aria-selected="false">REAL CASH <small>$$$</small></button>
         <button class="mode-tab is-active" type="button" data-asset="PLAY" aria-selected="true">Тренировочные</button>
+        <a class="mode-tab mode-tab-cube" href="/static/cube.html">CUBE</a>
       </nav>
       <section id="cashPilot" class="cash-pilot" hidden aria-live="polite">
         <div class="cash-wallet-grid cash-wallet-solo">
@@ -41,10 +42,6 @@
             <span class="entry-mark" aria-hidden="true">+</span>
             <span class="entry-text"><b>Создать комнату</b></span>
           </button>
-          <a id="playCube" class="entry-action entry-secondary entry-cube" href="/static/cube.html">
-            <span class="entry-mark" aria-hidden="true">⬢</span>
-            <span class="entry-text"><b>CUBE</b></span>
-          </a>
           <button id="lobbyGuide" class="entry-action entry-guide" type="button">
             <span class="entry-mark" aria-hidden="true">?</span>
             <span class="entry-text"><b>Инструкция</b></span>
