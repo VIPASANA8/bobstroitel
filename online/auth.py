@@ -18,6 +18,21 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from online.schema import auth_login_requests, auth_sessions, tenants, user_tenant_visits, users
 
 
+def login_code(nonce: str) -> str:
+    """The four characters the page shows and the bot repeats back.
+
+    A deep link is a piece of text anybody can forward, so "somebody pressed
+    the button" is not on its own proof that the person pressing it is the
+    person who asked to log in. This is what makes the difference visible: the
+    browser that opened the login shows a code, the bot shows the code it was
+    handed, and they only match for the person looking at both.
+
+    Derived from the nonce rather than stored beside it, and hashed rather than
+    sliced off it, so the visible half is not a piece of the secret half.
+    """
+    return hashlib.sha256(f"login-code:{nonce}".encode()).hexdigest()[:4].upper()
+
+
 def _aware(stamp: datetime) -> datetime:
     """SQLite hands back naive timestamps where PostgreSQL keeps the zone."""
     return stamp if stamp.tzinfo else stamp.replace(tzinfo=timezone.utc)
@@ -162,22 +177,45 @@ class AuthService:
                 ))
         return nonce
 
-    async def bind_login_request(
-        self, nonce: str, telegram_user_id: int, display_name: str
-    ) -> bool:
-        """The bot heard from somebody. Answer whether that opened a login.
+    async def pending_login_request(self, tenant_slug: str, nonce: str) -> bool:
+        """Is this an open login of this tenant's, waiting to be confirmed?
 
-        Only ever fills in a code that is still open: a spent or expired one is
-        not an error the person needs to hear about from the bot, it is simply
-        not a login, and saying so would tell a stranger which codes exist.
+        The bot asks before it offers anybody a confirm button, so a code that
+        is spent, expired, already answered or another tenant's gets the same
+        flat "not a login" -- naming which of those it was would tell a
+        stranger which codes exist.
+        """
+        now = datetime.now(timezone.utc)
+        async with self.session_factory() as session:
+            tenant_row = await self._tenant(session, tenant_slug)
+            return bool(await session.scalar(
+                select(auth_login_requests.c.nonce).where(
+                    auth_login_requests.c.nonce == nonce,
+                    auth_login_requests.c.tenant_id == tenant_row["id"],
+                    auth_login_requests.c.telegram_user_id.is_(None),
+                    auth_login_requests.c.consumed_at.is_(None),
+                    auth_login_requests.c.expires_at > now,
+                )
+            ))
+
+    async def bind_login_request(
+        self, tenant_slug: str, nonce: str, telegram_user_id: int, display_name: str
+    ) -> bool:
+        """Somebody confirmed in the bot. Answer whether that opened a login.
+
+        Scoped to the tenant whose bot delivered it: a code belongs to the site
+        that issued it, and one network's bot has no business vouching for a
+        login on another's, however it came to know the code.
         """
         now = datetime.now(timezone.utc)
         async with self.session_factory() as session:
             async with session.begin():
+                tenant_row = await self._tenant(session, tenant_slug)
                 result = await session.execute(
                     update(auth_login_requests)
                     .where(
                         auth_login_requests.c.nonce == nonce,
+                        auth_login_requests.c.tenant_id == tenant_row["id"],
                         auth_login_requests.c.telegram_user_id.is_(None),
                         auth_login_requests.c.consumed_at.is_(None),
                         auth_login_requests.c.expires_at > now,

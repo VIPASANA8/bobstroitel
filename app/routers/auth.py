@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 from fastapi.responses import JSONResponse
 
-from online.auth import AuthenticationError
+from online.auth import AuthenticationError, login_code
 from online.faucet import WELCOME_UNITS, refill_if_broke
 from online.ratelimit import WindowLimiter, caller
 
@@ -133,7 +133,13 @@ async def start_telegram_login(request: Request):
         nonce = await request.app.state.auth_service.start_login_request(slug)
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
-    return {"nonce": nonce, "url": f"https://t.me/{bot['username']}?start={nonce}"}
+    return {
+        "nonce": nonce,
+        "url": f"https://t.me/{bot['username']}?start={nonce}",
+        # Shown to the player so they can tell the bot is asking about the
+        # login in front of them, and not one somebody sent them a link to.
+        "code": login_code(nonce),
+    }
 
 
 @router.post("/telegram/claim")

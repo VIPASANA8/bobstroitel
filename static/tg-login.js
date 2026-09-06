@@ -6,9 +6,15 @@
    deliberately opened.
 
    So: the bot vouches, the browser plays. The page asks the server for a
-   one-time code, sends the player to the bot carrying it, and waits. Pressing
-   Start in the chat is the whole proof -- the bot already knows who is typing
-   -- and the moment the server has heard it, the page reloads with a session.
+   one-time code, sends the player to the bot carrying it, and waits. The bot
+   shows a short code back and asks for a confirmation, and the moment the
+   server has heard it, the page reloads with a session.
+
+   The confirmation is not ceremony. A deep link is text, and text gets
+   forwarded: without it, anybody could open a login here, send their own link
+   to somebody else, and be handed a session as whoever pressed the button.
+   The code on this card and the code in the chat only match for the person
+   looking at both.
 
    Telegram's own login widget is the other way to do this and it is not used
    here: it asks for a phone number and a code before it will say who somebody
@@ -42,7 +48,13 @@ window.Poker8TgLogin = (() => {
   .tg-gate-open:disabled{opacity:.6;cursor:default}
   .tg-gate-alt{color:#7e8489;font:600 12px Manrope,sans-serif;text-decoration:underline}
   .tg-gate-note{color:#7e8489;font-size:11px;min-height:15px}
-  .tg-gate-wait{color:#c8b3f6}`;
+  .tg-gate-wait{color:#c8b3f6}
+  .tg-gate-code{display:grid;gap:5px;justify-items:center;width:100%;padding:12px;
+    border:1px dashed rgba(255,255,255,.14);border-radius:13px}
+  .tg-gate-code[hidden]{display:none}
+  .tg-gate-code span{color:#7e8489;font-size:10px;font-weight:800;letter-spacing:.14em}
+  .tg-gate-code b{font:800 26px/1 Manrope,sans-serif;letter-spacing:.22em;
+    color:#f1f1f4;font-variant-numeric:tabular-nums}`;
 
   /** Telegram's own mark, drawn rather than typed: an emoji plane is a
       different shape on every platform, and this one sits on their button. */
@@ -65,6 +77,7 @@ window.Poker8TgLogin = (() => {
         <h2>Вход через Telegram</h2>
         <p>Подтвердите вход в чате с ботом — и продолжайте играть здесь, в браузере.</p>
         <button class="tg-gate-open" type="button">${PLANE}Войти через Telegram</button>
+        <div class="tg-gate-code" hidden><span>КОД НА ЭКРАНЕ</span><b></b></div>
         <p class="tg-gate-note" role="status"></p>
         <a class="tg-gate-alt" hidden>Открыть мини-приложение</a>
       </section>`;
@@ -91,12 +104,18 @@ window.Poker8TgLogin = (() => {
       note.textContent = "Вход через Telegram сейчас недоступен.";
       return;
     }
-    const { nonce, url } = await response.json();
+    const { nonce, url, code } = await response.json();
+    // The bot will show this back. Confirming a code you cannot see on your
+    // own screen is the one thing that turns a forwarded link into somebody
+    // else's session, so the two are put side by side.
+    const box = gate.querySelector(".tg-gate-code");
+    box.querySelector("b").textContent = code || "";
+    box.hidden = !code;
     // A new tab, so the game keeps its place: the player comes back to it
     // already signed in instead of to a page that has been navigated away.
     window.open(url, "_blank", "noopener");
     note.className = "tg-gate-note tg-gate-wait";
-    note.textContent = "Ждём подтверждения в Telegram…";
+    note.textContent = "Подтвердите вход в чате с ботом — код должен совпасть.";
     watch(nonce, gate);
   }
 

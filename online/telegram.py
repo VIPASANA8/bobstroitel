@@ -11,6 +11,9 @@ import httpx
 logger = logging.getLogger("poker8.telegram")
 
 API = "https://api.telegram.org"
+#: /start opens a login and the button under it confirms one. Asking for more
+#: would be traffic nothing in here looks at.
+ALLOWED_UPDATES = ["message", "callback_query"]
 
 
 def webhook_secret(bot_token: str) -> str:
@@ -23,17 +26,31 @@ def webhook_secret(bot_token: str) -> str:
     return hmac.new(b"poker8-webhook", bot_token.encode(), hashlib.sha256).hexdigest()
 
 
-async def send_message(bot_token: str, chat_id: int, text: str) -> None:
+async def send_message(
+    bot_token: str, chat_id: int, text: str, reply_markup: dict | None = None
+) -> None:
     """Best effort: a player who does not get the confirmation in the chat is
     still signed in, because the browser learns it from the server, not here."""
+    payload = {"chat_id": chat_id, "text": text}
+    if reply_markup is not None:
+        payload["reply_markup"] = reply_markup
+    try:
+        async with httpx.AsyncClient(timeout=4) as client:
+            await client.post(f"{API}/bot{bot_token}/sendMessage", json=payload)
+    except httpx.HTTPError:
+        logger.warning("poker8_telegram_send_failed", extra={"chat_id": chat_id})
+
+
+async def answer_callback(bot_token: str, callback_id: str, text: str) -> None:
+    """Clear the spinner on the button that was just pressed."""
     try:
         async with httpx.AsyncClient(timeout=4) as client:
             await client.post(
-                f"{API}/bot{bot_token}/sendMessage",
-                json={"chat_id": chat_id, "text": text},
+                f"{API}/bot{bot_token}/answerCallbackQuery",
+                json={"callback_query_id": callback_id, "text": text},
             )
     except httpx.HTTPError:
-        logger.warning("poker8_telegram_send_failed", extra={"chat_id": chat_id})
+        logger.warning("poker8_telegram_answer_failed")
 
 
 async def ensure_webhook(bot_token: str, url: str) -> bool:
@@ -45,9 +62,13 @@ async def ensure_webhook(bot_token: str, url: str) -> bool:
     """
     try:
         async with httpx.AsyncClient(timeout=6) as client:
-            current = (await client.get(f"{API}/bot{bot_token}/getWebhookInfo")).json()
-            existing = (current.get("result") or {}).get("url") or ""
-            if existing == url:
+            current = ((await client.get(f"{API}/bot{bot_token}/getWebhookInfo")).json()
+                       .get("result") or {})
+            existing = current.get("url") or ""
+            # The kinds matter as much as the address: a webhook left over from
+            # a version that only wanted messages would never deliver the
+            # confirm button, and the login would wait forever.
+            if existing == url and sorted(current.get("allowed_updates") or []) == sorted(ALLOWED_UPDATES):
                 return True
             if existing:
                 logger.warning(
@@ -58,9 +79,7 @@ async def ensure_webhook(bot_token: str, url: str) -> bool:
                 json={
                     "url": url,
                     "secret_token": webhook_secret(bot_token),
-                    # The login only ever reads /start; asking for the rest
-                    # would be traffic nothing in here looks at.
-                    "allowed_updates": ["message"],
+                    "allowed_updates": ALLOWED_UPDATES,
                     "drop_pending_updates": True,
                 },
             )
