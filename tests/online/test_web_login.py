@@ -213,3 +213,31 @@ def test_one_networks_bot_cannot_confirm_another_networks_login(client, tmp_path
     # the login still does not move, because it is not that tenant's.
     assert _confirm(client, opened["nonce"], tenant=other).status_code in (200, 404)
     assert client.post("/api/auth/telegram/claim", json=opened).json() == {"status": "pending"}
+
+
+def test_the_operator_panel_answers_only_operators(client, monkeypatch):
+    """A stranger guessing /admin gets nothing back at all -- a refusal would
+    tell them the command is there."""
+    sent = []
+
+    async def record(token, chat_id, text, reply_markup=None, parse_mode=None):
+        sent.append(text)
+
+    monkeypatch.setattr("app.routers.telegram.send_message", record)
+    response = client.post(
+        "/api/telegram/webhook/poker8",
+        headers={"X-Telegram-Bot-Api-Secret-Token": SECRET},
+        json={"message": {"chat": {"id": 900}, "from": {"id": 4242, "first_name": "Кто-то"},
+                          "text": "/admin"}},
+    )
+    assert response.status_code == 200
+    assert sent == []
+
+
+def test_the_operator_panel_is_read_only(client):
+    """Approving a withdrawal writes a reason into the audit log; the panel
+    must not grow a shortcut past that."""
+    source = Path("app/routers/telegram.py").read_text(encoding="utf-8")
+    assert "overview" in source and "queue" in source
+    for mutation in ("approve_", "reject_", "resolve_", "execute_", "freeze_", "close_"):
+        assert mutation not in source, mutation

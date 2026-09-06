@@ -5,12 +5,13 @@ import hashlib
 import json
 from uuid import uuid4
 
-from sqlalchemy import select, text, update
+from sqlalchemy import func, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 
 from cash.access import CashOperator
 from cash.antifraud import cancelled_after_payment
 from cash.amounts import micros_to_units, micros_to_usdt
+from cash.cube import CUBE_ACCOUNT
 from cash.fiat_orders import fiat_credit_postings
 from cash.fiat_reconciliation import daily_fiat_reconciliation
 from cash.ledger import CashLedger, IdempotencyConflict
@@ -20,8 +21,8 @@ from cash.withdrawals import (
 from online.catalogue import CASH_USDT
 from online.schema import (
     cash_accounts, cash_audit_events, cash_deposits, cash_payment_events,
-    cash_fiat_events, cash_fiat_orders, cash_user_holds, cash_withdrawals, poker_tables,
-    table_runtimes, users,
+    cash_fiat_events, cash_fiat_orders, cash_user_holds, cash_withdrawals, cube_rounds,
+    poker_tables, table_runtimes, users,
 )
 
 
@@ -130,6 +131,44 @@ class CashAdminService:
             "fiat_reviews": [_snapshot(row, FIAT_EVENT_FIELDS) | {"tenant_id": row["tenant_id"]}
                               for row in fiat_events],
             "paused_tables": [dict(row) for row in paused],
+        }
+
+    async def overview(self, operator: CashOperator):
+        """Where the money is, in one glance.
+
+        The books are not split by tenant -- one clearing account funds every
+        one of them -- so this is an admin's view or nobody's.
+        """
+        if operator.role != "admin":
+            raise OperatorAccessDenied("this view belongs to a global admin")
+        day_ago = datetime.now(timezone.utc) - timedelta(days=1)
+        async with self.sessions() as session:
+            balances = dict((await session.execute(
+                select(cash_accounts.c.kind, func.coalesce(func.sum(cash_accounts.c.balance_micros), 0))
+                .group_by(cash_accounts.c.kind)
+            )).all())
+            house = await session.scalar(select(cash_accounts.c.balance_micros).where(
+                cash_accounts.c.kind == "clearing",
+                cash_accounts.c.reference_id == CUBE_ACCOUNT,
+            ))
+            rounds, staked, paid = (await session.execute(select(
+                func.count(),
+                func.coalesce(func.sum(cube_rounds.c.stake_micros), 0),
+                func.coalesce(func.sum(cube_rounds.c.payout_micros), 0),
+            ).where(cube_rounds.c.created_at >= day_ago))).one()
+            players = await session.scalar(select(func.count()).select_from(users))
+            frozen = await session.scalar(select(func.count()).select_from(cash_user_holds).where(
+                (cash_user_holds.c.until.is_(None)) | (cash_user_holds.c.until > func.now())
+            ))
+        return {
+            "players": int(players or 0),
+            "frozen": int(frozen or 0),
+            "available_micros": int(balances.get("available", 0)),
+            "escrow_micros": int(balances.get("escrow", 0)),
+            "withdrawal_micros": int(balances.get("withdrawal", 0)),
+            "cube_house_micros": int(house or 0),
+            "cube_rounds_day": int(rounds or 0),
+            "cube_result_day_micros": int(staked or 0) - int(paid or 0),
         }
 
     async def audit(self, operator: CashOperator, limit=100):

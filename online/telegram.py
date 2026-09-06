@@ -27,13 +27,16 @@ def webhook_secret(bot_token: str) -> str:
 
 
 async def send_message(
-    bot_token: str, chat_id: int, text: str, reply_markup: dict | None = None
+    bot_token: str, chat_id: int, text: str,
+    reply_markup: dict | None = None, parse_mode: str | None = None,
 ) -> None:
     """Best effort: a player who does not get the confirmation in the chat is
     still signed in, because the browser learns it from the server, not here."""
     payload = {"chat_id": chat_id, "text": text}
     if reply_markup is not None:
         payload["reply_markup"] = reply_markup
+    if parse_mode is not None:
+        payload["parse_mode"] = parse_mode
     try:
         async with httpx.AsyncClient(timeout=4) as client:
             await client.post(f"{API}/bot{bot_token}/sendMessage", json=payload)

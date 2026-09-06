@@ -3,8 +3,14 @@ from __future__ import annotations
 import hmac
 
 from fastapi import APIRouter, Header, HTTPException, Request
+from sqlalchemy import select
 
+from admin_bot.formatting import queue_messages
+from cash.access import CashOperator
+from cash.admin import OperatorAccessDenied
+from cash.amounts import micros_to_usdt
 from online.auth import AuthenticationError, login_code
+from online.schema import cash_operators
 from online.telegram import answer_callback, send_message, webhook_secret
 
 
@@ -13,6 +19,9 @@ router = APIRouter(prefix="/api/telegram", tags=["telegram"])
 #: What the confirm button carries back. Short, because Telegram allows 64
 #: bytes of callback data and the nonce takes most of them.
 CONFIRM = "login:"
+
+#: Telegram renders one message as one block, so the panel is built as lines.
+NEWLINE = "\n"
 
 WELCOME = (
     "Это бот стола. Здесь только вход на сайт — играть можно в браузере "
@@ -71,7 +80,11 @@ async def webhook(
         return {"ok": True}
     chat_id = (message.get("chat") or {}).get("id")
     text = message.get("text")
-    if not chat_id or not isinstance(text, str) or not text.startswith("/start"):
+    if not chat_id or not isinstance(text, str) or not text.startswith(("/start", "/admin")):
+        return {"ok": True}
+
+    if text.startswith("/admin"):
+        await _admin(request, token, chat_id, sender=message.get("from") or {})
         return {"ok": True}
 
     nonce = text[len("/start"):].strip()
@@ -125,3 +138,59 @@ async def _confirm(auth, token: str, tenant_slug: str, callback: dict) -> None:
     chat_id = ((callback.get("message") or {}).get("chat") or {}).get("id")
     if chat_id:
         await send_message(token, chat_id, SIGNED_IN if opened else STALE)
+
+
+def _line(label: str, micros: int) -> str:
+    return f"{label}: <b>{micros_to_usdt(micros)}</b> USDT"
+
+
+async def _admin(request: Request, token: str, chat_id: int, sender: dict) -> None:
+    """The operator panel, for whoever the operator table says is one.
+
+    Read-only on purpose. Approving a withdrawal or crediting a payment is
+    already possible, through an API that takes an operator key and writes a
+    reason into the audit log for every move; putting the same buttons behind a
+    chat id would be the same money with less of a record behind it.
+    """
+    telegram_id = sender.get("id")
+    async with request.app.state.session_factory() as session:
+        row = (await session.execute(select(cash_operators).where(
+            cash_operators.c.telegram_user_id == telegram_id,
+            cash_operators.c.active.is_(True),
+        ))).mappings().first()
+    # No answer at all to anybody else: a "you may not" would tell a stranger
+    # the command is there to be guessed at.
+    if row is None:
+        return
+    operator = CashOperator(row["id"], row["telegram_user_id"], row["tenant_id"], row["role"])
+
+    try:
+        summary = await request.app.state.cash_admin.overview(operator)
+        head = NEWLINE.join([
+            "🛠 <b>Панель оператора</b>",
+            f"Игроков: <b>{summary['players']}</b> · под холдом: <b>{summary['frozen']}</b>",
+            _line("На балансах", summary["available_micros"]),
+            _line("В игре", summary["escrow_micros"]),
+            _line("Ждёт вывода", summary["withdrawal_micros"]),
+            "",
+            f"🎲 CUBE за сутки: <b>{summary['cube_rounds_day']}</b> раундов, "
+            f"результат {micros_to_usdt(summary['cube_result_day_micros'])} USDT",
+            _line("Касса кубика", summary["cube_house_micros"]),
+        ])
+    except OperatorAccessDenied:
+        head = NEWLINE.join([
+            "🛠 <b>Панель оператора</b>",
+            "Сводка по деньгам — только для глобального админа.",
+        ])
+    await send_message(token, chat_id, head, parse_mode="HTML")
+
+    queue = await request.app.state.cash_admin.queue(operator)
+    messages = queue_messages(queue)
+    if not messages:
+        await send_message(token, chat_id, "Очередь пуста — разбирать нечего.")
+        return
+    await send_message(token, chat_id, f"В очереди: <b>{len(messages)}</b>", parse_mode="HTML")
+    # A phone is not a console: the oldest few, and the rest through the
+    # operator API, which is where acting on them lives anyway.
+    for _kind, _target, _status, body in messages[:5]:
+        await send_message(token, chat_id, body, parse_mode="HTML")
