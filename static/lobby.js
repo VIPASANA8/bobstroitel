@@ -392,28 +392,27 @@
     alert(detail.message || "Не удалось создать комнату");
   });
 
-  async function selectAsset(next) {
-    if (next === asset) return;
-    const previous = asset;
-    asset = next;
+  function markAsset() {
     $("cashPilot").hidden = asset !== "CASH_USDT";
     document.querySelectorAll("[data-asset]").forEach(tab => {
       const active = tab.dataset.asset === asset;
       tab.classList.toggle("is-active", active);
       tab.setAttribute("aria-selected", String(active));
     });
+  }
+
+  async function selectAsset(next) {
+    if (next === asset) return;
+    const previous = asset;
+    asset = next;
+    markAsset();
     $("loadStatus").textContent = "● ЗАГРУЗКА";
     try {
       await load();
     } catch (error) {
       if (next === "CASH_USDT") {
         asset = previous;
-        $("cashPilot").hidden = true;
-        document.querySelectorAll("[data-asset]").forEach(tab => {
-          const active = tab.dataset.asset === asset;
-          tab.classList.toggle("is-active", active);
-          tab.setAttribute("aria-selected", String(active));
-        });
+        markAsset();
         await load();
         alert("Раздел REAL CASH сейчас недоступен.");
       } else throw error;
@@ -429,9 +428,22 @@
     const config = configResponse?.ok ? await configResponse.json() : {cash_mode: "off"};
     const cashTab = document.querySelector('[data-asset="CASH_USDT"]');
     cashTab.hidden = config.cash_mode === "off";
-    await load();
-    if (location.hash === "#cash" && config.cash_mode !== "off") {
-      await selectAsset("CASH_USDT");
+    // Real money is what the lobby is for; practice chips are the side the
+    // player asks for. Chosen before the first load rather than switched into
+    // after it, so opening the lobby is one round trip, not two.
+    if (config.cash_mode !== "off") {
+      asset = "CASH_USDT";
+      markAsset();
+    }
+    try {
+      await load();
+    } catch (error) {
+      // The cashier can be unreachable while the tables are fine; that is a
+      // reason to open on chips, not to show an empty lobby.
+      if (asset !== "CASH_USDT") throw error;
+      asset = "PLAY";
+      markAsset();
+      await load();
     }
   }
 

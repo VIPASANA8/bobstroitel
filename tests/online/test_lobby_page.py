@@ -286,3 +286,21 @@ def test_the_cube_has_an_address_of_its_own(client):
     assert 'id="tableGrid"' not in response.text
     for name in ("lobby.html", "cube.html"):
         assert "/static/cube.html" not in Path("static", name).read_text(encoding="utf-8")
+
+
+def test_the_lobby_opens_on_real_cash(client):
+    """Real money is what the lobby is for; practice chips are the side a
+    player asks for. And it is chosen before the first load, so opening the
+    lobby stays one round trip rather than a switch after it."""
+    page = Path("static/lobby.html").read_text(encoding="utf-8")
+    cash = page.index('data-asset="CASH_USDT"')
+    play = page.index('data-asset="PLAY"')
+    assert 'is-active' in page[cash - 40:cash], "the CASH tab is the one marked active"
+    assert 'is-active' not in page[play - 40:play]
+
+    js = Path("static/lobby.js").read_text(encoding="utf-8")
+    boot = js[js.index("async function boot()"):]
+    assert 'asset = "CASH_USDT"' in boot
+    assert boot.index('asset = "CASH_USDT"') < boot.index("await load()")
+    # And a cashier that is down opens on chips instead of an empty lobby.
+    assert 'asset = "PLAY"' in boot
