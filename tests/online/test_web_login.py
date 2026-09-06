@@ -234,10 +234,11 @@ def test_the_operator_panel_answers_only_operators(client, monkeypatch):
     assert sent == []
 
 
-def test_the_operator_panel_is_read_only(client):
-    """Approving a withdrawal writes a reason into the audit log; the panel
-    must not grow a shortcut past that."""
-    source = Path("app/routers/telegram.py").read_text(encoding="utf-8")
-    assert "overview" in source and "queue" in source
-    for mutation in ("approve_", "reject_", "resolve_", "execute_", "freeze_", "close_"):
-        assert mutation not in source, mutation
+def test_the_operator_panel_never_moves_money_behind_the_audit_log(client):
+    """Every decision has to land on CashAdminService, because that is what
+    writes the reason into the audit log and enforces the role. A shortcut to
+    the ledger from here would be the same money with less of a record."""
+    source = Path("online/opsbot.py").read_text(encoding="utf-8")
+    assert "self.admin." in source
+    for shortcut in ("CashLedger", "cash_accounts", "session.execute(update", "insert("):
+        assert shortcut not in source, shortcut

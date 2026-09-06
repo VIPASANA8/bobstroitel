@@ -31,6 +31,7 @@ from online.config import Settings
 from online.coordinator import OnlineCoordinator
 from online.database import create_database
 from online.ledger import PlayLedger
+from online.opsbot import OpsBot
 from online.integrity import EscrowIntegrityMonitor
 from online.runtime import TableRuntimeManager
 from online.seating import SeatingService
@@ -221,6 +222,9 @@ def create_app(
         )
         app.state.cash_wallet = WalletService(session_factory)
         app.state.cash_admin = CashAdminService(session_factory)
+        # The operator panel the bot answers with, on the same service the
+        # operator API uses -- so both write the same audit entries.
+        app.state.opsbot = OpsBot(app.state.cash_admin, session_factory)
         app.state.cash_game = CashGameService(
             session_factory, daily_loss_micros=settings.cash_daily_loss_micros,
         )
