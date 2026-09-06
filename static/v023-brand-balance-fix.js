@@ -2,13 +2,13 @@
   "use strict";
 
   function applyPoker8Brand() {
-    document.title = "Poker8";
+    document.title = "Poker";
 
     const mark = document.querySelector(".brand-mark");
-    if (mark) mark.textContent = "P8";
+    if (mark) mark.textContent = "♠";
 
     const title = document.querySelector(".brand-wrap h1");
-    if (title) title.textContent = "[P8] Poker8";
+    if (title) title.textContent = "poker ♠";
   }
 
   let marking = false;
