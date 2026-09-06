@@ -190,28 +190,36 @@
     $("liveSub").textContent = activeTables ? `за ${activeTables} активными столами` : "столы свободны — начните первым";
   }
 
+  function paintCashWallet(wallet) {
+    if (!wallet) return;
+    $("wallet").textContent = `${wallet.available_units} CASH`;
+    $("cashAvailable").textContent = `${wallet.available_units} CASH`;
+    $("cashAvailableUsdt").textContent = `${wallet.available_usdt} USDT`;
+  }
+
   async function load() {
     const profile = await window.Poker8Auth.ensureSession();
     const query = `asset=${asset}`;
-    const [tablesResponse, sessionResponse, roomResponse, walletResponse] = await Promise.all([
+    // The balance waited for the table list to arrive before it was drawn,
+    // which is a whole round trip spent showing a dash. On play chips the
+    // number came back with the session and can go up now; on CASH it lands
+    // the moment its own request does, rather than with the slowest sibling.
+    if (asset !== "CASH_USDT") $("wallet").textContent = format(profile.available_units);
+    const walletPayload = asset === "CASH_USDT"
+      ? fetch("/api/cash/wallet").then(response => response.ok ? response.json() : null)
+      : Promise.resolve(null);
+    walletPayload.then(paintCashWallet, () => {});
+    const [tablesResponse, sessionResponse, roomResponse] = await Promise.all([
       fetch(`/api/lobby/tables?page=1&per_page=12&${query}`),
       fetch(`/api/lobby/session?${query}`),
       fetch(`/api/lobby/rooms/mine?${query}`),
-      asset === "CASH_USDT" ? fetch("/api/cash/wallet") : Promise.resolve(null),
     ]);
     if (!tablesResponse.ok || !sessionResponse.ok) throw new Error("lobby data is unavailable");
     const tablePayload = await tablesResponse.json();
     const sessionPayload = await sessionResponse.json();
     myRoom = roomResponse?.ok ? (await roomResponse.json()).room : null;
-    if (asset === "CASH_USDT") {
-      if (!walletResponse?.ok) throw new Error("cash mode is unavailable");
-      cashWallet = await walletResponse.json();
-      $("wallet").textContent = `${cashWallet.available_units} CASH`;
-      $("cashAvailable").textContent = `${cashWallet.available_units} CASH`;
-      $("cashAvailableUsdt").textContent = `${cashWallet.available_usdt} USDT`;
-    } else {
-      $("wallet").textContent = format(profile.available_units);
-    }
+    cashWallet = await walletPayload.catch(() => null);
+    if (asset === "CASH_USDT" && !cashWallet) throw new Error("cash mode is unavailable");
     tables = tablePayload.tables;
     renderTables();
     renderLiveStrip();
@@ -349,7 +357,10 @@
     requestAnimationFrame(() => $("roomName")?.focus());
   }
 
-  $("createRoom").addEventListener("click", () => openRoomDialog().catch(error => alert(error.message)));
+  // Two buttons, one door: the second sits where the list of tables ends.
+  for (const id of ["createRoom", "createRoomEnd"]) {
+    $(id)?.addEventListener("click", () => openRoomDialog().catch(error => alert(error.message)));
+  }
   // The same panel the felt shows, opened before anyone has sat down: what
   // beats what, how a hand runs, and what each action button does.
   $("lobbyGuide")?.addEventListener("click", () => window.Poker8TableGuide?.toggle());

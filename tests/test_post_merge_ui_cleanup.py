@@ -165,9 +165,15 @@ def test_the_lobby_balance_is_a_number_with_the_profile_chip_after_it():
     js = Path("static/lobby.js").read_text(encoding="utf-8")
     assert 'class="profile-chip"' in lobby
     assert lobby.index('id="wallet"') < lobby.index('class="profile-chip"'), "chip goes last"
-    assert 'wallet").textContent = `${cashWallet.available_units} CASH`' in js
+    # The two amounts, not the variable that happens to hold them: CASH names
+    # its unit because there is another one, play chips print bare.
+    assert 'wallet").textContent = `${wallet.available_units} CASH`' in js
     assert 'wallet").textContent = format(profile.available_units)' in js
     assert ".profile-chip{" in css and "border-radius:50%" in css
+    # And it is a pill, not a link: an underline under a number reads as prose.
+    pill = css[css.index(".wallet-pill{display:inline-flex"):]
+    assert "text-decoration:none" in pill[:pill.index("}")]
+    assert "tabular-nums" in pill[:pill.index("}")]
 
 
 V040 = Path("static/v040-poker8-v2-dynamic-seats.js").read_text(encoding="utf-8")

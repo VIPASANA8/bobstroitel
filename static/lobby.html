@@ -8,9 +8,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Manrope:wght@400;600;700;800&display=swap" />
-  <link rel="stylesheet" href="/static/network.css?v=tg-app-1" />
-  <link rel="stylesheet" href="/static/cash-ui.css?v=tg-app-1" />
-  <link rel="stylesheet" href="/static/game-tabs.css?v=tg-app-1" />
+  <link rel="stylesheet" href="/static/network.css?v=lobby-polish-1" />
+  <link rel="stylesheet" href="/static/cash-ui.css?v=lobby-polish-1" />
+  <link rel="stylesheet" href="/static/game-tabs.css?v=lobby-polish-1" />
 </head>
 <body>
   <a class="skip-link" href="#tableGrid">К столам</a>
@@ -35,15 +35,15 @@
       <section class="lobby-control" aria-label="Начать игру">
         <div class="lobby-ctas">
           <button id="quickPlay" class="entry-action entry-primary" type="button">
-            <span class="entry-mark" aria-hidden="true">▸</span>
+            <span class="entry-mark"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 3.6v8.8l7-4.4z"/></svg></span>
             <span class="entry-text"><b>Быстрая игра</b></span>
           </button>
           <button id="createRoom" class="entry-action entry-secondary" type="button">
-            <span class="entry-mark" aria-hidden="true">+</span>
+            <span class="entry-mark"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.4v9.2M3.4 8h9.2" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg></span>
             <span class="entry-text"><b>Создать комнату</b></span>
           </button>
           <button id="lobbyGuide" class="entry-action entry-guide" type="button">
-            <span class="entry-mark" aria-hidden="true">?</span>
+            <span class="entry-mark"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.9 6a2.1 2.1 0 1 1 2.6 2.1c-.5.2-.8.6-.8 1.1v.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="8" cy="12" r="1"/></svg></span>
             <span class="entry-text"><b>Инструкция</b></span>
           </button>
           <section id="activeSession" class="active-session" hidden aria-live="polite">
@@ -75,6 +75,12 @@
 
       <section class="section-heading"><div><p class="eyebrow">СТОЛЫ</p><h2>Доступные столы</h2></div><span id="loadStatus" class="status-dot">● ЗАГРУЗКА</span></section>
       <section id="tableGrid" class="table-grid" aria-live="polite" aria-label="Доступные столы"></section>
+      <div class="grid-footer">
+        <button id="createRoomEnd" class="entry-action entry-secondary" type="button">
+          <span class="entry-mark"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.4v9.2M3.4 8h9.2" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg></span>
+          <span class="entry-text"><b>Создать комнату</b></span>
+        </button>
+      </div>
     </main>
   </div>
 
@@ -86,8 +92,8 @@
   <dialog id="buyInDialog" class="buyin-dialog"><form method="dialog" id="buyInForm"><button class="dialog-close" type="button" aria-label="Закрыть">×</button><p class="eyebrow">ПОСАДКА ЗА СТОЛ</p><h2>Выберите бай-ин</h2><p id="buyInTable" class="dialog-muted"></p><label for="buyInUnits">Фишки</label><input id="buyInUnits" type="number" required /><p class="dialog-hint">Лимиты стола · виртуальный баланс</p><button id="confirmReady" class="primary-action" value="default" type="submit">Встать в очередь <strong>→</strong></button></form></dialog>
   <dialog id="roomDialog" class="buyin-dialog"><form method="dialog" id="roomForm"><button class="dialog-close" type="button" aria-label="Закрыть">×</button><p class="eyebrow">СВОЯ КОМНАТА</p><h2>Создать комнату</h2><label for="roomName">Название</label><input id="roomName" type="text" maxlength="40" required placeholder="Вечерний стол" /><label for="roomLevel">Ставки</label><select id="roomLevel"></select><label for="roomPassword">Пароль (необязательно)</label><input id="roomPassword" type="password" minlength="4" maxlength="32" autocomplete="new-password" placeholder="Оставьте пустым — комната открыта всем" /><p class="dialog-hint">Стол на шесть мест · закроется через 1,5 минуты без игроков</p><button id="confirmRoom" class="primary-action" value="default" type="submit">Создать <strong>→</strong></button></form></dialog>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="/static/tg-login.js?v=tg-app-1"></script>
-  <script src="/static/auth-client.js?v=tg-app-1"></script><script src="/static/table-guide.js?v=tg-app-1"></script>
-  <script src="/static/lobby.js?v=tg-app-1"></script>
+  <script src="/static/tg-login.js?v=lobby-polish-1"></script>
+  <script src="/static/auth-client.js?v=lobby-polish-1"></script><script src="/static/table-guide.js?v=lobby-polish-1"></script>
+  <script src="/static/lobby.js?v=lobby-polish-1"></script>
 </body>
 </html>
