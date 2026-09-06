@@ -254,6 +254,13 @@ def create_app(
                 await ensure_webhook(
                     token, f"https://{host}/api/telegram/webhook/{slug}",
                 )
+                # The operator bot is a second bot with a second webhook, and
+                # it only ever reaches the panel.
+                if settings.admin_bot_token:
+                    await ensure_webhook(
+                        settings.admin_bot_token,
+                        f"https://{host}/api/telegram/admin/{slug}",
+                    )
 
         app.state.telegram_login_task = asyncio.create_task(_resolve_login_bots())
         await app.state.runtime.restore_all()

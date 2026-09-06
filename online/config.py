@@ -16,6 +16,9 @@ class Settings:
     database_url: str
     default_tenant_slug: str
     default_bot_token: str | None
+    #: A bot of its own for the operator panel, so the players' bot carries no
+    #: commands they are not meant to find. Unset means no panel anywhere.
+    admin_bot_token: str | None
     session_cookie_name: str
     session_ttl_seconds: int
     telegram_auth_max_age_seconds: int
@@ -206,6 +209,9 @@ class Settings:
                 raise ValueError("non-admin cash operator requires tenant_slug")
         database_url = source.get("POKER8_DATABASE_URL", "").strip()
         bot_token = source.get("POKER8_DEFAULT_BOT_TOKEN", "").strip() or None
+        admin_bot_token = source.get("POKER8_ADMIN_BOT_TOKEN", "").strip() or None
+        if admin_bot_token and admin_bot_token == bot_token:
+            raise ValueError("POKER8_ADMIN_BOT_TOKEN must be a different bot from the players' one")
         if environment == "production" and not database_url:
             raise ValueError("POKER8_DATABASE_URL is required in production")
         if environment == "production" and not bot_token:
@@ -241,6 +247,7 @@ class Settings:
             database_url=database_url,
             default_tenant_slug=default_slug,
             default_bot_token=bot_token,
+            admin_bot_token=admin_bot_token,
             session_cookie_name="poker8_session",
             session_ttl_seconds=7 * 24 * 60 * 60,
             telegram_auth_max_age_seconds=15 * 60,

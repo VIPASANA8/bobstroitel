@@ -17,6 +17,9 @@ from online.telegram import webhook_secret
 
 TOKEN = "424242:AAH-test-bot-token"
 SECRET = webhook_secret(TOKEN)
+#: The operator panel lives on a bot of its own, with its own derived secret.
+ADMIN_TOKEN = "515151:AAH-test-admin-bot"
+ADMIN_SECRET = webhook_secret(ADMIN_TOKEN)
 
 
 @pytest.fixture
@@ -25,6 +28,12 @@ def client(tmp_path):
         "POKER8_ENV": "development",
         "POKER8_DATABASE_URL": f"sqlite+aiosqlite:///{tmp_path / 'login.sqlite3'}",
         "POKER8_DEFAULT_BOT_TOKEN": TOKEN,
+        "POKER8_ADMIN_BOT_TOKEN": ADMIN_TOKEN,
+        # The panel answers whoever this table says is an operator.
+        "POKER8_CASH_ADMIN_OPERATORS_JSON": '[{"telegram_user_id": 8010868263, "role": "admin"}]',
+        # Configuring operators at all requires the key their HTTP API is
+        # behind; the panel does not use it, the settings insist on it.
+        "POKER8_CASH_ADMIN_API_KEY": "test-admin-key-0123456789abcdef",
     })
     with TestClient(create_app(settings)) as test_client:
         # Startup asks Telegram for the bot's name in the background and will
@@ -242,3 +251,49 @@ def test_the_operator_panel_never_moves_money_behind_the_audit_log(client):
     assert "self.admin." in source
     for shortcut in ("CashLedger", "cash_accounts", "session.execute(update", "insert("):
         assert shortcut not in source, shortcut
+
+
+def _panel(client, text, *, user_id=8010868263, secret=ADMIN_SECRET, path="admin/poker8"):
+    headers = {"X-Telegram-Bot-Api-Secret-Token": secret} if secret else {}
+    return client.post(
+        f"/api/telegram/{path}",
+        headers=headers,
+        json={"message": {"chat": {"id": 900}, "from": {"id": user_id, "first_name": "Admin"},
+                          "text": text}},
+    )
+
+
+def test_the_panel_is_on_its_own_bot_and_not_in_the_players_one(client, monkeypatch):
+    """The players' bot carries the login and nothing else -- a command they
+    are not meant to find should not be sitting in it to be guessed at."""
+    sent = []
+
+    async def record(token, chat_id, text, reply_markup=None, parse_mode=None):
+        sent.append((token, text))
+
+    monkeypatch.setattr("app.routers.telegram.send_message", record)
+    # The players' bot: /admin is not a command it knows.
+    assert _panel(client, "/admin", secret=SECRET, path="webhook/poker8").status_code == 200
+    assert sent == []
+
+    # Its own bot answers -- with its own token, so the reply comes from there.
+    assert _panel(client, "/admin").status_code == 200
+    assert sent and sent[0][0] == ADMIN_TOKEN
+    assert "Панель" in sent[0][1]
+
+
+def test_the_admin_webhook_has_its_own_secret(client):
+    """Derived from the operator bot's token, so the players' bot secret --
+    which more parties have seen -- opens nothing here."""
+    assert _panel(client, "/admin", secret=SECRET).status_code == 403
+    assert _panel(client, "/admin", secret=None).status_code == 403
+
+
+def test_the_admin_webhook_answers_nobody_without_an_operator_bot(tmp_path):
+    settings = Settings.from_mapping({
+        "POKER8_ENV": "development",
+        "POKER8_DATABASE_URL": f"sqlite+aiosqlite:///{tmp_path / 'noadmin.sqlite3'}",
+        "POKER8_DEFAULT_BOT_TOKEN": TOKEN,
+    })
+    with TestClient(create_app(settings)) as client:
+        assert _panel(client, "/admin").status_code == 404

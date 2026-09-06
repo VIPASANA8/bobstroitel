@@ -32,13 +32,58 @@ def _ask(host: str, code: str) -> str:
     )
 
 
+@router.post("/admin/{tenant_slug}")
+async def admin_webhook(
+    tenant_slug: str,
+    request: Request,
+    secret: str | None = Header(default=None, alias="X-Telegram-Bot-Api-Secret-Token"),
+):
+    """Updates from the operator bot, which is a different bot on purpose.
+
+    The players' bot carries the login and nothing else; commands they are not
+    meant to find should not be sitting in it waiting to be guessed at. Same
+    two guards -- a secret in the path and one in the header -- derived from
+    this bot's own token.
+    """
+    settings = request.app.state.settings
+    token = settings.admin_bot_token
+    if not token or tenant_slug not in settings.tenant_configs:
+        raise HTTPException(status_code=404, detail="not found")
+    if not secret or not hmac.compare_digest(secret, webhook_secret(token)):
+        raise HTTPException(status_code=403, detail="forbidden")
+
+    update = await request.json()
+    if not isinstance(update, dict):
+        return {"ok": True}
+
+    callback = update.get("callback_query")
+    if isinstance(callback, dict):
+        chat_id = ((callback.get("message") or {}).get("chat") or {}).get("id")
+        if chat_id:
+            await _ops(request, token, chat_id, callback.get("from") or {},
+                       data=callback.get("data") or "", callback_id=callback.get("id"))
+        return {"ok": True}
+
+    message = update.get("message")
+    if not isinstance(message, dict):
+        return {"ok": True}
+    chat_id = (message.get("chat") or {}).get("id")
+    text = message.get("text")
+    if chat_id and isinstance(text, str):
+        # /start here is the panel's own greeting, not a login: this bot has
+        # no players to sign in.
+        await _ops(request, token, chat_id, message.get("from") or {},
+                   text="/admin" if text.strip() == "/start" else text)
+    return {"ok": True}
+
+
 @router.post("/webhook/{tenant_slug}")
 async def webhook(
     tenant_slug: str,
     request: Request,
     secret: str | None = Header(default=None, alias="X-Telegram-Bot-Api-Secret-Token"),
 ):
-    """Updates from the tenant's bot: the login, and the operator panel.
+    """Updates from the players' bot. The only one it acts on is the login.
 
     Two things guard this door: the secret in the path, which Telegram is the
     only party told, and the header it echoes back with every delivery. Both
@@ -68,9 +113,6 @@ async def webhook(
         chat_id = ((callback.get("message") or {}).get("chat") or {}).get("id")
         if isinstance(data, str) and data.startswith(CONFIRM):
             await _confirm(auth, token, tenant_slug, callback)
-        elif chat_id:
-            await _ops(request, token, chat_id, callback.get("from") or {},
-                       data=data or "", callback_id=callback.get("id"))
         return {"ok": True}
 
     message = update.get("message")
@@ -102,9 +144,6 @@ async def webhook(
         )
         return {"ok": True}
 
-    # Anything else is either an operator working, or nothing at all: the panel
-    # answers its own people and stays silent for everybody else.
-    await _ops(request, token, chat_id, sender, text=text)
     return {"ok": True}
 
 
