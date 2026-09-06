@@ -167,3 +167,26 @@ async def test_a_stale_button_says_so_instead_of_failing(anyio_backend):
     bot = _bot()
     assert "устарела" in (await bot.callback(ADMIN, "approve:"))[0][1]
     assert bot.admin.calls == []
+
+
+@pytest.mark.anyio
+async def test_the_reconciliation_screen_asks_for_a_real_day(anyio_backend):
+    """The sweep takes a date, not None -- the HTTP route in front of the same
+    service defaults to today, and so does the button."""
+    seen = []
+
+    class Recon(FakeAdmin):
+        async def fiat_reconciliation(self, operator, day):
+            seen.append(day)
+            return {
+                "day": str(day), "balanced": True, "mismatches": [],
+                "orders": {"count": 0, "charged_rub": "0,00",
+                           "credited_usdt": "0", "fee_usdt": "0"},
+                "ledger": {"credited_usdt": "0", "fee_usdt": "0", "clearing_usdt": "0"},
+                "balances": {"clearing_usdt": "0", "fee_usdt": "0"},
+            }
+
+    bot = OpsBot(Recon(), None)
+    how, _text, keyboard = (await bot.callback(ADMIN, "nav:recon"))[0]
+    assert how == "edit" and _data(keyboard) == ["nav:main"]
+    assert seen and hasattr(seen[0], "isoformat"), seen

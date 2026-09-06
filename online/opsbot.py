@@ -12,6 +12,7 @@ moves money on its own, and nothing skips the reason.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from html import escape
 from uuid import uuid4
 
@@ -176,7 +177,10 @@ class OpsBot:
             ) or "Журнал пуст"
             return [("edit", "🧾 <b>Последние решения</b>\n\n" + body, [BACK])]
         if where == "recon":
-            report = await self.admin.fiat_reconciliation(operator, None)
+            # The service sweeps one day and wants that day; the HTTP route in
+            # front of it defaults to today the same way.
+            today = datetime.now(timezone.utc).date()
+            report = await self.admin.fiat_reconciliation(operator, today)
             return [("edit", reconciliation_message(report), [BACK])]
         return [("edit", *await self._main(operator))]
 
