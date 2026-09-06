@@ -35,19 +35,19 @@
       <section class="control-card">
         <div class="section-heading">
           <div><span>01</span><h2>Сумма ставки</h2></div>
-          <small>шаг 0.05 · до 1000</small>
+          <small>шаг 0.10 · до 50 USDT</small>
         </div>
         <!-- A plain box, not a label: the balance next to the amount is a button,
              and a label would swallow its clicks by forwarding them to the input. -->
         <div class="stake-input">
-          <span aria-hidden="true">♠</span>
-          <input id="stakeInput" value="2.00" inputmode="decimal" min="0.05" max="1000" step="0.05" aria-label="Сумма ставки" />
+          <span aria-hidden="true">$</span>
+          <input id="stakeInput" value="1.00" inputmode="decimal" min="0.10" max="50" step="0.10" aria-label="Сумма ставки в USDT" />
           <div class="stake-steps">
-            <button id="stakeUp" class="step-up" type="button" aria-label="Увеличить ставку на 0.50">+</button>
-            <button id="stakeDown" class="step-down" type="button" aria-label="Уменьшить ставку на 0.50">−</button>
+            <button id="stakeUp" class="step-up" type="button" aria-label="Увеличить ставку на 0.50 USDT">+</button>
+            <button id="stakeDown" class="step-down" type="button" aria-label="Уменьшить ставку на 0.50 USDT">−</button>
           </div>
           <button id="stakeBalance" class="stake-balance" type="button" aria-label="Баланс, пополнить">
-            <span>БАЛАНС</span><strong id="balanceAmount">—</strong>
+            <span>БАЛАНС USDT</span><strong id="balanceAmount">—</strong>
           </button>
         </div>
 
@@ -74,7 +74,7 @@
             </svg>
           </b>
         </button>
-        <p class="fair-note"><i>◇</i> Раунд рассчитывается на сервере, на тренировочные фишки</p>
+        <p class="fair-note"><i>◇</i> Раунд рассчитывается на сервере, ставка списывается с CASH-кошелька</p>
       </section>
     </section>
   </main>

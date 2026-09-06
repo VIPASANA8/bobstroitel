@@ -1,125 +1,69 @@
 from __future__ import annotations
 
-import uuid
-
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from app.dependencies import AuthenticatedUser, get_current_user
-from online import cube
-from online.ledger import InsufficientPlayBalance
-from online.schema import cube_rounds
+from app.dependencies import AuthenticatedUser, get_cash_user
+from cash.amounts import micros_to_usdt, usdt_to_micros
+from cash.antifraud import LossLimitReached
+from cash.cube import CubeError, MAX_SELECTED
+from cash.holds import CashUserFrozen
+from cash.ledger import IdempotencyConflict, InsufficientCash
 
 
 router = APIRouter(prefix="/api/cube", tags=["cube"])
 
 
 class RollRequest(BaseModel):
-    stake_units: int = Field(ge=cube.STAKE_STEP, le=cube.MAX_STAKE)
-    selected: list[int] = Field(min_length=1, max_length=cube.MAX_SELECTED)
-    request_id: str = Field(min_length=1, max_length=200)
-
-
-def _round_payload(row, balance_units: int) -> dict[str, object]:
-    return {
-        "round_id": row["id"],
-        "stake_units": int(row["stake_units"]),
-        "selected": [int(face) for face in row["selected"].split(",")],
-        "roll": int(row["roll"]),
-        "payout_units": int(row["payout_units"]),
-        "won": int(row["payout_units"]) > 0,
-        "balance_units": balance_units,
-    }
+    # A decimal string, like every other amount the cash API takes: a float
+    # would arrive at 0.30000000000000004 for three ten-cent chips.
+    stake_usdt: str = Field(min_length=1, max_length=32)
+    selected: list[int] = Field(min_length=1, max_length=MAX_SELECTED)
+    request_id: str = Field(min_length=1, max_length=100)
 
 
 @router.post("/roll")
 async def roll(
     payload: RollRequest,
     request: Request,
-    user: AuthenticatedUser = Depends(get_current_user),
+    user: AuthenticatedUser = Depends(get_cash_user),
 ):
-    """Draw one CUBE round and settle it against the player's PLAY wallet.
+    """Draw one CUBE round and settle it against the player's USDT wallet.
 
     The browser never decides anything: it posts a stake and a selection and is
-    told the face. Drawing it client-side is what the standalone game does with
-    its own play wallet; here the wallet is the same one the poker tables pay
-    from, so the draw belongs on this side of the wire.
-
-    Everything below happens in one transaction with the wallet row locked --
-    the balance is read, the face is drawn against it, and the money moves --
-    so a stake cannot be spent twice by a player sitting at a table in another
-    tab. The round row goes in before the money so a repeated request_id
-    collides on its unique constraint, rolls the whole thing back, and is
-    answered with the round that did settle.
+    told the face. The whole round -- the hold check, the daily loss limit, the
+    draw and the posting -- happens in one transaction with the wallet row
+    locked, inside `CashCubeService`.
     """
-    ledger = request.app.state.ledger
     try:
-        selected = cube.validate(payload.stake_units, payload.selected)
-    except cube.CubeError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        stake_micros = usdt_to_micros(payload.stake_usdt)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Введите сумму в USDT.") from exc
 
-    async with request.app.state.session_factory() as session:
-        try:
-            async with session.begin():
-                await ledger.ensure_user_wallet(user.user_id, session=session)
-                balance = await ledger.available_units(user.user_id, session=session)
-                if payload.stake_units > balance:
-                    raise InsufficientPlayBalance("Недостаточно средств на балансе.")
-
-                face = cube.roll_face(selected)
-                payout = (
-                    cube.potential_payout(payload.stake_units, len(selected))
-                    if face in selected
-                    else 0
-                )
-                round_id = uuid.uuid4().hex
-                await session.execute(cube_rounds.insert().values(
-                    id=round_id,
-                    user_id=user.user_id,
-                    request_id=payload.request_id,
-                    stake_units=payload.stake_units,
-                    selected=",".join(str(value) for value in selected),
-                    roll=face,
-                    payout_units=payout,
-                ))
-                result = await ledger.settle_cube_round(
-                    user.user_id,
-                    round_id,
-                    payload.stake_units,
-                    payout,
-                    f"cube:{user.user_id}:{payload.request_id}",
-                    session=session,
-                )
-        except IntegrityError:
-            settled = await _replay(request, user, payload.request_id)
-            if settled is None:
-                raise
-            return settled
-        except InsufficientPlayBalance as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-        row = (await session.execute(
-            select(cube_rounds).where(cube_rounds.c.id == round_id)
-        )).mappings().one()
-        return _round_payload(row, result.available_units)
-
-
-async def _replay(
-    request: Request, user: AuthenticatedUser, request_id: str
-) -> dict[str, object] | None:
-    """The round this request_id already settled, if that is what collided."""
-    async with request.app.state.session_factory() as session:
-        row = (await session.execute(
-            select(cube_rounds).where(
-                cube_rounds.c.user_id == user.user_id,
-                cube_rounds.c.request_id == request_id,
-            )
-        )).mappings().first()
-        if row is None:
-            return None
-        balance = await request.app.state.ledger.available_units(
-            user.user_id, session=session
+    try:
+        round_result = await request.app.state.cube.settle(
+            user.user_id, payload.request_id, stake_micros, payload.selected,
         )
-        return _round_payload(row, balance)
+    except CashUserFrozen as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except LossLimitReached as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
+    except InsufficientCash:
+        raise HTTPException(status_code=400, detail="Недостаточно средств на балансе.") from None
+    except CubeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except (IdempotencyConflict, IntegrityError):
+        # The same request id with different content, or a racing twin that won
+        # the insert. Either way this call settled nothing.
+        raise HTTPException(status_code=409, detail="Этот бросок уже рассчитан.") from None
+
+    return {
+        "round_id": round_result["round_id"],
+        "selected": round_result["selected"],
+        "roll": round_result["roll"],
+        "won": round_result["won"],
+        "stake_usdt": micros_to_usdt(round_result["stake_micros"]),
+        "payout_usdt": micros_to_usdt(round_result["payout_micros"]),
+        "available_usdt": micros_to_usdt(round_result["available_micros"]),
+    }

@@ -708,15 +708,15 @@ cube_rounds = Table(
     # ledger would (correctly) refuse the second move while the client showed a
     # freshly drawn face that never settled.
     Column("request_id", String(200), nullable=False),
-    Column("stake_units", BIGINT, nullable=False),
+    Column("stake_micros", BIGINT, nullable=False),
     # The chosen faces, ascending: "2,5". One to three of six, never a query.
     Column("selected", String(16), nullable=False),
     Column("roll", Integer, nullable=False),
-    Column("payout_units", BIGINT, nullable=False),
+    Column("payout_micros", BIGINT, nullable=False),
     Column("created_at", timestamp, **created_at),
     UniqueConstraint("user_id", "request_id", name="uq_cube_round_request"),
     CheckConstraint("roll BETWEEN 1 AND 6", name="ck_cube_round_face"),
-    CheckConstraint("stake_units > 0", name="ck_cube_round_stake"),
-    CheckConstraint("payout_units >= 0", name="ck_cube_round_payout"),
+    CheckConstraint("stake_micros > 0", name="ck_cube_round_stake"),
+    CheckConstraint("payout_micros >= 0", name="ck_cube_round_payout"),
 )
 Index("ix_cube_rounds_user_time", cube_rounds.c.user_id, cube_rounds.c.created_at)

@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 
 from cash.amounts import micros_to_usdt
 from online.catalogue import CASH_USDT
-from online.schema import cash_fiat_orders, hand_players, hands, poker_tables
+from online.schema import cash_fiat_orders, cube_rounds, hand_players, hands, poker_tables
 
 
 # What a user has asked for and not lost: open orders plus credited ones.
@@ -59,19 +59,22 @@ class LossLimitReached(ValueError):
 
 
 async def screen_cash_buy_in(session, *, user_id, limit_micros, now):
-    """Stop selling a losing player another buy-in for the rest of the day.
+    """Stop selling a losing player another stake for the rest of the day.
 
     Counted over a rolling 24 hours rather than over a session, because a
     session ends the moment somebody stands up, and a limit that resets on
     standing up is a limit nobody ever reaches.
 
-    It is the *net* of completed CASH hands, not the sum of the losing ones.
-    Poker loses more pots than it wins by design, so counting only losing hands
-    would stop a player who is up on the day, which is not a loss limit but a
-    win cap. Net means the number matches what the wallet actually shows.
+    It is the *net* of everything played for CASH, not the sum of the losing
+    parts. Poker loses more pots than it wins by design, so counting only
+    losing hands would stop a player who is up on the day, which is not a loss
+    limit but a win cap. Net means the number matches what the wallet actually
+    shows -- and that is also why CUBE rounds are counted here beside the
+    hands: a limit a whole game walks around is not a limit.
     """
     if not limit_micros:
         return
+    since = now - timedelta(days=1)
     lost = await session.scalar(select(func.coalesce(func.sum(
         hand_players.c.net_micros
     ), 0)).select_from(hand_players).join(
@@ -82,7 +85,13 @@ async def screen_cash_buy_in(session, *, user_id, limit_micros, now):
         hand_players.c.user_id == user_id,
         hand_players.c.net_micros.is_not(None),
         poker_tables.c.asset == CASH_USDT,
-        hands.c.completed_at >= now - timedelta(days=1),
+        hands.c.completed_at >= since,
+    ))
+    lost += await session.scalar(select(func.coalesce(func.sum(
+        cube_rounds.c.payout_micros - cube_rounds.c.stake_micros
+    ), 0)).where(
+        cube_rounds.c.user_id == user_id,
+        cube_rounds.c.created_at >= since,
     ))
     if -lost >= limit_micros:
         raise LossLimitReached(

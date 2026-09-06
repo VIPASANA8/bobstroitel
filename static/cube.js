@@ -4,9 +4,13 @@
 
    What did not come across is the standalone game's own wallet -- the local
    round source, the faucet dialog, the reset dialog and the owner numbers all
-   belong to a copy that keeps its money in localStorage. Here the wallet is
-   the one the poker tables pay from, the round is settled by the server, and
-   "пополнить" goes where every other top-up in poker8 goes. */
+   belong to a copy that keeps its money in localStorage. Here the money is
+   real: the balance is the CASH wallet, the round is settled by the server,
+   and "пополнить" goes to the cashier every other deposit goes through.
+
+   Amounts are micro-USDT integers on this side too. The wire carries decimal
+   strings, because a float that has been through JSON turns three ten-cent
+   stakes into 0.30000000000000004. */
 (() => {
   "use strict";
 
@@ -14,22 +18,25 @@
   const canvasCube = window.Poker8CubeCanvas;
   const $ = id => document.getElementById(id);
 
-  const STAKE_STEP = 5;
-  const MAX_STAKE = 100_000;
-  const STAKE_NUDGE = 50;
+  const MICROS_PER_USDT = 1_000_000;
+  const STAKE_STEP = 100_000;          // 0.10 USDT
+  const MAX_STAKE = 50_000_000;        // 50 USDT
+  const STAKE_NUDGE = 500_000;         // what +/- moves
   const MULTIPLIER_TENTHS = { 1: 60, 2: 30, 3: 20 };
-  const DEFAULT_STAKE = "2.00";
+  const DEFAULT_STAKE = "1.00";
   const FACES = [1, 2, 3, 4, 5, 6];
 
-  const money = units => (Number(units || 0) / 100).toFixed(2);
+  const money = micros => (Number(micros || 0) / MICROS_PER_USDT).toFixed(2);
+  /** The server's decimal string ("0.3", "12") back into micros. */
+  const toMicros = usdt => Math.round(Number(usdt || 0) * MICROS_PER_USDT);
   const potentialPayout = (stake, count) => Math.floor((stake * MULTIPLIER_TENTHS[count] + 5) / 10);
 
-  /** Units from what the player typed, or null if that is not an amount. */
+  /** Micros from what the player typed, or null if that is not an amount. */
   function parseUnits(input) {
-    const match = /^(\d{1,4})(?:[.,](\d{1,2}))?$/.exec(String(input).trim());
+    const match = /^(\d{1,3})(?:[.,](\d{1,2}))?$/.exec(String(input).trim());
     if (!match) return null;
-    const units = Number(match[1]) * 100 + Number((match[2] || "").padEnd(2, "0"));
-    return units <= 0 || units > MAX_STAKE ? null : units;
+    const micros = Number(match[1]) * MICROS_PER_USDT + Number((match[2] || "").padEnd(2, "0")) * 10_000;
+    return micros <= 0 || micros > MAX_STAKE ? null : micros;
   }
 
   const requestId = () => crypto.randomUUID?.()
@@ -497,8 +504,8 @@
       small.append("ВЫПАЛО ", Object.assign(document.createElement("b"), { textContent: String(round.roll) }));
       const strong = document.createElement("strong");
       strong.textContent = round.won
-        ? `Выигрыш ${money(round.payout_units)}`
-        : `Ставка ${money(round.stake_units)} не сыграла`;
+        ? `Выигрыш ${money(round.payout_micros)} USDT`
+        : `Ставка ${money(round.stake_micros)} USDT не сыграла`;
       resultLine.append(small, strong);
     } else {
       resultLine.innerHTML = "<small>КУБИК ГОТОВ</small><strong>Настрой ставку и запускай</strong>";
@@ -520,7 +527,7 @@
     balanceButton.disabled = view.isRolling;
     $("balanceAmount").textContent = balance === null ? "—" : money(balance);
     balanceButton.setAttribute("aria-label",
-      `Баланс ${balance === null ? "неизвестен" : money(balance)}, пополнить`);
+      `Баланс ${balance === null ? "неизвестен" : `${money(balance)} USDT`}, пополнить`);
 
     for (const button of $("faceGrid").children) {
       const face = Number(button.dataset.face);
@@ -537,8 +544,8 @@
     const stakeMessage = view.stakeInput.trim() === ""
       ? ""
       : units === null
-        ? "Введите сумму от 0.05 до 1000.00."
-        : !validStake() ? "Шаг игровой ставки — 0.05." : "";
+        ? "Введите сумму от 0.10 до 50.00 USDT."
+        : !validStake() ? "Шаг ставки — 0.10 USDT." : "";
     const message = view.error || stakeMessage;
     $("cubeError").textContent = message;
     $("cubeError").hidden = !message;
@@ -588,12 +595,16 @@
 
   async function refreshBalance() {
     try {
-      const profile = await window.Poker8Auth.ensureSession();
-      view.balanceUnits = Number(profile.available_units || 0);
+      await window.Poker8Auth.ensureSession();
+      const response = await fetch("/api/cash/wallet");
+      // 404 is cash mode off, 403 is this account not being let into it. Both
+      // mean there is no USDT to play with, and neither is the player's fault.
+      if (!response.ok) throw new Error(String(response.status));
+      view.balanceUnits = toMicros((await response.json()).available_usdt);
     } catch (error) {
       view.error = window.Poker8Auth.needsSignIn(error)
         ? "Откройте игру из Telegram, чтобы играть на свой баланс."
-        : "Не удалось загрузить баланс.";
+        : "CASH-касса недоступна — играть на USDT сейчас нельзя.";
     }
     render();
   }
@@ -602,7 +613,7 @@
     const balance = view.balanceUnits;
     const units = stake();
     if (balance !== null && units !== null && units > balance) {
-      window.location.href = "/static/profile.html#topup";
+      window.location.href = "/static/profile.html#cash";
       return;
     }
     if (rollLock || !validStake() || !view.selected.length) return;
@@ -615,7 +626,7 @@
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          stake_units: units, selected: view.selected, request_id: requestId(),
+          stake_usdt: money(units), selected: view.selected, request_id: requestId(),
         }),
       });
       const body = await response.json().catch(() => ({}));
@@ -626,7 +637,11 @@
 
       view.error = "";
       view.isRolling = true;
-      view.visibleRound = body;
+      view.visibleRound = {
+        ...body,
+        stake_micros: toMicros(body.stake_usdt),
+        payout_micros: toMicros(body.payout_usdt),
+      };
       render();
 
       const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -634,7 +649,7 @@
       rollTimer = window.setTimeout(() => {
         rollTimer = null;
         view.currentFace = body.roll;
-        view.balanceUnits = Number(body.balance_units);
+        view.balanceUnits = toMicros(body.available_usdt);
         view.rollingBalance = null;
         view.isRolling = false;
         rollLock = false;
@@ -660,7 +675,7 @@
   $("stakeUp").addEventListener("click", () => stepStake(STAKE_NUDGE));
   $("stakeDown").addEventListener("click", () => stepStake(-STAKE_NUDGE));
   $("stakeBalance").addEventListener("click", () => {
-    window.location.href = "/static/profile.html#topup";
+    window.location.href = "/static/profile.html#cash";
   });
   $("playButton").addEventListener("click", play);
 

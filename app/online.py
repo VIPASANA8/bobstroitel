@@ -20,6 +20,7 @@ from cash.fiat_poller import FiatPoller
 from cash.trc20_watcher import Trc20DepositWatcher
 from cash.watchdog import CashWatchdog
 from cash.fiat_p2p import MockPservice, PserviceClient
+from cash.cube import CashCubeService
 from cash.game import CashGameService
 from cash.wallet import WalletService
 from cash.withdrawals import WithdrawalService
@@ -39,7 +40,7 @@ from online.schema import cash_operators, metadata, tenant_bots, tenants
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
-EXPECTED_MIGRATION_REVISION = "20260906_0027"
+EXPECTED_MIGRATION_REVISION = "20260906_0028"
 
 #: Payout providers this application knows how to drive. Deliberately empty:
 #: custody and transaction signing live outside Poker8, and until one is
@@ -220,6 +221,9 @@ def create_app(
         app.state.cash_wallet = WalletService(session_factory)
         app.state.cash_admin = CashAdminService(session_factory)
         app.state.cash_game = CashGameService(
+            session_factory, daily_loss_micros=settings.cash_daily_loss_micros,
+        )
+        app.state.cube = CashCubeService(
             session_factory, daily_loss_micros=settings.cash_daily_loss_micros,
         )
         await app.state.runtime.restore_all()
