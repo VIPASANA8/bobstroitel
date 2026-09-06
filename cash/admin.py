@@ -26,6 +26,15 @@ from online.schema import (
 )
 
 
+#: Where a hand-made correction is booked. A clearing account like the rake and
+#: the deposit fee: money appearing on a player's side has to come from
+#: somewhere the books can name.
+ADJUSTMENT_ACCOUNT = "manual-adjustment"
+#: Ten thousand dollars. Not a policy about how much anyone may give away --
+#: it is the size at which a slipped decimal point stops being recoverable.
+MAX_ADJUSTMENT_MICROS = 10_000 * 1_000_000
+
+
 class OperatorAccessDenied(ValueError):
     pass
 
@@ -170,6 +179,62 @@ class CashAdminService:
             "cube_rounds_day": int(rounds or 0),
             "cube_result_day_micros": int(staked or 0) - int(paid or 0),
         }
+
+    async def adjust_balance(self, identifier, operator, *, amount_micros, reason, key):
+        """Put money on a player's balance by hand, or take it off.
+
+        The last resort behind every rail: a deposit that arrived some way the
+        system never saw, a goodwill payment after an incident, a correction.
+        It is the one place money reaches a player without a payment behind it,
+        so it is admin-only, it is booked against a clearing account of its own
+        rather than out of thin air, and it carries a named person and a reason
+        into the audit log like every other decision.
+
+        A debit cannot push the balance below zero -- the ledger refuses that
+        -- so taking back more than is there fails instead of going negative.
+        """
+        self._require_mutation(operator)
+        # Money the clearing account absorbs is not any one tenant's, and a
+        # correction that crosses tenants would be invisible to the operator
+        # who owns only one of them.
+        self._require_scope(operator, None)
+        if type(amount_micros) is not int or amount_micros == 0:
+            raise ValueError("an adjustment has to move a nonzero amount")
+        if abs(amount_micros) > MAX_ADJUSTMENT_MICROS:
+            raise ValueError(
+                f"one adjustment is capped at {micros_to_usdt(MAX_ADJUSTMENT_MICROS)} USDT"
+            )
+        async with self.sessions() as session:
+            async with session.begin():
+                replay, fingerprint = await self._claim(
+                    session, operator, key, "user.adjust", str(identifier), reason,
+                    {"amount_micros": amount_micros},
+                )
+                if replay is not None:
+                    return replay
+                user = await self._find_user(session, identifier)
+                tenant_id = user["acquisition_tenant_id"]
+                wallet = await self._account(session, "available", user["id"], user["id"])
+                clearing = await self._account(session, "clearing", None, ADJUSTMENT_ACCOUNT)
+                before_micros = int(await session.scalar(select(
+                    cash_accounts.c.balance_micros
+                ).where(cash_accounts.c.id == wallet)) or 0)
+                await self.ledger.post(
+                    session, scope="cash-adjust", key=key, kind="adjustment",
+                    reference_id=user["id"], actor=f"operator:{operator.id}",
+                    postings={wallet: amount_micros, clearing: -amount_micros},
+                )
+                before = {"user_id": user["id"], "available_usdt": micros_to_usdt(before_micros)}
+                after = {
+                    "user_id": user["id"],
+                    "amount_usdt": micros_to_usdt(abs(amount_micros)),
+                    "direction": "credit" if amount_micros > 0 else "debit",
+                    "available_usdt": micros_to_usdt(before_micros + amount_micros),
+                    "status": "начислено" if amount_micros > 0 else "списано",
+                }
+                await self._audit(session, operator, tenant_id, "user.adjust", "user",
+                                  user["id"], reason, key, fingerprint, before, after)
+                return after
 
     async def audit(self, operator: CashOperator, limit=100):
         limit = max(1, min(int(limit), 500))

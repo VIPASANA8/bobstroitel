@@ -190,3 +190,75 @@ async def test_the_reconciliation_screen_asks_for_a_real_day(anyio_backend):
     how, _text, keyboard = (await bot.callback(ADMIN, "nav:recon"))[0]
     assert how == "edit" and _data(keyboard) == ["nav:main"]
     assert seen and hasattr(seen[0], "isoformat"), seen
+
+
+class Money(FakeAdmin):
+    """Records the two decisions that were missing from the panel."""
+
+    async def queue(self, operator):
+        return {"withdrawals": [
+            {"id": "w-crypto", "status": "approved", "user_id": "u-1", "network": "TRC20",
+             "amount_micros": 5_000_000, "destination_address": "TAddr"},
+            {"id": "w-rub", "status": "approved", "user_id": "u-2", "network": "P2P_RUB",
+             "amount_micros": 5_000_000, "destination_address": "+79990000000"},
+        ]}
+
+    async def settle_p2p_withdrawal(self, target, operator, *, fiat_kopecks, reason, key):
+        self.calls.append(("settle", target, fiat_kopecks, reason, key))
+        return {"status": "confirmed"}
+
+    async def adjust_balance(self, identifier, operator, *, amount_micros, reason, key):
+        self.calls.append(("adjust", identifier, amount_micros, reason, key))
+        return {"status": "начислено" if amount_micros > 0 else "списано"}
+
+
+@pytest.mark.anyio
+async def test_a_rub_payout_is_recorded_by_hand_not_mocked(anyio_backend):
+    """Nothing automatic sends fiat, so the only thing to record is that a
+    person sent it -- and how much, which the mock rail never asks."""
+    bot = OpsBot(Money(), None)
+    cards = await bot.callback(ADMIN, "q:withdrawal")
+    crypto, rub = cards[1][2], cards[2][2]
+    assert _data(crypto) == ["success:w-crypto", "unknown:w-crypto", "failure:w-crypto"]
+    assert _data(rub) == ["settle:w-rub"]
+
+    assert "рублях" in (await bot.callback(ADMIN, "settle:w-rub"))[0][1]
+    # A sum that is not a sum is asked for again rather than sent as zero.
+    assert "рублях" in (await bot.message(ADMIN, "около двух тысяч"))[0][1]
+    assert bot.admin.calls == []
+
+    assert "1815,50" in (await bot.message(ADMIN, "1815,50"))[0][1]
+    await bot.message(ADMIN, "отправил по СБП")
+    await bot.callback(ADMIN, "confirm:")
+    action, target, kopecks, reason, key = bot.admin.calls[0]
+    assert (action, target, kopecks, reason) == ("settle", "w-rub", 181550, "отправил по СБП")
+    assert key
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("verb,expected", [("credit_user", 25_500_000), ("debit_user", -25_500_000)])
+async def test_a_balance_can_be_moved_by_hand_with_a_reason(anyio_backend, verb, expected):
+    """The last resort behind every rail -- and it goes through the same
+    reason-and-confirm as every other decision."""
+    bot = OpsBot(Money(), None)
+    assert "USDT" in (await bot.callback(ADMIN, f"{verb}:u-1"))[0][1]
+    assert "USDT" in (await bot.message(ADMIN, "двадцать пять"))[0][1]
+    assert bot.admin.calls == []
+
+    assert "25.5" in (await bot.message(ADMIN, "25.50"))[0][1]
+    asked = (await bot.message(ADMIN, "возврат после инцидента"))[0]
+    assert "Подтвердить" in asked[1]
+    assert bot.admin.calls == []
+
+    await bot.callback(ADMIN, "confirm:")
+    action, identifier, amount, reason, key = bot.admin.calls[0]
+    assert (action, identifier, amount, reason) == ("adjust", "u-1", expected, "возврат после инцидента")
+    assert key
+
+
+@pytest.mark.anyio
+async def test_the_player_card_offers_both_directions(anyio_backend):
+    bot = OpsBot(Money(), None)
+    await bot.callback(ADMIN, "ask:user")
+    card = (await bot.message(ADMIN, "u-1"))[0]
+    assert _data(card[2])[:2] == ["credit_user:u-1", "debit_user:u-1"]

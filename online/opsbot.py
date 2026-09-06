@@ -23,7 +23,7 @@ from admin_bot.formatting import (
 )
 from cash.access import CashOperator
 from cash.admin import OperatorAccessDenied
-from cash.amounts import micros_to_usdt
+from cash.amounts import kopecks_to_rub, micros_to_usdt, usdt_to_micros
 from online.schema import cash_operators
 
 
@@ -51,17 +51,25 @@ ACTIONS = {
     "bindcredit": ("resolve_fiat_event", {"decision": "credit"}),
     "fiatreject": ("resolve_fiat_event", {"decision": "reject"}),
     "fiatclose": ("close_fiat_order", {}),
+    "settle": ("settle_p2p_withdrawal", {}),
+    "credit_user": ("adjust_balance", {"sign": 1}),
+    "debit_user": ("adjust_balance", {"sign": -1}),
     "freeze": ("freeze_user", {}),
     "unfreeze": ("release_user", {}),
 }
 #: What has to be asked for before the reason, and how to ask for it.
-EXTRA_STEP = {"confirmed": "tx_hash", "bindcredit": "order_id"}
+EXTRA_STEP = {
+    "confirmed": "tx_hash", "bindcredit": "order_id", "settle": "fiat_kopecks",
+    "credit_user": "amount", "debit_user": "amount",
+}
 PROMPTS = {
     "tx_hash": "Пришлите проверенный reference транзакции",
     "order_id": "Пришлите ID заявки Poker8 или «-», если он уже известен",
     "reason": "Пришлите причину решения (от 3 до 500 символов)",
     "user": "Пришлите ID игрока или его telegram-номер",
     "order": "Пришлите номер заявки — наш или партнёрский",
+    "fiat_kopecks": "Пришлите сумму в рублях, которую отправили: например 1815,50",
+    "amount": "Пришлите сумму в USDT: например 25.50",
 }
 
 
@@ -76,11 +84,33 @@ class Pending:
     key: str = field(default_factory=lambda: uuid4().hex)
 
 
-def _card_buttons(kind: str, target_id: str, status: str) -> list | None:
+def _rub_to_kopecks(text: str) -> int | None:
+    """«1815,50», «1815.5» или «1815» в копейки, или None если это не сумма."""
+    cleaned = text.replace(" ", "").replace(",", ".")
+    whole, _, fraction = cleaned.partition(".")
+    if not whole.isdigit() or (fraction and not fraction.isdigit()) or len(fraction) > 2:
+        return None
+    kopecks = int(whole) * 100 + int(fraction.ljust(2, "0") or 0)
+    return kopecks or None
+
+
+def _usdt_to_micros(text: str) -> int | None:
+    try:
+        micros = usdt_to_micros(text.replace(" ", "").replace(",", "."))
+    except ValueError:
+        return None
+    return micros or None
+
+
+def _card_buttons(kind: str, target_id: str, status: str, row: dict) -> list | None:
     if kind == "withdrawal" and status == "reserved":
         return [[{"text": "✅ Разрешить", "callback_data": f"approve:{target_id}"},
                  {"text": "🚫 Отклонить", "callback_data": f"reject:{target_id}"}]]
     if kind == "withdrawal" and status == "approved":
+        # A RUB payout is sent by a person, so the only thing to record is that
+        # they sent it, and how much. The mock rail is for the crypto one.
+        if row.get("network") == "P2P_RUB":
+            return [[{"text": "💸 Записать выплату", "callback_data": f"settle:{target_id}"}]]
         return [[{"text": "Mock success", "callback_data": f"success:{target_id}"},
                  {"text": "Mock unknown", "callback_data": f"unknown:{target_id}"},
                  {"text": "Mock failure", "callback_data": f"failure:{target_id}"}]]
@@ -233,8 +263,11 @@ class OpsBot:
         return "📋 <b>Очередь</b>\n\nВыберите, что разбирать.", rows + [BACK]
 
     async def _queue_cards(self, operator: CashOperator, kind: str):
-        items = [item for item in queue_messages(await self.admin.queue(operator))
-                 if item[0] == kind]
+        queue = await self.admin.queue(operator)
+        # The rendered card says what a person needs to read; the row behind it
+        # says which rail this is, and that decides which buttons belong on it.
+        rows = {row["id"]: row for row in queue.get("withdrawals", [])}
+        items = [item for item in queue_messages(queue) if item[0] == kind]
         if not items:
             return [("edit", "Здесь уже пусто.", [BACK])]
         # The list is redrawn in place; the cards follow as their own messages,
@@ -243,7 +276,8 @@ class OpsBot:
         # ponytail: the oldest ten. A phone is not a console, and the operator
         # API is where a backlog that does not fit gets worked through.
         for _kind, target, status, body in items[:10]:
-            buttons = _card_buttons(kind, target, status) if operator.can_mutate() else None
+            buttons = (_card_buttons(kind, target, status, rows.get(target, {}))
+                       if operator.can_mutate() else None)
             screen.append(("send", body, buttons))
         return screen
 
@@ -255,10 +289,13 @@ class OpsBot:
                 keyboard = [BACK]
                 if operator.can_mutate():
                     held = bool(user.get("hold"))
-                    keyboard = [[{
-                        "text": "Разморозить" if held else "Заморозить",
-                        "callback_data": f"{'unfreeze' if held else 'freeze'}:{user['id']}",
-                    }], BACK]
+                    keyboard = [
+                        [{"text": "➕ Начислить", "callback_data": f"credit_user:{user['id']}"},
+                         {"text": "➖ Списать", "callback_data": f"debit_user:{user['id']}"}],
+                        [{"text": "Разморозить" if held else "Заморозить",
+                          "callback_data": f"{'unfreeze' if held else 'freeze'}:{user['id']}"}],
+                        BACK,
+                    ]
                 return user_card(user), keyboard
             order = await self.admin.fiat_order(operator, value)
             return fiat_order_message(order), [BACK]
@@ -279,6 +316,21 @@ class OpsBot:
 
     def _fill(self, pending: Pending, text: str):
         """Whatever was typed while a decision waited for its details."""
+        if pending.step == "fiat_kopecks":
+            kopecks = _rub_to_kopecks(text)
+            if kopecks is None:
+                return PROMPTS["fiat_kopecks"], [CANCEL]
+            pending.body["fiat_kopecks"] = kopecks
+            pending.step = "reason"
+            return f"Записываем {kopecks_to_rub(kopecks)} ₽. " + PROMPTS["reason"], [CANCEL]
+        if pending.step == "amount":
+            micros = _usdt_to_micros(text)
+            if micros is None:
+                return PROMPTS["amount"], [CANCEL]
+            pending.body["amount_micros"] = micros * pending.body.pop("sign", 1)
+            pending.step = "reason"
+            moved = "Начисляем" if pending.body["amount_micros"] > 0 else "Списываем"
+            return (f"{moved} {micros_to_usdt(micros)} USDT. " + PROMPTS["reason"], [CANCEL])
         if pending.step == "order_id":
             if text != "-" and (not text or len(text) > 64):
                 return PROMPTS["order_id"], [CANCEL]
@@ -343,6 +395,12 @@ class OpsBot:
             return await self.admin.resolve_fiat_event(
                 int(target), operator, decision=body["decision"],
                 reason=reason, key=key, order_id=body.get("order_id"))
+        if pending.action == "settle_p2p_withdrawal":
+            return await self.admin.settle_p2p_withdrawal(
+                target, operator, fiat_kopecks=body["fiat_kopecks"], reason=reason, key=key)
+        if pending.action == "adjust_balance":
+            return await self.admin.adjust_balance(
+                target, operator, amount_micros=body["amount_micros"], reason=reason, key=key)
         if pending.action == "close_fiat_order":
             return await self.admin.close_fiat_order(target, operator, reason=reason, key=key)
         if pending.action == "freeze_user":

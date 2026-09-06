@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from app.dependencies import get_cash_operator
 from cash.access import CashOperator
+from cash.amounts import usdt_to_micros
 from cash.admin import OperatorAccessDenied
 from cash.ledger import IdempotencyConflict, InsufficientCash
 from cash.withdrawals import WithdrawalStateError
@@ -16,6 +17,14 @@ router = APIRouter(prefix="/api/cash-admin", tags=["cash-admin"])
 
 class ReasonRequest(BaseModel):
     reason: str = Field(min_length=3, max_length=500)
+
+
+class AdjustmentRequest(ReasonRequest):
+    """A signed amount in USDT: positive credits the player, negative takes it
+    back. A string, like every other amount here -- a float through JSON turns
+    three ten-cent corrections into 0.30000000000000004."""
+
+    amount_usdt: str = Field(min_length=1, max_length=32)
 
 
 class ExecuteRequest(ReasonRequest):
@@ -207,6 +216,24 @@ async def freeze_user(identifier: str, body: ReasonRequest, request: Request,
     try:
         return await request.app.state.cash_admin.freeze_user(
             identifier, operator, reason=body.reason, key=key,
+        )
+    except (ValueError, LookupError) as exc:
+        raise _error(exc) from exc
+
+
+@router.post("/users/{identifier}/adjust")
+async def adjust_balance(identifier: str, body: AdjustmentRequest, request: Request,
+                         key: str = Header(alias="Idempotency-Key"),
+                         operator: CashOperator = Depends(get_cash_operator)):
+    raw = body.amount_usdt.strip()
+    sign = -1 if raw.startswith("-") else 1
+    try:
+        amount = sign * usdt_to_micros(raw.lstrip("+-"))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="amount_usdt must be a decimal amount") from exc
+    try:
+        return await request.app.state.cash_admin.adjust_balance(
+            identifier, operator, amount_micros=amount, reason=body.reason, key=key,
         )
     except (ValueError, LookupError) as exc:
         raise _error(exc) from exc

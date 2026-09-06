@@ -24,7 +24,9 @@ def test_every_admin_route_uses_backend_operator_dependency():
     app = create_app(Settings.from_mapping({"POKER8_ENV": "development"}))
     routes = [route for route in app.routes if isinstance(route, APIRoute)
               and route.path.startswith("/api/cash-admin")]
-    assert len(routes) == 16
+    # The count is the tripwire: a route added without a thought about who may
+    # reach it has to fail here first. 17 since the hand-made adjustment.
+    assert len(routes) == 17
     assert all(any(dependency.call is get_cash_operator for dependency in route.dependant.dependencies)
                for route in routes)
 
