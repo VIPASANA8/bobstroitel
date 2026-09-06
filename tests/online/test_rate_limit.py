@@ -57,10 +57,14 @@ def test_the_login_endpoints_are_the_ones_behind_it():
     from app.routers import auth
 
     source = (auth.__file__ and open(auth.__file__, encoding="utf-8").read()) or ""
-    # Every door reachable without a session, and no more: the widget login is
-    # one of them, and it was added to this list at the same time as itself.
-    assert source.count("_throttle(request)") == 3
-    for name in ("telegram_login", "telegram_widget_login", "guest_login"):
+    # Every door reachable without a session, and no more. The bot login is
+    # two of them: opening a code and trading it in are both unauthenticated,
+    # and the second is polled on a timer, which is the one worth counting.
+    assert source.count("_throttle(request)") + source.count("_throttle(request, poll=True)") == 4
+    # The poll gets its own counter: at one call every second and a half it
+    # would otherwise exhaust the door it is waiting on.
+    assert "_throttle(request, poll=True)" in source
+    for name in ("telegram_login", "start_telegram_login", "claim_telegram_login", "guest_login"):
         assert f"async def {name}" in source
 
 

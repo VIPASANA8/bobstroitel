@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, text
 
-from app.routers import auth, cash, cash_admin, chat, config, cube, health, lobby, profiles, realtime, tables
+from app.routers import auth, cash, cash_admin, chat, config, cube, health, lobby, profiles, realtime, tables, telegram
 from cash.admin import CashAdminService
 from cash.deposits import DepositService
 from cash.antifraud import DepositPolicy
@@ -25,6 +25,7 @@ from cash.game import CashGameService
 from cash.wallet import WalletService
 from cash.withdrawals import WithdrawalService
 from online.auth import AuthService, resolve_login_bots
+from online.telegram import ensure_webhook
 from online.catalogue import Catalogue
 from online.config import Settings
 from online.coordinator import OnlineCoordinator
@@ -40,7 +41,7 @@ from online.schema import cash_operators, metadata, tenant_bots, tenants
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
-EXPECTED_MIGRATION_REVISION = "20260906_0028"
+EXPECTED_MIGRATION_REVISION = "20260906_0029"
 
 #: Payout providers this application knows how to drive. Deliberately empty:
 #: custody and transaction signing live outside Poker8, and until one is
@@ -233,9 +234,22 @@ def create_app(
         app.state.telegram_login_bots = {}
 
         async def _resolve_login_bots():
-            app.state.telegram_login_bots = await resolve_login_bots(
-                {slug: (config or {}).get("token", "") for slug, config in settings.tenant_configs.items()}
-            )
+            tokens = {
+                slug: (config or {}).get("token", "")
+                for slug, config in settings.tenant_configs.items()
+            }
+            app.state.telegram_login_bots = await resolve_login_bots(tokens)
+            # And point each bot at this deployment, so pressing Start in it
+            # reaches the login waiting here. Only where the tenant has a host
+            # to be reached at: a laptop has no address Telegram can post to,
+            # and asking it to try would only overwrite the live webhook.
+            for slug, token in tokens.items():
+                host = next(iter((settings.tenant_configs.get(slug) or {}).get("hosts", [])), None)
+                if not token or not host:
+                    continue
+                await ensure_webhook(
+                    token, f"https://{host}/api/telegram/webhook/{slug}",
+                )
 
         app.state.telegram_login_task = asyncio.create_task(_resolve_login_bots())
         await app.state.runtime.restore_all()
@@ -315,6 +329,7 @@ def create_app(
     app.include_router(cash.router)
     app.include_router(cash_admin.router)
     app.include_router(cube.router)
+    app.include_router(telegram.router)
 
     @app.get("/")
     async def index():

@@ -15,7 +15,12 @@ import httpx
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from online.schema import auth_sessions, tenants, user_tenant_visits, users
+from online.schema import auth_login_requests, auth_sessions, tenants, user_tenant_visits, users
+
+
+def _aware(stamp: datetime) -> datetime:
+    """SQLite hands back naive timestamps where PostgreSQL keeps the zone."""
+    return stamp if stamp.tzinfo else stamp.replace(tzinfo=timezone.utc)
 
 
 class AuthenticationError(ValueError):
@@ -42,50 +47,6 @@ def verify_init_data(init_data: str, bot_token: str, now: int, max_age_seconds: 
     if now - auth_date > max_age_seconds or auth_date > now + 30:
         raise AuthenticationError("Telegram initData expired")
     return user
-
-
-#: What the Login Widget is allowed to send. Everything Telegram signs has to
-#: go into the check string, and everything else has to stay out of it.
-WIDGET_FIELDS = frozenset({
-    "id", "first_name", "last_name", "username", "photo_url", "auth_date", "hash",
-})
-
-
-def verify_login_widget(
-    fields: Mapping[str, object], bot_token: str, now: int, max_age_seconds: int
-) -> dict:
-    """Check a Telegram Login Widget payload -- the browser's way in.
-
-    Same identity as the Mini App, different envelope: initData arrives as a
-    query string signed with an HMAC-derived key, and the widget arrives as a
-    handful of fields signed with the plain SHA-256 of the bot token. Mixing
-    the two up verifies nothing, so they are two functions rather than one with
-    a flag.
-    """
-    unknown = set(fields) - WIDGET_FIELDS
-    if unknown:
-        raise AuthenticationError("invalid Telegram signature")
-    supplied_hash = str(fields.get("hash", ""))
-    pairs = {
-        key: str(value) for key, value in fields.items()
-        if key != "hash" and value is not None
-    }
-    if not supplied_hash or "auth_date" not in pairs or "id" not in pairs:
-        raise AuthenticationError("invalid Telegram signature")
-    check_string = "\n".join(f"{key}={pairs[key]}" for key in sorted(pairs))
-    # Plain SHA-256 of the token, not the HMAC-derived key initData uses.
-    secret = hashlib.sha256(bot_token.encode()).digest()
-    expected = hmac.new(secret, check_string.encode(), hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(expected, supplied_hash):
-        raise AuthenticationError("invalid Telegram signature")
-    try:
-        auth_date = int(pairs["auth_date"])
-        telegram_user_id = int(pairs["id"])
-    except (TypeError, ValueError) as exc:
-        raise AuthenticationError("invalid Telegram login data") from exc
-    if now - auth_date > max_age_seconds or auth_date > now + 30:
-        raise AuthenticationError("Telegram login expired")
-    return {**pairs, "id": telegram_user_id}
 
 
 def app_link(username: str, has_main_web_app: bool) -> str:
@@ -151,12 +112,15 @@ class AuthService:
         now: Callable[[], int] = lambda: int(time.time()),
         session_ttl_seconds: int = 7 * 24 * 60 * 60,
         telegram_auth_max_age_seconds: int = 15 * 60,
+        #: Long enough to switch to Telegram, find the chat and press Start.
+        login_request_ttl_seconds: int = 10 * 60,
     ) -> None:
         self.session_factory = session_factory
         self.tenant_tokens = dict(tenant_tokens)
         self.now = now
         self.session_ttl_seconds = session_ttl_seconds
         self.telegram_auth_max_age_seconds = telegram_auth_max_age_seconds
+        self.login_request_ttl_seconds = login_request_ttl_seconds
 
     async def authenticate(self, tenant_slug: str, init_data: str) -> AuthResult:
         async with self.session_factory() as session:
@@ -178,25 +142,86 @@ class AuthService:
                 "telegram",
             )
 
-    async def authenticate_widget(self, tenant_slug: str, fields: Mapping[str, object]) -> AuthResult:
-        """A browser login. Telegram vouched for it, so it counts as one."""
+    async def start_login_request(self, tenant_slug: str) -> str:
+        """Open a login and return the code the browser sends to the bot."""
+        now = datetime.now(timezone.utc)
+        nonce = secrets.token_urlsafe(24)
         async with self.session_factory() as session:
-            tenant_row = await self._tenant(session, tenant_slug)
-            bot_token = self.tenant_tokens.get(tenant_slug)
-            if not bot_token:
-                raise AuthenticationError("unknown tenant")
-            telegram_user = verify_login_widget(
-                fields, bot_token, int(self.now()), self.telegram_auth_max_age_seconds,
-            )
-            return await self._authenticate_identity(
-                session,
-                tenant_row,
-                int(telegram_user["id"]),
-                self._display_name(telegram_user),
-                # The same word the Mini App gets: same person, same proof, and
-                # the CASH gate reads this to decide who may reach money.
-                "telegram",
-            )
+            async with session.begin():
+                tenant_row = await self._tenant(session, tenant_slug)
+                # Codes are short-lived and worthless once spent; sweeping the
+                # dead ones here keeps the table from being a place things
+                # accumulate, without a job that has to be remembered.
+                await session.execute(
+                    auth_login_requests.delete().where(auth_login_requests.c.expires_at < now)
+                )
+                await session.execute(auth_login_requests.insert().values(
+                    nonce=nonce,
+                    tenant_id=tenant_row["id"],
+                    expires_at=now + timedelta(seconds=self.login_request_ttl_seconds),
+                ))
+        return nonce
+
+    async def bind_login_request(
+        self, nonce: str, telegram_user_id: int, display_name: str
+    ) -> bool:
+        """The bot heard from somebody. Answer whether that opened a login.
+
+        Only ever fills in a code that is still open: a spent or expired one is
+        not an error the person needs to hear about from the bot, it is simply
+        not a login, and saying so would tell a stranger which codes exist.
+        """
+        now = datetime.now(timezone.utc)
+        async with self.session_factory() as session:
+            async with session.begin():
+                result = await session.execute(
+                    update(auth_login_requests)
+                    .where(
+                        auth_login_requests.c.nonce == nonce,
+                        auth_login_requests.c.telegram_user_id.is_(None),
+                        auth_login_requests.c.consumed_at.is_(None),
+                        auth_login_requests.c.expires_at > now,
+                    )
+                    .values(telegram_user_id=telegram_user_id, display_name=display_name)
+                )
+        return bool(result.rowcount)
+
+    async def claim_login_request(self, tenant_slug: str, nonce: str) -> AuthResult | None:
+        """Turn a confirmed code into a session. None while nobody has confirmed.
+
+        The session is the same one the Mini App gets, down to the auth method:
+        the bot is Telegram vouching for this person, so the cashier has no
+        reason to treat them differently from somebody who came in through it.
+        """
+        now = datetime.now(timezone.utc)
+        async with self.session_factory() as session:
+            async with session.begin():
+                row = (await session.execute(
+                    select(auth_login_requests)
+                    .where(auth_login_requests.c.nonce == nonce)
+                    .with_for_update()
+                )).mappings().first()
+                if row is None or row["consumed_at"] is not None:
+                    raise AuthenticationError("this login has expired, start again")
+                if _aware(row["expires_at"]) <= now:
+                    raise AuthenticationError("this login has expired, start again")
+                if row["telegram_user_id"] is None:
+                    return None
+                tenant_row = await self._tenant(session, tenant_slug)
+                if tenant_row["id"] != row["tenant_id"]:
+                    raise AuthenticationError("unknown tenant")
+                await session.execute(
+                    update(auth_login_requests)
+                    .where(auth_login_requests.c.nonce == nonce)
+                    .values(consumed_at=now)
+                )
+                return await self._authenticate_identity(
+                    session,
+                    tenant_row,
+                    int(row["telegram_user_id"]),
+                    row["display_name"] or "Игрок",
+                    "telegram",
+                )
 
     async def authenticate_dev(
         self, tenant_slug: str, telegram_user_id: int, display_name: str

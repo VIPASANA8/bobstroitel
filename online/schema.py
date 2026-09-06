@@ -720,3 +720,21 @@ cube_rounds = Table(
     CheckConstraint("payout_micros >= 0", name="ck_cube_round_payout"),
 )
 Index("ix_cube_rounds_user_time", cube_rounds.c.user_id, cube_rounds.c.created_at)
+
+auth_login_requests = Table(
+    "auth_login_requests", metadata,
+    # The one-time code the browser shows the bot. It travels in a t.me link
+    # and comes back inside "/start <nonce>", so it is a bearer token for this
+    # one login attempt and nothing else.
+    Column("nonce", String(64), primary_key=True),
+    Column("tenant_id", String(64), ForeignKey("tenants.id"), nullable=False),
+    # Filled in when the bot hears from the person. Until then this row is a
+    # question nobody has answered yet.
+    Column("telegram_user_id", BIGINT),
+    Column("display_name", String(200)),
+    Column("created_at", timestamp, **created_at),
+    Column("expires_at", timestamp, nullable=False),
+    # A code buys exactly one session; the second attempt finds it spent.
+    Column("consumed_at", timestamp),
+)
+Index("ix_auth_login_requests_expiry", auth_login_requests.c.expires_at)

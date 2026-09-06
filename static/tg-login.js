@@ -1,25 +1,28 @@
-/* Signing in from a browser.
+/* Signing in from a browser, and staying there.
 
    Inside Telegram the Mini App hands the server `initData` and nobody sees a
-   login screen. Opened at the site there is no initData, and until now that
-   was the end of it: "откройте приложение внутри Telegram", on a page the
-   player had just deliberately opened. This is the other door Telegram
-   provides -- the login widget -- and the same identity comes through it.
+   login screen. Opened at the site there is no initData, and the answer used
+   to be "откройте приложение внутри Telegram" -- on a page the player had just
+   deliberately opened.
 
-   Two ways in, and the app leads. Telegram's own browser login asks for a
-   phone number and a code before it will hand over an identity -- a long way
-   round for somebody who has Telegram installed on the same device -- so the
-   first button is a link straight into the Mini App, where initData signs the
-   player in with nothing to type. The widget stays behind "войти прямо в
-   браузере" for whoever wants a session on the site itself. It is an iframe
-   Telegram renders, and only on a domain linked to the bot in BotFather
-   (/setdomain).
+   So: the bot vouches, the browser plays. The page asks the server for a
+   one-time code, sends the player to the bot carrying it, and waits. Pressing
+   Start in the chat is the whole proof -- the bot already knows who is typing
+   -- and the moment the server has heard it, the page reloads with a session.
+
+   Telegram's own login widget is the other way to do this and it is not used
+   here: it asks for a phone number and a code before it will say who somebody
+   is, which is a long way round to an identity the bot has in one tap.
 
    Styles ride along in this file: the four pages that can show this card load
    four different stylesheets, and a fifth one for a single card is a fifth
    thing to keep in step. */
 window.Poker8TgLogin = (() => {
   "use strict";
+
+  //: How often the page asks whether Start has been pressed, and for how long.
+  const POLL_MS = 1500;
+  const GIVE_UP_MS = 10 * 60 * 1000;
 
   const STYLE = `
   .tg-gate{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;
@@ -33,107 +36,126 @@ window.Poker8TgLogin = (() => {
   .tg-gate-card h2{margin:0;font-size:19px;letter-spacing:-.02em}
   .tg-gate-card p{margin:0;color:#a2a1ac;font-size:13px;line-height:1.5}
   .tg-gate-open{display:flex;align-items:center;justify-content:center;gap:9px;
-    width:100%;min-height:50px;border-radius:13px;background:#2aabee;color:#fff;
-    text-decoration:none;font:800 14px Manrope,sans-serif;letter-spacing:.01em}
+    width:100%;min-height:50px;border:0;border-radius:13px;background:#2aabee;color:#fff;
+    text-decoration:none;font:800 14px Manrope,sans-serif;cursor:pointer}
   .tg-gate-open:hover{filter:brightness(1.06)}
-  .tg-gate-alt{border:0;background:none;color:#7e8489;font:600 12px Manrope,sans-serif;
-    text-decoration:underline;cursor:pointer;padding:0}
-  .tg-gate-slot{min-height:48px;display:grid;place-items:center}
-  .tg-gate-slot[hidden]{display:none}
-  .tg-gate-note{color:#7e8489;font-size:11px}`;
+  .tg-gate-open:disabled{opacity:.6;cursor:default}
+  .tg-gate-alt{color:#7e8489;font:600 12px Manrope,sans-serif;text-decoration:underline}
+  .tg-gate-note{color:#7e8489;font-size:11px;min-height:15px}
+  .tg-gate-wait{color:#c8b3f6}`;
 
-  let resolveSession = null;
-
-  /** Telegram's own mark, drawn rather than typed: an emoji plane would be a
+  /** Telegram's own mark, drawn rather than typed: an emoji plane is a
       different shape on every platform, and this one sits on their button. */
   const PLANE = `<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
     <path d="M21.9 4.3 18.9 19c-.2 1-.8 1.3-1.7.8l-4.6-3.4-2.2 2.1c-.3.3-.5.5-1 .5l.3-4.7 8.6-7.8c.4-.3-.1-.5-.6-.2L6.9 12.9 2.4 11.5c-1-.3-1-1 .2-1.4l18-6.9c.8-.3 1.5.2 1.3 1.1z"/>
   </svg>`;
 
-  function card(bot) {
+  const post = (path, body) => fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+
+  function card(appUrl) {
     const gate = document.createElement("div");
     gate.className = "tg-gate";
     gate.innerHTML = `<style>${STYLE}</style>
       <section class="tg-gate-card" role="dialog" aria-modal="true" aria-label="Вход через Telegram">
         <span class="tg-gate-mark">poker<i aria-hidden="true">♠</i></span>
-        <h2>Играть через Telegram</h2>
-        <p>Аккаунт, баланс и стол — те же, что в мини-приложении.</p>
-        <a class="tg-gate-open" href="${bot.appUrl}">${PLANE}Открыть в Telegram</a>
-        <button class="tg-gate-alt" type="button" hidden>Войти прямо в браузере</button>
-        <div class="tg-gate-slot" hidden></div>
-        <p class="tg-gate-note">Вы войдёте как ваш аккаунт Telegram.</p>
+        <h2>Вход через Telegram</h2>
+        <p>Подтвердите вход в чате с ботом — и продолжайте играть здесь, в браузере.</p>
+        <button class="tg-gate-open" type="button">${PLANE}Войти через Telegram</button>
+        <p class="tg-gate-note" role="status"></p>
+        <a class="tg-gate-alt" hidden>Открыть мини-приложение</a>
       </section>`;
-
-    const open = gate.querySelector(".tg-gate-open");
     const alt = gate.querySelector(".tg-gate-alt");
-    const slot = gate.querySelector(".tg-gate-slot");
-    if (!bot.appUrl) open.remove();
-    // Staying in the browser costs a phone number and a code, which is a long
-    // way round for somebody who has Telegram open on the same device. It is
-    // offered, not led with -- and only when there is a widget behind it.
-    if (bot.username) alt.hidden = false;
-    else alt.remove();
-
-    alt?.addEventListener("click", () => {
-      alt.remove();
-      slot.hidden = false;
-      const script = document.createElement("script");
-      script.async = true;
-      script.src = "https://telegram.org/js/telegram-widget.js?22";
-      script.setAttribute("data-telegram-login", bot.username);
-      script.setAttribute("data-size", "large");
-      script.setAttribute("data-radius", "12");
-      script.setAttribute("data-userpic", "false");
-      // Telegram calls this by name on the window, so it has to be reachable there.
-      script.setAttribute("data-onauth", "Poker8TgLogin.onAuth(user)");
-      slot.appendChild(script);
-      // A browser that blocks third-party frames leaves the slot empty, and an
-      // empty slot with nothing said about it is a dead end.
-      window.setTimeout(() => {
-        if (slot.querySelector("iframe")) return;
-        slot.textContent = "Кнопка Telegram не загрузилась — откройте игру из Telegram.";
-        slot.style.color = "#a2a1ac";
-        slot.style.fontSize = "13px";
-      }, 4000);
-    });
+    if (appUrl) {
+      alt.href = appUrl;
+      alt.hidden = false;
+    }
     return gate;
   }
 
-  /** Called by Telegram's iframe with the signed fields it just produced. */
-  async function onAuth(user) {
-    const response = await fetch("/api/auth/telegram/widget", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      // Verbatim: every field Telegram sent is part of what it signed.
-      body: JSON.stringify(user),
-    });
+  let polling = null;
+
+  async function begin(gate) {
+    const button = gate.querySelector(".tg-gate-open");
+    const note = gate.querySelector(".tg-gate-note");
+    button.disabled = true;
+    note.className = "tg-gate-note";
+    note.textContent = "Открываем Telegram…";
+
+    const response = await post("/api/auth/telegram/request");
     if (!response.ok) {
-      const note = document.querySelector(".tg-gate-note");
-      if (note) note.textContent = "Telegram не подтвердил вход. Попробуйте ещё раз.";
+      button.disabled = false;
+      note.textContent = "Вход через Telegram сейчас недоступен.";
       return;
     }
-    // The cookie is set; every page boots normally from here, so the shortest
-    // way to a signed-in screen is the one the browser already knows.
-    window.location.reload();
+    const { nonce, url } = await response.json();
+    // A new tab, so the game keeps its place: the player comes back to it
+    // already signed in instead of to a page that has been navigated away.
+    window.open(url, "_blank", "noopener");
+    note.className = "tg-gate-note tg-gate-wait";
+    note.textContent = "Ждём подтверждения в Telegram…";
+    watch(nonce, gate);
+  }
+
+  function watch(nonce, gate) {
+    const note = gate.querySelector(".tg-gate-note");
+    const startedAt = Date.now();
+
+    function stop(message) {
+      window.clearInterval(polling);
+      polling = null;
+      document.removeEventListener("visibilitychange", onReturn);
+      note.className = "tg-gate-note";
+      note.textContent = message;
+      gate.querySelector(".tg-gate-open").disabled = false;
+    }
+
+    async function ask() {
+      const response = await post("/api/auth/telegram/claim", { nonce }).catch(() => null);
+      if (response?.status === 410) return stop("Ссылка устарела — нажмите «Войти» ещё раз.");
+      if (response?.ok) {
+        const body = await response.json().catch(() => ({}));
+        // Anything but "pending" is a session in a cookie, and every page
+        // boots normally from there.
+        if (body.status !== "pending") return window.location.reload();
+      }
+      if (Date.now() - startedAt > GIVE_UP_MS) stop("Вход не подтверждён. Попробуйте ещё раз.");
+    }
+
+    // Coming back to the tab is the moment it most likely just happened, so
+    // ask then rather than waiting out the rest of the interval.
+    function onReturn() {
+      if (document.visibilityState === "visible") ask();
+    }
+
+    window.clearInterval(polling);
+    polling = window.setInterval(ask, POLL_MS);
+    document.addEventListener("visibilitychange", onReturn);
   }
 
   /**
    * Show the card and never resolve -- the page has nothing to draw until
    * somebody is signed in, and a successful login reloads it. Resolves null
-   * when there is no button to show, so the caller can fall back to its own
-   * message.
+   * when there is no bot to sign in with, so the caller can fall back to its
+   * own message.
    */
   function prompt(config) {
-    const bot = {
-      username: config?.telegram_login_bot,
-      appUrl: config?.telegram_app_url,
-    };
-    if ((!bot.username && !bot.appUrl) || document.querySelector(".tg-gate")) {
+    if (!config?.telegram_login_bot || document.querySelector(".tg-gate")) {
       return Promise.resolve(null);
     }
-    document.body.appendChild(card(bot));
-    return new Promise(resolve => { resolveSession = resolve; });
+    const gate = card(config.telegram_app_url);
+    gate.querySelector(".tg-gate-open").addEventListener("click", () => {
+      begin(gate).catch(() => {
+        gate.querySelector(".tg-gate-open").disabled = false;
+        gate.querySelector(".tg-gate-note").textContent = "Не удалось начать вход.";
+      });
+    });
+    document.body.appendChild(gate);
+    return new Promise(() => {});
   }
 
-  return { prompt, onAuth, get pending() { return Boolean(resolveSession); } };
+  return { prompt };
 })();

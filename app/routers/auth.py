@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from fastapi.responses import JSONResponse
 
 from online.auth import AuthenticationError
@@ -14,9 +14,14 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 #: Generous for a person opening the Mini App, including retries and a reload
 #: or two; nowhere near enough to be worth pointing a script at.
 LOGIN_LIMIT, LOGIN_WINDOW = 20, 60
+#: Asking "has Start been pressed yet" is a poll by design -- once every second
+#: and a half for as long as somebody is in Telegram, plus one more each time
+#: they come back to the tab. It is one indexed lookup, and counting it against
+#: the door above would time out the very login it is waiting for.
+POLL_LIMIT, POLL_WINDOW = 120, 60
 
 
-def _throttle(request: Request) -> None:
+def _throttle(request: Request, *, poll: bool = False) -> None:
     """The counter belongs to the app, not to the module.
 
     Module state is shared by every app in a process, which is one app in
@@ -24,11 +29,14 @@ def _throttle(request: Request) -> None:
     from one test into the next and eventually refuse a login nobody made.
     """
     state = request.app.state
-    limiter = getattr(state, "login_limiter", None)
+    name = "login_poll_limiter" if poll else "login_limiter"
+    limiter = getattr(state, name, None)
     if limiter is None:
-        limiter = state.login_limiter = WindowLimiter(
-            limit=LOGIN_LIMIT, seconds=LOGIN_WINDOW,
+        limiter = WindowLimiter(
+            limit=POLL_LIMIT if poll else LOGIN_LIMIT,
+            seconds=POLL_WINDOW if poll else LOGIN_WINDOW,
         )
+        setattr(state, name, limiter)
     limiter.check(caller(request))
 
 
@@ -104,24 +112,46 @@ async def telegram_login(payload: TelegramAuthRequest, request: Request):
     return await _finish_login(request, result)
 
 
-@router.post("/telegram/widget")
-async def telegram_widget_login(payload: dict[str, str | int], request: Request):
-    """Sign in from a browser, where there is no Mini App to hand over initData.
+class LoginRequest(BaseModel):
+    nonce: str = Field(min_length=8, max_length=64)
 
-    The body is whatever Telegram's login widget produced, forwarded verbatim:
-    every field it sent is part of what it signed, so dropping one or renaming
-    one breaks the check. Which fields may appear is decided in
-    `verify_login_widget`, not here.
+
+@router.post("/telegram/request")
+async def start_telegram_login(request: Request):
+    """Open a login: a one-time code, and the link that carries it to the bot.
+
+    The browser stays where it is. Telegram's own widget would ask for a phone
+    number and a code before it said who somebody was; the bot already knows,
+    and one tap on Start is the whole proof.
     """
     _throttle(request)
-    if any(isinstance(value, str) and len(value) > 512 for value in payload.values()):
-        raise HTTPException(status_code=400, detail="invalid Telegram login data")
+    slug = _tenant_slug(request)
+    bot = getattr(request.app.state, "telegram_login_bots", {}).get(slug, {})
+    if not bot.get("username"):
+        raise HTTPException(status_code=503, detail="Вход через Telegram сейчас недоступен")
     try:
-        result = await request.app.state.auth_service.authenticate_widget(
-            _tenant_slug(request), payload
-        )
+        nonce = await request.app.state.auth_service.start_login_request(slug)
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
+    return {"nonce": nonce, "url": f"https://t.me/{bot['username']}?start={nonce}"}
+
+
+@router.post("/telegram/claim")
+async def claim_telegram_login(payload: LoginRequest, request: Request):
+    """Trade a confirmed code for a session, or say it is still waiting.
+
+    The browser calls this on a timer while the player is in Telegram, so
+    "nobody has pressed Start yet" is an ordinary answer rather than an error.
+    """
+    _throttle(request, poll=True)
+    try:
+        result = await request.app.state.auth_service.claim_login_request(
+            _tenant_slug(request), payload.nonce
+        )
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=410, detail=str(exc)) from exc
+    if result is None:
+        return {"status": "pending"}
     return await _finish_login(request, result)
 
 

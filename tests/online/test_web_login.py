@@ -1,33 +1,22 @@
-"""Signing in from a browser, where there is no Mini App to hand over initData."""
-import hashlib
-import hmac
+"""Signing in from a browser: the bot vouches, the browser keeps playing."""
 import re
-import time
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 from app.online import create_app
-from online.auth import AuthenticationError, app_link, verify_login_widget
+from cash.access import ensure_cash_access
+from online.asyncio_runner import run
+from online.schema import auth_sessions
+from online.auth import app_link
 from online.config import Settings
+from online.telegram import webhook_secret
 
 
 TOKEN = "424242:AAH-test-bot-token"
-
-
-def _signed(token=TOKEN, **overrides):
-    fields = {
-        "id": 5150,
-        "first_name": "Вера",
-        "username": "vera",
-        "auth_date": int(time.time()),
-        **overrides,
-    }
-    check = "\n".join(f"{key}={fields[key]}" for key in sorted(fields))
-    secret = hashlib.sha256(token.encode()).digest()
-    fields["hash"] = hmac.new(secret, check.encode(), hashlib.sha256).hexdigest()
-    return fields
+SECRET = webhook_secret(TOKEN)
 
 
 @pytest.fixture
@@ -38,58 +27,118 @@ def client(tmp_path):
         "POKER8_DEFAULT_BOT_TOKEN": TOKEN,
     })
     with TestClient(create_app(settings)) as test_client:
+        # Startup asks Telegram for the bot's name in the background and will
+        # not have it here, so the button's own precondition is stood in for.
+        test_client.app.state.telegram_login_bots = {
+            "poker8": {"username": "TestBot", "app_url": "https://t.me/TestBot?startapp"},
+        }
         yield test_client
 
 
-def test_a_signed_widget_login_becomes_a_session(client):
-    response = client.post("/api/auth/telegram/widget", json=_signed())
+def _start(client, nonce, *, user_id=5150, first_name="Вера", secret=SECRET):
+    headers = {"X-Telegram-Bot-Api-Secret-Token": secret} if secret else {}
+    return client.post(
+        "/api/telegram/webhook/poker8",
+        headers=headers,
+        json={"message": {
+            "chat": {"id": 900}, "from": {"id": user_id, "first_name": first_name},
+            "text": f"/start {nonce}",
+        }},
+    )
 
-    assert response.status_code == 200
-    assert response.json()["telegram_user_id"] == 5150
+
+def test_pressing_start_in_the_bot_signs_the_browser_in(client):
+    opened = client.post("/api/auth/telegram/request").json()
+    assert opened["url"] == f"https://t.me/TestBot?start={opened['nonce']}"
+    # Nobody has pressed anything yet, and that is not an error.
+    assert client.post("/api/auth/telegram/claim", json=opened).json() == {"status": "pending"}
+
+    assert _start(client, opened["nonce"]).status_code == 200
+
+    claimed = client.post("/api/auth/telegram/claim", json={"nonce": opened["nonce"]})
+    assert claimed.status_code == 200
+    assert claimed.json()["telegram_user_id"] == 5150
     # And the cookie it set is a session every other endpoint accepts.
-    assert client.get("/api/profile").json()["telegram_user_id"] == 5150
+    profile = client.get("/api/profile").json()
+    assert (profile["telegram_user_id"], profile["display_name"]) == (5150, "Вера")
 
 
-def test_the_web_login_counts_as_telegram_not_as_a_guest(client):
-    """The CASH gate reads the auth method, and this person really is who
-    Telegram says: a widget login must not be second class at the cashier."""
-    client.post("/api/auth/telegram/widget", json=_signed())
-    assert client.get("/api/profile").json()["display_name"] == "Вера"
+def test_a_code_buys_one_session_and_no_more(client):
+    """The code travels in a link and ends up in somebody's tab history. It has
+    to be worth nothing the second time it is presented."""
+    opened = client.post("/api/auth/telegram/request").json()
+    _start(client, opened["nonce"])
+    assert client.post("/api/auth/telegram/claim", json=opened).status_code == 200
+
+    assert client.post("/api/auth/telegram/claim", json=opened).status_code == 410
 
 
-@pytest.mark.parametrize("broken", [
-    {"first_name": "Кто-то ещё"},          # a field changed after signing
-    {"id": 9999},
-    {"auth_date": int(time.time()) - 10_000},
-    {"hash": "0" * 64},
-])
-def test_anything_but_the_signature_telegram_produced_is_refused(client, broken):
-    fields = {**_signed(), **broken}
-    assert client.post("/api/auth/telegram/widget", json=fields).status_code == 401
+def test_a_code_nobody_opened_confirms_nothing(client):
+    """Guessing at codes must not produce a session."""
+    invented = "invented-code-nobody-issued"
+    assert _start(client, invented).status_code == 200
+    assert client.post("/api/auth/telegram/claim", json={"nonce": invented}).status_code == 410
 
 
-def test_a_login_signed_with_another_bots_token_is_refused(client):
+def test_the_webhook_answers_only_to_telegram(client):
+    """The secret is derived from the bot token, so producing it means already
+    having the token."""
+    opened = client.post("/api/auth/telegram/request").json()
+    assert _start(client, opened["nonce"], secret="not-the-secret").status_code == 403
+    assert _start(client, opened["nonce"], secret=None).status_code == 403
+    # And the login it did not confirm is still waiting.
+    assert client.post("/api/auth/telegram/claim", json=opened).json() == {"status": "pending"}
+
+
+def test_an_unknown_tenant_has_no_webhook(client):
     assert client.post(
-        "/api/auth/telegram/widget", json=_signed(token="999:someone-elses-bot"),
-    ).status_code == 401
+        "/api/telegram/webhook/somebody-else",
+        headers={"X-Telegram-Bot-Api-Secret-Token": SECRET}, json={},
+    ).status_code == 404
 
 
-def test_an_extra_field_cannot_be_smuggled_past_the_check():
-    """Telegram signs exactly what it sends. A field it did not send is either
-    a forgery or a version we have not read yet, and both are a refusal."""
-    fields = {**_signed(), "is_admin": "1"}
-    with pytest.raises(AuthenticationError):
-        verify_login_widget(fields, TOKEN, int(time.time()), 900)
+def test_a_bare_start_is_a_greeting_not_a_login(client):
+    response = client.post(
+        "/api/telegram/webhook/poker8",
+        headers={"X-Telegram-Bot-Api-Secret-Token": SECRET},
+        json={"message": {"chat": {"id": 900}, "from": {"id": 1, "first_name": "Х"}, "text": "/start"}},
+    )
+    assert response.status_code == 200
 
 
-def test_initdata_and_widget_do_not_share_a_secret():
-    """The two envelopes derive their key differently. Checking one with the
-    other's key would verify nothing at all, which is why they stayed apart."""
-    fields = _signed()
-    supplied = fields.pop("hash")
-    check = "\n".join(f"{key}={fields[key]}" for key in sorted(fields))
-    webapp_key = hmac.new(b"WebAppData", TOKEN.encode(), hashlib.sha256).digest()
-    assert hmac.new(webapp_key, check.encode(), hashlib.sha256).hexdigest() != supplied
+def test_updates_that_are_not_a_start_are_shrugged_off(client):
+    """Telegram retries anything that fails, and there is nothing here worth
+    retrying -- an edited message, a photo, a join event."""
+    for update in ({}, {"message": {}}, {"edited_message": {"text": "/start x"}},
+                   {"message": {"chat": {"id": 1}, "from": {"id": 1}, "text": "привет"}}):
+        assert client.post(
+            "/api/telegram/webhook/poker8",
+            headers={"X-Telegram-Bot-Api-Secret-Token": SECRET}, json=update,
+        ).status_code == 200
+
+
+def test_the_login_counts_as_telegram_at_the_cashier(client):
+    """The bot is Telegram vouching for this person, so the CASH gate has no
+    reason to treat them differently from somebody who came via the Mini App.
+    The gate reads the session's auth method, so that is what is checked."""
+    opened = client.post("/api/auth/telegram/request").json()
+    _start(client, opened["nonce"])
+    assert client.post("/api/auth/telegram/claim", json=opened).status_code == 200
+
+    async def stored_method(factory):
+        async with factory() as session:
+            return await session.scalar(select(auth_sessions.c.auth_method))
+
+    method = run(stored_method(client.app.state.session_factory))
+    assert method == "telegram"
+    # Which is the one identity production lets near money at all.
+    ensure_cash_access("production", method, 5150)
+
+
+def test_the_mini_app_link_is_the_side_door_not_the_main_one():
+    assert app_link("DonbassWinBot", True) == "https://t.me/DonbassWinBot?startapp"
+    # No main Mini App: the chat, where the menu button opens it.
+    assert app_link("DonbassWinBot", False) == "https://t.me/DonbassWinBot"
 
 
 def test_the_page_can_offer_the_button_before_it_asks_for_a_session():
@@ -105,18 +154,9 @@ def test_the_page_can_offer_the_button_before_it_asks_for_a_session():
     ).read_text(encoding="utf-8")
 
 
-def test_the_button_goes_into_the_app_when_the_bot_has_one():
-    """Telegram's browser login wants a phone number and a code before it says
-    who you are. A player with Telegram on the same device should not be sent
-    the long way round, so the card leads with the app itself."""
-    assert app_link("DonbassWinBot", True) == "https://t.me/DonbassWinBot?startapp"
-    # No main Mini App: the chat, where the menu button opens it.
-    assert app_link("DonbassWinBot", False) == "https://t.me/DonbassWinBot"
-
-
-def test_the_card_leads_with_the_app_and_keeps_the_browser_login_behind_it():
+def test_the_card_waits_for_the_bot_and_never_asks_for_a_phone_number():
     source = Path("static/tg-login.js").read_text(encoding="utf-8")
-    assert source.index("tg-gate-open") < source.index("tg-gate-alt")
-    assert "telegram-widget.js" in source, "the browser login is still offered"
-    # And the widget is only fetched once somebody asks for it.
-    assert source.index('addEventListener("click"') < source.index("telegram-widget.js")
+    assert "/api/auth/telegram/request" in source and "/api/auth/telegram/claim" in source
+    # The widget is the flow that wanted a phone number and a code.
+    assert "telegram-widget.js" not in source
+    assert "visibilitychange" in source, "coming back to the tab is when to ask"
