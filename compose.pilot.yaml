@@ -32,6 +32,8 @@ services:
       POKER8_SEAT_IDLE_BOTS: ${POKER8_SEAT_IDLE_BOTS:-1}
       POKER8_LEGACY_PLAY_ROOMS: ${POKER8_LEGACY_PLAY_ROOMS:-1}
       POKER8_DEFAULT_BOT_TOKEN: ${POKER8_DEFAULT_BOT_TOKEN:-}
+      # Второй бот -- операторская панель. Не задан: панели нет нигде.
+      POKER8_ADMIN_BOT_TOKEN: ${POKER8_ADMIN_BOT_TOKEN:-}
       # Без hosts за прокси /api/auth отвечает 404 Unknown tenant host: сюда
       # должны попасть все имена, которыми Caddy отдаёт приложение.
       POKER8_DEFAULT_TENANT: ${POKER8_DEFAULT_TENANT:-poker8}
