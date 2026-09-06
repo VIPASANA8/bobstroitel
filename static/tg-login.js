@@ -8,7 +8,8 @@
 
    The widget is an iframe Telegram renders itself, and it only renders on a
    domain linked to the bot in BotFather (/setdomain). Without that link it
-   draws "Bot domain invalid", so the card below says what to check.
+   draws "Bot domain invalid" inside the button; if the browser blocks the
+   frame outright, the card falls back to naming the other way in.
 
    Styles ride along in this file: the four pages that can show this card load
    four different stylesheets, and a fifth one for a single card is a fifth
@@ -41,7 +42,7 @@ window.Poker8TgLogin = (() => {
         <h2>Вход через Telegram</h2>
         <p>Аккаунт, баланс и стол — те же, что в мини-приложении.</p>
         <div class="tg-gate-slot"></div>
-        <p class="tg-gate-note">Нажимая кнопку, вы входите как ваш аккаунт Telegram.<br>Кнопка не работает — откройте игру из Telegram.</p>
+        <p class="tg-gate-note">Нажимая кнопку, вы входите как ваш аккаунт Telegram.</p>
       </section>`;
     const script = document.createElement("script");
     script.async = true;
@@ -52,7 +53,19 @@ window.Poker8TgLogin = (() => {
     script.setAttribute("data-userpic", "false");
     // Telegram calls this by name on the window, so it has to be reachable there.
     script.setAttribute("data-onauth", "Poker8TgLogin.onAuth(user)");
-    gate.querySelector(".tg-gate-slot").appendChild(script);
+    const slot = gate.querySelector(".tg-gate-slot");
+    slot.appendChild(script);
+    // Telegram draws the button in an iframe of its own. A browser that blocks
+    // third-party frames leaves the slot empty, and an empty slot with no way
+    // out is a dead end -- so the way out appears exactly when it is needed,
+    // and never as a warning under a button that works.
+    window.setTimeout(() => {
+      if (slot.querySelector("iframe")) return;
+      slot.textContent = "Кнопка Telegram не загрузилась — откройте игру из Telegram.";
+      slot.style.color = "#a2a1ac";
+      slot.style.fontSize = "13px";
+      slot.style.lineHeight = "1.5";
+    }, 4000);
     return gate;
   }
 
