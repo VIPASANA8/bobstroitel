@@ -294,6 +294,12 @@
   }
 
   function renderCashHistory(cashPokerPayload, playPokerPayload, playJournalPayload, cubePayload, operationsPayload) {
+    const failed = {
+      poker: Boolean(cashPokerPayload.loadError || playPokerPayload.loadError || playJournalPayload.loadError),
+      cube: Boolean(cubePayload.loadError),
+      operations: Boolean(operationsPayload.loadError),
+    };
+    failed.any = failed.poker || failed.cube || failed.operations;
     const representedHands = new Set((playPokerPayload.hands || []).map(hand => hand.hand_id).filter(Boolean));
     const rows = [
       ...(cashPokerPayload.hands || []).map(hand => pokerActivity(hand)),
@@ -302,13 +308,18 @@
       ...(cubePayload.rounds || []).map(cubeActivity),
       ...operationActivities(operationsPayload),
     ].sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt));
-    const render = (id, selected, empty) => fill(id, rows.filter(selected).map(cashActivityRow), empty);
-    render('allHistory', () => true, 'Операций пока нет.');
-    render('cubeHistory', row => row.category === 'cube', 'Игр в CUBE пока нет.');
-    render('pokerHistory', row => row.category === 'poker', 'Раздач в POKER пока нет.');
-    render('operationsHistory', row => row.category === 'operation', 'Пополнений и выводов пока нет.');
+    const render = (id, selected, empty, unavailable) => {
+      const selectedRows = rows.filter(selected).map(cashActivityRow);
+      if (selectedRows.length || !unavailable) fill(id, selectedRows, empty);
+      else $(id).replaceChildren();
+    };
+    render('allHistory', () => true, 'Операций пока нет.', failed.any);
+    render('cubeHistory', row => row.category === 'cube', 'Игр в CUBE пока нет.', failed.cube);
+    render('pokerHistory', row => row.category === 'poker', 'Раздач в POKER пока нет.', failed.poker);
+    render('operationsHistory', row => row.category === 'operation', 'Пополнений и выводов пока нет.', failed.operations);
     $('showCashHistory').hidden = rows.length <= 5;
     $('allHistoryPanel').setAttribute('aria-busy', 'false');
+    return failed;
   }
 
   function showCashHistoryError(listId, message) {
@@ -429,13 +440,11 @@
       historyPayload('/api/cube/history?limit=20', {rounds: []}),
       historyPayload('/api/cash/operations?limit=100', {entries: []}),
     ]);
-    renderCashHistory(cashPokerPayload, playPokerPayload, playJournalPayload, cubePayload, operationsPayload);
-    const pokerFailed = cashPokerPayload.loadError || playPokerPayload.loadError || playJournalPayload.loadError;
-    const anyFailed = pokerFailed || cubePayload.loadError || operationsPayload.loadError;
-    if (anyFailed) showCashHistoryError('allHistory', 'Не удалось загрузить часть общей истории.');
-    if (pokerFailed) showCashHistoryError('pokerHistory', 'Не удалось загрузить часть истории POKER.');
-    if (cubePayload.loadError) showCashHistoryError('cubeHistory', 'Не удалось загрузить историю CUBE.');
-    if (operationsPayload.loadError) showCashHistoryError('operationsHistory', 'Не удалось загрузить вводы и выводы.');
+    const failed = renderCashHistory(cashPokerPayload, playPokerPayload, playJournalPayload, cubePayload, operationsPayload);
+    if (failed.any) showCashHistoryError('allHistory', 'Не удалось загрузить часть общей истории.');
+    if (failed.poker) showCashHistoryError('pokerHistory', 'Не удалось загрузить часть истории POKER.');
+    if (failed.cube) showCashHistoryError('cubeHistory', 'Не удалось загрузить историю CUBE.');
+    if (failed.operations) showCashHistoryError('operationsHistory', 'Не удалось загрузить вводы и выводы.');
   }
 
   async function openCashier() {

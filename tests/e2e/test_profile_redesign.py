@@ -155,6 +155,15 @@ def test_one_failed_section_does_not_blank_the_profile(profile_page):
     expect(page.locator('#pokerHistory')).to_contain_text('Не удалось загрузить часть истории POKER')
 
 
+def test_failed_cube_history_does_not_claim_that_cube_is_empty(profile_page):
+    page, data, _, server = profile_page
+    data['/api/cube/history'] = None
+    page.goto(server + '/static/profile.html')
+    page.get_by_role('tab', name='CUBE', exact=True).click()
+    expect(page.locator('#cubeHistory')).to_contain_text('Не удалось загрузить историю CUBE')
+    expect(page.locator('#cubeHistory')).not_to_contain_text('Игр в CUBE пока нет')
+
+
 def test_empty_stats_are_not_presented_as_a_measured_winrate(profile_page):
     page, data, _, server = profile_page
     data['/api/profile/stats'].update(hands=0, result_hands=0, net_bb=0, bb_per_100=None,
