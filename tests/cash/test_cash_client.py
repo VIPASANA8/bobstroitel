@@ -46,7 +46,7 @@ def test_the_deposit_limits_on_screen_are_the_ones_the_server_enforces():
 def test_the_lobby_sends_the_player_to_one_cashier():
     """Two places showing the same balance is two answers. The lobby shows
     what is spendable at a table and links to the profile for the rest."""
-    assert '/static/profile.html#cash' in LOBBY
+    assert '/static/profile.html?app=poker#cash' in LOBBY
     assert "Открыть CASH-кассу" in LOBBY
     for gone in ('id="depositDialog"', 'id="withdrawDialog"', 'id="cashEscrow"', 'id="cashWithdrawal"'):
         assert gone not in LOBBY

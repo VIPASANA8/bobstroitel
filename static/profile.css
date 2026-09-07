@@ -121,6 +121,7 @@
 .history-tabs{display:flex;gap:24px;border-bottom:1px solid var(--line);margin:12px 0 0}
 .history-tabs button{min-height:44px;padding:10px 0;border:0;border-bottom:2px solid transparent;background:none;color:var(--muted);font-size:13px;font-weight:600}
 .history-tabs [aria-selected="true"]{border-bottom-color:var(--accent);color:var(--ink)}
+.history-tabs-four{justify-content:space-between;gap:12px}
 .history-list{display:grid}
 .history-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 0;border-bottom:1px solid #292a31}
 .history-row:last-child{border:0}
@@ -130,12 +131,30 @@
 .history-row.loss .history-sign{background:#34272a;color:var(--danger)}
 .history-what strong{display:block;font-size:12px;font-weight:600}
 .history-what small{display:block;margin-top:2px;color:var(--muted);font-size:11px}
-.history-amount{font-size:14px;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
+.history-amount{display:grid;justify-items:end;font-size:14px;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
+.history-amount b{font:inherit}
+.history-amount small{margin-top:2px;color:var(--muted);font-size:10px;font-weight:500}
 .history-row.win .history-amount{color:var(--mint)}
 .history-row.loss .history-amount{color:var(--danger)}
 .history-empty{margin:0;padding:24px 0 10px;color:var(--muted);font-size:13px}
 .history-list:not(.expanded)>.history-row:nth-child(n+6){display:none}
 .activity-section .disclosure-button{margin-top:0}
+#cashHistory{grid-column:1/-1}
+.cube-profile-empty{min-height:260px;display:grid;align-content:center;justify-items:center;margin-top:24px;text-align:center}
+.cube-profile-empty[hidden]{display:none}
+.cube-profile-empty h1{margin:5px 0 8px;font-size:clamp(24px,3.3vw,36px);letter-spacing:-.045em}
+
+.profile-page.cube-context{--ink:#f5f7f7;--muted:#81878d;--line:rgba(255,255,255,.09);--panel:#111315;--panel-2:#171a1d;--accent:#c8ff31;--mint:#56f08c;--danger:#ff778f;background:#08090a;color-scheme:dark}
+.profile-page.cube-context .profile-section{background:var(--panel)}
+.profile-page.cube-context .cash-profile-section{border-color:color-mix(in srgb,var(--accent) 18%,var(--line));background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 5%,var(--panel)),var(--panel) 58%)}
+.profile-page.cube-context .cash-wallet-grid>div,.profile-page.cube-context .cash-actions button{background:#0b0d0e}
+.profile-page.cube-context .history-row{border-bottom-color:var(--line)}
+.profile-page.cube-context .history-sign{background:#0b0d0e}
+.profile-page.cube-context .history-row.win .history-sign{background:rgba(86,240,140,.09)}
+.profile-page.cube-context .history-row.loss .history-sign{background:rgba(255,119,143,.09)}
+.profile-page.cube-context .buyin-dialog{border-color:color-mix(in srgb,var(--accent) 28%,var(--line));background:var(--panel)}
+.profile-page.cube-context .buyin-dialog::backdrop{background:#000c;backdrop-filter:blur(5px)}
+.profile-page.cube-context .brand-word>i{color:var(--accent)}
 .profile-footer{display:flex;justify-content:space-between;gap:12px;padding:24px 4px 0;color:#92909c;font-size:10px}
 @media(min-width:900px){.profile-hero{min-height:234px}.missions-section,.stats-section{min-height:355px}}
 @media(max-width:800px){

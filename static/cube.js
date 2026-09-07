@@ -613,7 +613,7 @@
     const balance = view.balanceUnits;
     const units = stake();
     if (balance !== null && units !== null && units > balance) {
-      window.location.href = "/static/profile.html#cash";
+      window.location.href = "/static/profile.html?app=cube#cash";
       return;
     }
     if (rollLock || !validStake() || !view.selected.length) return;
@@ -675,7 +675,7 @@
   $("stakeUp").addEventListener("click", () => stepStake(STAKE_NUDGE));
   $("stakeDown").addEventListener("click", () => stepStake(-STAKE_NUDGE));
   $("stakeBalance").addEventListener("click", () => {
-    window.location.href = "/static/profile.html#cash";
+    window.location.href = "/static/profile.html?app=cube#cash";
   });
   $("playButton").addEventListener("click", play);
 

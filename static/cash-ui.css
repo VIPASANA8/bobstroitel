@@ -3,10 +3,10 @@
    which read as a different product; the only thing that still marks it apart
    is the $$$ pill on its tab. Everything here is built from the same tokens as
    network.css so the two modes stay in step when those change. */
-.lobby-modes{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:8px;margin:22px 0 12px;padding:5px;border:1px solid rgba(145,232,186,.17);border-radius:16px;background:rgba(3,18,14,.72)}
+.lobby-modes{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:8px;margin:22px 0 12px;padding:5px;border:1px solid color-mix(in srgb,var(--accent) 17%,transparent);border-radius:16px;background:color-mix(in srgb,var(--panel) 82%,transparent)}
 .mode-tab{min-height:52px;border:0;border-radius:11px;background:transparent;color:var(--muted);font:800 13px Manrope,sans-serif;letter-spacing:.04em;cursor:pointer}
-.mode-tab small{margin-left:7px;padding:3px 6px;border-radius:99px;background:rgba(239,173,105,.16);color:var(--orange);font-size:9px;letter-spacing:.06em}
-.mode-tab.is-active{background:linear-gradient(135deg,rgba(54,221,157,.18),rgba(77,115,255,.12));color:var(--ink);box-shadow:inset 0 0 0 1px rgba(145,232,186,.24)}
+.mode-tab small{margin-left:7px;padding:3px 6px;border-radius:99px;background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent);font-size:9px;letter-spacing:.06em}
+.mode-tab.is-active{background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 18%,transparent),color-mix(in srgb,var(--accent) 8%,var(--panel)));color:var(--ink);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 24%,transparent)}
 
 /* Same card as .table-card in network.css, deliberately. */
 .cash-pilot{margin:0 0 14px;padding:16px;border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(145deg,var(--panel-2),var(--panel))}

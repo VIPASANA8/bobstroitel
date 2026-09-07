@@ -292,7 +292,7 @@
     const response = await fetch(`/api/lobby/quick-play?asset=${asset}`, { method: "POST" });
     if (response.ok) return openBuyIn((await response.json()).table);
     if (asset === "CASH_USDT") {
-      if (window.confirm("Для входа нужен CASH-баланс. Открыть CASH-кассу?")) location.href = "/static/profile.html#cash";
+      if (window.confirm("Для входа нужен CASH-баланс. Открыть CASH-кассу?")) location.href = "/static/profile.html?app=poker#cash";
       return;
     }
     alert("Быстрый вход сейчас недоступен");

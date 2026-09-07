@@ -84,7 +84,7 @@ def test_top_up_asks_before_it_offers():
 
 def test_pressing_a_balance_reaches_the_top_up():
     lobby = Path("static/lobby.html").read_text(encoding="utf-8")
-    assert 'href="/static/profile.html#topup"' in lobby
+    assert 'href="/static/profile.html?app=poker#topup"' in lobby
     assert 'id="topup" class="profile-wallet"' in HTML
     assert 'id="topupDetails" hidden' in HTML
 
@@ -102,3 +102,18 @@ def test_every_page_shares_one_cache_token():
     for name in ("index.html", "lobby.html", "profile.html"):
         tokens |= set(re.findall(r"\?v=([a-z0-9-]+)", Path("static", name).read_text(encoding="utf-8")))
     assert len(tokens) == 1, tokens
+
+
+def test_product_entries_open_the_matching_profile_context():
+    lobby = Path("static/lobby.html").read_text(encoding="utf-8")
+    cube = Path("static/cube.html").read_text(encoding="utf-8")
+    cube_js = Path("static/cube.js").read_text(encoding="utf-8")
+    assert "/static/profile.html?app=poker" in lobby
+    assert "/static/profile.html?app=cube" in cube
+    assert "/static/profile.html?app=cube#cash" in cube_js
+
+
+def test_cube_context_reuses_cashier_layout_with_cube_tokens():
+    assert ".profile-page.cube-context" in CSS
+    assert "--accent:#c8ff31" in CSS.replace(" ", "")
+    assert ".cube-profile-empty{" in CSS
