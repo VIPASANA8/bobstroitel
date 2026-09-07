@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import pytest
@@ -286,6 +287,55 @@ def test_the_cube_has_an_address_of_its_own(client):
     assert 'id="tableGrid"' not in response.text
     for name in ("lobby.html", "cube.html"):
         assert "/static/cube.html" not in Path("static", name).read_text(encoding="utf-8")
+
+
+def test_games_and_cashiers_load_one_touch_only_swipe_helper():
+    helper_path = Path("static/swipe-nav.js")
+    assert helper_path.exists()
+    helper = helper_path.read_text(encoding="utf-8")
+    assert "window.Poker8SwipeNav" in helper
+    assert "event.pointerType !== 'touch'" in helper
+    assert "a,button,input,select,textarea,canvas,[role=\"button\"]" in helper
+    assert "Math.abs(dx) >= 72" in helper
+    assert "Math.abs(dx) > Math.abs(dy) * 1.4" in helper
+
+    pages = {
+        "lobby.html": "lobby.js",
+        "cube.html": "cube.js",
+        "profile.html": "profile.js",
+    }
+    for html_name, app_name in pages.items():
+        html = Path("static", html_name).read_text(encoding="utf-8")
+        assert "/static/swipe-nav.js?v=" in html
+        assert html.index("/static/swipe-nav.js?v=") < html.index(f"/static/{app_name}?v=")
+
+
+def test_each_page_initializes_swipe_navigation_to_its_own_cashier_or_game():
+    cases = {
+        "lobby.js": ("left", "/static/profile.html?app=poker#cash"),
+        "cube.js": ("left", "/static/profile.html?app=cube#cash"),
+    }
+    for name, (direction, href) in cases.items():
+        source = Path("static", name).read_text(encoding="utf-8")
+        pattern = rf"Poker8SwipeNav\?\.\(\{{\s*direction:\s*['\"]{direction}['\"]\s*,\s*href:\s*['\"]{re.escape(href)}['\"]\s*\}}\)"
+        assert re.search(pattern, source), name
+
+    profile = Path("static/profile.js").read_text(encoding="utf-8")
+    assert re.search(
+        r"Poker8SwipeNav\?\.\(\{\s*direction:\s*['\"]right['\"]\s*,\s*"
+        r"href:\s*product\s*===\s*['\"]cube['\"]\s*\?\s*['\"]/cube['\"]\s*:\s*['\"]/['\"]\s*\}\)",
+        profile,
+    )
+
+
+def test_cube_result_strip_is_pinned_above_the_cube():
+    source = Path("static/cube.css").read_text(encoding="utf-8")
+    rule = source[source.index(".cube-embed .result-line {") :]
+    rule = rule[:rule.index("}")].replace(" ", "")
+    assert "top:0" in rule
+    assert "bottom:auto" in rule
+    assert "border-bottom:" in rule
+    assert "border-top:0" in rule
 
 
 def test_the_lobby_opens_on_real_cash(client):

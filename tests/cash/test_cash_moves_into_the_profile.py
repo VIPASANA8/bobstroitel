@@ -6,6 +6,7 @@ to the cashier. Everything that moves money -- deposits, withdrawals, escrow,
 pending payouts -- lives behind the profile's CASH-касса tab.
 """
 
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -24,6 +25,7 @@ LOBBY = (ROOT / "static" / "lobby.html").read_text(encoding="utf-8")
 LOBBY_JS = (ROOT / "static" / "lobby.js").read_text(encoding="utf-8")
 PROFILE = (ROOT / "static" / "profile.html").read_text(encoding="utf-8")
 PROFILE_JS = (ROOT / "static" / "profile.js").read_text(encoding="utf-8")
+CUBE = (ROOT / "static" / "cube.html").read_text(encoding="utf-8")
 AUTH_JS = (ROOT / "static" / "auth-client.js").read_text(encoding="utf-8")
 CASH_CSS = (ROOT / "static" / "cash-ui.css").read_text(encoding="utf-8")
 CASHIER_JS = (ROOT / "static" / "cash-cashier.js").read_text(encoding="utf-8")
@@ -70,6 +72,30 @@ def test_the_cashier_owns_one_shared_four_way_history():
         assert f'id="{element_id}"' in cash_half
     assert 'id="handHistory"' not in PROFILE
     assert 'id="ledger"' not in PROFILE
+
+
+def test_each_product_keeps_its_game_links_and_cashier_shape():
+    assert "$('brandLogo').href = cube ? '/cube' : '/';" in PROFILE_JS
+    assert "$('backToProduct').href = cube ? '/' : '/cube';" in PROFILE_JS
+    assert "$('backToProductLabel').textContent = cube ? 'В POKER' : 'В CUBE';" in PROFILE_JS
+    cash_badge = next(line for line in PROFILE_JS.splitlines() if "$('cashModeMark').textContent" in line)
+    assert "'$$$'" in cash_badge and "'USDT'" not in cash_badge
+    assert "$('profileModeLabel').textContent = cube ? '' : 'Профиль Poker';" in PROFILE_JS
+    assert "$('playModeTab').disabled = cube" in PROFILE_JS
+    assert "$('playModeTab').setAttribute('aria-disabled', String(cube))" in PROFILE_JS
+    assert "cube-play-card" in PROFILE_JS
+    assert re.search(r'<a\b(?=[^>]*class="cube-back")(?=[^>]*href="/")[^>]*>', CUBE)
+    assert 'В POKER' in CUBE
+    assert re.search(r'<a\b(?=[^>]*class="brand-word")(?=[^>]*href="/cube")[^>]*>', CUBE)
+
+
+def test_pending_withdrawals_put_usdt_first_and_hide_cube_cash():
+    marker = "if (name === 'withdrawal')"
+    assert marker in PROFILE_JS
+    withdrawal = PROFILE_JS[PROFILE_JS.index(marker) :]
+    withdrawal = withdrawal[:withdrawal.index("}") + 1]
+    assert "$(strongId).textContent = `${wallet.withdrawal_usdt} USDT`" in withdrawal
+    assert "$(smallId).textContent = cube ? '' : `${wallet.withdrawal_units} CASH`" in withdrawal
 
 
 def test_the_deposit_sheet_belongs_to_the_phone_and_only_the_phone():

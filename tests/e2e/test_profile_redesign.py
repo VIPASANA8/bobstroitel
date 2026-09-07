@@ -41,7 +41,7 @@ def profile_data():
         '/api/cube/history': dict(rounds=[dict(round_id='cube-1', selected=[2, 4], roll=4, won=True,
                                                net_micros=300000, created_at='2026-08-31T10:15:00Z')]),
         '/api/cash/wallet': dict(available_usdt='19.01', available_units='190.1', escrow_usdt='0', escrow_units='0',
-                                 withdrawal_usdt='0', withdrawal_units='0', journal=[
+                                 withdrawal_usdt='2.50', withdrawal_units='25', journal=[
                                      dict(id='deposit-1', scope='c2c', kind='deposit', amount_micros=1000000, created_at='2026-08-31T08:00:00Z'),
                                      dict(id='payout-1', scope='withdrawal-payout', kind='payout', amount_micros=-500000, created_at='2026-08-31T08:30:00Z'),
                                  ]),
@@ -210,3 +210,76 @@ def test_login_failure_finishes_loading_and_offers_no_active_controls(profile_pa
     expect(page.locator('#profileLoading')).to_be_hidden()
     expect(page.locator('#topupAmount')).to_be_hidden()
     expect(page.locator('[data-reroll]')).to_have_count(0)
+
+
+def test_cube_cashier_has_one_active_slot_and_one_blank_reserved_slot(profile_page):
+    page, _, _, server = profile_page
+    page.goto(server + '/static/profile.html?app=cube#cash')
+
+    expect(page.locator('#cashModeMark')).to_have_text('$$$')
+    expect(page.locator('#playModeTab')).to_be_disabled()
+    expect(page.locator('#profileModeLabel')).to_have_text('')
+
+
+def test_cube_cashier_shows_pending_usdt_without_cash_conversion(profile_page):
+    page, _, _, server = profile_page
+    page.goto(server + '/static/profile.html?app=cube#cash')
+
+    expect(page.locator('#profileCashWithdrawal')).to_have_text('2.50 USDT')
+    expect(page.locator('#profileCashWithdrawalUsdt')).to_have_text('')
+
+
+def test_cube_cashier_play_card_opens_cube(profile_page):
+    page, _, _, server = profile_page
+    page.goto(server + '/static/profile.html?app=cube#cash')
+
+    play = page.get_by_role('link', name='Играть', exact=True)
+    expect(play).to_be_visible()
+    play.click()
+    expect(page).to_have_url(server + '/cube')
+
+
+def test_poker_cashier_puts_pending_usdt_before_cash(profile_page):
+    page, _, _, server = profile_page
+    page.goto(server + '/static/profile.html?app=poker#cash')
+
+    expect(page.locator('#profileCashWithdrawal')).to_have_text('2.50 USDT')
+    expect(page.locator('#profileCashWithdrawalUsdt')).to_have_text('25 CASH')
+
+
+@pytest.mark.parametrize(
+    ('app', 'other_label', 'other_href', 'brand_href'),
+    [
+        ('poker', 'В CUBE', '/cube', '/'),
+        ('cube', 'В POKER', '/', '/cube'),
+    ],
+)
+def test_cashier_headers_link_to_the_other_game_and_their_own_brand(
+        profile_page, app, other_label, other_href, brand_href):
+    page, _, _, server = profile_page
+    page.goto(server + f'/static/profile.html?app={app}#cash')
+
+    expect(page.locator('#backToProductLabel')).to_have_text(other_label)
+    expect(page.locator('#backToProduct')).to_have_attribute('href', other_href)
+    expect(page.locator('#brandLogo')).to_have_attribute('href', brand_href)
+
+
+def test_cube_game_header_links_to_poker_and_its_own_brand(profile_page):
+    page, _, _, server = profile_page
+    page.goto(server + '/cube')
+
+    expect(page.get_by_role('link', name='В POKER', exact=True)).to_have_attribute('href', '/')
+    expect(page.get_by_role('link', name='CUBE', exact=True)).to_have_attribute('href', '/cube')
+
+
+@pytest.mark.parametrize('width', [390, 1280])
+def test_cube_result_strip_is_above_and_clear_of_the_cube(profile_page, width):
+    page, _, _, server = profile_page
+    page.set_viewport_size({'width': width, 'height': 900})
+    page.goto(server + '/cube')
+
+    result = page.locator('#resultLine').bounding_box()
+    cube = page.locator('.cube-scene').bounding_box()
+    assert result and cube
+    assert result['y'] < cube['y']
+    assert cube['y'] - (result['y'] + result['height']) >= 12
