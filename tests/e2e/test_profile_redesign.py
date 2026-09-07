@@ -267,7 +267,9 @@ def test_cube_cashier_play_card_opens_cube(profile_page):
     expect(escrow_card).to_have_accessible_name('Играть')
     expect(escrow_card.locator('span')).to_have_text('Играть')
     expect(escrow_card).not_to_contain_text('За столами')
-    escrow_card.click()
+    escrow_card.focus()
+    expect(escrow_card).to_be_focused()
+    escrow_card.press('Enter')
     expect(page).to_have_url(server + '/cube')
 
 
@@ -357,6 +359,27 @@ def test_touch_swipes_follow_each_game_cashier_route(
     swipe(page, selector, direction=direction)
 
     expect(page).to_have_url(server + destination)
+
+
+@pytest.mark.parametrize(
+    ('start', 'selector', 'wrong_direction'),
+    [
+        ('/', '#tableGrid', 'right'),
+        ('/cube', '#cubeMain', 'right'),
+        ('/static/profile.html?app=poker#cash', '#profileMain', 'left'),
+        ('/static/profile.html?app=cube#cash', '#profileMain', 'left'),
+    ],
+)
+def test_swipes_in_the_wrong_direction_do_not_leave_the_page(
+        profile_page, start, selector, wrong_direction):
+    page, _, _, server = profile_page
+    page.goto(server + start)
+    assert_swipe_helper_loaded(page)
+
+    swipe(page, selector, direction=wrong_direction)
+    page.wait_for_timeout(100)
+
+    assert page.url == server + start
 
 
 @pytest.mark.parametrize(
