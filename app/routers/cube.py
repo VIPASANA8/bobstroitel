@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 
@@ -21,6 +21,15 @@ class RollRequest(BaseModel):
     stake_usdt: str = Field(min_length=1, max_length=32)
     selected: list[int] = Field(min_length=1, max_length=MAX_SELECTED)
     request_id: str = Field(min_length=1, max_length=100)
+
+
+@router.get("/history")
+async def history(
+    request: Request,
+    limit: int = Query(20, ge=1, le=100),
+    user: AuthenticatedUser = Depends(get_cash_user),
+):
+    return {"rounds": await request.app.state.cube.recent(user.user_id, limit=limit)}
 
 
 @router.post("/roll")

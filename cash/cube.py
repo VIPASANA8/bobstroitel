@@ -172,6 +172,31 @@ class CashCubeService:
             "available_micros": available,
         }
 
+    async def recent(self, user_id: str, *, limit: int = 20) -> list[dict[str, object]]:
+        async with self.session_factory() as session:
+            rows = (await session.execute(
+                select(cube_rounds)
+                .where(cube_rounds.c.user_id == user_id)
+                .order_by(cube_rounds.c.created_at.desc(), cube_rounds.c.id.desc())
+                .limit(limit)
+            )).mappings().all()
+        result = []
+        for row in rows:
+            created_at = row["created_at"]
+            if created_at.tzinfo is None:
+                created_at = created_at.replace(tzinfo=timezone.utc)
+            result.append({
+                "round_id": row["id"],
+                "selected": [int(face) for face in row["selected"].split(",")],
+                "roll": int(row["roll"]),
+                "stake_micros": int(row["stake_micros"]),
+                "payout_micros": int(row["payout_micros"]),
+                "net_micros": int(row["payout_micros"]) - int(row["stake_micros"]),
+                "won": int(row["payout_micros"]) > 0,
+                "created_at": created_at.isoformat(),
+            })
+        return result
+
     async def _replay(
         self, session: AsyncSession, user_id: str, request_id: str,
     ) -> dict[str, object] | None:
