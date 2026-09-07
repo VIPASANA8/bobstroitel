@@ -1,10 +1,30 @@
 """Profile layout and independent API states, with deterministic player data."""
+import re
+
 import pytest
 from playwright.sync_api import expect, sync_playwright
 
 from online.achievements import ACHIEVEMENTS
 
 pytestmark = pytest.mark.e2e
+
+
+def swipe(page, selector, *, direction='left', pointer_type='touch', distance=150, dy=0):
+    start_x = 280 if direction == 'left' else 80
+    end_x = start_x - distance if direction == 'left' else start_x + distance
+    target = page.locator(selector)
+    target.dispatch_event('pointerdown', {
+        'pointerType': pointer_type, 'pointerId': 1, 'isPrimary': True,
+        'clientX': start_x, 'clientY': 100, 'buttons': 1,
+    })
+    target.dispatch_event('pointerup', {
+        'pointerType': pointer_type, 'pointerId': 1, 'isPrimary': True,
+        'clientX': end_x, 'clientY': 100 + dy, 'buttons': 0,
+    })
+
+
+def assert_swipe_helper_loaded(page):
+    assert page.evaluate("typeof window.Poker8SwipeNav === 'function'")
 
 
 def profile_data():
@@ -216,9 +236,18 @@ def test_cube_cashier_has_one_active_slot_and_one_blank_reserved_slot(profile_pa
     page, _, _, server = profile_page
     page.goto(server + '/static/profile.html?app=cube#cash')
 
-    expect(page.locator('#cashModeMark')).to_have_text('$$$')
-    expect(page.locator('#playModeTab')).to_be_disabled()
-    expect(page.locator('#profileModeLabel')).to_have_text('')
+    cash = page.get_by_role('tab', name='USDT-касса $$$', exact=True)
+    reserved = page.locator('#playModeTab')
+    expect(cash).to_be_visible()
+    expect(cash).to_have_attribute('aria-selected', 'true')
+    expect(reserved).to_be_visible()
+    expect(reserved).to_be_disabled()
+    expect(reserved).to_have_text('')
+    expect(page.get_by_role('tab', name='', exact=True)).to_have_count(1)
+    cash_box = cash.bounding_box()
+    reserved_box = reserved.bounding_box()
+    assert cash_box and reserved_box
+    assert abs(cash_box['width'] - reserved_box['width']) <= 1
 
 
 def test_cube_cashier_shows_pending_usdt_without_cash_conversion(profile_page):
@@ -233,9 +262,12 @@ def test_cube_cashier_play_card_opens_cube(profile_page):
     page, _, _, server = profile_page
     page.goto(server + '/static/profile.html?app=cube#cash')
 
-    play = page.get_by_role('link', name='Играть', exact=True)
-    expect(play).to_be_visible()
-    play.click()
+    escrow_card = page.locator('#profileCashEscrow').locator('..')
+    expect(escrow_card).to_have_attribute('role', 'link')
+    expect(escrow_card).to_have_accessible_name('Играть')
+    expect(escrow_card.locator('span')).to_have_text('Играть')
+    expect(escrow_card).not_to_contain_text('За столами')
+    escrow_card.click()
     expect(page).to_have_url(server + '/cube')
 
 
@@ -248,28 +280,49 @@ def test_poker_cashier_puts_pending_usdt_before_cash(profile_page):
 
 
 @pytest.mark.parametrize(
-    ('app', 'other_label', 'other_href', 'brand_href'),
+    ('start', 'other_product', 'other_label', 'other_href', 'brand_product', 'brand_href'),
     [
-        ('poker', 'В CUBE', '/cube', '/'),
-        ('cube', 'В POKER', '/', '/cube'),
+        ('/static/profile.html?app=poker', 'CUBE', 'В CUBE', '/cube', 'poker', '/'),
+        ('/static/profile.html?app=cube#cash', 'POKER', 'В POKER', '/', 'cube', '/cube'),
     ],
 )
 def test_cashier_headers_link_to_the_other_game_and_their_own_brand(
-        profile_page, app, other_label, other_href, brand_href):
+        profile_page, start, other_product, other_label, other_href, brand_product, brand_href):
     page, _, _, server = profile_page
-    page.goto(server + f'/static/profile.html?app={app}#cash')
+    page.goto(server + start)
 
-    expect(page.locator('#backToProductLabel')).to_have_text(other_label)
-    expect(page.locator('#backToProduct')).to_have_attribute('href', other_href)
-    expect(page.locator('#brandLogo')).to_have_attribute('href', brand_href)
+    header = page.locator('.profile-header')
+    back = header.get_by_role('link', name=re.compile(other_product, re.I))
+    brand = header.get_by_role('link', name=re.compile(brand_product, re.I))
+    expect(back.locator('#backToProductLabel')).to_have_text(other_label)
+    expect(back.locator('.ui-arrow')).to_be_visible()
+    expect(back).to_have_attribute('href', other_href)
+    expect(brand).to_have_attribute('href', brand_href)
+    brand.focus()
+    expect(brand).to_be_focused()
+    back.focus()
+    expect(back).to_be_focused()
+    back.press('Enter')
+    expect(page).to_have_url(server + other_href)
 
 
 def test_cube_game_header_links_to_poker_and_its_own_brand(profile_page):
     page, _, _, server = profile_page
     page.goto(server + '/cube')
 
-    expect(page.get_by_role('link', name='В POKER', exact=True)).to_have_attribute('href', '/')
-    expect(page.get_by_role('link', name='CUBE', exact=True)).to_have_attribute('href', '/cube')
+    header = page.locator('.cube-header')
+    poker = header.get_by_role('link', name=re.compile('POKER', re.I))
+    brand = header.get_by_role('link', name=re.compile('CUBE', re.I))
+    expect(poker).to_contain_text('В POKER')
+    expect(poker.locator('.ui-arrow')).to_be_visible()
+    expect(poker).to_have_attribute('href', '/')
+    expect(brand).to_have_attribute('href', '/cube')
+    brand.focus()
+    expect(brand).to_be_focused()
+    poker.focus()
+    expect(poker).to_be_focused()
+    poker.press('Enter')
+    expect(page).to_have_url(server + '/')
 
 
 @pytest.mark.parametrize('width', [390, 1280])
@@ -278,8 +331,70 @@ def test_cube_result_strip_is_above_and_clear_of_the_cube(profile_page, width):
     page.set_viewport_size({'width': width, 'height': 900})
     page.goto(server + '/cube')
 
+    card = page.locator('#diceCard').bounding_box()
     result = page.locator('#resultLine').bounding_box()
     cube = page.locator('.cube-scene').bounding_box()
-    assert result and cube
-    assert result['y'] < cube['y']
+    assert card and result and cube
+    assert abs(result['y'] - card['y']) <= 2
     assert cube['y'] - (result['y'] + result['height']) >= 12
+
+
+@pytest.mark.parametrize(
+    ('start', 'selector', 'direction', 'destination'),
+    [
+        ('/', '#tableGrid', 'left', '/static/profile.html?app=poker#cash'),
+        ('/cube', '#cubeMain', 'left', '/static/profile.html?app=cube#cash'),
+        ('/static/profile.html?app=poker#cash', '#profileMain', 'right', '/'),
+        ('/static/profile.html?app=cube#cash', '#profileMain', 'right', '/cube'),
+    ],
+)
+def test_touch_swipes_follow_each_game_cashier_route(
+        profile_page, start, selector, direction, destination):
+    page, _, _, server = profile_page
+    page.goto(server + start)
+    assert_swipe_helper_loaded(page)
+
+    swipe(page, selector, direction=direction)
+
+    expect(page).to_have_url(server + destination)
+
+
+@pytest.mark.parametrize(
+    ('pointer_type', 'distance', 'dy'),
+    [
+        ('mouse', 150, 0),
+        ('touch', 50, 0),
+        ('touch', 100, 180),
+    ],
+)
+def test_swipe_navigation_rejects_mouse_short_and_vertical_gestures(
+        profile_page, pointer_type, distance, dy):
+    page, _, _, server = profile_page
+    page.goto(server + '/')
+    assert_swipe_helper_loaded(page)
+
+    swipe(page, '#tableGrid', pointer_type=pointer_type, distance=distance, dy=dy)
+    page.wait_for_timeout(100)
+
+    assert page.url == server + '/'
+
+
+@pytest.mark.parametrize(
+    ('start', 'selector', 'direction'),
+    [
+        ('/', '.game-tab-cube', 'left'),
+        ('/', '#quickPlay', 'left'),
+        ('/static/profile.html?app=poker#cash', '#withdrawUsdt', 'right'),
+        ('/cube', '#cubeCanvas', 'left'),
+    ],
+)
+def test_swipes_starting_on_interactive_controls_are_ignored(
+        profile_page, start, selector, direction):
+    page, _, _, server = profile_page
+    page.goto(server + start)
+    assert_swipe_helper_loaded(page)
+
+    swipe(page, selector, direction=direction)
+    page.wait_for_timeout(100)
+
+    assert page.url == server + start
