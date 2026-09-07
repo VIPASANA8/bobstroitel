@@ -63,6 +63,9 @@ POKER8_CASH_TEST_DATABASE_URL=postgresql+psycopg://poker8:poker8@localhost:5433/
 ```
 
 И миграции на копии боевой базы: `tools/cash_backup_restore_check.py`.
+Прогнать миграции на SQLite нельзя и не нужно: это не поддерживалось и до
+этой работы — `20260901_0018` падает на `ALTER` чека, которого в SQLite нет.
+Единственная проверка миграций — PostgreSQL.
 
 ## Порядок выката
 

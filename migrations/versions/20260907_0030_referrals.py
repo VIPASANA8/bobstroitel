@@ -26,6 +26,25 @@ def _timestamp():
     )
 
 
+def _replace_kind_check(bind, kinds: str) -> None:
+    """Widen (or narrow) what a cash transaction may be called.
+
+    A fresh install builds the table from current metadata and already has the
+    constraint under this name, an older one has the narrower version, so the
+    old one is dropped only if it is actually there. SQLite cannot ALTER a
+    constraint at all -- and never runs these migrations for real.
+    """
+    if bind.dialect.name != "postgresql":
+        return
+    existing = {
+        constraint["name"] for constraint
+        in sa.inspect(bind).get_check_constraints("cash_transactions")
+    }
+    if "ck_cash_transaction_kind" in existing:
+        op.drop_constraint("ck_cash_transaction_kind", "cash_transactions", type_="check")
+    op.create_check_constraint("ck_cash_transaction_kind", "cash_transactions", f"kind IN ({kinds})")
+
+
 def upgrade():
     bind = op.get_bind()
     inspector = sa.inspect(bind)
@@ -36,11 +55,7 @@ def upgrade():
             "internal", sa.Boolean, nullable=False, server_default=sa.text("false"),
         ))
 
-    if bind.dialect.name == "postgresql":
-        op.drop_constraint("ck_cash_transaction_kind", "cash_transactions", type_="check")
-        op.create_check_constraint(
-            "ck_cash_transaction_kind", "cash_transactions", f"kind IN ({KINDS})",
-        )
+    _replace_kind_check(bind, KINDS)
 
     if "referral_codes" not in tables:
         op.create_table(
@@ -170,9 +185,5 @@ def downgrade():
     op.drop_index("ix_referrals_referrer", table_name="referrals")
     op.drop_table("referrals")
     op.drop_table("referral_codes")
-    if bind.dialect.name == "postgresql":
-        op.drop_constraint("ck_cash_transaction_kind", "cash_transactions", type_="check")
-        op.create_check_constraint(
-            "ck_cash_transaction_kind", "cash_transactions", f"kind IN ({OLD_KINDS})",
-        )
+    _replace_kind_check(bind, OLD_KINDS)
     op.drop_column("users", "internal")
