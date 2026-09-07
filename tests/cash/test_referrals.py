@@ -313,6 +313,22 @@ async def test_a_losing_cube_group_cannot_eat_a_poker_reward(cash_db):
     assert rows["poker"]["amount_micros"] == 15 * USDT
 
 
+async def test_a_pass_that_died_after_cube_still_owes_poker_for_that_day(cash_db):
+    """The two sources keep their own place in the calendar. One shared cursor
+    would step past a day the other had not been paid for yet."""
+    await link(cash_db, user_id="bob", code=await code_of(cash_db, "alice"))
+    await play(cash_db, "bob", house_micros=100 * USDT)
+    await deal(cash_db, {"bob": 200 * USDT})
+    settlements = service(cash_db)
+    await settlements.settle_cube_day(DAY)  # ... and then the pass died here
+
+    await settlements.run()
+
+    rows = {row["source"]: row for row in await settlements_of(cash_db, "alice")}
+    assert rows["cube"]["amount_micros"] == 15 * USDT
+    assert rows["poker"]["amount_micros"] == 30 * USDT
+
+
 async def test_rake_from_a_play_table_is_not_income(cash_db):
     await link(cash_db, user_id="bob", code=await code_of(cash_db, "alice"))
     await deal(cash_db, {"bob": 100 * USDT}, asset="PLAY")

@@ -211,8 +211,9 @@ class CashSettlements:
         """One pass, in order: the days' rewards, releases, then the partner."""
         today = self.now().date()
         settled = 0
-        for day in await self._pending_days(today):
+        for day in await self._pending_days(today, "cube"):
             settled += len(await self.settle_cube_day(day))
+        for day in await self._pending_days(today, "poker"):
             settled += len(await self.settle_poker_day(day))
         released = await self.release_due()
         partner = len(await self.settle_partner_periods(today - timedelta(days=1)))
@@ -222,19 +223,25 @@ class CashSettlements:
             "partner_settlements": partner,
         }
 
-    async def _pending_days(self, today: date) -> list[date]:
+    async def _pending_days(self, today: date, source: str) -> list[date]:
+        """The days this source still owes rewards for, oldest first.
+
+        Per source, and that is the point: a pass that wrote Cube's day and
+        then died would otherwise leave Poker's day behind a cursor that had
+        already moved past it, and nobody would ever be paid for it.
+        """
         yesterday = today - timedelta(days=1)
+        first_activity = (
+            select(func.min(cube_rounds.c.created_at)) if source == "cube"
+            else select(func.min(hands.c.completed_at)).select_from(
+                hands.join(poker_tables, poker_tables.c.id == hands.c.table_id)
+            ).where(poker_tables.c.asset == CASH_USDT)
+        )
         async with self.sessions() as session:
-            last = await session.scalar(select(func.max(referral_settlements.c.period_start)))
-            first_played = min(
-                (_aware(stamp) for stamp in (
-                    await session.scalar(select(func.min(cube_rounds.c.created_at))),
-                    await session.scalar(select(func.min(hands.c.completed_at)).select_from(
-                        hands.join(poker_tables, poker_tables.c.id == hands.c.table_id)
-                    ).where(poker_tables.c.asset == CASH_USDT)),
-                ) if stamp is not None),
-                default=None,
-            )
+            last = await session.scalar(select(func.max(
+                referral_settlements.c.period_start
+            )).where(referral_settlements.c.source == source))
+            first_played = _aware(await session.scalar(first_activity))
         if first_played is None:
             return []
         start = (
