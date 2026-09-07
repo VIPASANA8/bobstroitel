@@ -64,12 +64,13 @@ async def test_only_one_withdrawal_is_live_at_a_time(cash_db):
 
 
 async def test_the_break_blocks_money_and_runs_out_on_its_own(cash_db):
+    now = datetime.now(timezone.utc)
     async with cash_db() as session:
         async with session.begin():
             until = await take_a_break(
-                session, user_id="alice", tenant_id="tenant", hours=24, now=NOW,
+                session, user_id="alice", tenant_id="tenant", hours=24, now=now,
             )
-    assert until == NOW + timedelta(hours=24)
+    assert until == now + timedelta(hours=24)
     async with cash_db() as session:
         with pytest.raises(CashUserFrozen, match="asked for a break"):
             await assert_not_frozen(session, "alice")

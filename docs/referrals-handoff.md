@@ -8,7 +8,7 @@
 (worktree `C:\project\poker\.claude\worktrees\poker-stop-server-md-9779a2`).
 В `main` **не влито и на прод не выкачено**.
 
-Обновлено: 2026-09-07, после ревизии собственной работы (три правки ниже).
+Обновлено: 2026-09-07, после PostgreSQL-проверки денежных путей и миграций.
 
 ## Что сделано
 
@@ -44,15 +44,18 @@ python -m pytest -q
   сходимость суммы с `state.rake`;
 * весь прежний набор тестов проекта — движок и escrow не сломаны.
 
-**Не проверено:** `tests/cash/test_referrals.py` — 33 теста на БД (привязка,
-идемпотентность, hold и релиз, реверс, разделение Poker/Cube, carryover
-партнёра, сходимость ledger). Они помечены `postgres` и по умолчанию отключены
-(`pytest.ini`), а поднять сервис не вышло: движок Docker Desktop не запустился,
-`com.docker.service` требует прав администратора. SQL всех запросов при этом
-прогнан вручную на SQLite (проводки там недоступны — `CashLedger` работает
-только на PostgreSQL).
+PostgreSQL теперь тоже проверен на PostgreSQL 16 из `compose.yaml`:
 
-**Это первый шаг для продолжения.** Запустить Docker Desktop, затем:
+* `tests/cash/test_referrals.py` — **33 passed**: привязка, идемпотентность,
+  hold и релиз, реверс, разделение Poker/Cube, carryover партнёра и
+  сходимость ledger;
+* `tests/cash -m postgres` — **155 passed**;
+* `tools/cash_backup_restore_check.py` — миграции до `20260907_0031`, dump,
+  restore и повтор всех необратимых денежных команд прошли без изменения
+  балансов или истории.
+
+Docker Desktop запускается без старта `com.docker.service`: достаточно открыть
+пользовательское приложение, дождаться `docker desktop status = running`, затем:
 
 ```bash
 docker compose -f compose.yaml up -d postgres_test
@@ -62,14 +65,15 @@ docker compose -f compose.yaml up -d postgres_test
 POKER8_CASH_TEST_DATABASE_URL=postgresql+psycopg://poker8:poker8@localhost:5433/poker8_test python -m pytest tests/cash -m postgres -q
 ```
 
-И миграции на копии боевой базы: `tools/cash_backup_restore_check.py`.
+Проверка dump/restore: `tools/cash_backup_restore_check.py`.
 Прогнать миграции на SQLite нельзя и не нужно: это не поддерживалось и до
 этой работы — `20260901_0018` падает на `ALTER` чека, которого в SQLite нет.
 Единственная проверка миграций — PostgreSQL.
 
 ## Порядок выката
 
-1. Прогнать postgres-тесты выше — они закрывают все денежные пути.
+1. PostgreSQL-тесты и локальный dump/restore-check пройдены; перед продом при
+   наличии свежего dump повторить миграцию на копии боевой базы.
 2. `git push origin HEAD:main`.
 3. `ssh newvps "cd /opt/poker8 && sh deploy/poker8-update.sh donbass.win"` —
    миграции применяются при старте контейнера, ждём `ready:200`.
@@ -93,6 +97,10 @@ POKER8_CASH_TEST_DATABASE_URL=postgresql+psycopg://poker8:poker8@localhost:5433/
   запрещает только оплаченный (`posted`) период. Там же: реверс начисления
   теперь выполняется до записи в аудит, чтобы лог не утверждал того, чего не
   произошло.
+* **PostgreSQL-прогон** — существующий тест self-exclusion использовал
+  фиксированное 2026-09-03 как «сейчас» и начал падать после истечения hold.
+  Теперь этот кейс берёт текущее UTC-время внутри теста; production-код не
+  менялся.
 
 Проверено и **не** оказалось проблемой: рейк и его разбивка всегда считаются в
 одной транзакции с расчётом раздачи (`cash/game.py:417`), поэтому состояние,
