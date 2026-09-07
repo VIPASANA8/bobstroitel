@@ -78,7 +78,7 @@ def test_the_money_surfaces_are_marked_without_naming_a_mode():
     the tab, the cashier and the felt -- but the mark is the money, not a
     claim about how real it is."""
     assert "Доступно" in PROFILE and "За столами" in PROFILE and "Ожидает вывода" in PROFILE
-    assert "<small>$$$</small>" in PROFILE
+    assert '<small id="cashModeMark">$$$</small>' in PROFILE
     assert '"$$$"' in TABLE_JS
 
 
@@ -103,6 +103,19 @@ def test_the_client_makes_no_claim_about_how_real_the_money_is():
     assert 'cashTab.hidden = config.cash_mode === "off";' in LOBBY_JS
     assert "$('cashModeTab').hidden = false;" in PROFILE_JS
     assert "cash_mode" not in PROFILE_JS
+
+
+def test_wallet_journal_exposes_scope_for_operation_classification():
+    source = (ROOT / "cash" / "wallet.py").read_text(encoding="utf-8")
+    assert "cash_transactions.c.scope" in source
+
+
+def test_profile_context_and_history_use_shared_sources():
+    assert "new URLSearchParams(location.search).get('app')" in PROFILE_JS
+    assert "'/api/cube/history?limit=20'" in PROFILE_JS
+    assert "'/api/profile/hands?limit=20&asset=CASH_USDT'" in PROFILE_JS
+    assert "wallet.journal" in PROFILE_JS
+    assert "scope.startsWith('withdrawal-')" in PROFILE_JS
 
 
 def _js_keys(source: str, name: str) -> set[str]:

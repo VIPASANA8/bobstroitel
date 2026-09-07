@@ -14,7 +14,8 @@ class WalletService:
                 cash_accounts.c.kind, cash_accounts.c.balance_micros
             ).where(cash_accounts.c.user_id == user_id))).all()
             journal = (await session.execute(select(
-                cash_transactions.c.id, cash_transactions.c.kind, cash_transactions.c.reference_id,
+                cash_transactions.c.id, cash_transactions.c.scope, cash_transactions.c.kind,
+                cash_transactions.c.reference_id,
                 cash_entries.c.amount_micros, cash_transactions.c.created_at,
             ).join(cash_entries, cash_entries.c.transaction_id == cash_transactions.c.id)
              .join(cash_accounts, cash_accounts.c.id == cash_entries.c.account_id)

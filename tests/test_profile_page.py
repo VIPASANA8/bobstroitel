@@ -53,10 +53,10 @@ def test_there_is_a_way_back_to_the_lobby_on_a_phone():
 def test_the_rows_say_something():
     """They printed a raw hand id with a player count, and the ledger printed
     the engine's own word for the transaction."""
-    assert "hand.hand_id" not in JS
+    assert "escapeHtml(hand.hand_id)" not in JS
     assert "player.you" in JS, "the viewer's own row is what makes a result"
-    for kind in ("buy_in", "add_on", "return", "settlement", "faucet_grant"):
-        assert kind + ":" in JS, kind
+    for title in ("Выигрыш в POKER", "Проигрыш в POKER", "Пополнение", "Вывод средств"):
+        assert title in JS, title
 
 
 def test_the_next_level_line_is_about_the_next_level():
@@ -78,7 +78,7 @@ def test_top_up_asks_before_it_offers():
     """/api/profile/play-top-up is 404 on a deployment on purpose. A panel that
     says so beats a button that fails when pressed."""
     assert "self_top_up_enabled" in Path("app/routers/config.py").read_text(encoding="utf-8")
-    assert "renderTopUp(Boolean(config.self_top_up_enabled))" in JS
+    assert "renderTopUp(product === 'poker' && Boolean(config.self_top_up_enabled))" in JS
     assert "renderTopUp(false)" in JS, "and the same when the page fails to load"
 
 

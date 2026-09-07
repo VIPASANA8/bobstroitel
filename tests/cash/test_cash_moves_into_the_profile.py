@@ -97,8 +97,9 @@ def test_each_tablist_moves_only_its_own_panels():
 
 
 def test_the_two_histories_are_asked_for_separately():
-    assert "/api/profile/hands?limit=20&asset=PLAY" in PROFILE_JS
     assert "/api/profile/hands?limit=20&asset=CASH_USDT" in PROFILE_JS
+    assert "/api/cube/history?limit=20" in PROFILE_JS
+    assert "/api/profile/hands?limit=20&asset=PLAY" not in PROFILE_JS
 
 
 def test_a_room_can_be_opened_in_either_mode():

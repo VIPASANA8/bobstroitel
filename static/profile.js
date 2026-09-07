@@ -4,8 +4,8 @@
     minimumFractionDigits: digits, maximumFractionDigits: digits,
   });
   const units = value => number(Number(value || 0) / 100, 2);
-  const signed = value => `${Number(value) > 0 ? '+' : ''}${units(value)}`;
   const bb = value => `${Number(value) > 0 ? '+' : ''}${number(value, 1)} BB`;
+  const product = new URLSearchParams(location.search).get('app') === 'cube' ? 'cube' : 'poker';
   const plural = new Intl.PluralRules('ru-RU');
   const noun = (value, one, few, many) => ({one, few, many})[plural.select(Number(value))] || many;
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({
@@ -16,10 +16,6 @@
     return !stamp || Number.isNaN(stamp.getTime()) ? '' : stamp.toLocaleString('ru-RU', {
       day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
     });
-  };
-  const LEDGER_KINDS = {
-    buy_in: 'Бай-ин', add_on: 'Докупка', return: 'Возврат со стола',
-    settlement: 'Расчёт раздачи', faucet_grant: 'Начисление',
   };
   const RANKS = {ROOKIE: 'Новичок', PLAYER: 'Игрок', REGULAR: 'Регуляр', GRINDER: 'Гриндер', SHARK: 'Акула', ELITE: 'Элита', VETERAN: 'Ветеран'};
   const ACHIEVEMENTS = {
@@ -83,6 +79,24 @@
     document.querySelector('.profile-hero').setAttribute('aria-busy', 'false');
   }
 
+  function applyProduct() {
+    const cube = product === 'cube';
+    document.body.classList.toggle('cube-context', cube);
+    document.title = cube ? 'CUBE · Профиль' : 'Poker · Профиль';
+    $('brandLogo').innerHTML = cube ? 'cube<i aria-hidden="true">⬢</i>' : 'poker<i aria-hidden="true">♠</i>';
+    $('brandLogo').href = cube ? '/static/profile.html?app=poker#cash' : '/static/profile.html?app=cube#cash';
+    $('brandLogo').setAttribute('aria-label', cube ? 'Переключиться на Poker' : 'Переключиться на CUBE');
+    $('backToProduct').href = cube ? '/cube' : '/';
+    $('backToProductLabel').textContent = cube ? 'В CUBE' : 'В лобби';
+    $('cashModeLabel').textContent = cube ? 'USDT-касса' : 'CASH-касса';
+    $('cashModeMark').textContent = cube ? 'USDT' : '$$$';
+    $('profileModeLabel').textContent = cube ? 'Профиль CUBE' : 'Профиль Poker';
+    $('cashKicker').textContent = cube ? 'CUBE WALLET' : 'REAL CASH';
+    $('cashHeading').textContent = cube ? 'USDT-касса' : 'CASH-касса';
+    $('pokerProfile').hidden = cube;
+    $('cubeProfile').hidden = !cube;
+  }
+
   // CASH is exact money in micro-USDT; it never goes through the play-chip
   // formatter, which divides by 100.
   const usdt = micros => {
@@ -94,12 +108,16 @@
   };
 
   function renderCashWallet(wallet) {
-    $('profileCashAvailable').textContent = `${wallet.available_units} CASH`;
-    $('profileCashAvailableUsdt').textContent = `${wallet.available_usdt} USDT`;
-    $('profileCashEscrow').textContent = `${wallet.escrow_units} CASH`;
-    $('profileCashEscrowUsdt').textContent = `${wallet.escrow_usdt} USDT`;
-    $('profileCashWithdrawal').textContent = `${wallet.withdrawal_units} CASH`;
-    $('profileCashWithdrawalUsdt').textContent = `${wallet.withdrawal_usdt} USDT`;
+    for (const [name, strongId, smallId] of [
+      ['available', 'profileCashAvailable', 'profileCashAvailableUsdt'],
+      ['escrow', 'profileCashEscrow', 'profileCashEscrowUsdt'],
+      ['withdrawal', 'profileCashWithdrawal', 'profileCashWithdrawalUsdt'],
+    ]) {
+      $(strongId).textContent = product === 'cube'
+        ? `${wallet[`${name}_usdt`]} USDT` : `${wallet[`${name}_units`]} CASH`;
+      $(smallId).textContent = product === 'cube'
+        ? `${wallet[`${name}_units`]} CASH` : `${wallet[`${name}_usdt`]} USDT`;
+    }
   }
 
   function setSigned(element, value, format) {
@@ -198,56 +216,73 @@
   const FLAT = '<svg class="ui-arrow" viewBox="0 0 16 16"><path d="M3.5 8h9"/></svg>';
   const signIcon = amount => (amount > 0 ? ARROW : amount < 0 ? ARROW : FLAT);
 
-  function historyRow(title, detail, amount) {
-    const outcome = amount > 0 ? 'win' : amount < 0 ? 'loss' : 'flat';
-    return `<article class="history-row ${outcome}">
-      <div class="history-what"><span class="history-sign" aria-hidden="true">${signIcon(amount)}</span><div><strong>${escapeHtml(title)}</strong><small>${escapeHtml(detail)}</small></div></div>
-      <span class="history-amount">${signed(amount)}</span>
-    </article>`;
-  }
-
-  function handRow(hand) {
-    const mine = (hand.players || []).find(player => player.you);
-    const net = Number(mine?.net_units || 0);
-    return historyRow(net > 0 ? 'Выигрыш' : net < 0 ? 'Проигрыш' : 'Без изменений',
-      `${dateText(hand.completed_at || hand.started_at)} · ${(hand.players || []).length} ${noun((hand.players || []).length, 'игрок', 'игрока', 'игроков')}`, net);
-  }
-
-  function ledgerRow(row) {
-    return historyRow(LEDGER_KINDS[row.kind] || row.kind, dateText(row.created_at), Number(row.amount_units || 0));
-  }
-
-  function renderHistory(payload) {
-    const rows = (payload.hands || []).map(handRow);
-    fill('handHistory', rows, 'Здесь будут ваши последние раздачи. Сыграйте первую за любым столом.');
-    $('showHands').hidden = rows.length <= 5;
-  }
-
-  function cashHandRow(hand) {
+  function pokerActivity(hand) {
     const mine = (hand.players || []).find(player => player.you);
     const net = Number(mine?.net_micros || 0);
     const seated = (hand.players || []).length;
-    const title = net > 0 ? 'Выигрыш' : net < 0 ? 'Проигрыш' : 'Без изменений';
-    const detail = dateText(hand.completed_at || hand.started_at) +
-      ' \u00b7 ' + seated + ' ' + noun(seated, 'игрок', 'игрока', 'игроков');
-    const outcome = net > 0 ? 'win' : net < 0 ? 'loss' : 'flat';
-    const sign = signIcon(net);
-    return '<article class="history-row ' + outcome + '">' +
-      '<div class="history-what"><span class="history-sign" aria-hidden="true">' + sign + '</span>' +
-      '<div><strong>' + title + '</strong><small>' + escapeHtml(detail) + '</small></div></div>' +
-      '<span class="history-amount">' + escapeHtml(usdt(mine?.net_micros)) + '</span></article>';
+    const handId = hand.hand_id;
+    return {
+      id: `poker:${handId}`, category: 'poker', amountMicros: net,
+      title: net > 0 ? 'Выигрыш в POKER' : net < 0 ? 'Проигрыш в POKER' : 'Раздача без изменений',
+      detail: `${dateText(hand.completed_at || hand.started_at)} · ${seated} ${noun(seated, 'игрок', 'игрока', 'игроков')}`,
+      createdAt: hand.completed_at || hand.started_at,
+    };
   }
 
-  function renderCashHistory(payload) {
-    const rows = (payload.hands || []).map(cashHandRow);
-    fill('cashHandHistory', rows, 'Раздач за CASH-столами пока нет.');
-    $('showCashHands').hidden = rows.length <= 5;
+  function cubeActivity(round) {
+    return {
+      id: `cube:${round.round_id}`, category: 'cube', amountMicros: Number(round.net_micros || 0),
+      title: round.won ? 'Выигрыш в CUBE' : 'Проигрыш в CUBE',
+      detail: `${dateText(round.created_at)} · выпало ${round.roll} · выбрано ${(round.selected || []).join(', ')}`,
+      createdAt: round.created_at,
+    };
   }
 
-  function renderLedger(payload) {
-    const rows = (payload.entries || []).map(ledgerRow);
-    fill('ledger', rows, 'Операций пока нет. Здесь будут движения игровых фишек.');
-    $('showLedger').hidden = rows.length <= 5;
+  function operationActivities(wallet) {
+    const unique = new Map();
+    for (const row of wallet.journal || []) {
+      const scope = String(row.scope || '');
+      const deposit = row.kind === 'deposit';
+      const withdrawal = scope.startsWith('withdrawal-') && row.kind === 'payout';
+      if (!deposit && !withdrawal || unique.has(row.id)) continue;
+      unique.set(row.id, {
+        id: `operation:${row.id}`, category: 'operation', amountMicros: Number(row.amount_micros || 0),
+        title: deposit ? 'Пополнение' : 'Вывод средств', detail: dateText(row.created_at), createdAt: row.created_at,
+      });
+    }
+    return [...unique.values()];
+  }
+
+  function cashAmount(micros) {
+    const amount = BigInt(micros || 0);
+    const sign = amount < 0n ? '-' : amount > 0n ? '+' : '';
+    const absolute = amount < 0n ? -amount : amount;
+    const tail = String(absolute % 100000n).padStart(5, '0').replace(/0+$/, '');
+    return `${sign}${absolute / 100000n}${tail ? `.${tail}` : ''} CASH`;
+  }
+
+  function cashActivityRow(row) {
+    const outcome = row.amountMicros > 0 ? 'win' : row.amountMicros < 0 ? 'loss' : 'flat';
+    const primary = product === 'cube' ? usdt(row.amountMicros) : cashAmount(row.amountMicros);
+    const secondary = product === 'cube' ? cashAmount(row.amountMicros) : usdt(row.amountMicros);
+    return `<article class="history-row ${outcome}">
+      <div class="history-what"><span class="history-sign" aria-hidden="true">${signIcon(row.amountMicros)}</span><div><strong>${escapeHtml(row.title)}</strong><small>${escapeHtml(row.detail)}</small></div></div>
+      <span class="history-amount"><b>${escapeHtml(primary)}</b><small>${escapeHtml(secondary)}</small></span>
+    </article>`;
+  }
+
+  function renderCashHistory(wallet, pokerPayload, cubePayload) {
+    const rows = [
+      ...(pokerPayload.hands || []).map(pokerActivity),
+      ...(cubePayload.rounds || []).map(cubeActivity),
+      ...operationActivities(wallet),
+    ].sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt));
+    const render = (id, selected, empty) => fill(id, rows.filter(selected).map(cashActivityRow), empty);
+    render('allHistory', () => true, 'Операций пока нет.');
+    render('cubeHistory', row => row.category === 'cube', 'Игр в CUBE пока нет.');
+    render('pokerHistory', row => row.category === 'poker', 'Раздач в POKER пока нет.');
+    render('operationsHistory', row => row.category === 'operation', 'Пополнений и выводов пока нет.');
+    $('showCashHistory').hidden = rows.length <= 5;
   }
 
   // Set from the profile payload; only ever non-null while the player is out
@@ -279,7 +314,6 @@
       });
       $('walletBalance').textContent = units(result.available_units);
       $('topupNote').textContent = `Зачислено ${units(Math.round(value * 100))} фишек.`;
-      await loadBlock('/api/profile/play-journal?limit=20', 'ledger', renderLedger, 'Не удалось загрузить журнал.');
     } catch (error) {
       $('topupNote').textContent = 'Пополнение не прошло. Попробуйте ещё раз.';
     } finally {
@@ -299,8 +333,7 @@
     });
     $('topupForm').addEventListener('submit', event => { event.preventDefault(); topUp($('topupAmount').value); });
     for (const [buttonId, listId, label] of [
-      ['showAchievements', 'achievementList', 'Все достижения'], ['showHands', 'handHistory', 'Все раздачи'],
-      ['showLedger', 'ledger', 'Все операции'], ['showCashHands', 'cashHandHistory', 'Все раздачи'],
+      ['showAchievements', 'achievementList', 'Все достижения'],
     ]) {
       $(buttonId).addEventListener('click', () => {
         const expanded = $(listId).classList.toggle('expanded');
@@ -308,6 +341,12 @@
         $(buttonId).innerHTML = `${expanded ? 'Свернуть' : label} <span aria-hidden="true">${expanded ? '↑' : '↓'}</span>`;
       });
     }
+    $('showCashHistory').addEventListener('click', () => {
+      const expanded = !$('allHistory').classList.contains('expanded');
+      $('cashHistory').querySelectorAll('.history-list').forEach(list => list.classList.toggle('expanded', expanded));
+      $('showCashHistory').setAttribute('aria-expanded', String(expanded));
+      $('showCashHistory').innerHTML = `${expanded ? 'Свернуть' : 'Вся история'} <span aria-hidden="true">${expanded ? '↑' : '↓'}</span>`;
+    });
     // Per tablist, not per page: the profile has two independent groups now
     // (Профиль / CASH-касса above, Раздачи / Операции inside), and one flat
     // list of every [role="tab"] would hide one group's panel whenever the
@@ -341,18 +380,27 @@
 
   // The cashier only exists for a player the pilot actually lets in, so its
   // tab appears with the wallet and not before.
+  async function loadCashData() {
+    const wallet = await json('/api/cash/wallet');
+    const [pokerPayload, cubePayload] = await Promise.all([
+      json('/api/profile/hands?limit=20&asset=CASH_USDT').catch(() => ({hands: []})),
+      json('/api/cube/history?limit=20').catch(() => ({rounds: []})),
+    ]);
+    renderCashWallet(wallet);
+    renderCashHistory(wallet, pokerPayload, cubePayload);
+  }
+
   async function openCashier() {
-    renderCashWallet(await json('/api/cash/wallet'));
+    await loadCashData();
     $('cashModeTab').hidden = false;
     // One tab is not a choice: the switch appears only once there are two.
     document.querySelector('.profile-modes').hidden = false;
     window.Poker8Cashier.mount({
-      onSettled: () => json('/api/cash/wallet').then(renderCashWallet).catch(console.error),
+      onSettled: () => loadCashData().catch(console.error),
     });
     // The money is what the profile opens on, here and from the lobby's
     // "Открыть CASH-кассу" alike. Profile stays one tap to the right.
     document.querySelector('.profile-modes').selectTab($('cashModeTab'));
-    await loadBlock('/api/profile/hands?limit=20&asset=CASH_USDT', 'cashHandHistory', renderCashHistory, 'Не удалось загрузить историю CASH.');
   }
 
   async function load() {
@@ -360,20 +408,19 @@
     // ensureSession publishes the profile when it got there through the
     // session cookie, which is the usual way in; only a fresh login returns an
     // auth receipt instead, and that one has no XP, level or table stack.
-    renderProfile(window.Poker8Profile || await json('/api/profile'));
+    if (product === 'poker') renderProfile(window.Poker8Profile || await json('/api/profile'));
     void session;
     const config = await json('/api/config').catch(() => ({}));
-    renderTopUp(Boolean(config.self_top_up_enabled));
-    await Promise.all([
+    renderTopUp(product === 'poker' && Boolean(config.self_top_up_enabled));
+    const pokerBlocks = product === 'poker' ? [
       loadBlock('/api/profile/missions', 'missionList', renderMissions, 'Не удалось загрузить задания. Обновите страницу.', 'missionsError'),
       loadBlock('/api/profile/stats', 'statsGrid', renderStats, 'Не удалось загрузить статистику. Обновите страницу.', 'statsError'),
       loadBlock('/api/profile/achievements', 'achievementList', renderAchievements, 'Не удалось загрузить достижения. Обновите страницу.', 'achievementsError'),
-      loadBlock('/api/profile/hands?limit=20&asset=PLAY', 'handHistory', renderHistory, 'Не удалось загрузить историю.'),
-      loadBlock('/api/profile/play-journal?limit=20', 'ledger', renderLedger, 'Не удалось загрузить журнал.'),
-      openCashier().catch(() => { $('cashModeTab').hidden = true; }),
-    ]);
+    ] : [];
+    await Promise.all([...pokerBlocks, openCashier().catch(() => { $('cashModeTab').hidden = true; })]);
   }
 
+  applyProduct();
   bindControls();
   load().catch(error => {
     console.error(error);
@@ -387,8 +434,7 @@
     showError('achievementsError', 'Коллекция появится после входа.');
     $('missionList').replaceChildren();
     $('achievementList').replaceChildren();
-    fill('handHistory', [], 'Не удалось загрузить историю.');
-    fill('ledger', [], 'Не удалось загрузить журнал.');
+    fill('allHistory', [], 'Не удалось загрузить историю.');
     renderTopUp(false);
     document.querySelectorAll('[aria-busy]').forEach(node => node.setAttribute('aria-busy', 'false'));
   });

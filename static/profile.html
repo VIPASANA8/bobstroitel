@@ -21,7 +21,7 @@
     </header>
     <main id="profileMain">
       <nav class="profile-modes lobby-modes" role="tablist" aria-label="Разделы профиля" hidden>
-        <button id="cashModeTab" class="mode-tab" type="button" role="tab" aria-selected="false" aria-controls="cashSection" tabindex="-1" hidden><span id="cashModeLabel">CASH-касса</span> <small>$$$</small></button>
+        <button id="cashModeTab" class="mode-tab" type="button" role="tab" aria-selected="false" aria-controls="cashSection" tabindex="-1" hidden><span id="cashModeLabel">CASH-касса</span> <small id="cashModeMark">$$$</small></button>
         <button id="playModeTab" class="mode-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="playSection"><span id="profileModeLabel">Профиль Poker</span></button>
       </nav>
 
@@ -107,7 +107,7 @@
       <div id="cashSection" role="tabpanel" aria-labelledby="cashModeTab" tabindex="0" hidden>
         <div class="profile-dashboard">
           <section id="profileCash" class="profile-section cash-profile-section" aria-labelledby="cashHeading">
-            <div class="profile-section-heading"><div><p class="profile-kicker">REAL CASH</p><h2 id="cashHeading">CASH-касса</h2></div><span class="section-count">1 USDT = 10 CASH</span></div>
+            <div class="profile-section-heading"><div><p id="cashKicker" class="profile-kicker">REAL CASH</p><h2 id="cashHeading">CASH-касса</h2></div><span class="section-count">1 USDT = 10 CASH</span></div>
             <div class="cash-wallet-grid">
               <div><span>Доступно</span><strong id="profileCashAvailable">—</strong><small id="profileCashAvailableUsdt">—</small></div>
               <div><span>За столами</span><strong id="profileCashEscrow">—</strong><small id="profileCashEscrowUsdt">—</small></div>
