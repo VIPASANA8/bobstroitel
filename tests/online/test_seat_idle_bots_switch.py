@@ -83,6 +83,16 @@ def test_no_deployment_holds_bots_off_by_default():
         assert "POKER8_SEAT_IDLE_BOTS:-0" not in compose, name
 
 
+def test_the_pilot_passes_referral_settings_into_the_app():
+    compose = Path("compose.pilot.yaml").read_text(encoding="utf-8")
+    for setting in (
+        "POKER8_REFERRAL_HOLD_DAYS",
+        "POKER8_PARTNER_PERIOD",
+        "POKER8_INTERNAL_TELEGRAM_IDS",
+    ):
+        assert f"{setting}:" in compose, setting
+
+
 @pytest.mark.anyio
 async def test_no_bot_takes_a_free_seat_beside_a_player(lobby):
     """micro-a holds one bot. Seat a person, drop the bot, and no
