@@ -84,9 +84,11 @@ def test_mobile_online_flow(online_server: str):
 
         page.goto(f"{online_server}/static/profile.html", wait_until="domcontentloaded")
         page.wait_for_function("document.querySelector('#profileName')?.textContent === 'Dev Player'", timeout=10000)
-        page.locator("#handHistory .history-row").first.wait_for(state="visible")
-        page.get_by_role("tab", name="Операции").click()
-        page.locator("#ledger .history-row").first.wait_for(state="visible")
+        # Product history now belongs to the shared CASH/USDT cashier. This
+        # PLAY-only fixture cannot open CASH, but the old profile-local list
+        # must still be gone and the shared history must be present once.
+        assert page.locator("#handHistory").count() == 0
+        assert page.locator("#cashHistory").count() == 1
         page.locator("#returnToTable").click()
         page.wait_for_url("**/table?table=*")
         page.locator(".table-frame").wait_for(state="visible")
