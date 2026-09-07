@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 
 from cash.amounts import micros_to_units, micros_to_usdt
 from online.schema import cash_accounts, cash_entries, cash_transactions
@@ -29,3 +29,26 @@ class WalletService:
             "journal": [{**dict(row), "amount_usdt": ("-" if row["amount_micros"] < 0 else "")
                          + micros_to_usdt(abs(row["amount_micros"]))} for row in journal],
         }
+
+    async def operations(self, user_id: str, *, limit: int = 100):
+        async with self.sessions() as session:
+            rows = (await session.execute(select(
+                cash_transactions.c.id, cash_transactions.c.scope, cash_transactions.c.kind,
+                cash_transactions.c.reference_id,
+                cash_entries.c.amount_micros, cash_transactions.c.created_at,
+            ).join(cash_entries, cash_entries.c.transaction_id == cash_transactions.c.id)
+             .join(cash_accounts, cash_accounts.c.id == cash_entries.c.account_id)
+             .where(
+                 cash_accounts.c.user_id == user_id,
+                 or_(
+                     cash_transactions.c.kind == "deposit",
+                     and_(
+                         cash_transactions.c.scope.like("withdrawal-%"),
+                         cash_transactions.c.kind == "payout",
+                     ),
+                 ),
+             )
+             .order_by(cash_transactions.c.created_at.desc())
+             .limit(max(1, min(limit, 100))))).mappings().all()
+        return [{**dict(row), "amount_usdt": ("-" if row["amount_micros"] < 0 else "")
+                 + micros_to_usdt(abs(row["amount_micros"]))} for row in rows]

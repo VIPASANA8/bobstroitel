@@ -116,7 +116,8 @@ def test_profile_context_and_history_use_shared_sources():
     assert "'/api/profile/hands?limit=20&asset=CASH_USDT'" in PROFILE_JS
     assert "'/api/profile/hands?limit=20&asset=PLAY'" in PROFILE_JS
     assert "'/api/profile/play-journal?limit=20'" in PROFILE_JS
-    assert "wallet.journal" in PROFILE_JS
+    assert "'/api/cash/operations?limit=100'" in PROFILE_JS
+    assert "operationsPayload.entries" in PROFILE_JS
     assert "scope.startsWith('withdrawal-')" in PROFILE_JS
 
 

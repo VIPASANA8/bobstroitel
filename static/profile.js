@@ -91,6 +91,7 @@
     $('brandLogo').href = cube ? '/static/profile.html?app=poker#cash' : '/static/profile.html?app=cube#cash';
     $('brandLogo').setAttribute('aria-label', cube ? 'Переключиться на Poker' : 'Переключиться на CUBE');
     $('backToProduct').href = cube ? '/cube' : '/';
+    $('backToProduct').setAttribute('aria-label', product === 'cube' ? 'Вернуться в CUBE' : 'Вернуться в лобби');
     $('backToProductLabel').textContent = cube ? 'В CUBE' : 'В лобби';
     $('cashModeLabel').textContent = cube ? 'USDT-касса' : 'CASH-касса';
     $('cashModeMark').textContent = cube ? 'USDT' : '$$$';
@@ -234,8 +235,10 @@
     };
   }
 
-  function pokerLedgerActivities(payload) {
-    return (payload.entries || []).filter(row => row.kind !== 'settlement').map(row => ({
+  function pokerLedgerActivities(payload, representedHands) {
+    return (payload.entries || []).filter(row => (
+      row.kind !== 'settlement' || !representedHands.has(row.reference_id)
+    )).map(row => ({
       id: `poker-ledger:${row.id || `${row.kind}:${row.created_at}`}`,
       category: 'poker', amountKind: 'play', amountUnits: Number(row.amount_units || 0),
       title: LEDGER_KINDS[row.kind] || row.kind,
@@ -252,9 +255,9 @@
     };
   }
 
-  function operationActivities(wallet) {
+  function operationActivities(operationsPayload) {
     const unique = new Map();
-    for (const row of wallet.journal || []) {
+    for (const row of operationsPayload.entries || []) {
       const scope = String(row.scope || '');
       const deposit = row.kind === 'deposit';
       const withdrawal = scope.startsWith('withdrawal-') && row.kind === 'payout';
@@ -290,13 +293,14 @@
     </article>`;
   }
 
-  function renderCashHistory(wallet, cashPokerPayload, playPokerPayload, playJournalPayload, cubePayload) {
+  function renderCashHistory(cashPokerPayload, playPokerPayload, playJournalPayload, cubePayload, operationsPayload) {
+    const representedHands = new Set((playPokerPayload.hands || []).map(hand => hand.hand_id).filter(Boolean));
     const rows = [
       ...(cashPokerPayload.hands || []).map(hand => pokerActivity(hand)),
       ...(playPokerPayload.hands || []).map(hand => pokerActivity(hand, 'play')),
-      ...pokerLedgerActivities(playJournalPayload),
+      ...pokerLedgerActivities(playJournalPayload, representedHands),
       ...(cubePayload.rounds || []).map(cubeActivity),
-      ...operationActivities(wallet),
+      ...operationActivities(operationsPayload),
     ].sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt));
     const render = (id, selected, empty) => fill(id, rows.filter(selected).map(cashActivityRow), empty);
     render('allHistory', () => true, 'Операций пока нет.');
@@ -400,31 +404,43 @@
     list.selectTab = selectTab;
   }
 
-  // The cashier only exists for a player the pilot actually lets in, so its
-  // tab appears with the wallet and not before.
-  async function loadCashData() {
+  async function loadCashWallet() {
     const wallet = await json('/api/cash/wallet');
-    const [cashPokerPayload, playPokerPayload, playJournalPayload, cubePayload] = await Promise.all([
+    renderCashWallet(wallet);
+  }
+
+  async function loadCashHistory() {
+    const [cashPokerPayload, playPokerPayload, playJournalPayload, cubePayload, operationsPayload] = await Promise.all([
       json('/api/profile/hands?limit=20&asset=CASH_USDT').catch(() => ({hands: []})),
       json('/api/profile/hands?limit=20&asset=PLAY').catch(() => ({hands: []})),
       json('/api/profile/play-journal?limit=20').catch(() => ({entries: []})),
       json('/api/cube/history?limit=20').catch(() => ({rounds: []})),
+      json('/api/cash/operations?limit=100').catch(() => ({entries: []})),
     ]);
-    renderCashWallet(wallet);
-    renderCashHistory(wallet, cashPokerPayload, playPokerPayload, playJournalPayload, cubePayload);
+    renderCashHistory(cashPokerPayload, playPokerPayload, playJournalPayload, cubePayload, operationsPayload);
   }
 
   async function openCashier() {
-    await loadCashData();
+    // The cashier only exists for a player the pilot actually lets in. History
+    // loads independently so a slow game feed cannot hold money controls back.
+    await loadCashWallet();
     $('cashModeTab').hidden = false;
     // One tab is not a choice: the switch appears only once there are two.
     document.querySelector('.profile-modes').hidden = false;
     window.Poker8Cashier.mount({
-      onSettled: () => loadCashData().catch(console.error),
+      onSettled: () => {
+        loadCashWallet().catch(console.error);
+        loadCashHistory().catch(console.error);
+      },
     });
     // The money is what the profile opens on, here and from the lobby's
     // "Открыть CASH-кассу" alike. Profile stays one tap to the right.
     document.querySelector('.profile-modes').selectTab($('cashModeTab'));
+    loadCashHistory().catch(error => {
+      console.error(error);
+      fill('allHistory', [], 'Не удалось загрузить историю.');
+      $('allHistoryPanel').setAttribute('aria-busy', 'false');
+    });
   }
 
   async function load() {

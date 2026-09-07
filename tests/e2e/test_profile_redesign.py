@@ -30,9 +30,25 @@ def profile_data():
                                                dict(slot='session', title='Проведите 30 минут за столом', progress=18, target=30, xp=55, done=False),
                                                dict(slot='variety', title='Сыграйте с четырёх разных позиций', progress=2, target=4, xp=60, done=False)]),
         '/api/profile/achievements': dict(completed=3, total=12, achievement_points=30, achievements=achievements),
-        '/api/profile/hands': dict(hands=[dict(completed_at='2026-08-31T09:20:00Z',
+        '/api/profile/hands': dict(hands=[dict(hand_id=f'play-{n}', completed_at='2026-08-31T09:20:00Z',
                                              players=[dict(you=True, net_units=(1 if n % 2 else -1) * 450), {}]) for n in range(8)]),
-        '/api/profile/play-journal': dict(entries=[dict(kind='faucet_grant', amount_units=100000, created_at='2026-08-31T09:00:00Z')]),
+        '/api/profile/cash-hands': dict(hands=[dict(hand_id=f'cash-{n}', completed_at=f'2026-08-31T10:0{n}:00Z',
+                                                       players=[dict(you=True, net_micros=(1 if n else -1) * 200000), {}]) for n in range(2)]),
+        '/api/profile/play-journal': dict(entries=[
+            dict(kind='faucet_grant', amount_units=100000, created_at='2026-08-31T09:00:00Z'),
+            dict(kind='settlement', reference_id='play-0', amount_units=-450, created_at='2026-08-31T09:20:00Z'),
+        ]),
+        '/api/cube/history': dict(rounds=[dict(round_id='cube-1', selected=[2, 4], roll=4, won=True,
+                                               net_micros=300000, created_at='2026-08-31T10:15:00Z')]),
+        '/api/cash/wallet': dict(available_usdt='19.01', available_units='190.1', escrow_usdt='0', escrow_units='0',
+                                 withdrawal_usdt='0', withdrawal_units='0', journal=[
+                                     dict(id='deposit-1', scope='c2c', kind='deposit', amount_micros=1000000, created_at='2026-08-31T08:00:00Z'),
+                                     dict(id='payout-1', scope='withdrawal-payout', kind='payout', amount_micros=-500000, created_at='2026-08-31T08:30:00Z'),
+                                 ]),
+        '/api/cash/operations': dict(entries=[
+            dict(id='deposit-1', scope='c2c', kind='deposit', amount_micros=1000000, created_at='2026-08-31T08:00:00Z'),
+            dict(id='payout-1', scope='withdrawal-payout', kind='payout', amount_micros=-500000, created_at='2026-08-31T08:30:00Z'),
+        ]),
     }
 
 
@@ -47,8 +63,9 @@ def profile_page(online_server):
 
         def api(route):
             nonlocal signed_in
-            from urllib.parse import urlparse
-            path = urlparse(route.request.url).path
+            from urllib.parse import parse_qs, urlparse
+            parsed = urlparse(route.request.url)
+            path = parsed.path
             calls.append((route.request.method, path))
             if path == '/api/auth/guest':
                 signed_in = True
@@ -63,7 +80,9 @@ def profile_page(online_server):
                 assert route.request.post_data_json['request_id']
                 data['/api/profile']['available_units'] += amount
                 return route.fulfill(json={'available_units': data['/api/profile']['available_units']})
-            payload = data.get(path)
+            payload = (data.get('/api/profile/cash-hands')
+                       if path == '/api/profile/hands' and parse_qs(parsed.query).get('asset') == ['CASH_USDT']
+                       else data.get(path))
             return route.fulfill(status=200 if payload is not None else 503, json=payload or {})
 
         page.route('**/api/**', api)
@@ -81,6 +100,7 @@ def test_profile_has_one_summary_and_fits_the_viewport(profile_page, width):
     data['/api/profile']['display_name'] = 'ОченьДлинноеИмяИгрокаБезПробеловДляПроверки'
     page.set_viewport_size({'width': width, 'height': 900})
     page.goto(server + '/static/profile.html')
+    page.locator('#playModeTab').click()
     expect(page.locator('#levelBadge')).to_have_text('8')
     expect(page.locator('#missionList .mission')).to_have_count(3)
     expect(page.locator('#returnToTable')).to_be_visible()
@@ -95,15 +115,17 @@ def test_profile_has_one_summary_and_fits_the_viewport(profile_page, width):
 def test_history_and_collection_expand_without_losing_their_data(profile_page):
     page, _, calls, server = profile_page
     page.goto(server + '/static/profile.html')
-    expect(page.locator('#handHistory .history-row:visible')).to_have_count(5)
-    page.get_by_role('button', name='Все раздачи').click()
-    expect(page.locator('#handHistory .history-row:visible')).to_have_count(8)
-    page.get_by_role('tab', name='Операции').click()
-    expect(page.locator('#handHistory')).to_be_hidden()
-    expect(page.locator('#ledger')).to_contain_text('Начисление')
-    page.get_by_role('tab', name='Операции').press('ArrowLeft')
-    expect(page.get_by_role('tab', name='Раздачи')).to_be_focused()
-    expect(page.locator('#handHistory')).to_be_visible()
+    expect(page.locator('#allHistory .history-row:visible')).to_have_count(5)
+    page.get_by_role('button', name='Вся история').click()
+    expect(page.locator('#allHistory .history-row:visible')).to_have_count(14)
+    page.get_by_role('tab', name='POKER', exact=True).click()
+    expect(page.locator('#pokerHistory')).to_contain_text('Начисление')
+    expect(page.locator('#pokerHistory')).to_contain_text('Тренировочные фишки')
+    page.get_by_role('tab', name='POKER', exact=True).press('ArrowRight')
+    expect(page.get_by_role('tab', name='Операции', exact=True)).to_be_focused()
+    expect(page.locator('#operationsHistory')).to_contain_text('Пополнение')
+    expect(page.locator('#operationsHistory')).to_contain_text('Вывод средств')
+    page.locator('#playModeTab').click()
     page.get_by_role('button', name='Все достижения').click()
     expect(page.locator('#achievementList > :visible')).to_have_count(12)
     assert 'Роял' not in page.locator('#achievementList').inner_text()
@@ -122,11 +144,14 @@ def test_one_failed_section_does_not_blank_the_profile(profile_page):
     data['/api/profile/missions'] = None
     data['/api/profile/hands'] = None
     page.goto(server + '/static/profile.html')
+    page.get_by_role('tab', name='Профиль Poker', exact=True).click()
     expect(page.locator('#missionsError')).to_contain_text('Не удалось загрузить')
     expect(page.locator('#statsGrid')).to_contain_text('148,5')
     expect(page.locator('#achievementList > :visible')).to_have_count(6)
-    page.get_by_role('tab', name='Операции').click()
-    expect(page.locator('#ledger')).to_contain_text('Начисление')
+    page.locator('#cashModeTab').click()
+    page.get_by_role('tab', name='POKER', exact=True).click()
+    expect(page.locator('#pokerHistory')).to_contain_text('Начисление')
+    expect(page.locator('#pokerHistory')).to_contain_text('Расчёт раздачи')
 
 
 def test_empty_stats_are_not_presented_as_a_measured_winrate(profile_page):
@@ -135,10 +160,11 @@ def test_empty_stats_are_not_presented_as_a_measured_winrate(profile_page):
                                      sessions=0, days_played=0, best_day=None, worst_day=None)
     data['/api/profile']['active_table_id'] = None
     page.goto(server + '/static/profile.html#topup')
+    page.locator('#playModeTab').click()
     expect(page.locator('#statsEmpty')).to_be_visible()
     expect(page.locator('#statBbPer100')).to_have_text('—')
     expect(page.locator('#returnToTable')).to_be_hidden()
-    expect(page.locator('#topup')).to_contain_text('Пополнение пока недоступно')
+    expect(page.locator('#topupNote')).to_be_empty()
 
 
 def test_enabled_topup_keeps_working_without_random_uuid(profile_page):
@@ -146,6 +172,7 @@ def test_enabled_topup_keeps_working_without_random_uuid(profile_page):
     data['/api/config']['self_top_up_enabled'] = True
     page.add_init_script("Object.defineProperty(Crypto.prototype, 'randomUUID', {value: undefined})")
     page.goto(server + '/static/profile.html#topup')
+    page.locator('#playModeTab').click()
     expect(page.locator('#topupAmount')).to_be_visible()
     page.locator('#topupAmount').fill('250')
     page.get_by_role('button', name='Пополнить', exact=True).click()
@@ -168,7 +195,7 @@ def test_login_failure_finishes_loading_and_offers_no_active_controls(profile_pa
     page, data, _, server = profile_page
     data['/api/profile'] = None
     page.goto(server + '/static/profile.html')
-    expect(page.locator('#profileError')).to_contain_text('Профиль не загрузился')
+    expect(page.locator('#profileError')).to_contain_text('Профиль временно недоступен')
     expect(page.locator('[aria-busy="true"]')).to_have_count(0)
     expect(page.locator('#profileLoading')).to_be_hidden()
     expect(page.locator('#topupAmount')).to_be_hidden()

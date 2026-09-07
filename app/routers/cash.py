@@ -79,6 +79,11 @@ async def wallet(request: Request, user: AuthenticatedUser = Depends(get_cash_us
     return await request.app.state.cash_wallet.get(user.user_id)
 
 
+@router.get("/operations")
+async def operations(request: Request, user: AuthenticatedUser = Depends(get_cash_user)):
+    return {"entries": await request.app.state.cash_wallet.operations(user.user_id)}
+
+
 @router.get("/referral")
 async def referral(request: Request, user: AuthenticatedUser = Depends(get_cash_user)):
     """The player's own code, their group, and what it has earned so far.

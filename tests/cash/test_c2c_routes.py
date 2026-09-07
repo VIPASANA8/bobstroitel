@@ -15,6 +15,7 @@ def test_all_user_cash_routes_use_cash_identity_gate():
         # a session that may not touch money in the first place.
         "/api/cash/break",
         "/api/cash/wallet",
+        "/api/cash/operations",
         # A referrer reads their own code and their own group, nobody else's.
         "/api/cash/referral",
         "/api/cash/deposits", "/api/cash/deposits/{deposit_id}",

@@ -60,7 +60,7 @@ def test_the_rows_say_something():
     for title in ("Выигрыш в POKER", "Проигрыш в POKER", "Пополнение", "Вывод средств"):
         assert title in JS, title
     assert "LEDGER_KINDS" in JS
-    assert "row.kind !== 'settlement'" in JS
+    assert "representedHands.has(row.reference_id)" in JS
     assert "Тренировочные фишки" in JS
 
 
@@ -116,6 +116,7 @@ def test_product_entries_open_the_matching_profile_context():
     assert "/static/profile.html?app=poker" in lobby
     assert "/static/profile.html?app=cube" in cube
     assert "/static/profile.html?app=cube#cash" in cube_js
+    assert "setAttribute('aria-label', product === 'cube' ? 'Вернуться в CUBE' : 'Вернуться в лобби')" in JS
 
 
 def test_cube_context_reuses_cashier_layout_with_cube_tokens():
