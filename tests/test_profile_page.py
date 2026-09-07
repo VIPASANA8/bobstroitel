@@ -3,6 +3,7 @@ from pathlib import Path
 HTML = Path("static/profile.html").read_text(encoding="utf-8")
 JS = Path("static/profile.js").read_text(encoding="utf-8")
 CSS = Path("static/profile.css").read_text(encoding="utf-8")
+CUBE_CSS = Path("static/cube.css").read_text(encoding="utf-8")
 
 
 def test_profile_page_has_wallet_history_and_return_slot():
@@ -26,6 +27,7 @@ def test_history_belongs_only_to_the_shared_cashier():
     for name in ("Общее", "CUBE", "POKER", "Операции"):
         assert f'>{name}</button>' in cash_half
     assert 'aria-label="Тип истории"' not in poker_half
+    assert "$('allHistoryPanel').setAttribute('aria-busy', 'false')" in JS
 
 
 def test_the_page_actually_has_a_stylesheet():
@@ -117,3 +119,9 @@ def test_cube_context_reuses_cashier_layout_with_cube_tokens():
     assert ".profile-page.cube-context" in CSS
     assert "--accent:#c8ff31" in CSS.replace(" ", "")
     assert ".cube-profile-empty{" in CSS
+
+
+def test_cube_page_chrome_owns_the_tokens_used_by_its_profile_link():
+    cube_page_rule = CUBE_CSS[CUBE_CSS.index(".cube-page{"):CUBE_CSS.index("}", CUBE_CSS.index(".cube-page{"))]
+    for token in ("--lime:", "--panel:", "--line:"):
+        assert token in cube_page_rule

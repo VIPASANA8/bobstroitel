@@ -283,6 +283,7 @@
     render('pokerHistory', row => row.category === 'poker', 'Раздач в POKER пока нет.');
     render('operationsHistory', row => row.category === 'operation', 'Пополнений и выводов пока нет.');
     $('showCashHistory').hidden = rows.length <= 5;
+    $('allHistoryPanel').setAttribute('aria-busy', 'false');
   }
 
   // Set from the profile payload; only ever non-null while the player is out
