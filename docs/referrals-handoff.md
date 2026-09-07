@@ -8,7 +8,7 @@
 (worktree `C:\project\poker\.claude\worktrees\poker-stop-server-md-9779a2`).
 В `main` **не влито и на прод не выкачено**.
 
-Обновлено: 2026-09-07, после добавления Poker RevShare.
+Обновлено: 2026-09-07, после Poker RevShare и правки курсора расчёта.
 
 ## Что сделано
 
@@ -44,7 +44,7 @@ python -m pytest -q
   сходимость суммы с `state.rake`;
 * весь прежний набор тестов проекта — движок и escrow не сломаны.
 
-**Не проверено:** `tests/cash/test_referrals.py` — 30 тестов на БД (привязка,
+**Не проверено:** `tests/cash/test_referrals.py` — 31 тест на БД (привязка,
 идемпотентность, hold и релиз, реверс, разделение Poker/Cube, carryover
 партнёра, сходимость ledger). Они помечены `postgres` и по умолчанию отключены
 (`pytest.ini`), а поднять сервис не вышло: движок Docker Desktop не запустился,
