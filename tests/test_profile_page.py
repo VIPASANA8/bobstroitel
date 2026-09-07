@@ -6,8 +6,26 @@ CSS = Path("static/profile.css").read_text(encoding="utf-8")
 
 
 def test_profile_page_has_wallet_history_and_return_slot():
-    for element_id in ("profileName", "levelProgress", "walletBalance", "handHistory", "returnToTable"):
+    for element_id in ("profileName", "levelProgress", "walletBalance", "cashHistory", "returnToTable"):
         assert f'id="{element_id}"' in HTML
+
+
+def test_profile_supports_poker_and_cube_contexts():
+    for element_id in (
+        "brandLogo", "backToProduct", "cashModeLabel", "profileModeLabel",
+        "pokerProfile", "cubeProfile", "cashHistory",
+    ):
+        assert f'id="{element_id}"' in HTML
+    assert "Профиль CUBE пока пуст" in HTML
+
+
+def test_history_belongs_only_to_the_shared_cashier():
+    cash_half = HTML[HTML.index('id="cashSection"'):]
+    poker_half = HTML[HTML.index('id="pokerProfile"'):HTML.index('id="cashSection"')]
+    assert 'aria-label="История кассы"' in cash_half
+    for name in ("Общее", "CUBE", "POKER", "Операции"):
+        assert f'>{name}</button>' in cash_half
+    assert 'aria-label="Тип истории"' not in poker_half
 
 
 def test_the_page_actually_has_a_stylesheet():

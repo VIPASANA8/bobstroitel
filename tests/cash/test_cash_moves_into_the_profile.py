@@ -57,11 +57,19 @@ def test_the_profile_separates_the_money_from_the_game():
     assert 'aria-controls="cashSection"' in PROFILE
     # The cashier's own controls sit inside that half of the page.
     cash_half = PROFILE[PROFILE.index('id="cashSection"'):]
-    for element_id in ("cashDeposit", "cashWithdraw", "cashHandHistory"):
+    for element_id in ("cashDeposit", "cashWithdraw", "cashHistory"):
         assert f'id="{element_id}"' in cash_half, element_id
     # ...and the practice history stays out of it.
     assert 'id="handHistory"' not in cash_half
     assert 'id="ledger"' not in cash_half
+
+
+def test_the_cashier_owns_one_shared_four_way_history():
+    cash_half = PROFILE[PROFILE.index('id="cashSection"'):]
+    for element_id in ("allHistory", "cubeHistory", "pokerHistory", "operationsHistory"):
+        assert f'id="{element_id}"' in cash_half
+    assert 'id="handHistory"' not in PROFILE
+    assert 'id="ledger"' not in PROFILE
 
 
 def test_the_deposit_sheet_belongs_to_the_phone_and_only_the_phone():

@@ -16,16 +16,17 @@
   <a class="skip-link" href="#profileMain">К профилю</a>
   <div class="profile-shell">
     <header class="profile-header">
-      <a class="profile-back" href="/" aria-label="Вернуться в лобби"><svg class="ui-arrow" viewBox="0 0 16 16" aria-hidden="true"><path d="M12.5 8h-9M7 3.5 2.5 8 7 12.5"/></svg> В лобби</a>
-      <a class="brand-word" href="/" aria-label="Poker, лобби">poker<i aria-hidden="true">♠</i></a>
+      <a id="backToProduct" class="profile-back" href="/" aria-label="Вернуться в лобби"><svg class="ui-arrow" viewBox="0 0 16 16" aria-hidden="true"><path d="M12.5 8h-9M7 3.5 2.5 8 7 12.5"/></svg> <span id="backToProductLabel">В лобби</span></a>
+      <a id="brandLogo" class="brand-word" href="/static/profile.html?app=cube#cash" aria-label="Переключиться на CUBE">poker<i aria-hidden="true">♠</i></a>
     </header>
     <main id="profileMain">
       <nav class="profile-modes lobby-modes" role="tablist" aria-label="Разделы профиля" hidden>
-        <button id="cashModeTab" class="mode-tab" type="button" role="tab" aria-selected="false" aria-controls="cashSection" tabindex="-1" hidden>CASH-касса <small>$$$</small></button>
-        <button id="playModeTab" class="mode-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="playSection">Профиль</button>
+        <button id="cashModeTab" class="mode-tab" type="button" role="tab" aria-selected="false" aria-controls="cashSection" tabindex="-1" hidden><span id="cashModeLabel">CASH-касса</span> <small>$$$</small></button>
+        <button id="playModeTab" class="mode-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="playSection"><span id="profileModeLabel">Профиль Poker</span></button>
       </nav>
 
       <div id="playSection" role="tabpanel" aria-labelledby="playModeTab" tabindex="0">
+      <div id="pokerProfile">
       <section class="profile-hero" aria-labelledby="profileName" aria-busy="true">
         <div class="player-identity">
           <div class="player-avatar" aria-hidden="true"><span id="avatarInitials">♠</span><i>♠</i></div>
@@ -94,22 +95,13 @@
           <button id="showAchievements" class="disclosure-button" type="button" aria-expanded="false" aria-controls="achievementList" hidden>Все достижения <span aria-hidden="true">↓</span></button>
           <p id="achievementsError" class="profile-error" role="status" hidden></p>
         </section>
-        <section class="profile-section activity-section" aria-labelledby="activityHeading">
-          <div class="profile-section-heading"><h2 id="activityHeading">История</h2><span class="section-caption">Тренировочные фишки</span></div>
-          <div class="history-tabs" role="tablist" aria-label="Тип истории">
-            <button id="handsTab" type="button" role="tab" aria-selected="true" aria-controls="handsPanel">Раздачи</button>
-            <button id="ledgerTab" type="button" role="tab" aria-selected="false" aria-controls="ledgerPanel" tabindex="-1">Операции</button>
-          </div>
-          <div id="handsPanel" role="tabpanel" aria-labelledby="handsTab" tabindex="0" aria-busy="true">
-            <div id="handHistory" class="history-list"><p class="profile-message">Загружаем раздачи…</p></div>
-            <button id="showHands" class="disclosure-button" type="button" aria-expanded="false" aria-controls="handHistory" hidden>Все раздачи <span aria-hidden="true">↓</span></button>
-          </div>
-          <div id="ledgerPanel" role="tabpanel" aria-labelledby="ledgerTab" tabindex="0" aria-busy="true" hidden>
-            <div id="ledger" class="history-list"><p class="profile-message">Загружаем операции…</p></div>
-            <button id="showLedger" class="disclosure-button" type="button" aria-expanded="false" aria-controls="ledger" hidden>Все операции <span aria-hidden="true">↓</span></button>
-          </div>
-        </section>
       </div>
+      </div>
+      <section id="cubeProfile" class="profile-section cube-profile-empty" hidden>
+        <p class="profile-kicker">ПРОФИЛЬ CUBE</p>
+        <h1>Профиль CUBE пока пуст</h1>
+        <p class="section-caption">Здесь появятся данные CUBE, когда для профиля будет определено наполнение.</p>
+      </section>
       </div>
 
       <div id="cashSection" role="tabpanel" aria-labelledby="cashModeTab" tabindex="0" hidden>
@@ -123,12 +115,19 @@
             </div>
             <div class="cash-actions"><button id="cashDeposit" type="button">Пополнить TRC20</button><button id="cashFiatDeposit" type="button">Пополнить ₽ P2P</button><button id="cashWithdraw" type="button">Вывести USDT</button></div>
           </section>
-          <section class="profile-section activity-section" aria-labelledby="cashActivityHeading">
-            <div class="profile-section-heading"><h2 id="cashActivityHeading">История CASH</h2><span class="section-caption">Раздачи за реальные столы</span></div>
-            <div id="cashHandsPanel" aria-busy="true">
-              <div id="cashHandHistory" class="history-list"><p class="profile-message">Загружаем раздачи…</p></div>
-              <button id="showCashHands" class="disclosure-button" type="button" aria-expanded="false" aria-controls="cashHandHistory" hidden>Все раздачи <span aria-hidden="true">↓</span></button>
+          <section id="cashHistory" class="profile-section activity-section" aria-labelledby="cashActivityHeading">
+            <div class="profile-section-heading"><h2 id="cashActivityHeading">История</h2><span class="section-caption">Общий кошелёк Poker и CUBE</span></div>
+            <div class="history-tabs history-tabs-four" role="tablist" aria-label="История кассы">
+              <button id="allHistoryTab" type="button" role="tab" aria-selected="true" aria-controls="allHistoryPanel">Общее</button>
+              <button id="cubeHistoryTab" type="button" role="tab" aria-selected="false" aria-controls="cubeHistoryPanel" tabindex="-1">CUBE</button>
+              <button id="pokerHistoryTab" type="button" role="tab" aria-selected="false" aria-controls="pokerHistoryPanel" tabindex="-1">POKER</button>
+              <button id="operationsHistoryTab" type="button" role="tab" aria-selected="false" aria-controls="operationsHistoryPanel" tabindex="-1">Операции</button>
             </div>
+            <div id="allHistoryPanel" role="tabpanel" aria-labelledby="allHistoryTab" tabindex="0" aria-busy="true"><div id="allHistory" class="history-list"><p class="profile-message">Загружаем историю…</p></div></div>
+            <div id="cubeHistoryPanel" role="tabpanel" aria-labelledby="cubeHistoryTab" tabindex="0" hidden><div id="cubeHistory" class="history-list"></div></div>
+            <div id="pokerHistoryPanel" role="tabpanel" aria-labelledby="pokerHistoryTab" tabindex="0" hidden><div id="pokerHistory" class="history-list"></div></div>
+            <div id="operationsHistoryPanel" role="tabpanel" aria-labelledby="operationsHistoryTab" tabindex="0" hidden><div id="operationsHistory" class="history-list"></div></div>
+            <button id="showCashHistory" class="disclosure-button" type="button" aria-expanded="false" aria-controls="cashHistory" hidden>Вся история <span aria-hidden="true">↓</span></button>
           </section>
         </div>
       </div>
