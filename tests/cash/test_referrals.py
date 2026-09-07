@@ -12,14 +12,16 @@ import pytest
 from sqlalchemy import func, select
 
 from cash.cube import CUBE_ACCOUNT
+from cash.game import RAKE_ACCOUNT
 from cash.holds import take_a_break
 from cash.referrals import bind, code_for, summary
 from cash.settlement import (
     BASE_BPS, BOOST_BPS, CashSettlements, PARTNER_PAYABLE, REFERRAL_PENDING,
 )
+from online.catalogue import CASH_USDT
 from online.schema import (
-    cash_accounts, cash_transactions, cube_adjustments, cube_rounds, partner_settlements,
-    partner_shares, referral_settlements, referrals, users,
+    cash_accounts, cash_transactions, cube_adjustments, cube_rounds, hand_players, hands,
+    partner_settlements, partner_shares, poker_tables, referral_settlements, referrals, users,
 )
 
 pytestmark = [pytest.mark.anyio, pytest.mark.postgres]
@@ -61,6 +63,36 @@ async def play(factory, user_id, *, house_micros, at=NOON):
                 stake_micros=stake, selected="1,2", roll=1, payout_micros=payout,
                 created_at=at,
             ))
+
+
+async def deal(factory, rake_by_user, *, at=NOON, hand_id="h-1", asset=CASH_USDT):
+    """A finished hand where the house kept this much rake off each player.
+
+    Which player's money the rake came out of is worked out by the engine and
+    written at settlement (`hand_players.rake_micros`); here it is simply given.
+    """
+    table_id = f"table-{asset}"
+    async with factory() as session:
+        async with session.begin():
+            exists = await session.scalar(select(poker_tables.c.id).where(
+                poker_tables.c.id == table_id,
+            ))
+            if exists is None:
+                await session.execute(poker_tables.insert().values(
+                    id=table_id, tenant_id="tenant", scope="network", asset=asset,
+                    name=table_id, small_blind_units=5, big_blind_units=10,
+                    chip_micros=100_000, min_buy_in_bb=40, max_buy_in_bb=200,
+                    rake_bps=1_000,
+                ))
+            await session.execute(hands.insert().values(
+                id=hand_id, table_id=table_id, revision_started=1, button_seat=0,
+                board_json=[], completed_at=at, terminal=True,
+            ))
+            await session.execute(hand_players.insert(), [
+                {"hand_id": hand_id, "participant_id": user_id, "user_id": user_id,
+                 "seat_no": index, "position": "BB", "rake_micros": rake}
+                for index, (user_id, rake) in enumerate(rake_by_user.items())
+            ])
 
 
 async def balance(factory, reference_id):
@@ -246,10 +278,90 @@ async def test_an_internal_referrer_is_skipped_by_the_settlement(cash_db):
     assert await service(cash_db).settle_cube_day(DAY) == []
 
 
-async def test_poker_hands_are_not_cube_and_do_not_move_the_carryover(cash_db):
-    """Nothing but `cube_rounds` feeds the Cube side. A rake-funded reward is a
-    second source with its own settlements, and it does not exist yet."""
+async def test_a_rake_paying_referral_earns_its_referrer_out_of_the_rake(cash_db):
     await link(cash_db, user_id="bob", code=await code_of(cash_db, "alice"))
+    await deal(cash_db, {"bob": 100 * USDT})
+
+    written = await service(cash_db).settle_poker_day(DAY)
+
+    assert len(written) == 1
+    row = [row for row in await settlements_of(cash_db, "alice")
+           if row["source"] == "poker"][0]
+    assert row["gross_micros"] == 100 * USDT
+    assert row["amount_micros"] == 15 * USDT
+    # Poker rewards come out of the rake the house kept, never out of Cube.
+    assert await balance(cash_db, RAKE_ACCOUNT) == -15 * USDT
+    assert await balance(cash_db, CUBE_ACCOUNT) == 0
+    assert await balance(cash_db, REFERRAL_PENDING) == 15 * USDT
+
+
+async def test_a_losing_cube_group_cannot_eat_a_poker_reward(cash_db):
+    """Two incomes, two carryover chains. Rake is never negative, so a Poker
+    day is a reward or nothing -- and a Cube debt is not paid off with it."""
+    await link(cash_db, user_id="bob", code=await code_of(cash_db, "alice"))
+    await play(cash_db, "bob", house_micros=-500 * USDT)
+    await deal(cash_db, {"bob": 100 * USDT})
+    settlements = service(cash_db)
+
+    await settlements.settle_cube_day(DAY)
+    await settlements.settle_poker_day(DAY)
+
+    rows = {row["source"]: row for row in await settlements_of(cash_db, "alice")}
+    assert rows["cube"]["carryover_after_micros"] == -500 * USDT
+    assert rows["cube"]["amount_micros"] == 0
+    assert rows["poker"]["carryover_before_micros"] == 0
+    assert rows["poker"]["amount_micros"] == 15 * USDT
+
+
+async def test_rake_from_a_play_table_is_not_income(cash_db):
+    await link(cash_db, user_id="bob", code=await code_of(cash_db, "alice"))
+    await deal(cash_db, {"bob": 100 * USDT}, asset="PLAY")
+
+    assert await service(cash_db).settle_poker_day(DAY) == []
+
+
+async def test_the_partner_shares_cube_only_and_never_the_poker_cost(cash_db):
+    await set_share(cash_db, effective_from=date(2026, 1, 1), share_bps=5_000)
+    await link(cash_db, user_id="bob", code=await code_of(cash_db, "alice"))
+    await play(cash_db, "bob", house_micros=100 * USDT)
+    await deal(cash_db, {"bob": 200 * USDT})
+    settlements = service(cash_db, now=lambda: datetime(2026, 4, 5, tzinfo=timezone.utc))
+    await settlements.settle_cube_day(DAY)
+    await settlements.settle_poker_day(DAY)
+
+    await settlements.settle_partner_periods(date(2026, 4, 4))
+
+    month = [row for row in await partner_rows(cash_db, "month")
+             if row["period_start"] == date(2026, 3, 1)][0]
+    # Cube's 100 and its own 15 of referral cost. The rake, and the 30 the
+    # rake paid a referrer, are Poker's and appear nowhere here.
+    assert month["gross_micros"] == 100 * USDT
+    assert month["referral_cost_micros"] == 15 * USDT
+    assert month["amount_micros"] == 42_500_000
+
+
+async def test_the_first_cash_hand_starts_the_boosted_period_too(cash_db):
+    await link(cash_db, user_id="bob", code=await code_of(cash_db, "alice"))
+    await deal(cash_db, {"bob": 10 * USDT}, at=NOON)
+    later = NOON + timedelta(days=40)
+    await deal(cash_db, {"bob": 100 * USDT}, at=later, hand_id="h-late")
+
+    settlements = service(cash_db, now=lambda: later + timedelta(days=1))
+    await settlements.settle_poker_day(DAY)
+    await settlements.settle_poker_day(later.date())
+
+    first, second = [row for row in await settlements_of(cash_db, "alice")
+                     if row["source"] == "poker"]
+    assert first["amount_micros"] == 15 * USDT // 10
+    assert second["breakdown_json"][0]["rate_bps"] == BASE_BPS
+    assert second["amount_micros"] == 5 * USDT
+
+
+async def test_poker_hands_are_not_cube_and_do_not_move_the_carryover(cash_db):
+    """Nothing but `cube_rounds` feeds the Cube side, and nothing but rake
+    feeds Poker's. Neither carryover chain can see the other."""
+    await link(cash_db, user_id="bob", code=await code_of(cash_db, "alice"))
+    await deal(cash_db, {"bob": 100 * USDT})
 
     assert await service(cash_db).settle_cube_day(DAY) == []
     async with cash_db() as session:

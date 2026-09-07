@@ -15,9 +15,9 @@ of them true:
 
 Poker and Cube are settled apart and never touch: Poker's income is rake the
 house actually kept, Cube's is what the house won, and the partner's share is
-Cube's alone. Only the Cube half is implemented here -- see
-docs/referrals-and-profit-share.md for what Poker still needs before its half
-can be honest, and why what is missing is data and not arithmetic.
+Cube's alone. Both are settled here, by the same arithmetic over different
+money, into rows that never mix -- a Poker reward cannot cover a Cube loss and
+a Cube reward is never paid out of rake.
 """
 from __future__ import annotations
 
@@ -31,11 +31,13 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 
 from cash.cube import CUBE_ACCOUNT
+from cash.game import RAKE_ACCOUNT
 from cash.holds import CashUserFrozen, assert_not_frozen
 from cash.ledger import CashLedger
+from online.catalogue import CASH_USDT
 from online.schema import (
-    cash_accounts, cube_adjustments, cube_rounds, partner_settlements, partner_shares,
-    referral_settlements, referrals, users,
+    cash_accounts, cube_adjustments, cube_rounds, hand_players, hands, partner_settlements,
+    partner_shares, poker_tables, referral_settlements, referrals, users,
 )
 
 
@@ -211,6 +213,7 @@ class CashSettlements:
         settled = 0
         for day in await self._pending_days(today):
             settled += len(await self.settle_cube_day(day))
+            settled += len(await self.settle_poker_day(day))
         released = await self.release_due()
         partner = len(await self.settle_partner_periods(today - timedelta(days=1)))
         return {
@@ -223,11 +226,19 @@ class CashSettlements:
         yesterday = today - timedelta(days=1)
         async with self.sessions() as session:
             last = await session.scalar(select(func.max(referral_settlements.c.period_start)))
-            first_round = await session.scalar(select(func.min(cube_rounds.c.created_at)))
-        if first_round is None:
+            first_played = min(
+                (_aware(stamp) for stamp in (
+                    await session.scalar(select(func.min(cube_rounds.c.created_at))),
+                    await session.scalar(select(func.min(hands.c.completed_at)).select_from(
+                        hands.join(poker_tables, poker_tables.c.id == hands.c.table_id)
+                    ).where(poker_tables.c.asset == CASH_USDT)),
+                ) if stamp is not None),
+                default=None,
+            )
+        if first_played is None:
             return []
         start = (
-            _aware(first_round).date() if last is None
+            first_played.date() if last is None
             else _as_date(last) + timedelta(days=1)
         )
         # A day nobody earned anything on writes no row, so `last` does not
@@ -246,24 +257,57 @@ class CashSettlements:
             async with session.begin():
                 await self._activate(session, end)
             groups = await self._contributions(session, start, end)
+        return await self._settle_groups(groups, day, "cube")
+
+    async def settle_poker_day(self, day: date) -> list[str]:
+        """The same, over rake the house actually kept off each referral.
+
+        A separate settlement with its own carryover chain, because it is a
+        separate income: rake is never negative, so a Poker day can only be
+        zero or a reward, and a losing Cube group can never eat it.
+        """
+        start = datetime.combine(day, time.min, tzinfo=timezone.utc)
+        end = start + timedelta(days=1)
+        async with self.sessions() as session:
+            async with session.begin():
+                await self._activate(session, end)
+            groups = await self._rake_contributions(session, start, end)
+        return await self._settle_groups(groups, day, "poker")
+
+    async def _settle_groups(self, groups, day: date, source: str) -> list[str]:
         written = []
         for referrer_id, contributions in sorted(groups.items()):
-            settlement_id = await self._settle_group(referrer_id, day, contributions)
+            settlement_id = await self._settle_group(referrer_id, day, contributions, source)
             if settlement_id:
                 written.append(settlement_id)
         return written
 
     async def _activate(self, session, before: datetime) -> None:
-        """Start the boosted period at the first real-money round, not signup."""
+        """Start the boosted period at the first real-money play, not signup.
+
+        Two statements rather than one LEAST, so the same code runs on SQLite
+        where the tests without money live.
+        """
         first_round = select(func.min(cube_rounds.c.created_at)).where(
             cube_rounds.c.user_id == referrals.c.user_id,
             cube_rounds.c.created_at < before,
         ).scalar_subquery()
-        # ponytail: Cube only, because Poker has no real-money volume yet. When
-        # cash tables open, the first cash hand counts here too -- one LEAST().
+        first_hand = select(func.min(hands.c.completed_at)).select_from(
+            hands.join(hand_players, hand_players.c.hand_id == hands.c.id)
+            .join(poker_tables, poker_tables.c.id == hands.c.table_id)
+        ).where(
+            hand_players.c.user_id == referrals.c.user_id,
+            poker_tables.c.asset == CASH_USDT,
+            hands.c.completed_at.is_not(None),
+            hands.c.completed_at < before,
+        ).scalar_subquery()
         await session.execute(update(referrals).where(
             referrals.c.activated_at.is_(None),
         ).values(activated_at=first_round))
+        await session.execute(update(referrals).where(
+            first_hand.is_not(None),
+            (referrals.c.activated_at.is_(None)) | (referrals.c.activated_at > first_hand),
+        ).values(activated_at=first_hand))
 
     async def _contributions(self, session, start: datetime, end: datetime):
         rows = (await session.execute(
@@ -293,14 +337,49 @@ class CashSettlements:
             group[key] = group.get(key, 0) + int(row["pnl"])
         return groups
 
-    async def _settle_group(self, referrer_id: str, day: date, contributions) -> str | None:
+    async def _rake_contributions(self, session, start: datetime, end: datetime):
+        """What the house kept off each referral at the cash tables that day.
+
+        Only the rake, and only the part of it attributed to that player's own
+        money at settlement time. A pot lost to another player is that player's
+        win, not the project's income, and never appears here.
+        """
+        rows = (await session.execute(
+            select(
+                referrals.c.referrer_id, referrals.c.user_id, referrals.c.activated_at,
+                hands.c.completed_at, hand_players.c.rake_micros,
+            ).select_from(
+                hand_players
+                .join(hands, hands.c.id == hand_players.c.hand_id)
+                .join(poker_tables, poker_tables.c.id == hands.c.table_id)
+                .join(referrals, referrals.c.user_id == hand_players.c.user_id)
+                .join(users, users.c.id == referrals.c.referrer_id)
+            ).where(
+                hands.c.completed_at >= start,
+                hands.c.completed_at < end,
+                poker_tables.c.asset == CASH_USDT,
+                hand_players.c.rake_micros > 0,
+                users.c.internal.is_(False),
+            )
+        )).mappings().all()
+        groups: dict[str, dict[tuple[str, int], int]] = {}
+        for row in rows:
+            rate = rate_for(row["completed_at"], row["activated_at"])
+            group = groups.setdefault(row["referrer_id"], {})
+            key = (row["user_id"], rate)
+            group[key] = group.get(key, 0) + int(row["rake_micros"])
+        return groups
+
+    async def _settle_group(
+        self, referrer_id: str, day: date, contributions, source: str = "cube",
+    ) -> str | None:
         async with self.sessions() as session:
             async with session.begin():
                 later = await session.scalar(select(func.count()).select_from(
                     referral_settlements
                 ).where(
                     referral_settlements.c.referrer_id == referrer_id,
-                    referral_settlements.c.source == "cube",
+                    referral_settlements.c.source == source,
                     referral_settlements.c.period_start >= day,
                 ))
                 if later:
@@ -311,7 +390,7 @@ class CashSettlements:
                     referral_settlements.c.carryover_after_micros
                 ).where(
                     referral_settlements.c.referrer_id == referrer_id,
-                    referral_settlements.c.source == "cube",
+                    referral_settlements.c.source == source,
                     referral_settlements.c.period_start < day,
                 ).order_by(referral_settlements.c.period_start.desc()).limit(1))
                 plan = plan_group(
@@ -323,7 +402,7 @@ class CashSettlements:
                 paid = plan.amount_micros > 0
                 try:
                     await session.execute(referral_settlements.insert().values(
-                        id=settlement_id, referrer_id=referrer_id, source="cube",
+                        id=settlement_id, referrer_id=referrer_id, source=source,
                         period_start=day, gross_micros=plan.gross_micros,
                         carryover_before_micros=plan.carryover_before_micros,
                         carryover_after_micros=plan.carryover_after_micros,
@@ -336,13 +415,16 @@ class CashSettlements:
                         created_at=now,
                     ))
                     if paid:
+                        # Each source funds its own rewards: Cube out of what
+                        # Cube won, Poker out of the rake it actually took.
+                        funding = CUBE_ACCOUNT if source == "cube" else RAKE_ACCOUNT
                         await self.ledger.post(
                             session, scope="referral",
-                            key=f"cube:{referrer_id}:{day.isoformat()}",
+                            key=f"{source}:{referrer_id}:{day.isoformat()}",
                             kind="referral_reward", reference_id=settlement_id,
                             actor="system:referral-settlement",
                             postings={
-                                await _account(session, "clearing", None, CUBE_ACCOUNT):
+                                await _account(session, "clearing", None, funding):
                                     -plan.amount_micros,
                                 await _account(session, "clearing", None, REFERRAL_PENDING):
                                     plan.amount_micros,
@@ -419,12 +501,14 @@ class CashSettlements:
                 if row is None or row["status"] != "pending" or not row["amount_micros"]:
                     return False
                 amount = int(row["amount_micros"])
+                # Back where it came from: Cube's own book, or the rake.
+                funding = CUBE_ACCOUNT if row["source"] == "cube" else RAKE_ACCOUNT
                 await self.ledger.post(
                     session, scope="referral", key=f"reverse:{settlement_id}",
                     kind="referral_reversal", reference_id=settlement_id, actor=actor,
                     postings={
                         await _account(session, "clearing", None, REFERRAL_PENDING): -amount,
-                        await _account(session, "clearing", None, CUBE_ACCOUNT): amount,
+                        await _account(session, "clearing", None, funding): amount,
                     },
                 )
                 await session.execute(update(referral_settlements).where(

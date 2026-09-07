@@ -81,6 +81,11 @@ class GameState:
     # Chips the house kept out of the pots this hand. Zero on every PLAY table
     # and in float mode; only an exact-chip table with a rake ever sets it.
     rake: ChipAmount = 0
+    # The same chips, by the player they were taken off. The rake of a pot is
+    # charged on what its winners took from the others, so it is the others
+    # who paid it -- and a referral share of the rake has to know whose play
+    # earned it. Always adds up to `rake`.
+    rake_by_player: dict[str, ChipAmount] = field(default_factory=dict)
 
     winner: Optional[str] = None
     winners: list[str] = field(default_factory=list)

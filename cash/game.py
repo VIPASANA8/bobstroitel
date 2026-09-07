@@ -498,6 +498,10 @@ class CashGameService:
         starts = {row["participant_id"]: row["start_stack_micros"] for row in rows}
         ends = {pid: player.stack * chip for pid, player in state.players.items()}
         rake_micros = state.rake * chip
+        # Whose money the house kept, in the same micros. A referral share of
+        # Poker income is a share of this, so it has to be exact and it has to
+        # be written now -- the pot layers it came off are gone after this.
+        rake_by_player = {pid: value * chip for pid, value in state.rake_by_player.items()}
         # The hand is no longer zero-sum: what leaves the seats has to equal
         # what the players kept plus what the house took, and the rake is
         # posted inside this same transaction so the daily reconciliation and
@@ -508,6 +512,10 @@ class CashGameService:
             or sum(starts.values()) != sum(ends.values()) + rake_micros
         ):
             return "cash escrow invariant failed: hand did not conserve exact chips"
+        if sum(rake_by_player.values()) != rake_micros or any(
+            value < 0 or participant not in starts for participant, value in rake_by_player.items()
+        ):
+            return "cash escrow invariant failed: rake attribution does not add up"
         postings = {}
         for participant_id in state.seat_order:
             seat = by_user[participant_id]
@@ -540,6 +548,7 @@ class CashGameService:
                 hand_players.c.participant_id == participant_id,
             ).values(
                 end_stack_micros=end, net_micros=end - starts[participant_id],
+                rake_micros=rake_by_player.get(participant_id, 0),
                 hole_cards_json=list(player.hole_cards), shown=not player.folded,
                 folded=player.folded,
             ))

@@ -496,12 +496,48 @@ class PokerEngine:
             previous = level
         return pots
 
+    def _charge_rake(self, state: GameState, amount, weights: dict) -> None:
+        """Book rake against the players whose money it was taken out of.
+
+        `weights` is what each of them put into the raked pot. Largest
+        remainder, ties by player id, so the same hand always splits the same
+        way and the parts add back up to `amount` exactly -- the settlement
+        checks that sum against the rake it posts to the house.
+
+        Float tables never get here: `_rake` returns zero without exact chips.
+        """
+        if not amount or not weights:
+            return
+        total = sum(weights.values())
+        shares = {}
+        remainders = []
+        assigned = 0
+        for pid, weight in weights.items():
+            exact = amount * weight
+            part = exact // total
+            shares[pid] = part
+            assigned += part
+            remainders.append((exact - part * total, pid))
+        remainders.sort(key=lambda item: (-item[0], item[1]))
+        for _, pid in remainders[: amount - assigned]:
+            shares[pid] += 1
+        for pid, share in shares.items():
+            if share:
+                state.rake_by_player[pid] = state.rake_by_player.get(pid, 0) + share
+
     def _award_last_player(self, state: GameState):
         self._refund_uncalled_overage(state)
         winner_id = state.live_ids()[0]
         won = state.pot
         rake = self._rake(won - state.players[winner_id].total_invested, state)
         state.rake = rake
+        # Everyone but the winner: the taxable amount is exactly what they put
+        # in, so the rake is shared out in proportion to it.
+        self._charge_rake(state, rake, {
+            pid: player.total_invested for pid, player in state.players.items()
+            if pid != winner_id and player.total_invested > self.EPS
+        })
+        assert sum(state.rake_by_player.values()) == state.rake
         state.players[winner_id].stack += won - rake
         state.winner = winner_id
         state.winners = [winner_id]
@@ -545,6 +581,12 @@ class PokerEngine:
                 own = pot["amount"] // len(pot["contributors"])
                 pot_rake = self._rake(pot["amount"] - own * len(winners), state)
                 state.rake += pot_rake
+                # The taxable amount is what the losers of this layer put into
+                # it, and at one side-pot level everybody put in the same
+                # `own` -- so their shares of its rake are equal too.
+                self._charge_rake(state, pot_rake, {
+                    pid: own for pid in pot["contributors"] if pid not in winners
+                })
                 share, odd = divmod(pot["amount"] - pot_rake, len(winners))
                 clockwise = self._rotate(
                     state.seat_order,
@@ -612,6 +654,9 @@ class PokerEngine:
         # Raising here is safe: the runtime rolls the hand back, pauses the
         # table, and the coordinator refunds and resumes it.
         assert state.rake == raked
+        assert sum(state.rake_by_player.values()) == raked, (
+            f"rake attribution lost chips in hand {state.hand_id}"
+        )
         paid = distributed + raked
         conserved = paid == state.pot if self.exact_chips else abs(paid - state.pot) <= 1e-6
         assert conserved, (

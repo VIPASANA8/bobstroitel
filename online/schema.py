@@ -307,6 +307,10 @@ hand_players = Table(
     Column("folded", Boolean, nullable=False, server_default=text("false")),
     Column("net_units", BIGINT),
     Column("net_micros", BIGINT),
+    # The share of this hand's rake taken out of this player's money. Written
+    # at settlement and never derivable afterwards: the pot layers a hand was
+    # raked over are gone by then. NULL on every hand settled before it existed.
+    Column("rake_micros", BIGINT),
 )
 
 hand_actions = Table(
