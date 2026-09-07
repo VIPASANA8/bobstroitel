@@ -137,6 +137,7 @@
 .history-row.win .history-amount{color:var(--mint)}
 .history-row.loss .history-amount{color:var(--danger)}
 .history-empty{margin:0;padding:24px 0 10px;color:var(--muted);font-size:13px}
+.history-error{margin:10px 0 0;padding:11px 12px;border:1px solid color-mix(in srgb,var(--danger) 38%,var(--line));border-radius:10px;color:var(--danger);font-size:12px}
 .history-list:not(.expanded)>.history-row:nth-child(n+6){display:none}
 .activity-section .disclosure-button{margin-top:0}
 #cashHistory{grid-column:1/-1}

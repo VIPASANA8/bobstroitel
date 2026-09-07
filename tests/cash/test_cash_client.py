@@ -119,6 +119,8 @@ def test_profile_context_and_history_use_shared_sources():
     assert "'/api/cash/operations?limit=100'" in PROFILE_JS
     assert "operationsPayload.entries" in PROFILE_JS
     assert "scope.startsWith('withdrawal-')" in PROFILE_JS
+    assert "loadError: true" in PROFILE_JS
+    assert "Не удалось загрузить часть истории POKER." in PROFILE_JS
 
 
 def _js_keys(source: str, name: str) -> set[str]:

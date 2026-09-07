@@ -37,6 +37,7 @@ def test_the_page_actually_has_a_stylesheet():
     for selector in (
         ".profile-hero", ".profile-level", ".profile-dashboard", ".profile-section",
         ".history-list", ".history-row", ".return-link", ".topup-card",
+        ".history-error",
         ".stats-grid", ".stats-records", ".profile-wallet",
         ".achievement-list", ".achievement", ".achievement-bar",
         ".mission-list", ".mission",

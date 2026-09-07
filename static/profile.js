@@ -311,6 +311,14 @@
     $('allHistoryPanel').setAttribute('aria-busy', 'false');
   }
 
+  function showCashHistoryError(listId, message) {
+    const note = document.createElement('p');
+    note.className = 'history-error';
+    note.setAttribute('role', 'status');
+    note.textContent = message;
+    $(listId).append(note);
+  }
+
   // Set from the profile payload; only ever non-null while the player is out
   // of chips and the faucet is still shut.
   let refillAt = null;
@@ -410,14 +418,24 @@
   }
 
   async function loadCashHistory() {
+    const historyPayload = (url, empty) => json(url).catch(error => {
+      console.error(error);
+      return {...empty, loadError: true};
+    });
     const [cashPokerPayload, playPokerPayload, playJournalPayload, cubePayload, operationsPayload] = await Promise.all([
-      json('/api/profile/hands?limit=20&asset=CASH_USDT').catch(() => ({hands: []})),
-      json('/api/profile/hands?limit=20&asset=PLAY').catch(() => ({hands: []})),
-      json('/api/profile/play-journal?limit=20').catch(() => ({entries: []})),
-      json('/api/cube/history?limit=20').catch(() => ({rounds: []})),
-      json('/api/cash/operations?limit=100').catch(() => ({entries: []})),
+      historyPayload('/api/profile/hands?limit=20&asset=CASH_USDT', {hands: []}),
+      historyPayload('/api/profile/hands?limit=20&asset=PLAY', {hands: []}),
+      historyPayload('/api/profile/play-journal?limit=20', {entries: []}),
+      historyPayload('/api/cube/history?limit=20', {rounds: []}),
+      historyPayload('/api/cash/operations?limit=100', {entries: []}),
     ]);
     renderCashHistory(cashPokerPayload, playPokerPayload, playJournalPayload, cubePayload, operationsPayload);
+    const pokerFailed = cashPokerPayload.loadError || playPokerPayload.loadError || playJournalPayload.loadError;
+    const anyFailed = pokerFailed || cubePayload.loadError || operationsPayload.loadError;
+    if (anyFailed) showCashHistoryError('allHistory', 'Не удалось загрузить часть общей истории.');
+    if (pokerFailed) showCashHistoryError('pokerHistory', 'Не удалось загрузить часть истории POKER.');
+    if (cubePayload.loadError) showCashHistoryError('cubeHistory', 'Не удалось загрузить историю CUBE.');
+    if (operationsPayload.loadError) showCashHistoryError('operationsHistory', 'Не удалось загрузить вводы и выводы.');
   }
 
   async function openCashier() {

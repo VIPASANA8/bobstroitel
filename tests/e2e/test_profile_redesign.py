@@ -152,6 +152,7 @@ def test_one_failed_section_does_not_blank_the_profile(profile_page):
     page.get_by_role('tab', name='POKER', exact=True).click()
     expect(page.locator('#pokerHistory')).to_contain_text('Начисление')
     expect(page.locator('#pokerHistory')).to_contain_text('Расчёт раздачи')
+    expect(page.locator('#pokerHistory')).to_contain_text('Не удалось загрузить часть истории POKER')
 
 
 def test_empty_stats_are_not_presented_as_a_measured_winrate(profile_page):
