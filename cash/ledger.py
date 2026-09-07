@@ -33,7 +33,13 @@ def _identifier(value: str, limit: int) -> None:
 
 class CashLedger:
     ASSET = "CASH_USDT"
-    KINDS = {"deposit", "reserve", "release", "settlement", "payout", "adjustment"}
+    KINDS = {
+        "deposit", "reserve", "release", "settlement", "payout", "adjustment",
+        # Referral and partner money. Each has its own kind rather than one
+        # generic adjustment, so a reward is never read back as a correction.
+        "referral_reward", "referral_release", "referral_reversal",
+        "cube_profit_share", "cube_profit_share_reversal", "cube_adjustment",
+    }
 
     async def post(
         self, session: AsyncSession, *, scope: str, key: str, kind: str,

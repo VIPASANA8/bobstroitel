@@ -37,6 +37,12 @@ class Settings:
     cash_withdrawal_fee_micros: int
     cash_auto_withdrawal_micros: int
     cash_daily_loss_micros: int
+    #: How long a referral reward waits before it is spendable.
+    referral_hold_days: int
+    #: Which cadence actually pays the partner. Both are written down.
+    partner_period: str
+    #: Owners, partners and service accounts: outside the referral programme.
+    internal_telegram_ids: tuple[int, ...]
     cash_allowlist: tuple[int, ...]
     cash_admin_api_key: str
     cash_admin_operators: tuple[dict[str, object], ...]
@@ -146,6 +152,28 @@ class Settings:
             if any(not re.fullmatch(r"T[1-9A-HJ-NP-Za-km-z]{33}", value)
                    for value in (trc20_address, trc20_contract)):
                 raise ValueError("POKER8_CASH_TRC20_ADDRESS and _CONTRACT must be TRON addresses")
+        # A reward that is instantly withdrawable cannot be reversed, and a
+        # chargeback, a correction or a fraud review all land days later.
+        try:
+            referral_hold_days = int(source.get("POKER8_REFERRAL_HOLD_DAYS", "7").strip() or 7)
+        except ValueError as exc:
+            raise ValueError("POKER8_REFERRAL_HOLD_DAYS must be a whole number of days") from exc
+        if not 0 <= referral_hold_days <= 90:
+            raise ValueError("POKER8_REFERRAL_HOLD_DAYS must be between 0 and 90")
+        # Weeks and months are both written to the books; this says which one
+        # moves money. Two paying cadences would share the same profit twice.
+        partner_period = source.get("POKER8_PARTNER_PERIOD", "month").strip().lower()
+        if partner_period not in {"week", "month"}:
+            raise ValueError("POKER8_PARTNER_PERIOD must be week or month")
+        raw_internal = source.get("POKER8_INTERNAL_TELEGRAM_IDS", "").strip()
+        try:
+            internal_telegram_ids = tuple(
+                int(value.strip()) for value in raw_internal.split(",") if value.strip()
+            )
+        except ValueError as exc:
+            raise ValueError("POKER8_INTERNAL_TELEGRAM_IDS must contain Telegram IDs") from exc
+        if any(value <= 0 for value in internal_telegram_ids):
+            raise ValueError("POKER8_INTERNAL_TELEGRAM_IDS must contain positive Telegram IDs")
         raw_cash_allowlist = source.get("POKER8_CASH_ALLOWLIST", "").strip()
         try:
             cash_allowlist = tuple(int(value.strip()) for value in raw_cash_allowlist.split(",") if value.strip())
@@ -269,6 +297,9 @@ class Settings:
             cash_withdrawal_fee_micros=cash_withdrawal_fee_micros,
             cash_auto_withdrawal_micros=cash_auto_withdrawal_micros,
             cash_daily_loss_micros=cash_daily_loss_micros,
+            referral_hold_days=referral_hold_days,
+            partner_period=partner_period,
+            internal_telegram_ids=internal_telegram_ids,
             cash_allowlist=cash_allowlist,
             cash_admin_api_key=cash_admin_api_key,
             cash_admin_operators=cash_admin_operators,

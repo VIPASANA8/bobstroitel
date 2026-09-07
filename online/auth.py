@@ -15,6 +15,7 @@ import httpx
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from cash.referrals import bind as bind_referral
 from online.schema import auth_login_requests, auth_sessions, tenants, user_tenant_visits, users
 
 
@@ -62,6 +63,16 @@ def verify_init_data(init_data: str, bot_token: str, now: int, max_age_seconds: 
     if now - auth_date > max_age_seconds or auth_date > now + 30:
         raise AuthenticationError("Telegram initData expired")
     return user
+
+
+def start_param(init_data: str) -> str | None:
+    """The `start_param` of an initData whose signature already checked out.
+
+    Reading it again from the same verified string is not a second trust
+    decision -- the whole string was signed together, this field included.
+    It is where a referral link that opened the Mini App arrives.
+    """
+    return dict(parse_qsl(init_data, keep_blank_values=True)).get("start_param") or None
 
 
 def app_link(username: str, has_main_web_app: bool) -> str:
@@ -155,6 +166,7 @@ class AuthService:
                 int(telegram_user["id"]),
                 self._display_name(telegram_user),
                 "telegram",
+                referral_code=start_param(init_data),
             )
 
     async def start_login_request(self, tenant_slug: str) -> str:
@@ -308,7 +320,7 @@ class AuthService:
 
     async def _authenticate_identity(
         self, session: AsyncSession, tenant_row, telegram_user_id: int, display_name: str,
-        auth_method: str,
+        auth_method: str, referral_code: str | None = None,
     ) -> AuthResult:
         tenant_slug = tenant_row["slug"]
         now = datetime.fromtimestamp(int(self.now()), tz=timezone.utc)
@@ -329,6 +341,11 @@ class AuthService:
                 updated_at=now,
             ))
             acquisition_slug = tenant_slug
+            # Only here, and only once: a link followed by an account that
+            # already has a history behind it would let somebody claim a player
+            # after the profitable months, which is what `referrals` refuses by
+            # having the user as its primary key.
+            await bind_referral(session, user_id=user_id, code=referral_code, now=now)
         else:
             user_id = user_row["id"]
             acquisition_tenant_id = user_row["acquisition_tenant_id"]

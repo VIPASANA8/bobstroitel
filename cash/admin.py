@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 import hashlib
 import json
 from uuid import uuid4
@@ -21,8 +21,9 @@ from cash.withdrawals import (
 from online.catalogue import CASH_USDT
 from online.schema import (
     cash_accounts, cash_audit_events, cash_deposits, cash_payment_events,
-    cash_fiat_events, cash_fiat_orders, cash_user_holds, cash_withdrawals, cube_rounds,
-    poker_tables, table_runtimes, users,
+    cash_fiat_events, cash_fiat_orders, cash_user_holds, cash_withdrawals, cube_adjustments,
+    cube_rounds, partner_settlements, partner_shares, poker_tables, referral_settlements,
+    referrals, table_runtimes, users,
 )
 
 
@@ -78,11 +79,16 @@ def _mask(value):
 
 
 class CashAdminService:
-    def __init__(self, session_factory, *, ledger=None, executor=None, now=None):
+    def __init__(
+        self, session_factory, *, ledger=None, executor=None, now=None, settlements=None,
+    ):
         self.sessions = session_factory
         self.ledger = ledger or CashLedger()
         self.executor = executor or MockPayoutExecutor()
         self.now = now or (lambda: datetime.now(timezone.utc))
+        # The settlement job, so an operator can take back a reward that has
+        # not been released yet. None where referrals are not wired up.
+        self.settlements = settlements
 
     @staticmethod
     def _require_scope(operator: CashOperator, tenant_id: str | None):
@@ -775,3 +781,165 @@ class CashAdminService:
         return await session.scalar(select(cash_accounts.c.id).where(
             cash_accounts.c.kind == kind, cash_accounts.c.reference_id == reference_id,
         ))
+
+    async def referral_report(self, operator: CashOperator, *, limit: int = 100):
+        """Who earned what, and what their group still owes the house.
+
+        Admin-only for the reason the overview is: the referral books are not
+        split by tenant, because the profit they are paid out of is not.
+        """
+        self._require_scope(operator, None)
+        limit = max(1, min(int(limit), 500))
+        async with self.sessions() as session:
+            rows = (await session.execute(select(referral_settlements).order_by(
+                referral_settlements.c.period_start.desc(),
+                referral_settlements.c.created_at.desc(),
+            ).limit(limit))).mappings().all()
+            totals = dict((await session.execute(select(
+                referral_settlements.c.status,
+                func.coalesce(func.sum(referral_settlements.c.amount_micros), 0),
+            ).group_by(referral_settlements.c.status))).all())
+            groups = (await session.execute(select(
+                referrals.c.referrer_id, func.count().label("invited"),
+            ).group_by(referrals.c.referrer_id).order_by(
+                func.count().desc()
+            ).limit(20))).mappings().all()
+        return {
+            "settlements": [
+                dict(row) | {"amount_usdt": micros_to_usdt(int(row["amount_micros"]))}
+                for row in rows
+            ],
+            "totals_usdt": {
+                status: micros_to_usdt(int(value)) for status, value in totals.items()
+            },
+            "largest_groups": [dict(row) for row in groups],
+        }
+
+    async def partner_report(self, operator: CashOperator):
+        """Cube gross, what referrals cost it, and the share of what is left."""
+        self._require_scope(operator, None)
+        async with self.sessions() as session:
+            rows = (await session.execute(select(partner_settlements).order_by(
+                partner_settlements.c.period_start.desc(),
+            ).limit(60))).mappings().all()
+            shares = (await session.execute(select(partner_shares).order_by(
+                partner_shares.c.effective_from.desc()
+            ))).mappings().all()
+            adjustments = (await session.execute(select(cube_adjustments).order_by(
+                cube_adjustments.c.occurred_on.desc()
+            ).limit(50))).mappings().all()
+        return {
+            "settlements": [
+                dict(row) | {"amount_usdt": micros_to_usdt(int(row["amount_micros"]))}
+                for row in rows
+            ],
+            "shares": [dict(row) for row in shares],
+            "adjustments": [
+                dict(row) | {"amount_usdt": micros_to_usdt(abs(int(row["amount_micros"])))}
+                for row in adjustments
+            ],
+        }
+
+    async def set_partner_share(self, operator, *, effective_from, share_bps, note, reason, key):
+        """Fix the partner's share from a date. It never rewrites a settled period.
+
+        Which is why it is a dated row and not a setting: a share that changed
+        retroactively would change money both sides had already agreed on.
+        """
+        self._require_mutation(operator)
+        self._require_scope(operator, None)
+        effective = date.fromisoformat(str(effective_from))
+        if type(share_bps) is not int or not 0 <= share_bps <= 10_000:
+            raise ValueError("the partner share is basis points between 0 and 10000")
+        async with self.sessions() as session:
+            async with session.begin():
+                replay, fingerprint = await self._claim(
+                    session, operator, key, "partner.share", effective.isoformat(), reason,
+                    {"share_bps": share_bps},
+                )
+                if replay is not None:
+                    return replay
+                settled = await session.scalar(select(func.count()).select_from(
+                    partner_settlements
+                ).where(partner_settlements.c.period_start >= effective))
+                if settled:
+                    raise ValueError("a period on or after this date is already settled")
+                await session.execute(insert(partner_shares).values(
+                    id=uuid4().hex, effective_from=effective, share_bps=share_bps,
+                    note=(note or None),
+                ).on_conflict_do_update(
+                    index_elements=[partner_shares.c.effective_from],
+                    set_={"share_bps": share_bps, "note": (note or None)},
+                ))
+                after = {"effective_from": effective.isoformat(), "share_bps": share_bps}
+                await self._audit(session, operator, None, "partner.share", "partner",
+                                  effective.isoformat(), reason, key, fingerprint, {}, after)
+                return after
+
+    async def record_cube_adjustment(self, operator, *, occurred_on, amount_micros, reason, key):
+        """An agreed expense of Cube, or an agreed correction to one.
+
+        Negative is charged against Cube and lowers what the partner shares in;
+        positive gives it back. It moves no money itself -- the money moved
+        when the fee was paid or the chargeback landed. This is the line in the
+        books that says the movement belonged to Cube and not to Poker or to
+        the company as a whole.
+        """
+        self._require_mutation(operator)
+        self._require_scope(operator, None)
+        occurred = date.fromisoformat(str(occurred_on))
+        if type(amount_micros) is not int or amount_micros == 0:
+            raise ValueError("an adjustment has to move a nonzero amount")
+        if abs(amount_micros) > MAX_ADJUSTMENT_MICROS:
+            raise ValueError(
+                f"one adjustment is capped at {micros_to_usdt(MAX_ADJUSTMENT_MICROS)} USDT"
+            )
+        async with self.sessions() as session:
+            async with session.begin():
+                replay, fingerprint = await self._claim(
+                    session, operator, key, "cube.adjust", occurred.isoformat(), reason,
+                    {"amount_micros": amount_micros},
+                )
+                if replay is not None:
+                    return replay
+                settled = await session.scalar(select(func.count()).select_from(
+                    partner_settlements
+                ).where(partner_settlements.c.period_end >= occurred))
+                if settled:
+                    raise ValueError("the period this day belongs to is already settled")
+                adjustment_id = uuid4().hex
+                await session.execute(cube_adjustments.insert().values(
+                    id=adjustment_id, occurred_on=occurred, amount_micros=amount_micros,
+                    reason=reason.strip(), actor=f"operator:{operator.id}",
+                ))
+                after = {
+                    "id": adjustment_id, "occurred_on": occurred.isoformat(),
+                    "amount_usdt": micros_to_usdt(abs(amount_micros)),
+                    "direction": "credit" if amount_micros > 0 else "charge",
+                }
+                await self._audit(session, operator, None, "cube.adjust", "cube",
+                                  adjustment_id, reason, key, fingerprint, {}, after)
+                return after
+
+    async def reverse_referral(self, settlement_id, operator, *, reason, key):
+        """Take back a reward still inside its hold: fraud, chargeback, error."""
+        self._require_mutation(operator)
+        self._require_scope(operator, None)
+        if self.settlements is None:
+            raise ValueError("referral settlement is not enabled on this deployment")
+        async with self.sessions() as session:
+            async with session.begin():
+                replay, fingerprint = await self._claim(
+                    session, operator, key, "referral.reverse", str(settlement_id), reason, {},
+                )
+                if replay is not None:
+                    return replay
+                await self._audit(session, operator, None, "referral.reverse", "referral",
+                                  str(settlement_id), reason, key, fingerprint, {},
+                                  {"settlement_id": settlement_id})
+        # Outside the audit transaction on purpose: the reversal takes its own
+        # row lock on the settlement and posts its own ledger entry.
+        reversed_now = await self.settlements.reverse(
+            settlement_id, actor=f"operator:{operator.id}",
+        )
+        return {"settlement_id": settlement_id, "reversed": reversed_now}

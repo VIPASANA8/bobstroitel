@@ -10,6 +10,7 @@ from cash.deposits import DepositUnavailable
 from cash.holds import CashUserFrozen, take_a_break
 from cash.fiat_orders import ActiveFiatOrderExists
 from cash.ledger import IdempotencyConflict, InsufficientCash
+from cash.referrals import summary as referral_summary
 from cash.trc20 import TransferEvent
 from cash.withdrawals import ActiveWithdrawalExists
 from cash.withdrawals import WithdrawalStateError
@@ -76,6 +77,26 @@ async def take_break(body: BreakRequest, request: Request,
 @router.get("/wallet")
 async def wallet(request: Request, user: AuthenticatedUser = Depends(get_cash_user)):
     return await request.app.state.cash_wallet.get(user.user_id)
+
+
+@router.get("/referral")
+async def referral(request: Request, user: AuthenticatedUser = Depends(get_cash_user)):
+    """The player's own code, their group, and what it has earned so far.
+
+    `carryover_micros` is shown rather than hidden: a referrer whose group is
+    down and who cannot see it reads an empty payout as a broken feature.
+    """
+    async with request.app.state.session_factory() as session:
+        async with session.begin():
+            data = await referral_summary(session, user.user_id)
+    bots = getattr(request.app.state, "telegram_login_bots", {})
+    host = request.headers.get("host", "").split(":", 1)[0].lower()
+    slug = getattr(request.app.state, "tenant_hosts", {}).get(host)
+    username = (bots.get(slug) or {}).get("username")
+    return {
+        **data,
+        "link": f"https://t.me/{username}?startapp={data['start_payload']}" if username else None,
+    }
 
 
 @router.post("/deposits", status_code=201)

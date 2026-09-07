@@ -4,6 +4,7 @@ import hmac
 
 from fastapi import APIRouter, Header, HTTPException, Request
 
+from cash.referrals import normalise as normalise_referral, start_payload
 from online.auth import AuthenticationError, login_code
 from online.telegram import answer_callback, edit_message, send_message, webhook_secret
 
@@ -20,6 +21,10 @@ WELCOME = (
     "или в мини-приложении."
 )
 STALE = "Ссылка для входа устарела. Откройте сайт и нажмите «Войти» ещё раз."
+INVITED = (
+    "Вас пригласили в Poker8. Откройте приложение — приглашение закрепится "
+    "за вашим аккаунтом при первом входе."
+)
 SIGNED_IN = "Готово. Возвращайтесь на вкладку с игрой — вы уже вошли."
 
 
@@ -131,6 +136,24 @@ async def webhook(
         nonce = text[len("/start"):].strip()
         if not nonce:
             await send_message(token, chat_id, WELCOME)
+            return {"ok": True}
+        # A referral link and a login share this one payload slot, so they are
+        # told apart by shape: a code is nine characters, a login nonce is
+        # thirty-two. The bot cannot bind anything itself -- it has no account
+        # to bind yet -- so it hands the invitation on to the Mini App, where
+        # the first login carries it in `start_param`.
+        code = normalise_referral(nonce)
+        if code:
+            username = getattr(request.app.state, "telegram_login_bots", {}).get(
+                tenant_slug, {},
+            ).get("username")
+            await send_message(
+                token, chat_id, INVITED,
+                reply_markup={"inline_keyboard": [[{
+                    "text": "Открыть Poker8",
+                    "url": f"https://t.me/{username}?startapp={start_payload(code)}",
+                }]]} if username else None,
+            )
             return {"ok": True}
         # Nothing is bound yet. Pressing Start only says somebody opened the
         # link, and a link is a piece of text that can be forwarded to anybody

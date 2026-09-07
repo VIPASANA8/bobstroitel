@@ -5,6 +5,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Column,
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -49,6 +50,10 @@ users = Table(
     Column("telegram_user_id", BIGINT, nullable=False, unique=True),
     Column("display_name", String(200), nullable=False),
     Column("acquisition_tenant_id", String(64), ForeignKey("tenants.id"), nullable=False),
+    # Owners, partners and service accounts. They play and they are paid, but
+    # never through the players' referral programme: a partner who is also a
+    # referrer would be paid twice out of the same Cube profit.
+    Column("internal", Boolean, nullable=False, server_default=text("false")),
     Column("wins", Integer, nullable=False, server_default=text("0")),
     Column("hands_played", Integer, nullable=False, server_default=text("0")),
     Column("created_at", timestamp, **created_at),
@@ -479,7 +484,12 @@ cash_transactions = Table(
     Column("actor", String(100), nullable=False),
     Column("created_at", timestamp, **created_at),
     UniqueConstraint("scope", "idempotency_key", name="uq_cash_transaction_key"),
-    CheckConstraint("kind IN ('deposit', 'reserve', 'release', 'settlement', 'payout', 'adjustment')", name="ck_cash_transaction_kind"),
+    CheckConstraint(
+        "kind IN ('deposit', 'reserve', 'release', 'settlement', 'payout', 'adjustment', "
+        "'referral_reward', 'referral_release', 'referral_reversal', "
+        "'cube_profit_share', 'cube_profit_share_reversal', 'cube_adjustment')",
+        name="ck_cash_transaction_kind",
+    ),
 )
 
 cash_entries = Table(
@@ -738,3 +748,131 @@ auth_login_requests = Table(
     Column("consumed_at", timestamp),
 )
 Index("ix_auth_login_requests_expiry", auth_login_requests.c.expires_at)
+
+
+# --- Referrals, Cube accounting and the partner's share -----------------------
+#
+# Three levels of accounting, kept apart on purpose (a mixed level is how a
+# referrer gets paid for money the project never earned):
+#   1. the player -- their Cube P&L, which is `cube_rounds` and nothing else;
+#   2. the referrer -- the whole referral group's P&L and its negative
+#      carryover, which is `referral_settlements`;
+#   3. Cube itself -- gross result, referral cost, agreed expenses and the
+#      partner's carryover, which is `partner_settlements`.
+
+referral_codes = Table(
+    "referral_codes", metadata,
+    # An entity of its own rather than the tenant a user arrived through:
+    # a tenant is a brand and a bot, a code is one person's invitation.
+    Column("code", String(32), primary_key=True),
+    Column("user_id", String(64), ForeignKey("users.id"), nullable=False, unique=True),
+    Column("created_at", timestamp, **created_at),
+)
+
+referrals = Table(
+    "referrals", metadata,
+    # One row per referred user, written once when the account is created and
+    # never updated: the primary key is what makes a second link a no-op
+    # rather than a change of referrer.
+    Column("user_id", String(64), ForeignKey("users.id"), primary_key=True),
+    Column("referrer_id", String(64), ForeignKey("users.id"), nullable=False),
+    Column("code", String(32), nullable=False),
+    Column("bound_at", timestamp, **created_at),
+    # First settled real-money round. The 30 days at the higher rate run from
+    # here and not from registration, so an account that signs up and plays a
+    # month later does not arrive with the boost already spent.
+    Column("activated_at", timestamp),
+    CheckConstraint("user_id <> referrer_id", name="ck_referral_not_self"),
+)
+Index("ix_referrals_referrer", referrals.c.referrer_id)
+
+referral_settlements = Table(
+    "referral_settlements", metadata,
+    Column("id", String(64), primary_key=True),
+    Column("referrer_id", String(64), ForeignKey("users.id"), nullable=False),
+    Column("source", String(16), nullable=False),
+    #: One UTC day. The day is only when the arithmetic runs -- nothing about
+    #: the carryover resets with it.
+    Column("period_start", Date, nullable=False),
+    #: The whole group's result for the day, losses included.
+    Column("gross_micros", BIGINT, nullable=False),
+    Column("carryover_before_micros", BIGINT, nullable=False),
+    Column("carryover_after_micros", BIGINT, nullable=False),
+    #: What was left to pay from after the carryover -- the high-water mark:
+    #: money counted here is never counted again.
+    Column("base_micros", BIGINT, nullable=False),
+    Column("amount_micros", BIGINT, nullable=False),
+    #: Per-referral audit: pnl, rate and the share of the base each one carried.
+    Column("breakdown_json", JSON, nullable=False),
+    Column("status", String(16), nullable=False, server_default=text("'pending'")),
+    Column("released_at", timestamp),
+    Column("created_at", timestamp, **created_at),
+    UniqueConstraint("referrer_id", "source", "period_start", name="uq_referral_settlement_period"),
+    CheckConstraint("source IN ('cube', 'poker')", name="ck_referral_settlement_source"),
+    CheckConstraint(
+        "status IN ('pending', 'available', 'reversed')", name="ck_referral_settlement_status",
+    ),
+    CheckConstraint("amount_micros >= 0 AND base_micros >= 0", name="ck_referral_settlement_amount"),
+    CheckConstraint(
+        "carryover_before_micros <= 0 AND carryover_after_micros <= 0",
+        name="ck_referral_settlement_carryover",
+    ),
+)
+Index("ix_referral_settlements_due", referral_settlements.c.status, referral_settlements.c.created_at)
+
+partner_shares = Table(
+    "partner_shares", metadata,
+    # The share is a parameter with a history, not a constant: changing it
+    # must never rewrite a period that was already settled.
+    Column("id", String(64), primary_key=True),
+    Column("effective_from", Date, nullable=False, unique=True),
+    Column("share_bps", Integer, nullable=False),
+    Column("note", String(200)),
+    Column("created_at", timestamp, **created_at),
+    CheckConstraint("share_bps BETWEEN 0 AND 10000", name="ck_partner_share_range"),
+)
+
+cube_adjustments = Table(
+    "cube_adjustments", metadata,
+    # The agreed expenses of Cube and nothing else. Negative is money charged
+    # against Cube (a chargeback, a payment fee that is genuinely Cube's, a
+    # correction both sides signed off); positive gives it back. Salaries,
+    # development, marketing, servers and anything belonging to Poker are not
+    # entered here -- there is no rule that splits them, so there is no row.
+    Column("id", String(64), primary_key=True),
+    Column("occurred_on", Date, nullable=False),
+    Column("amount_micros", BIGINT, nullable=False),
+    Column("reason", String(400), nullable=False),
+    Column("actor", String(100), nullable=False),
+    Column("created_at", timestamp, **created_at),
+    CheckConstraint("amount_micros <> 0", name="ck_cube_adjustment_nonzero"),
+)
+Index("ix_cube_adjustments_day", cube_adjustments.c.occurred_on)
+
+partner_settlements = Table(
+    "partner_settlements", metadata,
+    Column("id", String(64), primary_key=True),
+    #: 'week' and 'month' are both kept; only the configured one moves money
+    #: (`posted`), the other is the same arithmetic as a report. Two posted
+    #: cadences would share the same profit twice.
+    Column("period_kind", String(8), nullable=False),
+    Column("period_start", Date, nullable=False),
+    Column("period_end", Date, nullable=False),
+    Column("gross_micros", BIGINT, nullable=False),
+    Column("referral_cost_micros", BIGINT, nullable=False),
+    Column("adjustment_micros", BIGINT, nullable=False),
+    Column("net_micros", BIGINT, nullable=False),
+    Column("carryover_before_micros", BIGINT, nullable=False),
+    Column("carryover_after_micros", BIGINT, nullable=False),
+    Column("share_bps", Integer, nullable=False),
+    Column("amount_micros", BIGINT, nullable=False),
+    Column("posted", Boolean, nullable=False, server_default=text("false")),
+    Column("created_at", timestamp, **created_at),
+    UniqueConstraint("period_kind", "period_start", name="uq_partner_settlement_period"),
+    CheckConstraint("period_kind IN ('week', 'month')", name="ck_partner_settlement_kind"),
+    CheckConstraint("amount_micros >= 0", name="ck_partner_settlement_amount"),
+    CheckConstraint(
+        "carryover_before_micros <= 0 AND carryover_after_micros <= 0",
+        name="ck_partner_settlement_carryover",
+    ),
+)

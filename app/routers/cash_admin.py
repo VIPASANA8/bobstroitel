@@ -46,6 +46,22 @@ class PaymentResolution(ReasonRequest):
     decision: Literal["credit", "reject"]
 
 
+class PartnerShareRequest(ReasonRequest):
+    """The partner's share of Cube, from a date forward. Never backwards over
+    a period that has already been settled."""
+
+    effective_from: date
+    share_bps: int = Field(ge=0, le=10_000)
+    note: str | None = Field(default=None, max_length=200)
+
+
+class CubeAdjustmentRequest(ReasonRequest):
+    """An agreed Cube expense (negative) or a correction to one (positive)."""
+
+    occurred_on: date
+    amount_usdt: str = Field(min_length=1, max_length=32)
+
+
 class FiatEventResolution(ReasonRequest):
     decision: Literal["credit", "reject"]
     # Only needed when the partner event names an order Poker8 never stored.
@@ -84,6 +100,67 @@ async def user(identifier: str, request: Request,
                operator: CashOperator = Depends(get_cash_operator)):
     try:
         return await request.app.state.cash_admin.user(operator, identifier)
+    except (ValueError, LookupError) as exc:
+        raise _error(exc) from exc
+
+
+@router.get("/referrals")
+async def referrals(request: Request, limit: int = 100,
+                    operator: CashOperator = Depends(get_cash_operator)):
+    try:
+        return await request.app.state.cash_admin.referral_report(operator, limit=limit)
+    except ValueError as exc:
+        raise _error(exc) from exc
+
+
+@router.post("/referrals/{settlement_id}/reverse")
+async def reverse_referral(settlement_id: str, body: ReasonRequest, request: Request,
+                           key: str = Header(alias="Idempotency-Key"),
+                           operator: CashOperator = Depends(get_cash_operator)):
+    try:
+        return await request.app.state.cash_admin.reverse_referral(
+            settlement_id, operator, reason=body.reason, key=key,
+        )
+    except (ValueError, LookupError) as exc:
+        raise _error(exc) from exc
+
+
+@router.get("/partner")
+async def partner(request: Request, operator: CashOperator = Depends(get_cash_operator)):
+    try:
+        return await request.app.state.cash_admin.partner_report(operator)
+    except ValueError as exc:
+        raise _error(exc) from exc
+
+
+@router.post("/partner/share")
+async def set_partner_share(body: PartnerShareRequest, request: Request,
+                            key: str = Header(alias="Idempotency-Key"),
+                            operator: CashOperator = Depends(get_cash_operator)):
+    try:
+        return await request.app.state.cash_admin.set_partner_share(
+            operator, effective_from=body.effective_from, share_bps=body.share_bps,
+            note=body.note, reason=body.reason, key=key,
+        )
+    except (ValueError, LookupError) as exc:
+        raise _error(exc) from exc
+
+
+@router.post("/cube-adjustments")
+async def record_cube_adjustment(body: CubeAdjustmentRequest, request: Request,
+                                 key: str = Header(alias="Idempotency-Key"),
+                                 operator: CashOperator = Depends(get_cash_operator)):
+    raw = body.amount_usdt.strip()
+    sign = -1 if raw.startswith("-") else 1
+    try:
+        amount = sign * usdt_to_micros(raw.lstrip("+-"))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="amount_usdt must be a decimal amount") from exc
+    try:
+        return await request.app.state.cash_admin.record_cube_adjustment(
+            operator, occurred_on=body.occurred_on, amount_micros=amount,
+            reason=body.reason, key=key,
+        )
     except (ValueError, LookupError) as exc:
         raise _error(exc) from exc
 

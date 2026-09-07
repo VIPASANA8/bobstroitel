@@ -14,7 +14,10 @@ def test_all_user_cash_routes_use_cash_identity_gate():
         # A self-imposed break is a cash route like any other: it is refused for
         # a session that may not touch money in the first place.
         "/api/cash/break",
-        "/api/cash/wallet", "/api/cash/deposits", "/api/cash/deposits/{deposit_id}",
+        "/api/cash/wallet",
+        # A referrer reads their own code and their own group, nobody else's.
+        "/api/cash/referral",
+        "/api/cash/deposits", "/api/cash/deposits/{deposit_id}",
         "/api/cash/deposits/{deposit_id}/cancel", "/api/cash/deposits/{deposit_id}/paid",
         "/api/cash/deposits/{deposit_id}/simulate-transfer",
         "/api/cash/fiat-orders", "/api/cash/fiat-orders/active",

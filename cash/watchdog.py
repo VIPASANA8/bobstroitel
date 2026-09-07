@@ -30,7 +30,7 @@ class CashWatchdog:
     """
 
     def __init__(
-        self, sessions, *, poller=None, chain=None, fiat=None, notifier=None,
+        self, sessions, *, poller=None, chain=None, fiat=None, settlements=None, notifier=None,
         interval_seconds: float = 60.0, stall_seconds: float = 300.0,
         housekeeping_seconds: float = 3600.0, now=None,
     ):
@@ -38,6 +38,11 @@ class CashWatchdog:
         self.poller = poller
         self.chain = chain
         self.fiat = fiat
+        # The referral and partner settlement pass. It lives on the hourly
+        # housekeeping rather than in a loop of its own because it is
+        # idempotent: an extra run is a no-op, and a missed day is caught by
+        # the next run, which is the pair of properties a job wants.
+        self.settlements = settlements
         self.notifier = notifier or AlertNotifier()
         self.interval_seconds = interval_seconds
         self.stall_seconds = stall_seconds
@@ -46,6 +51,7 @@ class CashWatchdog:
         self.open_findings: dict[str, str] = {}
         self.last_check_at: datetime | None = None
         self.purged_requisites = 0
+        self.last_settlement: dict[str, int] | None = None
         self._next_check_at = 0.0
         self._next_housekeeping_at = 0.0
         self._reconciliation: dict[str, str] = {}
@@ -146,5 +152,7 @@ class CashWatchdog:
                 self.purged_requisites += await self.fiat.purge_requisites(
                     self.now() - REQUISITES_RETENTION,
                 )
+            if self.settlements is not None:
+                self.last_settlement = await self.settlements.run()
         except Exception:
             logger.exception("poker8 cash watchdog housekeeping failed")

@@ -21,6 +21,8 @@ from cash.trc20_watcher import Trc20DepositWatcher
 from cash.watchdog import CashWatchdog
 from cash.fiat_p2p import MockPservice, PserviceClient
 from cash.cube import CashCubeService
+from cash.referrals import mark_internal
+from cash.settlement import CashSettlements
 from cash.game import CashGameService
 from cash.wallet import WalletService
 from cash.withdrawals import WithdrawalService
@@ -42,7 +44,7 @@ from online.schema import cash_operators, metadata, tenant_bots, tenants
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
-EXPECTED_MIGRATION_REVISION = "20260906_0029"
+EXPECTED_MIGRATION_REVISION = "20260907_0030"
 
 #: Payout providers this application knows how to drive. Deliberately empty:
 #: custody and transaction signing live outside Poker8, and until one is
@@ -116,6 +118,11 @@ async def _ensure_foundation(session_factory, settings: Settings) -> None:
                             id=f"bot-{slug}", tenant_id=tenant_id, telegram_bot_id=0,
                             secret_ref=f"POKER8_{slug.upper()}_BOT_TOKEN", enabled=True,
                         ))
+
+            # Owners, partners and service accounts, marked from configuration
+            # so the settlement job can leave them out of the players' referral
+            # programme without a second list to keep in step.
+            await mark_internal(session, settings.internal_telegram_ids)
 
             for raw in settings.cash_admin_operators:
                 telegram_id = int(raw["telegram_user_id"])
@@ -197,6 +204,14 @@ def create_app(
         app.state.cash_trc20_watcher = None
         app.state.cash_trc20_watcher_task = None
         app.state.cash_watchdog = None
+        # Referral rewards and the partner's share of Cube. Idempotent by
+        # construction, so the hourly housekeeping running it more than once a
+        # day -- or two processes running it at once -- pays nobody twice.
+        app.state.cash_settlements = CashSettlements(
+            session_factory,
+            hold_days=settings.referral_hold_days,
+            partner_period=settings.partner_period,
+        ) if settings.cash_mode != "off" else None
         if settings.cash_mode != "off":
             app.state.cash_fiat_poller = FiatPoller(app.state.cash_fiat_orders)
             app.state.cash_fiat_poller_task = asyncio.create_task(app.state.cash_fiat_poller.run())
@@ -214,6 +229,7 @@ def create_app(
             app.state.cash_watchdog = CashWatchdog(
                 session_factory, poller=app.state.cash_fiat_poller,
                 chain=app.state.cash_trc20_watcher, fiat=app.state.cash_fiat_orders,
+                settlements=app.state.cash_settlements,
             )
         app.state.cash_withdrawals = WithdrawalService(
             session_factory, fee_micros=settings.cash_withdrawal_fee_micros,
@@ -221,7 +237,9 @@ def create_app(
             executor=_payout_executor(settings),
         )
         app.state.cash_wallet = WalletService(session_factory)
-        app.state.cash_admin = CashAdminService(session_factory)
+        app.state.cash_admin = CashAdminService(
+            session_factory, settlements=app.state.cash_settlements,
+        )
         # The operator panel the bot answers with, on the same service the
         # operator API uses -- so both write the same audit entries.
         app.state.opsbot = OpsBot(app.state.cash_admin, session_factory)
