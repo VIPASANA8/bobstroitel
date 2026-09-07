@@ -17,6 +17,10 @@
       day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
     });
   };
+  const LEDGER_KINDS = {
+    buy_in: 'Бай-ин', add_on: 'Докупка', return: 'Возврат со стола',
+    settlement: 'Расчёт раздачи', faucet_grant: 'Начисление',
+  };
   const RANKS = {ROOKIE: 'Новичок', PLAYER: 'Игрок', REGULAR: 'Регуляр', GRINDER: 'Гриндер', SHARK: 'Акула', ELITE: 'Элита', VETERAN: 'Ветеран'};
   const ACHIEVEMENTS = {
     grind: ['Дистанция', '♠'], big_pot: ['Большой банк', '◆'], social: ['Знакомые лица', '♣'],
@@ -216,17 +220,27 @@
   const FLAT = '<svg class="ui-arrow" viewBox="0 0 16 16"><path d="M3.5 8h9"/></svg>';
   const signIcon = amount => (amount > 0 ? ARROW : amount < 0 ? ARROW : FLAT);
 
-  function pokerActivity(hand) {
+  function pokerActivity(hand, amountKind = 'cash') {
     const mine = (hand.players || []).find(player => player.you);
-    const net = Number(mine?.net_micros || 0);
+    const net = Number(amountKind === 'play' ? mine?.net_units || 0 : mine?.net_micros || 0);
     const seated = (hand.players || []).length;
     const handId = hand.hand_id;
     return {
-      id: `poker:${handId}`, category: 'poker', amountMicros: net,
+      id: `poker:${amountKind}:${handId}`, category: 'poker', amountKind,
+      ...(amountKind === 'play' ? {amountUnits: net} : {amountMicros: net}),
       title: net > 0 ? 'Выигрыш в POKER' : net < 0 ? 'Проигрыш в POKER' : 'Раздача без изменений',
-      detail: `${dateText(hand.completed_at || hand.started_at)} · ${seated} ${noun(seated, 'игрок', 'игрока', 'игроков')}`,
+      detail: `${dateText(hand.completed_at || hand.started_at)} · ${seated} ${noun(seated, 'игрок', 'игрока', 'игроков')}${amountKind === 'play' ? ' · тренировочные фишки' : ''}`,
       createdAt: hand.completed_at || hand.started_at,
     };
+  }
+
+  function pokerLedgerActivities(payload) {
+    return (payload.entries || []).filter(row => row.kind !== 'settlement').map(row => ({
+      id: `poker-ledger:${row.id || `${row.kind}:${row.created_at}`}`,
+      category: 'poker', amountKind: 'play', amountUnits: Number(row.amount_units || 0),
+      title: LEDGER_KINDS[row.kind] || row.kind,
+      detail: `${dateText(row.created_at)} · тренировочные фишки`, createdAt: row.created_at,
+    }));
   }
 
   function cubeActivity(round) {
@@ -262,18 +276,25 @@
   }
 
   function cashActivityRow(row) {
-    const outcome = row.amountMicros > 0 ? 'win' : row.amountMicros < 0 ? 'loss' : 'flat';
-    const primary = product === 'cube' ? usdt(row.amountMicros) : cashAmount(row.amountMicros);
-    const secondary = product === 'cube' ? cashAmount(row.amountMicros) : usdt(row.amountMicros);
+    const amount = row.amountKind === 'play' ? row.amountUnits : row.amountMicros;
+    const outcome = amount > 0 ? 'win' : amount < 0 ? 'loss' : 'flat';
+    const primary = row.amountKind === 'play'
+      ? `${amount > 0 ? '+' : ''}${units(amount)}`
+      : product === 'cube' ? usdt(amount) : cashAmount(amount);
+    const secondary = row.amountKind === 'play'
+      ? 'Тренировочные фишки'
+      : product === 'cube' ? cashAmount(amount) : usdt(amount);
     return `<article class="history-row ${outcome}">
-      <div class="history-what"><span class="history-sign" aria-hidden="true">${signIcon(row.amountMicros)}</span><div><strong>${escapeHtml(row.title)}</strong><small>${escapeHtml(row.detail)}</small></div></div>
+      <div class="history-what"><span class="history-sign" aria-hidden="true">${signIcon(amount)}</span><div><strong>${escapeHtml(row.title)}</strong><small>${escapeHtml(row.detail)}</small></div></div>
       <span class="history-amount"><b>${escapeHtml(primary)}</b><small>${escapeHtml(secondary)}</small></span>
     </article>`;
   }
 
-  function renderCashHistory(wallet, pokerPayload, cubePayload) {
+  function renderCashHistory(wallet, cashPokerPayload, playPokerPayload, playJournalPayload, cubePayload) {
     const rows = [
-      ...(pokerPayload.hands || []).map(pokerActivity),
+      ...(cashPokerPayload.hands || []).map(hand => pokerActivity(hand)),
+      ...(playPokerPayload.hands || []).map(hand => pokerActivity(hand, 'play')),
+      ...pokerLedgerActivities(playJournalPayload),
       ...(cubePayload.rounds || []).map(cubeActivity),
       ...operationActivities(wallet),
     ].sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt));
@@ -383,12 +404,14 @@
   // tab appears with the wallet and not before.
   async function loadCashData() {
     const wallet = await json('/api/cash/wallet');
-    const [pokerPayload, cubePayload] = await Promise.all([
+    const [cashPokerPayload, playPokerPayload, playJournalPayload, cubePayload] = await Promise.all([
       json('/api/profile/hands?limit=20&asset=CASH_USDT').catch(() => ({hands: []})),
+      json('/api/profile/hands?limit=20&asset=PLAY').catch(() => ({hands: []})),
+      json('/api/profile/play-journal?limit=20').catch(() => ({entries: []})),
       json('/api/cube/history?limit=20').catch(() => ({rounds: []})),
     ]);
     renderCashWallet(wallet);
-    renderCashHistory(wallet, pokerPayload, cubePayload);
+    renderCashHistory(wallet, cashPokerPayload, playPokerPayload, playJournalPayload, cubePayload);
   }
 
   async function openCashier() {

@@ -59,6 +59,9 @@ def test_the_rows_say_something():
     assert "player.you" in JS, "the viewer's own row is what makes a result"
     for title in ("Выигрыш в POKER", "Проигрыш в POKER", "Пополнение", "Вывод средств"):
         assert title in JS, title
+    assert "LEDGER_KINDS" in JS
+    assert "row.kind !== 'settlement'" in JS
+    assert "Тренировочные фишки" in JS
 
 
 def test_the_next_level_line_is_about_the_next_level():
