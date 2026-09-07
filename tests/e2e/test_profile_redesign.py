@@ -9,7 +9,8 @@ from online.achievements import ACHIEVEMENTS
 pytestmark = pytest.mark.e2e
 
 
-def swipe(page, selector, *, direction='left', pointer_type='touch', distance=150, dy=0):
+def swipe(page, selector, *, direction='left', pointer_type='touch', distance=150, dy=0,
+          end_pointer_id=1, cancel=False):
     start_x = 280 if direction == 'left' else 80
     end_x = start_x - distance if direction == 'left' else start_x + distance
     target = page.locator(selector)
@@ -17,8 +18,13 @@ def swipe(page, selector, *, direction='left', pointer_type='touch', distance=15
         'pointerType': pointer_type, 'pointerId': 1, 'isPrimary': True,
         'clientX': start_x, 'clientY': 100, 'buttons': 1,
     })
+    if cancel:
+        target.dispatch_event('pointercancel', {
+            'pointerType': pointer_type, 'pointerId': 1, 'isPrimary': True,
+            'clientX': start_x, 'clientY': 100, 'buttons': 0,
+        })
     target.dispatch_event('pointerup', {
-        'pointerType': pointer_type, 'pointerId': 1, 'isPrimary': True,
+        'pointerType': pointer_type, 'pointerId': end_pointer_id, 'isPrimary': True,
         'clientX': end_x, 'clientY': 100 + dy, 'buttons': 0,
     })
 
@@ -242,12 +248,28 @@ def test_cube_cashier_has_one_active_slot_and_one_blank_reserved_slot(profile_pa
     expect(cash).to_have_attribute('aria-selected', 'true')
     expect(reserved).to_be_visible()
     expect(reserved).to_be_disabled()
+    expect(reserved).to_have_js_property('disabled', True)
+    expect(reserved).to_have_js_property('tabIndex', -1)
     expect(reserved).to_have_text('')
     expect(page.get_by_role('tab', name='', exact=True)).to_have_count(1)
     cash_box = cash.bounding_box()
     reserved_box = reserved.bounding_box()
     assert cash_box and reserved_box
     assert abs(cash_box['width'] - reserved_box['width']) <= 1
+
+    reserved.evaluate('element => element.click()')
+    expect(cash).to_have_attribute('aria-selected', 'true')
+    expect(reserved).to_have_attribute('aria-selected', 'false')
+    expect(page.locator('#cashSection')).to_be_visible()
+    expect(page.locator('#playSection')).to_be_hidden()
+
+    reserved.focus()
+    expect(reserved).not_to_be_focused()
+    page.keyboard.press('Enter')
+    expect(cash).to_have_attribute('aria-selected', 'true')
+    expect(reserved).to_have_attribute('aria-selected', 'false')
+    expect(page.locator('#cashSection')).to_be_visible()
+    expect(page.locator('#playSection')).to_be_hidden()
 
 
 def test_cube_cashier_shows_pending_usdt_without_cash_conversion(profile_page):
@@ -267,6 +289,15 @@ def test_cube_cashier_play_card_opens_cube(profile_page):
     expect(escrow_card).to_have_accessible_name('Играть')
     expect(escrow_card.locator('span')).to_have_text('Играть')
     expect(escrow_card).not_to_contain_text('За столами')
+    escrow_card.click()
+    expect(page).to_have_url(server + '/cube')
+
+
+def test_cube_cashier_play_card_opens_cube_from_keyboard(profile_page):
+    page, _, _, server = profile_page
+    page.goto(server + '/static/profile.html?app=cube#cash')
+
+    escrow_card = page.locator('#profileCashEscrow').locator('..')
     escrow_card.focus()
     expect(escrow_card).to_be_focused()
     escrow_card.press('Enter')
@@ -397,6 +428,25 @@ def test_swipe_navigation_rejects_mouse_short_and_vertical_gestures(
     assert_swipe_helper_loaded(page)
 
     swipe(page, '#tableGrid', pointer_type=pointer_type, distance=distance, dy=dy)
+    page.wait_for_timeout(100)
+
+    assert page.url == server + '/'
+
+
+@pytest.mark.parametrize(
+    ('cancel', 'end_pointer_id'),
+    [
+        (True, 1),
+        (False, 2),
+    ],
+)
+def test_swipe_navigation_rejects_cancelled_and_mismatched_pointers(
+        profile_page, cancel, end_pointer_id):
+    page, _, _, server = profile_page
+    page.goto(server + '/')
+    assert_swipe_helper_loaded(page)
+
+    swipe(page, '#tableGrid', cancel=cancel, end_pointer_id=end_pointer_id)
     page.wait_for_timeout(100)
 
     assert page.url == server + '/'
