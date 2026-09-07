@@ -11,6 +11,8 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import func, select
 
+from cash.access import CashOperator
+from cash.admin import CashAdminService
 from cash.cube import CUBE_ACCOUNT
 from cash.game import RAKE_ACCOUNT
 from cash.holds import take_a_break
@@ -20,12 +22,14 @@ from cash.settlement import (
 )
 from online.catalogue import CASH_USDT
 from online.schema import (
-    cash_accounts, cash_transactions, cube_adjustments, cube_rounds, hand_players, hands,
-    partner_settlements, partner_shares, poker_tables, referral_settlements, referrals, users,
+    cash_accounts, cash_audit_events, cash_transactions, cube_adjustments, cube_rounds,
+    hand_players, hands, partner_settlements, partner_shares, poker_tables,
+    referral_settlements, referrals, users,
 )
 
 pytestmark = [pytest.mark.anyio, pytest.mark.postgres]
 
+ADMIN = CashOperator("global-admin", 1004, None, "admin")
 USDT = 1_000_000
 DAY = date(2026, 3, 2)
 NOON = datetime.combine(DAY, time(12), tzinfo=timezone.utc)
@@ -560,6 +564,58 @@ async def test_settling_the_partner_twice_pays_once(cash_db):
             cash_transactions.c.kind == "cube_profit_share",
         ))
     assert posted == 1
+
+
+# --- what an operator may still change ----------------------------------------
+
+async def test_a_weekly_report_does_not_close_the_month_to_corrections(cash_db):
+    """Both cadences are written; only one pays. A correction is refused by the
+    period that took money, never by the one that only counted it."""
+    await set_share(cash_db, effective_from=date(2026, 1, 1), share_bps=5_000)
+    await play(cash_db, "bob", house_micros=100 * USDT)
+    settlements = service(cash_db, now=lambda: datetime(2026, 3, 20, tzinfo=timezone.utc))
+    # Weeks of March are complete and written; March itself is not.
+    await settlements.settle_partner_periods(date(2026, 3, 19))
+    assert [row["posted"] for row in await partner_rows(cash_db, "week")] == [False, False]
+
+    admin = CashAdminService(cash_db, settlements=settlements)
+    result = await admin.record_cube_adjustment(
+        ADMIN, occurred_on=DAY.isoformat(), amount_micros=-20 * USDT,
+        reason="комиссия провайдера по Cube", key="adj-cube-1",
+    )
+
+    assert result["direction"] == "charge"
+    # And the same day, once the month has actually paid, is closed.
+    await settlements.settle_partner_periods(date(2026, 4, 1))
+    with pytest.raises(ValueError, match="already paid"):
+        await admin.record_cube_adjustment(
+            ADMIN, occurred_on=DAY.isoformat(), amount_micros=-1 * USDT,
+            reason="поздняя корректировка", key="adj-cube-2",
+        )
+
+
+async def test_a_reversal_is_logged_with_what_actually_happened(cash_db):
+    await link(cash_db, user_id="bob", code=await code_of(cash_db, "alice"))
+    await play(cash_db, "bob", house_micros=100 * USDT)
+    settlements = service(cash_db)
+    settlement_id = (await settlements.settle_cube_day(DAY))[0]
+    admin = CashAdminService(cash_db, settlements=settlements)
+
+    result = await admin.reverse_referral(
+        settlement_id, ADMIN, reason="подозрительная связка аккаунтов", key="rev-1",
+    )
+
+    assert result == {"settlement_id": settlement_id, "reversed": True}
+    assert await balance(cash_db, REFERRAL_PENDING) == 0
+    async with cash_db() as session:
+        logged = (await session.execute(select(cash_audit_events).where(
+            cash_audit_events.c.action == "referral.reverse",
+        ))).mappings().one()
+    assert logged["after_json"]["reversed"] is True
+    # The same key answers with what was recorded rather than acting twice.
+    assert await admin.reverse_referral(
+        settlement_id, ADMIN, reason="подозрительная связка аккаунтов", key="rev-1",
+    ) == result
 
 
 # --- the whole pass -----------------------------------------------------------

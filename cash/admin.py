@@ -861,9 +861,14 @@ class CashAdminService:
                     return replay
                 settled = await session.scalar(select(func.count()).select_from(
                     partner_settlements
-                ).where(partner_settlements.c.period_start >= effective))
+                ).where(
+                    partner_settlements.c.period_start >= effective,
+                    # As above: a week that was only counted is not a week that
+                    # was paid, and only what was paid is beyond changing.
+                    partner_settlements.c.posted.is_(True),
+                ))
                 if settled:
-                    raise ValueError("a period on or after this date is already settled")
+                    raise ValueError("a period on or after this date is already paid")
                 await session.execute(insert(partner_shares).values(
                     id=uuid4().hex, effective_from=effective, share_bps=share_bps,
                     note=(note or None),
@@ -902,11 +907,17 @@ class CashAdminService:
                 )
                 if replay is not None:
                     return replay
+                # Only a period that actually paid is closed to corrections.
+                # Both cadences are written down, so counting the reports too
+                # would leave a whole month uncorrectable from its second week.
                 settled = await session.scalar(select(func.count()).select_from(
                     partner_settlements
-                ).where(partner_settlements.c.period_end >= occurred))
+                ).where(
+                    partner_settlements.c.period_end >= occurred,
+                    partner_settlements.c.posted.is_(True),
+                ))
                 if settled:
-                    raise ValueError("the period this day belongs to is already settled")
+                    raise ValueError("the period this day belongs to is already paid")
                 adjustment_id = uuid4().hex
                 await session.execute(cube_adjustments.insert().values(
                     id=adjustment_id, occurred_on=occurred, amount_micros=amount_micros,
@@ -927,6 +938,14 @@ class CashAdminService:
         self._require_scope(operator, None)
         if self.settlements is None:
             raise ValueError("referral settlement is not enabled on this deployment")
+        # The reversal first, and outside any transaction of ours: it takes its
+        # own row lock and posts its own ledger entry. Doing it after the audit
+        # entry would let a failed reversal leave the log claiming it happened;
+        # doing it twice is a no-op, so this order costs nothing.
+        reversed_now = await self.settlements.reverse(
+            settlement_id, actor=f"operator:{operator.id}",
+        )
+        after = {"settlement_id": settlement_id, "reversed": reversed_now}
         async with self.sessions() as session:
             async with session.begin():
                 replay, fingerprint = await self._claim(
@@ -935,11 +954,5 @@ class CashAdminService:
                 if replay is not None:
                     return replay
                 await self._audit(session, operator, None, "referral.reverse", "referral",
-                                  str(settlement_id), reason, key, fingerprint, {},
-                                  {"settlement_id": settlement_id})
-        # Outside the audit transaction on purpose: the reversal takes its own
-        # row lock on the settlement and posts its own ledger entry.
-        reversed_now = await self.settlements.reverse(
-            settlement_id, actor=f"operator:{operator.id}",
-        )
-        return {"settlement_id": settlement_id, "reversed": reversed_now}
+                                  str(settlement_id), reason, key, fingerprint, {}, after)
+        return after
