@@ -313,6 +313,7 @@ def create_app(
             tenant_tokens,
             session_ttl_seconds=settings.session_ttl_seconds,
             telegram_auth_max_age_seconds=settings.telegram_auth_max_age_seconds,
+            internal_telegram_ids=settings.internal_telegram_ids,
         )
         try:
             yield

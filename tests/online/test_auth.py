@@ -5,10 +5,10 @@ from datetime import datetime, timezone
 from urllib.parse import urlencode
 
 import pytest
-from sqlalchemy import insert
+from sqlalchemy import insert, select
 
 from online.auth import AuthService, AuthenticationError
-from online.schema import tenants
+from online.schema import tenants, users
 
 
 NOW = 1_770_000_000
@@ -56,6 +56,19 @@ async def test_valid_init_data_creates_one_global_user(auth_service):
     assert first.auth_method == second.auth_method == "telegram"
     assert second.acquisition_tenant_slug == "poker8"
     assert second.access_tenant_slug == "partner-b"
+
+
+@pytest.mark.anyio
+async def test_a_configured_internal_identity_is_marked_on_its_first_login(auth_service):
+    service = AuthService(
+        auth_service.session_factory,
+        {"poker8": "token-a"},
+        now=lambda: NOW,
+        internal_telegram_ids=(55,),
+    )
+    result = await service.authenticate("poker8", signed_init_data())
+    async with auth_service.session_factory() as session:
+        assert await session.scalar(select(users.c.internal).where(users.c.id == result.user_id)) is True
 
 
 @pytest.mark.anyio

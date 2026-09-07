@@ -138,6 +138,7 @@ class AuthService:
         now: Callable[[], int] = lambda: int(time.time()),
         session_ttl_seconds: int = 7 * 24 * 60 * 60,
         telegram_auth_max_age_seconds: int = 15 * 60,
+        internal_telegram_ids: tuple[int, ...] = (),
         #: Long enough to switch to Telegram, find the chat and press Start.
         login_request_ttl_seconds: int = 10 * 60,
     ) -> None:
@@ -146,6 +147,7 @@ class AuthService:
         self.now = now
         self.session_ttl_seconds = session_ttl_seconds
         self.telegram_auth_max_age_seconds = telegram_auth_max_age_seconds
+        self.internal_telegram_ids = frozenset(internal_telegram_ids)
         self.login_request_ttl_seconds = login_request_ttl_seconds
 
     async def authenticate(self, tenant_slug: str, init_data: str) -> AuthResult:
@@ -337,6 +339,7 @@ class AuthService:
                 telegram_user_id=telegram_user_id,
                 display_name=display_name,
                 acquisition_tenant_id=acquisition_tenant_id,
+                internal=telegram_user_id in self.internal_telegram_ids,
                 created_at=now,
                 updated_at=now,
             ))
