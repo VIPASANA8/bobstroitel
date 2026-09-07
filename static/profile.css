@@ -149,6 +149,11 @@
 .profile-page.cube-context .profile-section{background:var(--panel)}
 .profile-page.cube-context .cash-profile-section{border-color:color-mix(in srgb,var(--accent) 18%,var(--line));background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 5%,var(--panel)),var(--panel) 58%)}
 .profile-page.cube-context .cash-wallet-grid>div,.profile-page.cube-context .cash-actions button{background:#0b0d0e}
+.profile-page.cube-context #playModeTab:disabled{cursor:default;opacity:1}
+.profile-page.cube-context .cube-play-card{align-content:center;justify-items:center;cursor:pointer;background:var(--accent)!important;transition:filter .18s,transform .18s}
+.profile-page.cube-context .cube-play-card:hover{filter:brightness(1.08);transform:translateY(-1px)}
+.profile-page.cube-context .cube-play-card span{color:#101407;font-size:13px;font-weight:800;letter-spacing:.04em}
+.profile-page.cube-context .cube-play-card :is(strong,small){display:none}
 .profile-page.cube-context .history-row{border-bottom-color:var(--line)}
 .profile-page.cube-context .history-sign{background:#0b0d0e}
 .profile-page.cube-context .history-row.win .history-sign{background:rgba(86,240,140,.09)}

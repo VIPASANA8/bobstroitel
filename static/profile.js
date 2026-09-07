@@ -88,18 +88,32 @@
     document.body.classList.toggle('cube-context', cube);
     document.title = cube ? 'CUBE · Профиль' : 'Poker · Профиль';
     $('brandLogo').innerHTML = cube ? 'cube<i aria-hidden="true">⬢</i>' : 'poker<i aria-hidden="true">♠</i>';
-    $('brandLogo').href = cube ? '/static/profile.html?app=poker#cash' : '/static/profile.html?app=cube#cash';
-    $('brandLogo').setAttribute('aria-label', cube ? 'Переключиться на Poker' : 'Переключиться на CUBE');
-    $('backToProduct').href = cube ? '/cube' : '/';
-    $('backToProduct').setAttribute('aria-label', product === 'cube' ? 'Вернуться в CUBE' : 'Вернуться в лобби');
-    $('backToProductLabel').textContent = cube ? 'В CUBE' : 'В лобби';
+    $('brandLogo').href = cube ? '/cube' : '/';
+    $('brandLogo').setAttribute('aria-label', cube ? 'CUBE' : 'Poker');
+    $('backToProduct').href = cube ? '/' : '/cube';
+    $('backToProduct').setAttribute('aria-label', cube ? 'В POKER' : 'В CUBE');
+    $('backToProductLabel').textContent = cube ? 'В POKER' : 'В CUBE';
     $('cashModeLabel').textContent = cube ? 'USDT-касса' : 'CASH-касса';
-    $('cashModeMark').textContent = cube ? 'USDT' : '$$$';
-    $('profileModeLabel').textContent = cube ? 'Профиль CUBE' : 'Профиль Poker';
+    $('cashModeMark').textContent = '$$$';
+    $('profileModeLabel').textContent = cube ? '' : 'Профиль Poker';
+    $('playModeTab').disabled = cube;
+    $('playModeTab').setAttribute('aria-disabled', String(cube));
     $('cashKicker').textContent = cube ? 'CUBE WALLET' : 'REAL CASH';
     $('cashHeading').textContent = cube ? 'USDT-касса' : 'CASH-касса';
     $('pokerProfile').hidden = cube;
     $('cubeProfile').hidden = !cube;
+    const playCard = $('profileCashEscrow').parentElement;
+    playCard.classList.toggle('cube-play-card', cube);
+    playCard.querySelector('span').textContent = cube ? 'Играть' : 'За столами';
+    if (cube) {
+      playCard.setAttribute('role', 'link');
+      playCard.setAttribute('aria-label', 'Играть');
+      playCard.tabIndex = 0;
+    } else {
+      playCard.removeAttribute('role');
+      playCard.removeAttribute('aria-label');
+      playCard.removeAttribute('tabindex');
+    }
   }
 
   // CASH is exact money in micro-USDT; it never goes through the play-chip
@@ -118,6 +132,11 @@
       ['escrow', 'profileCashEscrow', 'profileCashEscrowUsdt'],
       ['withdrawal', 'profileCashWithdrawal', 'profileCashWithdrawalUsdt'],
     ]) {
+      if (name === 'withdrawal') {
+        $(strongId).textContent = `${wallet.withdrawal_usdt} USDT`;
+        $(smallId).textContent = product === 'cube' ? '' : `${wallet.withdrawal_units} CASH`;
+        continue;
+      }
       $(strongId).textContent = product === 'cube'
         ? `${wallet[`${name}_usdt`]} USDT` : `${wallet[`${name}_units`]} CASH`;
       $(smallId).textContent = product === 'cube'
@@ -368,6 +387,14 @@
   }
 
   function bindControls() {
+    const playCard = $('profileCashEscrow').parentElement;
+    const openCube = event => {
+      if (product !== 'cube' || event.type === 'keydown' && !['Enter', ' '].includes(event.key)) return;
+      event.preventDefault();
+      location.href = '/cube';
+    };
+    playCard.addEventListener('click', openCube);
+    playCard.addEventListener('keydown', openCube);
     $('missionList').addEventListener('click', event => {
       const button = event.target.closest('[data-reroll]');
       if (button) rerollMission(button.dataset.reroll);
@@ -397,17 +424,25 @@
     // list of every [role="tab"] would hide one group's panel whenever the
     // other group was used.
     document.querySelectorAll('[role="tablist"]').forEach(bindTabs);
+    if (product === 'cube') {
+      $('cashModeTab').hidden = false;
+      document.querySelector('.profile-modes').hidden = false;
+      document.querySelector('.profile-modes').selectTab($('cashModeTab'));
+    }
   }
 
   function bindTabs(list) {
     const tabs = [...list.querySelectorAll('[role="tab"]')];
-    const selectTab = selected => tabs.forEach(tab => {
-      const active = tab === selected;
-      tab.setAttribute('aria-selected', String(active));
-      tab.classList.toggle('is-active', active);
-      tab.tabIndex = active ? 0 : -1;
-      $(tab.getAttribute('aria-controls')).hidden = !active;
-    });
+    const selectTab = selected => {
+      if (selected.disabled) return;
+      tabs.forEach(tab => {
+        const active = tab === selected;
+        tab.setAttribute('aria-selected', String(active));
+        tab.classList.toggle('is-active', active);
+        tab.tabIndex = active ? 0 : -1;
+        $(tab.getAttribute('aria-controls')).hidden = !active;
+      });
+    };
     tabs.forEach((tab, index) => {
       tab.addEventListener('click', () => selectTab(tab));
       tab.addEventListener('keydown', event => {
