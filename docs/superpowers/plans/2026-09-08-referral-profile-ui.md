@@ -20,7 +20,7 @@
 - `tests/cash/test_c2c_routes.py` — lock the narrow dependency exception for the referral route and retain the CASH gate everywhere else.
 - `tests/test_profile_page.py` — lock the tab/panel structure and required styling hooks.
 - `tests/e2e/test_profile_redesign.py` — exercise lazy loading, rendering, retry, keyboard navigation, copy, Telegram share, Web Share, and mobile width.
-- `static/index.html`, `static/lobby.html`, `static/profile.html` — advance the shared static cache token immediately before release.
+- `static/index.html`, `static/lobby.html`, `static/profile.html`, `static/cube.html`, `static/component-ui.js`, `static/v028-ready-phase.js`, `static/v037-poker8-v2-reference-table.js` — advance the shared static cache token through every entry point and nested loader immediately before release.
 
 ### Task 1: Open the referral summary to every authenticated account
 
@@ -212,7 +212,8 @@ def test_referral_tab_survives_cash_failure_and_hidden_tabs_are_skipped(profile_
 Run:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests/test_profile_page.py tests/e2e/test_profile_redesign.py::test_referral_tab_survives_cash_failure_and_hidden_tabs_are_skipped -q
+.\.venv\Scripts\python.exe -m pytest tests/test_profile_page.py -q
+.\.venv\Scripts\python.exe -m pytest -m e2e tests/e2e/test_profile_redesign.py::test_referral_tab_survives_cash_failure_and_hidden_tabs_are_skipped -q
 ```
 
 Expected: failures identify the missing tab, panel, CSS selectors, and keyboard target.
@@ -358,7 +359,8 @@ function bindTabs(list) {
 Run:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests/test_profile_page.py tests/e2e/test_profile_redesign.py::test_referral_tab_survives_cash_failure_and_hidden_tabs_are_skipped -q
+.\.venv\Scripts\python.exe -m pytest tests/test_profile_page.py -q
+.\.venv\Scripts\python.exe -m pytest -m e2e tests/e2e/test_profile_redesign.py::test_referral_tab_survives_cash_failure_and_hidden_tabs_are_skipped -q
 ```
 
 Expected: all selected tests pass at desktop browser width.
@@ -438,7 +440,7 @@ def test_referral_summary_fits_phone_and_desktop_widths(profile_page, width):
 Run:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests/e2e/test_profile_redesign.py -k "referral_summary or referral_failure or zero_cube" -q
+.\.venv\Scripts\python.exe -m pytest -m e2e tests/e2e/test_profile_redesign.py -k "referral_summary or referral_failure or zero_cube" -q
 ```
 
 Expected: failures show that selecting the new tab never populates it, retry has no handler, and the responsive referral panel is not available.
@@ -518,7 +520,7 @@ Run:
 
 ```powershell
 node --check static/profile.js
-.\.venv\Scripts\python.exe -m pytest tests/e2e/test_profile_redesign.py -k "referral_summary or referral_failure or zero_cube" -q
+.\.venv\Scripts\python.exe -m pytest -m e2e tests/e2e/test_profile_redesign.py -k "referral_summary or referral_failure or zero_cube" -q
 ```
 
 Expected: JavaScript syntax is valid and the referral rendering, retry, carryover, and responsive tests pass.
@@ -623,7 +625,7 @@ def test_referral_action_failures_are_announced(profile_page):
 Run:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests/e2e/test_profile_redesign.py -k "referral_link_copies or referral_share_falls or missing_referral_link or referral_action_failures" -q
+.\.venv\Scripts\python.exe -m pytest -m e2e tests/e2e/test_profile_redesign.py -k "referral_link_copies or referral_share_falls or missing_referral_link or referral_action_failures" -q
 ```
 
 Expected: the tests fail because neither button has a click handler and failures are not announced.
@@ -708,7 +710,7 @@ Run:
 
 ```powershell
 node --check static/profile.js
-.\.venv\Scripts\python.exe -m pytest tests/e2e/test_profile_redesign.py -k "referral_link_copies or referral_share_falls or missing_referral_link or referral_action_failures" -q
+.\.venv\Scripts\python.exe -m pytest -m e2e tests/e2e/test_profile_redesign.py -k "referral_link_copies or referral_share_falls or missing_referral_link or referral_action_failures" -q
 ```
 
 Expected: syntax is valid; copy writes the exact link/code; Telegram uses `t.me/share/url`; the browser fallback receives a Web Share payload.
@@ -726,18 +728,22 @@ git commit -m "feat(referrals): add profile sharing actions"
 - Modify: `static/index.html`
 - Modify: `static/lobby.html`
 - Modify: `static/profile.html`
+- Modify: `static/cube.html`
+- Modify: `static/component-ui.js`
+- Modify: `static/v028-ready-phase.js`
+- Modify: `static/v037-poker8-v2-reference-table.js`
 
 - [ ] **Step 1: Advance the shared cache token**
 
-Replace every `?v=cash-first-1` in `static/index.html`, `static/lobby.html`, and `static/profile.html` with `?v=referral-profile-1`. Do not change asset filenames.
+Replace every `?v=cash-first-1` under `static/` with `?v=referral-profile-1`, including the nested loader URLs in `component-ui.js`, `v028-ready-phase.js`, and `v037-poker8-v2-reference-table.js`. Do not change asset filenames.
 
 Run the existing cache contract:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests/test_profile_page.py::test_every_page_shares_one_cache_token -q
+.\.venv\Scripts\python.exe -m pytest tests/test_profile_page.py::test_every_page_shares_one_cache_token tests/test_the_loader_chain_moves_as_one.py -q
 ```
 
-Expected: one passing test and exactly one shared token across the three entry pages.
+Expected: all cache-contract tests pass with exactly one shared token across the entry pages and every nested loader.
 
 - [ ] **Step 2: Run focused backend and UI verification**
 
@@ -745,7 +751,7 @@ Expected: one passing test and exactly one shared token across the three entry p
 node --check static/profile.js
 git diff --check
 .\.venv\Scripts\python.exe -m pytest tests/online/test_foundation_api.py tests/cash/test_c2c_routes.py tests/test_profile_page.py tests/cash/test_cash_moves_into_the_profile.py tests/cash/test_cash_client.py -q
-.\.venv\Scripts\python.exe -m pytest tests/e2e/test_profile_redesign.py -q
+.\.venv\Scripts\python.exe -m pytest -m e2e tests/e2e/test_profile_redesign.py -q
 ```
 
 Expected: JavaScript syntax and diff checks are clean; every selected pytest test passes.
@@ -779,7 +785,7 @@ At 1280×900, 390×844, and 360×800 verify:
 - [ ] **Step 5: Commit the release token**
 
 ```powershell
-git add -- static/index.html static/lobby.html static/profile.html
+git add -- static/index.html static/lobby.html static/profile.html static/cube.html static/component-ui.js static/v028-ready-phase.js static/v037-poker8-v2-reference-table.js
 git commit -m "chore: refresh referral profile assets"
 ```
 
