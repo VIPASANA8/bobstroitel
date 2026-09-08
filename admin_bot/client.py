@@ -56,6 +56,12 @@ class CashAdminClient:
     def audit(self, actor_id):
         return self.request("GET", "/api/cash-admin/audit?limit=20", actor_id)
 
+    def referrals(self, actor_id, limit=100):
+        return self.request("GET", f"/api/cash-admin/referrals?limit={int(limit)}", actor_id)
+
+    def partner(self, actor_id):
+        return self.request("GET", "/api/cash-admin/partner", actor_id)
+
     def user(self, actor_id, identifier):
         from urllib.parse import quote
         return self.request("GET", f"/api/cash-admin/users/{quote(str(identifier), safe='')}", actor_id)
