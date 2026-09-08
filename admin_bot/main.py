@@ -13,6 +13,7 @@ from admin_bot.economy import economy_message, partner_message, referral_message
 from admin_bot.formatting import (
     fiat_order_message, queue_messages, reconciliation_message, user_card,
 )
+from admin_bot.menu import REPORT_KEYBOARD
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -86,12 +87,29 @@ class OperatorBot:
         except AdminAPIError as exc:
             self.telegram.send(chat_id, f"🚫 {escape(str(exc))}")
 
+    def _send_report(self, chat_id, actor_id, report):
+        if report == "economy":
+            referrals = self.api.referrals(actor_id, 500)
+            partner = self.api.partner(actor_id)
+            self.telegram.send(chat_id, economy_message(referrals, partner), REPORT_KEYBOARD)
+            return True
+        if report == "referrals":
+            self.telegram.send(
+                chat_id, referral_message(self.api.referrals(actor_id, 500)), REPORT_KEYBOARD,
+            )
+            return True
+        if report == "partner":
+            self.telegram.send(chat_id, partner_message(self.api.partner(actor_id)), REPORT_KEYBOARD)
+            return True
+        return False
+
     def handle_message(self, chat_id, actor_id, text, identity):
         text = text.strip()
         if text in {"/start", "/help"}:
             self.telegram.send(
                 chat_id,
                 f"Poker8 CASH control\nРоль: <b>{escape(identity['role'])}</b>\n"
+                "Выберите отчёт кнопкой ниже или используйте команды.\n\n"
                 "/economy — твоя доля, партнёр и реферальные расходы\n"
                 "/referrals — общая реферальная статистика\n"
                 "/partner — расчёты доли партнёра CUBE\n"
@@ -100,18 +118,11 @@ class OperatorBot:
                 "/order ID — заявка RUB P2P по локальному или партнёрскому номеру\n"
                 "/recon [ГГГГ-ММ-ДД] — сверка RUB за день\n"
                 "заморозка аккаунта — кнопкой в карточке /user",
+                REPORT_KEYBOARD,
             )
             return
-        if text == "/economy":
-            referrals = self.api.referrals(actor_id, 500)
-            partner = self.api.partner(actor_id)
-            self.telegram.send(chat_id, economy_message(referrals, partner))
-            return
-        if text == "/referrals":
-            self.telegram.send(chat_id, referral_message(self.api.referrals(actor_id, 500)))
-            return
-        if text == "/partner":
-            self.telegram.send(chat_id, partner_message(self.api.partner(actor_id)))
+        if text in {"/economy", "/referrals", "/partner"}:
+            self._send_report(chat_id, actor_id, text[1:])
             return
         if text == "/queue":
             self.show_queue(chat_id, actor_id, identity)
@@ -207,6 +218,9 @@ class OperatorBot:
             self.telegram.send(chat_id, text, keyboard)
 
     def handle_callback(self, chat_id, actor_id, data, _identity):
+        if data.startswith("report:"):
+            self._send_report(chat_id, actor_id, data.split(":", 1)[1])
+            return
         if data == "cancel":
             self.pending.pop(actor_id, None)
             self.telegram.send(chat_id, "Отменено")
