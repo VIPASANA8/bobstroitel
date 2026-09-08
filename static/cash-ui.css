@@ -114,3 +114,12 @@
 /* Selected whole on one tap, so the reference can be copied with the
    phone's own handle instead of a button beside it. */
 .pay-id{-webkit-user-select:all;user-select:all;word-break:break-all;font-variant-numeric:tabular-nums;cursor:text}
+
+/* On phones the referral tab is icon-only, so it should not reserve the same
+   one-third width as the two primary sections. Keep a 44px tap target and
+   let CASH / Profile share the freed space. */
+@media(max-width:580px){
+  .profile-modes{display:flex}
+  .profile-modes .mode-tab{flex:1 1 0;min-width:0}
+  .profile-modes #referralModeTab{flex:0 0 44px;width:44px;min-width:44px;padding-inline:0}
+}
