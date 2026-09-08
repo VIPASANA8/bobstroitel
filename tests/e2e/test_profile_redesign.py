@@ -340,6 +340,23 @@ def test_referral_summary_fits_phone_and_desktop_widths(profile_page, width):
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1')
 
 
+@pytest.mark.parametrize(
+    ('width', 'visible_selector', 'hidden_selector'),
+    [(580, '.referral-tab-icon', '.referral-tab-label'),
+     (581, '.referral-tab-label', '.referral-tab-icon')],
+)
+def test_referral_tab_switches_to_an_accessible_phone_icon(
+        profile_page, width, visible_selector, hidden_selector):
+    page, _, _, server = profile_page
+    page.set_viewport_size({'width': width, 'height': 844})
+    page.goto(server + '/static/profile.html')
+
+    tab = page.get_by_role('tab', name='Рефералы', exact=True)
+    expect(tab).to_be_visible()
+    expect(tab.locator(visible_selector)).to_be_visible()
+    expect(tab.locator(hidden_selector)).to_be_hidden()
+
+
 def test_referral_link_copies_and_uses_telegram_share(profile_page):
     page, _, _, server = profile_page
     page.add_init_script("""

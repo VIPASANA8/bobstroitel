@@ -8,9 +8,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Manrope:wght@400;600;700;800&display=swap" />
-  <link rel="stylesheet" href="/static/network.css?v=referral-profile-1" />
-  <link rel="stylesheet" href="/static/profile.css?v=referral-profile-1" />
-  <link rel="stylesheet" href="/static/cash-ui.css?v=referral-profile-1" />
+  <link rel="stylesheet" href="/static/network.css?v=referral-tab-icon-1" />
+  <link rel="stylesheet" href="/static/profile.css?v=referral-tab-icon-1" />
+  <link rel="stylesheet" href="/static/cash-ui.css?v=referral-tab-icon-1" />
 </head>
 <body class="profile-page">
   <a class="skip-link" href="#profileMain">К профилю</a>
@@ -23,7 +23,7 @@
       <nav class="profile-modes lobby-modes" role="tablist" aria-label="Разделы профиля" hidden>
         <button id="cashModeTab" class="mode-tab" type="button" role="tab" aria-selected="false" aria-controls="cashSection" tabindex="-1" hidden><span id="cashModeLabel">CASH-касса</span> <small id="cashModeMark">$$$</small></button>
         <button id="playModeTab" class="mode-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="playSection"><span id="profileModeLabel">Профиль Poker</span></button>
-        <button id="referralModeTab" class="mode-tab" type="button" role="tab" aria-selected="false" aria-controls="referralSection" tabindex="-1" hidden>Рефералы</button>
+        <button id="referralModeTab" class="mode-tab" type="button" role="tab" aria-label="Рефералы" aria-selected="false" aria-controls="referralSection" tabindex="-1" hidden><span class="referral-tab-label">Рефералы</span><span class="referral-tab-icon" aria-hidden="true">🔗</span></button>
       </nav>
 
       <div id="playSection" role="tabpanel" aria-labelledby="playModeTab" tabindex="0">
@@ -174,7 +174,7 @@
   <dialog id="fiatDepositDialog" class="buyin-dialog cash-dialog"><form method="dialog" id="fiatDepositForm"><button class="dialog-close" type="button" aria-label="Закрыть">×</button><h2>P2P пополнение</h2><p class="dialog-sub">Пополните баланс с банковской карты</p><label class="amount-field" for="fiatDepositUsdt"><span class="sr-only">Сумма зачисления</span><input id="fiatDepositUsdt" type="text" inputmode="decimal" required value="20" placeholder="Введите сумму (20$–300$)" pattern="[0-9]+([.][0-9]{1,2})?" /><span class="amount-suffix" aria-hidden="true">USDT</span></label><div class="pay-currencies"><span class="pay-currency is-active"><b>RU</b><small>RUB</small></span></div><p class="cash-conversion"><strong id="fiatDepositCash">200</strong> единиц CASH · комиссия 1%</p><button class="primary-action" value="default" type="submit">Пополнить P2P</button><section id="fiatDepositDetails" class="payment-details" hidden></section></form></dialog>
   <dialog id="withdrawDialog" class="buyin-dialog cash-dialog"><form method="dialog" id="withdrawForm"><button class="dialog-close" type="button" aria-label="Закрыть">×</button><p class="eyebrow">C2C · TRC20</p><h2>Вывод</h2><label for="withdrawUsdt">Сумма, USDT</label><input id="withdrawUsdt" type="text" inputmode="decimal" required value="10" pattern="[0-9]+([.][0-9]{1,6})?" /><label for="withdrawAddress">Адрес TRC20</label><input id="withdrawAddress" type="text" maxlength="128" required placeholder="T..." /><p class="cash-conversion"><strong id="withdrawCash">100</strong> единиц CASH</p><button class="primary-action" value="default" type="submit">Создать вывод <strong>→</strong></button><section id="withdrawDetails" class="payment-details" hidden></section></form></dialog>
 
-  <script src="/static/swipe-nav.js?v=referral-profile-1"></script>
+  <script src="/static/swipe-nav.js?v=referral-tab-icon-1"></script>
   <script>
     Poker8SwipeNav(
       document.body,
@@ -183,11 +183,11 @@
       () => !document.getElementById('cashSection').hidden
     );
   </script>
-  <script src="/static/tg-login.js?v=referral-profile-1"></script>
+  <script src="/static/tg-login.js?v=referral-tab-icon-1"></script>
 
-  <script src="/static/auth-client.js?v=referral-profile-1"></script>
-  <script src="/static/qr.js?v=referral-profile-1"></script>
-  <script src="/static/cash-cashier.js?v=referral-profile-1"></script>
-  <script src="/static/profile.js?v=referral-profile-1"></script>
+  <script src="/static/auth-client.js?v=referral-tab-icon-1"></script>
+  <script src="/static/qr.js?v=referral-tab-icon-1"></script>
+  <script src="/static/cash-cashier.js?v=referral-tab-icon-1"></script>
+  <script src="/static/profile.js?v=referral-tab-icon-1"></script>
 </body>
 </html>
