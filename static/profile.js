@@ -489,6 +489,7 @@
     showError('cashError', '');
     document.querySelector('.cash-wallet-grid').hidden = false;
     document.querySelector('.cash-actions').hidden = false;
+    $('cashHistory').hidden = false;
     $('cashModeTab').hidden = false;
     // One tab is not a choice: the switch appears only once there are two.
     document.querySelector('.profile-modes').hidden = false;
@@ -518,6 +519,9 @@
     document.querySelector('.profile-modes').selectTab($('cashModeTab'));
     document.querySelector('.cash-wallet-grid').hidden = true;
     document.querySelector('.cash-actions').hidden = true;
+    $('cashHistory').hidden = true;
+    $('allHistory').replaceChildren();
+    $('allHistoryPanel').setAttribute('aria-busy', 'false');
     showError('cashError', window.Poker8Auth.needsSignIn(error)
       ? 'Войдите через Telegram: откройте кассу из бота.'
       : 'USDT-касса временно недоступна. Попробуйте обновить страницу через минуту.');

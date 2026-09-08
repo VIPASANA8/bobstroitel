@@ -292,6 +292,9 @@ def test_cube_cashier_failure_keeps_a_visible_error_and_hides_dead_controls(prof
         'Войдите через Telegram' if failure == 'auth' else 'USDT-касса временно недоступна')
     expect(page.locator('.cash-wallet-grid')).to_be_hidden()
     expect(page.locator('.cash-actions')).to_be_hidden()
+    expect(page.locator('#cashHistory')).to_be_hidden()
+    expect(page.locator('#cashSection [aria-busy="true"]')).to_have_count(0)
+    expect(page.locator('#cashSection')).not_to_contain_text('Загружаем историю')
 
 
 def test_cube_cashier_shows_pending_usdt_without_cash_conversion(profile_page):
