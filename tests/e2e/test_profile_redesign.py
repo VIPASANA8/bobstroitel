@@ -459,6 +459,34 @@ def test_cube_result_strip_is_above_and_clear_of_the_cube(profile_page, width):
     assert cube['y'] - (result['y'] + result['height']) >= 12
 
 
+def test_cube_mobile_roll_action_stays_clear_of_the_fixed_game_tabs(profile_page):
+    page, _, _, server = profile_page
+    page.set_viewport_size({'width': 390, 'height': 900})
+    page.goto(server + '/cube')
+
+    action = page.locator('#playButton').bounding_box()
+    tabs = page.locator('.game-tabs').bounding_box()
+    assert action and tabs
+    assert action['y'] + action['height'] <= tabs['y']
+    assert page.evaluate('document.documentElement.scrollHeight - innerHeight') <= 48
+
+
+@pytest.mark.parametrize('height', [320, 400])
+def test_cube_short_desktop_keeps_a_readable_die_below_the_result(profile_page, height):
+    page, _, _, server = profile_page
+    page.set_viewport_size({'width': 900, 'height': height})
+    page.goto(server + '/cube')
+
+    card = page.locator('#diceCard').bounding_box()
+    result = page.locator('#resultLine').bounding_box()
+    cube = page.locator('.cube-scene').bounding_box()
+    assert card and result and cube
+    assert abs(result['y'] - card['y']) <= 2
+    assert cube['width'] >= 168
+    assert cube['height'] >= 168
+    assert cube['y'] - (result['y'] + result['height']) >= 12
+
+
 def test_native_touch_swipe_opens_the_poker_cashier(profile_page):
     page, _, _, server = profile_page
     page.goto(server + '/')
