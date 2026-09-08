@@ -1,6 +1,6 @@
 # CASH foundation — первый пакет реализации
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking. В текущем проекте выполнять последовательно через executing-plans; делегирование без отдельного разрешения не включать.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. В текущем проекте выполнять последовательно через executing-plans; делегирование без отдельного разрешения не включать.
 
 **Goal:** Добавить внутренний CASH_USDT-журнал с точным масштабом 1 USDT = 10 игровых единиц, атомарными проводками и PostgreSQL-проверками повторов, конкуренции и отката.
 
@@ -14,7 +14,7 @@
 
 Спецификация: [cash-c2c-design](../specs/2026-08-31-cash-c2c-design.md).
 
-Реализация первого пакета выполнена 2026-09-01 в ветке `codex/cash-foundation`. Кодовые блоки синхронизированы с реализацией; дополнительные проверки входят в перечисленные тестовые файлы. Фактические результаты и ограничения: [отчёт приёмки](../../cash-foundation-verification.md).
+Этот файл — план с кодом для последующей реализации. Кодовые блоки пока не установлены в приложение и не проверены исполнением. Создание документа не означает завершение описанных задач.
 
 Результат пакета — проверенный внутренний журнал, а не готовый C2C, REAL CASH или вывод. Не создаются HTTP-эндпоинты пополнения, provider credentials, blockchain transactions, админ-бот или денежные столы. Не включаются приём денег и игровые CASH-режимы.
 
@@ -44,7 +44,7 @@ $env:POKER8_CASH_TEST_DATABASE_URL = 'postgresql+psycopg://poker8:poker8@localho
 | `tests/cash/conftest.py` | Изолированная PostgreSQL-схема и тестовые счета |
 | `tests/cash/test_amounts.py` | Курс, точность и отбрасывание недопустимых входов |
 | `tests/cash/test_migration.py` | Обновление исторической схемы и запрет уничтожения данных при downgrade |
-| `tests/cash/test_cash_ledger.py` | Идемпотентность, нехватка средств, rollback и конкуренция |
+| `tests/cash/test_ledger.py` | Идемпотентность, нехватка средств, rollback и конкуренция |
 
 Определения CASH-таблиц остаются в общем online/schema.py: проект уже использует его metadata. Так не появится циклическая регистрация моделей или вторая схема SQLAlchemy. Отдельные cash_accounts и cash_entries не объединяются с PLAY-таблицами.
 
@@ -52,7 +52,7 @@ $env:POKER8_CASH_TEST_DATABASE_URL = 'postgresql+psycopg://poker8:poker8@localho
 
 **Files:** Create `cash/__init__.py`, `cash/amounts.py`, `tests/cash/test_amounts.py`.
 
-- [x] **Step 1: Добавить тесты до реализации.**
+- [ ] **Step 1: Добавить тесты до реализации.**
 
 ```python
 # tests/cash/test_amounts.py
@@ -92,7 +92,7 @@ def test_cash_unit_precision_and_bigint_boundary():
             micros_to_usdt(value)
 ```
 
-- [x] **Step 2: Проверить ожидаемое падение.**
+- [ ] **Step 2: Проверить ожидаемое падение.**
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest tests/cash/test_amounts.py -q
@@ -100,7 +100,7 @@ def test_cash_unit_precision_and_bigint_boundary():
 
 Ожидается ошибка импорта cash.amounts: модуля ещё нет.
 
-- [x] **Step 3: Создать пустой cash/__init__.py и реализацию преобразования.**
+- [ ] **Step 3: Создать пустой cash/__init__.py и реализацию преобразования.**
 
 ```python
 # cash/amounts.py
@@ -151,8 +151,8 @@ def micros_to_units(value: int) -> str:
 
 Курс не меняет минимальную фишку и блайнды автоматически. Модуль допускает нулевое представление баланса; положительность конкретного платежа проверяется его командой. Денежные float и bool не принимаются.
 
-- [x] **Step 4: Повторить тестовую команду; все cases должны пройти.**
-- [x] **Step 5: Зафиксировать только файлы этого шага.**
+- [ ] **Step 4: Повторить тестовую команду; все cases должны пройти.**
+- [ ] **Step 5: Зафиксировать только файлы этого шага.**
 
 ```powershell
 git add -- cash/__init__.py cash/amounts.py tests/cash/test_amounts.py
@@ -163,7 +163,7 @@ git commit -m "feat: define exact cash denomination conversions"
 
 **Files:** Modify `online/schema.py`, `app/online.py`; create migration, `tests/cash/conftest.py`, `tests/cash/test_migration.py`.
 
-- [x] **Step 1: Добавить PostgreSQL-фикстуру и миграционный тест.**
+- [ ] **Step 1: Добавить PostgreSQL-фикстуру и миграционный тест.**
 
 ```python
 # tests/cash/conftest.py
@@ -198,11 +198,10 @@ async def cash_db(request, anyio_backend):
         url.drivername == "postgresql+psycopg"
         and url.host in {"localhost", "127.0.0.1", "::1"}
         and url.port == 5433 and url.database == "poker8_test"
-        and not url.query  # libpq query parameters can override host/port.
     ):
         pytest.fail("Refusing a database outside the local postgres_test target")
     schema = "cash_test_" + uuid4().hex
-    schema_state = getattr(request, "param", "current")
+    historical = getattr(request, "param", "current") == "historical"
     engine = create_async_engine(
         url, poolclass=NullPool,
         connect_args={"options": f"-csearch_path={schema}"},
@@ -211,11 +210,7 @@ async def cash_db(request, anyio_backend):
     try:
         async with engine.begin() as conn:
             await conn.execute(text(f'CREATE SCHEMA "{schema}"'))
-        if schema_state == "empty":
-            yield factory
-            return
-        async with engine.begin() as conn:
-            selected = [tenants, users, play_accounts] if schema_state == "historical" else None
+            selected = [tenants, users, play_accounts] if historical else None
             await conn.run_sync(lambda sync: metadata.create_all(sync, tables=selected))
             await conn.execute(tenants.insert().values(id="tenant", slug="cash-test", name="Test"))
             await conn.execute(users.insert(), [
@@ -226,7 +221,7 @@ async def cash_db(request, anyio_backend):
                 id="play-sentinel", owner_kind="user", owner_id="alice",
                 account_kind="wallet", balance_units=12345,
             ))
-            if schema_state == "current":
+            if not historical:
                 await conn.execute(cash_accounts.insert(), [
                     {"id": "external", "kind": "clearing", "user_id": None, "reference_id": "mock"},
                     {"id": "alice-wallet", "kind": "available", "user_id": "alice", "reference_id": "alice"},
@@ -252,12 +247,9 @@ from pathlib import Path
 import pytest
 import sqlalchemy as sa
 from alembic.config import Config
-from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from alembic.script import ScriptDirectory
-
-from online.schema import metadata
 
 pytestmark = [pytest.mark.anyio, pytest.mark.postgres]
 
@@ -280,7 +272,6 @@ async def test_upgrade_preserves_play_and_downgrade_refuses_cash_rows(cash_db):
             assert {"cash_accounts", "cash_transactions", "cash_entries"} <= names
             assert await session.scalar(sa.text("SELECT balance_units FROM play_accounts WHERE id='play-sentinel'")) == 12345
             assert await session.scalar(sa.text("SELECT count(*) FROM cash_accounts")) == 0
-            await conn.run_sync(assert_cash_schema_matches_metadata)
             await conn.run_sync(lambda sync: migrate(sync, "downgrade"))
             names = await conn.run_sync(lambda sync: set(sa.inspect(sync).get_table_names()))
             assert "cash_accounts" not in names
@@ -295,54 +286,9 @@ async def test_upgrade_preserves_play_and_downgrade_refuses_cash_rows(cash_db):
             with pytest.raises(RuntimeError, match="cash data"):
                 await conn.run_sync(lambda sync: migrate(sync, "downgrade"))
             assert await session.scalar(sa.text("SELECT count(*) FROM cash_accounts")) == 1
-
-
-def assert_cash_schema_matches_metadata(conn):
-    context = MigrationContext.configure(conn, opts={
-        "include_object": lambda obj, name, type_, reflected, compare_to:
-            type_ != "table" or name.startswith("cash_"),
-        "compare_server_default": True,
-    })
-    assert compare_metadata(context, metadata) == []
-
-
-@pytest.mark.parametrize("cash_db", ["empty"], indirect=True)
-async def test_all_upgrades_on_empty_schema_keep_cash_disabled(cash_db):
-    def upgrade_all(conn):
-        scripts = ScriptDirectory(str(Path(__file__).resolve().parents[2] / "migrations"))
-        with Operations.context(MigrationContext.configure(conn)):
-            for revision in reversed(list(scripts.walk_revisions())):
-                revision.module.upgrade()
-        assert_cash_schema_matches_metadata(conn)
-
-    async with cash_db() as session:
-        async with session.begin():
-            conn = await session.connection()
-            await conn.run_sync(upgrade_all)
-            for name in ("cash_accounts", "cash_transactions", "cash_entries"):
-                assert await session.scalar(sa.text(f'SELECT count(*) FROM "{name}"')) == 0
-
-
-async def test_downgrade_blocks_writers_before_checking_for_cash_data(cash_db):
-    async with cash_db() as migration_session:
-        async with migration_session.begin():
-            conn = await migration_session.connection()
-            with pytest.raises(RuntimeError, match="cash data"):
-                await conn.run_sync(lambda sync: migrate(sync, "downgrade"))
-            # Keep the migration transaction open: a concurrent first deposit
-            # must not slip between its empty check and its table drops.
-            with pytest.raises(sa.exc.OperationalError) as blocked:
-                async with cash_db() as writer:
-                    async with writer.begin():
-                        await writer.execute(sa.text("SET LOCAL lock_timeout = '200ms'"))
-                        await writer.execute(sa.text("""
-                            INSERT INTO cash_accounts (id, kind, reference_id)
-                            VALUES ('concurrent', 'clearing', 'concurrent')
-                        """))
-            assert blocked.value.orig.sqlstate == "55P03"
 ```
 
-- [x] **Step 2: Выполнить тест до реализации.**
+- [ ] **Step 2: Выполнить тест до реализации.**
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest tests/cash/test_migration.py -m postgres -q
@@ -350,7 +296,7 @@ async def test_downgrade_blocks_writers_before_checking_for_cash_data(cash_db):
 
 Ожидается ошибка импорта cash_accounts. После реализации ожидается PASS, без skips.
 
-- [x] **Step 3: Добавить таблицы в конец online/schema.py.**
+- [ ] **Step 3: Добавить таблицы в конец online/schema.py.**
 
 ```python
 cash_accounts = Table(
@@ -394,7 +340,7 @@ Index("ix_cash_entries_account", cash_entries.c.account_id)
 
 Все CASH-таблицы фиксированно относятся к CASH_USDT: нет параметра валюты, которым можно подменить актив. FK записи журнала допускает только cash_accounts. Идентификаторы реальных счетов будет создавать серверный кассовый workflow; постоянные короткие ID здесь принадлежат только тестовым fixtures. Счета создаются с нулём; пополнение отражается проводкой.
 
-- [x] **Step 4: Создать замороженную миграцию. Не импортировать текущие runtime-модели из миграции.**
+- [ ] **Step 4: Создать замороженную миграцию. Не импортировать текущие runtime-модели из миграции.**
 
 ```python
 # migrations/versions/20260831_0014_cash_foundation.py
@@ -453,15 +399,7 @@ def upgrade():
 
 
 def downgrade():
-    bind = op.get_bind()
-    tables = set(sa.inspect(bind).get_table_names())
-    # Keep the emptiness check and drops atomic against concurrent first writes.
-    # Follow posting order: claim transaction, lock accounts, insert entries.
-    lock_order = ("cash_transactions", "cash_accounts", "cash_entries")
-    existing = [name for name in lock_order if name in tables]
-    if bind.dialect.name == "postgresql" and existing:
-        targets = ", ".join(f'"{name}"' for name in existing)
-        bind.execute(sa.text(f"LOCK TABLE {targets} IN ACCESS EXCLUSIVE MODE"))
+    tables = set(sa.inspect(op.get_bind()).get_table_names())
     names = ("cash_entries", "cash_transactions", "cash_accounts")
     for name in names:
         if name in tables and op.get_bind().execute(sa.text(f'SELECT 1 FROM "{name}" LIMIT 1')).first():
@@ -471,7 +409,7 @@ def downgrade():
             op.drop_table(name)
 ```
 
-- [x] **Step 5: В app/online.py заменить только ожидаемую ревизию.**
+- [ ] **Step 5: В app/online.py заменить только ожидаемую ревизию.**
 
 ```python
 EXPECTED_MIGRATION_REVISION = "20260831_0014"
@@ -479,7 +417,7 @@ EXPECTED_MIGRATION_REVISION = "20260831_0014"
 
 `create_app` продолжает создавать только PLAY runtime и сервисы. CashLedger не присваивается app.state, не передаётся в SeatingService и не подключается к авторизации.
 
-- [x] **Step 6: Проверить миграцию и существующую защиту cash-off.**
+- [ ] **Step 6: Проверить миграцию и существующую защиту cash-off.**
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest tests/cash/test_migration.py -m postgres -q
@@ -488,7 +426,7 @@ EXPECTED_MIGRATION_REVISION = "20260831_0014"
 
 Ожидается PASS. Тест cash-off не удалять: новые внутренние таблицы не означают доступность денежных API или столов. Тест исторической миграции начинается с таблиц users/tenants/play_accounts, без CASH, поэтому проверяет настоящий путь upgrade, а не только текущий create_all.
 
-- [x] **Step 7: Зафиксировать только изменения пакета схемы.**
+- [ ] **Step 7: Зафиксировать только изменения пакета схемы.**
 
 ```powershell
 git add -- online/schema.py app/online.py migrations/versions/20260831_0014_cash_foundation.py tests/cash/conftest.py tests/cash/test_migration.py
@@ -497,19 +435,18 @@ git commit -m "feat: add isolated cash ledger schema"
 
 ## Task 3: Атомарная публикация и защита от повторов
 
-**Files:** Create `cash/ledger.py`, `tests/cash/test_cash_ledger.py`.
+**Files:** Create `cash/ledger.py`, `tests/cash/test_ledger.py`.
 
 Примитив получает уже существующие cash-account ID и уже проверенную сервером причину операции. Он не открывает кошелёк по произвольному пользовательскому запросу, не одобряет депозит/вывод и не завершает транзакцию вызывающего workflow. Начальная структура account/reference должна создаваться кассой; полноценные команды депозитов и выводов не входят в этот пакет.
 
-- [x] **Step 1: Добавить проверки до реализации.**
+- [ ] **Step 1: Добавить проверки до реализации.**
 
 ```python
-# tests/cash/test_cash_ledger.py
+# tests/cash/test_ledger.py
 import asyncio
 
 import pytest
 from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from cash.amounts import MAX_MICROS, micros_to_units
 from cash.ledger import CashLedger, IdempotencyConflict, InsufficientCash
@@ -700,76 +637,17 @@ async def test_balance_overflow_rolls_back_the_whole_operation(cash_db):
     assert (await balances(cash_db))["alice-wallet"] == MAX_MICROS
     assert await transaction_count(cash_db) == 1
     await assert_reconciled(cash_db)
-
-
-async def test_post_requires_caller_transaction(cash_db):
-    async with cash_db() as session:
-        with pytest.raises(ValueError, match="caller's transaction"):
-            await ledger.post(
-                session, scope="test", key="no-transaction", kind="deposit",
-                reference_id="mock", actor="system:test",
-                postings={"external": -100, "alice-wallet": 100},
-            )
-    assert await transaction_count(cash_db) == 0
-
-
-async def test_post_refuses_sqlite_even_inside_transaction():
-    engine = create_async_engine("sqlite+aiosqlite://")
-    try:
-        async with async_sessionmaker(engine)() as session:
-            async with session.begin():
-                with pytest.raises(ValueError, match="PostgreSQL row locks"):
-                    await ledger.post(
-                        session, scope="test", key="sqlite", kind="deposit",
-                        reference_id="mock", actor="system:test",
-                        postings={"external": -100, "alice-wallet": 100},
-                    )
-    finally:
-        await engine.dispose()
-
-
-@pytest.mark.parametrize("changed", [
-    {"kind": "adjustment"}, {"reference_id": "different-event"},
-])
-async def test_retry_is_bound_to_operation_kind_and_reference(cash_db, changed):
-    command = dict(
-        scope="test", key="event", kind="deposit", reference_id="mock",
-        actor="system:test", postings={"external": -100, "alice-wallet": 100},
-    )
-    async with cash_db() as session:
-        async with session.begin():
-            await ledger.post(session, **command)
-            with pytest.raises(IdempotencyConflict):
-                await ledger.post(session, **(command | changed))
-    assert await transaction_count(cash_db) == 1
-    assert (await balances(cash_db))["alice-wallet"] == 100
-    await assert_reconciled(cash_db)
-
-
-async def test_same_key_in_distinct_scopes_is_independent(cash_db):
-    async with cash_db() as session:
-        async with session.begin():
-            for scope in ("provider-a", "provider-b"):
-                receipt = await ledger.post(
-                    session, scope=scope, key="event", kind="deposit",
-                    reference_id="mock", actor="system:test",
-                    postings={"external": -100, "alice-wallet": 100},
-                )
-                assert receipt.created
-    assert await transaction_count(cash_db) == 2
-    assert (await balances(cash_db))["alice-wallet"] == 200
-    await assert_reconciled(cash_db)
 ```
 
-- [x] **Step 2: Выполнить тест до реализации.**
+- [ ] **Step 2: Выполнить тест до реализации.**
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests/cash/test_cash_ledger.py -m postgres -q
+.\.venv\Scripts\python.exe -m pytest tests/cash/test_ledger.py -m postgres -q
 ```
 
 Ожидается ошибка импорта cash.ledger.
 
-- [x] **Step 3: Создать денежный примитив.**
+- [ ] **Step 3: Создать денежный примитив.**
 
 ```python
 # cash/ledger.py
@@ -814,13 +692,7 @@ class CashLedger:
         self, session: AsyncSession, *, scope: str, key: str, kind: str,
         reference_id: str, actor: str, postings: Mapping[str, int],
     ) -> CashReceipt:
-        """Post inside the caller's READ COMMITTED transaction.
-
-        The caller authenticates the reason and owns commit/rollback. A receipt
-        is provisional until that commit; external effects must wait for it.
-        Pass all affected accounts in one call where possible. If an outer
-        workflow deadlocks, retry that entire transaction with the same key.
-        """
+        """Post inside the caller's transaction; never authenticate an external event."""
         if session.get_bind().dialect.name != "postgresql":
             raise ValueError("cash posting requires PostgreSQL row locks")
         if not session.in_transaction():
@@ -906,18 +778,18 @@ class CashLedger:
 
 Здесь нет функций UPDATE/DELETE для cash_entries и cash_transactions: исправления идут новой проводкой. Эта гарантия относится к штатному приложению, не к администратору БД. До live-подключения обязателен отдельный проверенный режим прав БД: прикладной роли запрещаются UPDATE/DELETE опубликованного журнала; привилегированные миграции и обслуживание используют другую роль. Пакет не заявляет защиту от владельца базы или скомпрометированного сервисного SQL-доступа.
 
-- [x] **Step 4: Выполнить денежные тесты на PostgreSQL.**
+- [ ] **Step 4: Выполнить денежные тесты на PostgreSQL.**
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests/cash/test_cash_ledger.py -m postgres -q
+.\.venv\Scripts\python.exe -m pytest tests/cash/test_ledger.py -m postgres -q
 ```
 
 Ожидается PASS без skips. Нехватка средств должна быть доменной ошибкой InsufficientCash, не необработанным конфликтом уникальности, deadlock или отрицательным балансом. Тесты проверяют и общий баланс каждой операции, и соответствие каждой проекции сумме проводок.
 
-- [x] **Step 5: Зафиксировать денежный примитив и проверки.**
+- [ ] **Step 5: Зафиксировать денежный примитив и проверки.**
 
 ```powershell
-git add -- cash/ledger.py tests/cash/test_cash_ledger.py
+git add -- cash/ledger.py tests/cash/test_ledger.py
 git commit -m "feat: post cash entries atomically with content-bound retries"
 ```
 
@@ -925,7 +797,7 @@ git commit -m "feat: post cash entries atomically with content-bound retries"
 
 **Files:** Review все изменённые файлы и соответствие исходной спецификации. Новые runtime-функции на этом шаге не добавлять.
 
-- [x] **Step 1: Проверить всю локальную регрессию и cash-off.**
+- [ ] **Step 1: Проверить всю локальную регрессию и cash-off.**
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
@@ -933,7 +805,7 @@ git commit -m "feat: post cash entries atomically with content-bound retries"
 
 Ожидается PASS. Существующий pytest.ini по умолчанию исключает PostgreSQL и e2e: этот результат сам по себе не означает денежную приёмку.
 
-- [x] **Step 2: Отдельно проверить обязательные денежные сценарии.**
+- [ ] **Step 2: Отдельно проверить обязательные денежные сценарии.**
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest tests/cash -m postgres -q
@@ -945,11 +817,11 @@ git status --short
 
 Ожидается PASS без пропуска PostgreSQL-проверок, одна миграционная голова и отсутствие неожиданных файлов. Пустой git diff после commit не заменяет просмотр самих commit-ов. Если есть unrelated failure, воспроизвести его на исходной базе ветки и отдельно указать пользователю; не приписывать пакету непроверенное прохождение всей регрессии.
 
-- [x] **Step 3: Проверить код без добавления функций вне пакета.**
+- [ ] **Step 3: Проверить код без добавления функций вне пакета.**
 
 Проверка покрывает: совпадение миграции и metadata, точность курса, отсутствие float/auto-rounding, все пути после конфликтов и rollback, стабильный порядок блокировок, неизменность PLAY, отсутствие публичного пути создания cash, отсутствие ключей и сетевых платёжных запросов. Использовать requesting-code-review только в рамках разрешённого процесса; автоматическое делегирование не подразумевается.
 
-- [x] **Step 4: Передать фактический результат.**
+- [ ] **Step 4: Передать фактический результат.**
 
 В отчёте указать применённые миграции только тестовых схем, команды и результаты, известные ограничения. Не писать «C2C работает»: адаптер ещё не подключён. Не писать «вывод работает»: здесь протестирован бухгалтерский резерв, не отправка денег. Если PostgreSQL не был доступен, пакет не считать принятым.
 
