@@ -122,4 +122,8 @@
   .profile-modes{display:flex}
   .profile-modes .mode-tab{flex:1 1 0;min-width:0}
   .profile-modes #referralModeTab{flex:0 0 44px;width:44px;min-width:44px;padding-inline:0}
+  /* CUBE has no middle profile tab. Collapse that disabled empty slot so the
+     USDT cashier stretches all the way to the compact referral button. */
+  .cube-context .profile-modes #playModeTab{flex:0 0 0;width:0;min-width:0;max-width:0;padding:0;overflow:hidden;border:0}
+  .cube-context .profile-modes #cashModeTab{flex:1 1 auto}
 }
