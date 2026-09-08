@@ -69,6 +69,7 @@ def test_game_tabs_use_equal_selected_segment_visuals():
     cube_icon = effective_declarations(".game-tab>i", ".game-tab-cube.is-active>i")
 
     assert inactive.get("border") == "1pxsolidtransparent"
+    assert inactive.get("box-sizing") == "border-box"
     assert inactive.get("color") == "#747985"
     assert poker.get("color") == "#fff"
     assert cube.get("color") == "#fff"

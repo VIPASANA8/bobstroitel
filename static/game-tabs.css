@@ -11,7 +11,7 @@
 }
 .game-tab{
   display:grid;grid-auto-flow:column;align-items:center;justify-content:center;
-  gap:8px;min-height:46px;border:1px solid transparent;border-radius:13px;color:#747985;text-decoration:none;
+  gap:8px;min-height:46px;border:1px solid transparent;box-sizing:border-box;border-radius:13px;color:#747985;text-decoration:none;
   font:800 12px/1 Manrope,ui-sans-serif,system-ui,sans-serif;letter-spacing:.08em;
 }
 .game-tab>i{font:15px/1 Georgia,serif;font-style:normal}
