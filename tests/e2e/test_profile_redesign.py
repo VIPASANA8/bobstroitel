@@ -319,6 +319,83 @@ def test_referral_summary_fits_phone_and_desktop_widths(profile_page, width):
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1')
 
 
+def test_referral_link_copies_and_uses_telegram_share(profile_page):
+    page, _, _, server = profile_page
+    page.add_init_script("""
+      window.__copied = [];
+      Object.defineProperty(navigator, 'clipboard', {value: {
+        writeText: value => { window.__copied.push(value); return Promise.resolve(); }
+      }});
+    """)
+    page.goto(server + '/static/profile.html')
+    page.evaluate("""window.Telegram = {WebApp: {
+      openTelegramLink: value => { window.__telegramShare = value; }
+    }}""")
+    page.get_by_role('tab', name='Рефералы', exact=True).click()
+
+    page.get_by_role('button', name='Копировать', exact=True).click()
+    expect(page.locator('#referralStatus')).to_contain_text('Ссылка скопирована')
+    assert page.evaluate('window.__copied') == ['https://t.me/poker8bot?startapp=r7KQ2']
+
+    page.get_by_role('button', name='Поделиться', exact=True).click()
+    shared = page.evaluate('window.__telegramShare')
+    assert shared.startswith('https://t.me/share/url?')
+    assert 'poker8bot' in shared
+
+
+def test_referral_share_falls_back_to_web_share(profile_page):
+    page, _, _, server = profile_page
+    page.add_init_script("""
+      window.__webShares = [];
+      Object.defineProperty(navigator, 'share', {value: payload => {
+        window.__webShares.push(payload); return Promise.resolve();
+      }});
+    """)
+    page.goto(server + '/static/profile.html')
+    page.evaluate('delete window.Telegram')
+    page.get_by_role('tab', name='Рефералы', exact=True).click()
+    page.get_by_role('button', name='Поделиться', exact=True).click()
+    assert page.evaluate('window.__webShares[0].url') == 'https://t.me/poker8bot?startapp=r7KQ2'
+
+
+def test_missing_referral_link_copies_the_code_and_disables_share(profile_page):
+    page, data, _, server = profile_page
+    data['/api/cash/referral']['link'] = None
+    page.add_init_script("""
+      window.__copied = [];
+      Object.defineProperty(navigator, 'clipboard', {value: {
+        writeText: value => { window.__copied.push(value); return Promise.resolve(); }
+      }});
+    """)
+    page.goto(server + '/static/profile.html')
+    page.get_by_role('tab', name='Рефералы', exact=True).click()
+    expect(page.locator('#referralLink')).to_have_value('7KQ2')
+    expect(page.locator('#referralShare')).to_be_disabled()
+    expect(page.locator('#referralShare')).to_have_text('Ссылка недоступна')
+    page.get_by_role('button', name='Копировать', exact=True).click()
+    assert page.evaluate('window.__copied') == ['7KQ2']
+
+
+def test_referral_action_failures_are_announced(profile_page):
+    page, _, _, server = profile_page
+    page.add_init_script("""
+      Object.defineProperty(navigator, 'clipboard', {value: {
+        writeText: () => Promise.reject(new Error('clipboard denied'))
+      }});
+      Object.defineProperty(navigator, 'share', {value: () =>
+        Promise.reject(new Error('share denied'))
+      });
+    """)
+    page.goto(server + '/static/profile.html')
+    page.evaluate('delete window.Telegram')
+    page.get_by_role('tab', name='Рефералы', exact=True).click()
+
+    page.get_by_role('button', name='Копировать', exact=True).click()
+    expect(page.locator('#referralStatus')).to_contain_text('Не удалось скопировать')
+    page.get_by_role('button', name='Поделиться', exact=True).click()
+    expect(page.locator('#referralStatus')).to_contain_text('Поделиться не удалось')
+
+
 def test_failed_cube_history_does_not_claim_that_cube_is_empty(profile_page):
     page, data, _, server = profile_page
     data['/api/cube/history'] = None

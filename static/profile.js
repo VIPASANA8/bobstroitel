@@ -439,6 +439,63 @@
     }
   }
 
+  function setReferralStatus(message) {
+    $('referralStatus').textContent = message;
+  }
+
+  async function copyText(value) {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value);
+      return;
+    }
+    const field = document.createElement('textarea');
+    field.value = value;
+    field.setAttribute('readonly', '');
+    field.style.position = 'fixed';
+    field.style.opacity = '0';
+    document.body.append(field);
+    field.select();
+    const copied = document.execCommand('copy');
+    field.remove();
+    if (!copied) throw new Error('copy unavailable');
+  }
+
+  async function copyReferral() {
+    const value = $('referralCopy').dataset.value;
+    if (!value) return;
+    try {
+      await copyText(value);
+      setReferralStatus(/^https:\/\//.test(value) ? 'Ссылка скопирована.' : 'Код скопирован.');
+    } catch (error) {
+      console.error(error);
+      setReferralStatus('Не удалось скопировать. Выделите значение вручную.');
+    }
+  }
+
+  async function shareReferral() {
+    const link = $('referralShare').dataset.link;
+    if (!link) return;
+    const text = 'Присоединяйся ко мне в Poker8';
+    try {
+      const telegram = window.Telegram?.WebApp;
+      if (telegram?.openTelegramLink) {
+        const query = new URLSearchParams({url: link, text});
+        telegram.openTelegramLink('https://t.me/share/url?' + query);
+        return;
+      }
+      if (navigator.share) {
+        await navigator.share({title: 'Poker8', text, url: link});
+        return;
+      }
+      setReferralStatus('Поделиться не удалось. Скопируйте ссылку.');
+    } catch (error) {
+      if (error?.name !== 'AbortError') {
+        console.error(error);
+        setReferralStatus('Поделиться не удалось. Скопируйте ссылку.');
+      }
+    }
+  }
+
   function bindControls() {
     const playCard = $('profileCashEscrow').parentElement;
     const openCube = event => {
@@ -449,6 +506,8 @@
     playCard.addEventListener('click', openCube);
     playCard.addEventListener('keydown', openCube);
     $('referralRetry').addEventListener('click', loadReferral);
+    $('referralCopy').addEventListener('click', copyReferral);
+    $('referralShare').addEventListener('click', shareReferral);
     $('missionList').addEventListener('click', event => {
       const button = event.target.closest('[data-reroll]');
       if (button) rerollMission(button.dataset.reroll);
