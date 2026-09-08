@@ -9,6 +9,7 @@ from uuid import uuid4
 
 from admin_bot.client import AdminAPIError, CashAdminClient
 from admin_bot.config import BotConfig
+from admin_bot.economy import economy_message, partner_message, referral_message
 from admin_bot.formatting import (
     fiat_order_message, queue_messages, reconciliation_message, user_card,
 )
@@ -91,12 +92,26 @@ class OperatorBot:
             self.telegram.send(
                 chat_id,
                 f"Poker8 CASH control\nРоль: <b>{escape(identity['role'])}</b>\n"
+                "/economy — твоя доля, партнёр и реферальные расходы\n"
+                "/referrals — общая реферальная статистика\n"
+                "/partner — расчёты доли партнёра CUBE\n"
                 "/queue — очередь решений\n/audit — последние действия\n"
                 "/user ID — кошелёк и операции пользователя\n"
                 "/order ID — заявка RUB P2P по локальному или партнёрскому номеру\n"
                 "/recon [ГГГГ-ММ-ДД] — сверка RUB за день\n"
                 "заморозка аккаунта — кнопкой в карточке /user",
             )
+            return
+        if text == "/economy":
+            referrals = self.api.referrals(actor_id, 500)
+            partner = self.api.partner(actor_id)
+            self.telegram.send(chat_id, economy_message(referrals, partner))
+            return
+        if text == "/referrals":
+            self.telegram.send(chat_id, referral_message(self.api.referrals(actor_id, 500)))
+            return
+        if text == "/partner":
+            self.telegram.send(chat_id, partner_message(self.api.partner(actor_id)))
             return
         if text == "/queue":
             self.show_queue(chat_id, actor_id, identity)
@@ -129,7 +144,7 @@ class OperatorBot:
             return
         pending = self.pending.get(actor_id)
         if not pending:
-            self.telegram.send(chat_id, "Неизвестная команда. Используйте /queue")
+            self.telegram.send(chat_id, "Неизвестная команда. Используйте /help")
             return
         if pending.step == "order_id":
             if text != "-" and (not text or len(text) > 64):
