@@ -71,26 +71,31 @@ def partner_report():
     }
 
 
-def test_referral_card_shows_payout_states_sources_and_groups():
+def test_referral_card_uses_plain_language_and_keeps_source_totals():
     text = referral_message(referral_report())
-    assert "На hold: <b>3.5 USDT</b>" in text
-    assert "Доступно реферерам: <b>12 USDT</b>" in text
-    assert "Poker RevShare: 2 USDT" in text
-    assert "CUBE RevShare: 1.5 USDT" in text
-    assert "alice" in text and "7 приглашённых" in text
+    assert "В ожидании: <b>3.5 USDT</b>" in text
+    assert "Доступно к выплате: <b>12 USDT</b>" in text
+    assert "♠️ POKER: <b>2 USDT</b>" in text
+    assert "🎲 CUBE: <b>1.5 USDT</b>" in text
+    assert "alice" in text and "приглашено 7" in text
+    assert "RevShare" not in text
 
 
 def test_partner_card_never_counts_report_only_period_as_paid():
     text = partner_message(partner_report())
-    assert "25%" in text
-    assert "Партнёр заработал по закрытым платёжным периодам: <b>21.25 USDT</b>" in text
-    assert "Твоя сторона CUBE по тем же периодам: <b>63.75 USDT</b>" in text
+    assert "Текущая доля: <b>75/25</b>" in text
+    assert "BOOSTER: <b>21.25 USDT</b>" in text
+    assert "RICK: <b>63.75 USDT</b>" in text
     assert "Закрытых платёжных периодов: 1" in text
 
 
-def test_economy_card_combines_owner_partner_and_all_time_referral_costs():
-    text = economy_message(referral_report(), partner_report())
-    assert "Твоя сторона CUBE: <b>63.75 USDT</b>" in text
-    assert "Партнёр: <b>21.25 USDT</b> (25%)" in text
+def test_economy_card_uses_game_accounts_and_partner_total():
+    text = economy_message(
+        referral_report(), partner_report(),
+        {"cube_house_micros": 40_000_000, "poker_house_micros": 12_500_000},
+    )
+    assert "CUBE: <b>40 USDT</b>" in text
+    assert "POKER: <b>12.5 USDT</b>" in text
+    assert "BOOSTER: <b>21.25 USDT</b> (25%)" in text
     assert "Начислено и не отменено: 15.5 USDT" in text
     assert "reversed: 1 USDT" in text
