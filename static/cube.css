@@ -101,8 +101,9 @@
 
 .cube-embed .dice-card {
   position: relative;
-  /* Sized by the cube plus room for the result strip, so a short screen shrinks instead of scrolling. */
-  padding-bottom: 46px;
+  /* Reserve the card's top edge for the result strip and its breathing room. */
+  padding-top: 80px;
+  padding-bottom: 0;
   overflow: hidden;
   background:
     radial-gradient(circle at 50% 43%, rgba(139, 76, 255, 0.12), transparent 33%),
@@ -117,7 +118,7 @@
      but never smaller than a cube you can still read: a window too short to fit it scrolls instead. */
   width: max(168px, min(312px, calc(100vw - 32px), calc(100vh - 512px)));
   aspect-ratio: 1;
-  margin: 12px auto 8px;
+  margin: 18px auto 8px;
   user-select: none;
 }
 
@@ -143,14 +144,16 @@
 .cube-embed .result-line {
   position: absolute;
   z-index: 5;
+  top: 0;
   right: 0;
-  bottom: 0;
+  bottom: auto;
   left: 0;
   display: grid;
   min-height: 68px;
   align-content: center;
   padding: 13px 19px;
-  border-top: 1px solid var(--line);
+  border-top: 0;
+  border-bottom: 1px solid var(--line);
   /* Opaque instead of blurred: the canvas repaints under this strip every frame, and a backdrop filter
      would re-blur it every one of them, which is what heats a phone up. */
   background: #0b0d0e;
@@ -886,18 +889,19 @@
   .cube-embed .dice-card {
     display: grid;
     align-content: center;
-    /* Tall enough to hold the cube and its result line without the card
+    /* Tall enough to hold the result line and cube without the card
        growing past the controls beside it. */
     /* Everything above and below it -- header, page padding and the room
        the floating bar needs -- comes off the viewport first, so a short
        laptop window shrinks the card instead of growing a scrollbar. */
     min-height: min(560px, calc(100vh - 210px));
-    /* The result strip is pinned to the card's foot; this is its room. */
-    padding-bottom: 46px;
+    /* Keep the taller desktop result strip above the centered cube. */
+    padding-top: 86px;
+    padding-bottom: 0;
   }
   .cube-embed .cube-scene {
-    width: min(410px, calc(100vh - 320px), 100%);
-    margin: 0 auto;
+    width: min(410px, calc(100vh - 336px), 100%);
+    margin: 12px auto 0;
   }
   .cube-embed .result-line { min-height: 74px; padding: 15px 26px; }
   .cube-embed .control-card { margin-top: 0; padding: 20px 22px 22px; }
