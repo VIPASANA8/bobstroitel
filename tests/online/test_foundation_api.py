@@ -21,6 +21,24 @@ def test_unauthenticated_lobby_is_rejected(client):
     assert client.get("/api/lobby/tables").status_code == 401
 
 
+def test_unauthenticated_referral_is_rejected(client):
+    assert client.get("/api/cash/referral").status_code == 401
+
+
+def test_referral_is_available_while_cash_stays_off(client):
+    assert client.post("/api/auth/dev/101").status_code == 200
+
+    referral = client.get("/api/cash/referral")
+    assert referral.status_code == 200
+    assert set(referral.json()) == {
+        "code", "start_payload", "invited", "pending_micros",
+        "paid_micros", "carryover_micros", "link",
+    }
+
+    # The exception is read-only and route-specific. CASH remains unavailable.
+    assert client.get("/api/cash/wallet").status_code == 404
+
+
 def test_dev_login_returns_same_global_profile_and_six_tables(client):
     login = client.post("/api/auth/dev/101")
     assert login.status_code == 200

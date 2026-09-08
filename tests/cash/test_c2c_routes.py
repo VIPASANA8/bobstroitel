@@ -2,15 +2,19 @@ import pytest
 from fastapi.testclient import TestClient
 from fastapi.routing import APIRoute
 
-from app.dependencies import get_cash_user
+from app.dependencies import get_cash_user, get_current_user
 from app.online import create_app
 from online.config import Settings
 
 
-def test_all_user_cash_routes_use_cash_identity_gate():
+def test_only_the_referral_summary_bypasses_the_cash_identity_gate():
     app = create_app(Settings.from_mapping({"POKER8_ENV": "development"}))
-    routes = [route for route in app.routes if isinstance(route, APIRoute) and route.path.startswith("/api/cash/")]
-    assert {route.path for route in routes} == {
+    routes = {
+        route.path: route
+        for route in app.routes
+        if isinstance(route, APIRoute) and route.path.startswith("/api/cash/")
+    }
+    assert set(routes) == {
         # A self-imposed break is a cash route like any other: it is refused for
         # a session that may not touch money in the first place.
         "/api/cash/break",
@@ -28,8 +32,14 @@ def test_all_user_cash_routes_use_cash_identity_gate():
         "/api/cash/withdrawals", "/api/cash/withdrawals/{withdrawal_id}",
         "/api/cash/withdrawals/{withdrawal_id}/cancel",
     }
-    assert all(any(dependency.call is get_cash_user for dependency in route.dependant.dependencies)
-               for route in routes)
+    referral_dependencies = routes["/api/cash/referral"].dependant.dependencies
+    assert any(dependency.call is get_current_user for dependency in referral_dependencies)
+
+    cash_routes = [route for path, route in routes.items() if path != "/api/cash/referral"]
+    assert all(
+        any(dependency.call is get_cash_user for dependency in route.dependant.dependencies)
+        for route in cash_routes
+    )
 
 
 def test_mock_cash_refuses_a_sqlite_runtime(tmp_path):

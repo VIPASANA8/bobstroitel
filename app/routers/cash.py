@@ -4,7 +4,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from app.dependencies import AuthenticatedUser, get_cash_user
+from app.dependencies import AuthenticatedUser, get_cash_user, get_current_user
 from cash.antifraud import DepositRefused
 from cash.deposits import DepositUnavailable
 from cash.holds import CashUserFrozen, take_a_break
@@ -85,7 +85,7 @@ async def operations(request: Request, user: AuthenticatedUser = Depends(get_cas
 
 
 @router.get("/referral")
-async def referral(request: Request, user: AuthenticatedUser = Depends(get_cash_user)):
+async def referral(request: Request, user: AuthenticatedUser = Depends(get_current_user)):
     """The player's own code, their group, and what it has earned so far.
 
     `carryover_micros` is shown rather than hidden: a referrer whose group is
