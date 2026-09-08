@@ -25,7 +25,8 @@ from admin_bot.formatting import (
 from cash.access import CashOperator
 from cash.admin import OperatorAccessDenied
 from cash.amounts import kopecks_to_rub, micros_to_usdt, usdt_to_micros
-from online.schema import cash_operators
+from cash.game import RAKE_ACCOUNT
+from online.schema import cash_accounts, cash_operators
 
 
 #: What the queue calls each kind, and what an operator calls it.
@@ -68,7 +69,7 @@ PROMPTS = {
     "order_id": "Пришлите ID заявки Poker8 или «-», если он уже известен",
     "reason": "Пришлите причину решения (от 3 до 500 символов)",
     "user": "Пришлите ID игрока или его telegram-номер",
-    "order": "Пришлите номер заявки — наш или партнёрский",
+    "order": "Пришлите номер заявки — внутренний или BoostPay",
     "fiat_kopecks": "Пришлите сумму в рублях, которую отправили: например 1815,50",
     "amount": "Пришлите сумму в USDT: например 25.50",
 }
@@ -263,9 +264,16 @@ class OpsBot:
         try:
             referrals = await self.admin.referral_report(operator, limit=500)
             partner = await self.admin.partner_report(operator)
+            summary = await self.admin.overview(operator)
+            async with self.sessions() as session:
+                poker_house = await session.scalar(select(cash_accounts.c.balance_micros).where(
+                    cash_accounts.c.kind == "clearing",
+                    cash_accounts.c.reference_id == RAKE_ACCOUNT,
+                ))
+            summary["poker_house_micros"] = int(poker_house or 0)
         except OperatorAccessDenied:
             return "Экономика проекта — только для глобального админа."
-        return economy_message(referrals, partner)
+        return economy_message(referrals, partner, summary)
 
     async def _referrals(self, operator: CashOperator) -> str:
         try:
