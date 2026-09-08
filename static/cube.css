@@ -116,7 +116,7 @@
   z-index: 2;
   /* Square, and never taller than what is left once the controls below have taken their fixed share —
      but never smaller than a cube you can still read: a window too short to fit it scrolls instead. */
-  width: max(168px, min(312px, calc(100vw - 32px), calc(100vh - 624px)));
+  width: max(168px, min(312px, calc(100vw - 32px), calc(100vh - 656px - env(safe-area-inset-bottom))));
   aspect-ratio: 1;
   margin: 18px auto 8px;
   user-select: none;
@@ -822,7 +822,7 @@
 @media (max-width: 370px) {
     .cube-embed .screen { padding-right: 12px; padding-left: 12px; }
     .cube-embed .control-card { padding-right: 12px; padding-left: 12px; }
-    .cube-embed .cube-scene { width: max(168px, min(286px, calc(100vw - 24px), calc(100vh - 624px))); }
+    .cube-embed .cube-scene { width: max(168px, min(286px, calc(100vw - 24px), calc(100vh - 656px - env(safe-area-inset-bottom)))); }
     .cube-embed .face-grid {
     grid-template-columns: repeat(3, 1fr);
     gap: 7px;

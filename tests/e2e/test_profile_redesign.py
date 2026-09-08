@@ -459,15 +459,16 @@ def test_cube_result_strip_is_above_and_clear_of_the_cube(profile_page, width):
     assert cube['y'] - (result['y'] + result['height']) >= 12
 
 
-def test_cube_mobile_roll_action_stays_clear_of_the_fixed_game_tabs(profile_page):
+@pytest.mark.parametrize('width', [390, 430, 480, 899])
+def test_cube_mobile_roll_action_stays_clear_of_the_fixed_game_tabs(profile_page, width):
     page, _, _, server = profile_page
-    page.set_viewport_size({'width': 390, 'height': 900})
+    page.set_viewport_size({'width': width, 'height': 900})
     page.goto(server + '/cube')
 
     action = page.locator('#playButton').bounding_box()
     tabs = page.locator('.game-tabs').bounding_box()
     assert action and tabs
-    assert action['y'] + action['height'] <= tabs['y']
+    assert tabs['y'] - (action['y'] + action['height']) >= 16
     assert page.evaluate('document.documentElement.scrollHeight - innerHeight') <= 48
 
 
