@@ -142,9 +142,12 @@
 
   <script src="/static/swipe-nav.js?v=cash-first-1"></script>
   <script>
-    if (location.hash === '#cash') {
-      Poker8SwipeNav(document.body, 'right', new URLSearchParams(location.search).get('app') === 'cube' ? '/cube' : '/');
-    }
+    Poker8SwipeNav(
+      document.body,
+      'right',
+      new URLSearchParams(location.search).get('app') === 'cube' ? '/cube' : '/',
+      () => !document.getElementById('cashSection').hidden
+    );
   </script>
   <script src="/static/tg-login.js?v=cash-first-1"></script>
 

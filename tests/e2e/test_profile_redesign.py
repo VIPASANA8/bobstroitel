@@ -14,6 +14,28 @@ def swipe(page, selector, *, direction='left', pointer_type='touch', distance=15
     start_x = 280 if direction == 'left' else 80
     end_x = start_x - distance if direction == 'left' else start_x + distance
     target = page.locator(selector)
+    if pointer_type == 'touch':
+        target.evaluate("""(element, gesture) => {
+            const touch = (identifier, x, y) => new Touch({
+                identifier, target: element, clientX: x, clientY: y,
+                screenX: x, screenY: y, pageX: x, pageY: y,
+            });
+            const start = touch(1, gesture.startX, 100);
+            element.dispatchEvent(new TouchEvent('touchstart', {
+                bubbles: true, cancelable: true, touches: [start], changedTouches: [start],
+            }));
+            if (gesture.cancel) {
+                element.dispatchEvent(new TouchEvent('touchcancel', {
+                    bubbles: true, cancelable: false, touches: [], changedTouches: [start],
+                }));
+            }
+            const end = touch(gesture.endId, gesture.endX, 100 + gesture.dy);
+            element.dispatchEvent(new TouchEvent('touchend', {
+                bubbles: true, cancelable: true, touches: [], changedTouches: [end],
+            }));
+        }""", dict(startX=start_x, endX=end_x, endId=end_pointer_id,
+                     dy=dy, cancel=cancel))
+        return
     target.dispatch_event('pointerdown', {
         'pointerType': pointer_type, 'pointerId': 1, 'isPrimary': True,
         'clientX': start_x, 'clientY': 100, 'buttons': 1,
@@ -31,6 +53,46 @@ def swipe(page, selector, *, direction='left', pointer_type='touch', distance=15
 
 def assert_swipe_helper_loaded(page):
     assert page.evaluate("typeof window.Poker8SwipeNav === 'function'")
+
+
+def native_touch_swipe(page, selector, *, direction='left', distance=150, dy=0):
+    page.set_viewport_size({'width': 390, 'height': 900})
+    box = page.locator(selector).bounding_box()
+    assert box
+    start_x = min(box['x'] + box['width'] - 20, 300) if direction == 'left' else max(box['x'] + 20, 80)
+    end_x = start_x - distance if direction == 'left' else start_x + distance
+    start_y = box['y'] + box['height'] / 2
+    session = page.context.new_cdp_session(page)
+    session.send('Emulation.setTouchEmulationEnabled', {'enabled': True, 'maxTouchPoints': 5})
+    session.send('Input.dispatchTouchEvent', {
+        'type': 'touchStart', 'touchPoints': [{'x': start_x, 'y': start_y, 'id': 1}],
+    })
+    session.send('Input.dispatchTouchEvent', {
+        'type': 'touchMove', 'touchPoints': [{'x': end_x, 'y': start_y + dy, 'id': 1}],
+    })
+    session.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []})
+    session.detach()
+
+
+def multi_touch_swipe(page, selector):
+    page.locator(selector).evaluate("""element => {
+        const touch = (identifier, x) => new Touch({
+            identifier, target: element, clientX: x, clientY: 100,
+            screenX: x, screenY: 100, pageX: x, pageY: 100,
+        });
+        const first = touch(1, 280);
+        const second = touch(2, 240);
+        element.dispatchEvent(new TouchEvent('touchstart', {
+            bubbles: true, cancelable: true,
+            touches: [first, second], changedTouches: [first, second],
+        }));
+        const firstEnd = touch(1, 100);
+        const secondEnd = touch(2, 60);
+        element.dispatchEvent(new TouchEvent('touchend', {
+            bubbles: true, cancelable: true,
+            touches: [], changedTouches: [firstEnd, secondEnd],
+        }));
+    }""")
 
 
 def profile_data():
@@ -397,6 +459,16 @@ def test_cube_result_strip_is_above_and_clear_of_the_cube(profile_page, width):
     assert cube['y'] - (result['y'] + result['height']) >= 12
 
 
+def test_native_touch_swipe_opens_the_poker_cashier(profile_page):
+    page, _, _, server = profile_page
+    page.goto(server + '/')
+    assert_swipe_helper_loaded(page)
+
+    native_touch_swipe(page, '.section-heading')
+
+    expect(page).to_have_url(server + '/static/profile.html?app=poker#cash')
+
+
 @pytest.mark.parametrize(
     ('start', 'selector', 'direction', 'destination'),
     [
@@ -411,10 +483,35 @@ def test_touch_swipes_follow_each_game_cashier_route(
     page, _, _, server = profile_page
     page.goto(server + start)
     assert_swipe_helper_loaded(page)
+    if start.startswith('/static/profile.html'):
+        expect(page.locator('#cashSection')).to_be_visible()
 
     swipe(page, selector, direction=direction)
 
     expect(page).to_have_url(server + destination)
+
+
+def test_poker_cashier_swipe_uses_the_panel_selected_after_load(profile_page):
+    page, _, _, server = profile_page
+    page.goto(server + '/static/profile.html?app=poker')
+    expect(page.locator('#cashSection')).to_be_visible()
+
+    swipe(page, '#profileMain', direction='right')
+
+    expect(page).to_have_url(server + '/')
+
+
+def test_poker_profile_panel_disables_cashier_swipe_with_cash_hash(profile_page):
+    page, _, _, server = profile_page
+    start = server + '/static/profile.html?app=poker#cash'
+    page.goto(start)
+    page.locator('#playModeTab').click()
+    expect(page.locator('#cashSection')).to_be_hidden()
+
+    swipe(page, '#profileMain', direction='right')
+    page.wait_for_timeout(100)
+
+    assert page.url == start
 
 
 @pytest.mark.parametrize(
@@ -477,12 +574,24 @@ def test_swipe_navigation_rejects_cancelled_and_mismatched_pointers(
     assert page.url == server + '/'
 
 
+def test_swipe_navigation_rejects_multi_touch_gestures(profile_page):
+    page, _, _, server = profile_page
+    page.goto(server + '/')
+
+    multi_touch_swipe(page, '#tableGrid')
+    page.wait_for_timeout(100)
+
+    assert page.url == server + '/'
+
+
 @pytest.mark.parametrize(
     ('start', 'selector', 'direction'),
     [
         ('/', '.game-tab-cube', 'left'),
         ('/', '#quickPlay', 'left'),
         ('/static/profile.html?app=poker#cash', '#withdrawUsdt', 'right'),
+        ('/static/profile.html?app=poker#cash', 'label[for="withdrawUsdt"]', 'right'),
+        ('/static/profile.html?app=poker#cash', '#topupDetails summary', 'right'),
         ('/cube', '#cubeCanvas', 'left'),
     ],
 )
@@ -491,8 +600,23 @@ def test_swipes_starting_on_interactive_controls_are_ignored(
     page, _, _, server = profile_page
     page.goto(server + start)
     assert_swipe_helper_loaded(page)
+    if start.startswith('/static/profile.html'):
+        expect(page.locator('#cashSection')).to_be_visible()
 
     swipe(page, selector, direction=direction)
     page.wait_for_timeout(100)
 
     assert page.url == server + start
+
+
+def test_swipes_starting_inside_an_open_dialog_are_ignored(profile_page):
+    page, _, _, server = profile_page
+    start = server + '/static/profile.html?app=poker#cash'
+    page.goto(start)
+    expect(page.locator('#cashSection')).to_be_visible()
+    page.locator('#depositDialog').evaluate('dialog => dialog.showModal()')
+
+    swipe(page, '#depositDialog h2', direction='right')
+    page.wait_for_timeout(100)
+
+    assert page.url == start
