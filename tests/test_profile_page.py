@@ -110,14 +110,21 @@ def test_every_page_shares_one_cache_token():
     assert len(tokens) == 1, tokens
 
 
-def test_product_entries_open_the_matching_profile_context():
+def test_product_headers_link_to_the_other_game_and_their_own_brand():
     lobby = Path("static/lobby.html").read_text(encoding="utf-8")
     cube = Path("static/cube.html").read_text(encoding="utf-8")
     cube_js = Path("static/cube.js").read_text(encoding="utf-8")
     assert "/static/profile.html?app=poker" in lobby
-    assert "/static/profile.html?app=cube" in cube
     assert "/static/profile.html?app=cube#cash" in cube_js
-    assert "setAttribute('aria-label', product === 'cube' ? 'Вернуться в CUBE' : 'Вернуться в лобби')" in JS
+    assert 'class="cube-back" href="/" aria-label="В POKER"' in cube
+    assert 'class="brand-word" href="/cube" aria-label="CUBE"' in cube
+    assert "$('brandLogo').href = cube ? '/cube' : '/';" in JS
+    assert "$('backToProduct').href = cube ? '/' : '/cube';" in JS
+
+
+def test_cube_play_card_has_no_unguarded_motion():
+    assert 'transition:filter .18s,transform .18s' not in CSS
+    assert '.cube-play-card:hover{filter:brightness(1.08);transform' not in CSS
 
 
 def test_cube_context_reuses_cashier_layout_with_cube_tokens():

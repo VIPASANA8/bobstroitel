@@ -272,6 +272,28 @@ def test_cube_cashier_has_one_active_slot_and_one_blank_reserved_slot(profile_pa
     expect(page.locator('#playSection')).to_be_hidden()
 
 
+@pytest.mark.parametrize('failure', ['wallet', 'auth'])
+def test_cube_cashier_failure_keeps_a_visible_error_and_hides_dead_controls(profile_page, failure):
+    page, data, _, server = profile_page
+    if failure == 'wallet':
+        data['/api/cash/wallet'] = None
+    else:
+        data['/api/profile'] = None
+        data['/api/config'] = dict(open_access=False, development_profiles=[])
+
+    page.goto(server + '/static/profile.html?app=cube#cash')
+
+    cash = page.locator('#cashModeTab')
+    expect(cash).to_be_visible()
+    expect(cash).to_have_attribute('aria-selected', 'true')
+    expect(page.locator('#cashSection')).to_be_visible()
+    expect(page.locator('#cashError')).to_be_visible()
+    expect(page.locator('#cashError')).to_contain_text(
+        'Войдите через Telegram' if failure == 'auth' else 'USDT-касса временно недоступна')
+    expect(page.locator('.cash-wallet-grid')).to_be_hidden()
+    expect(page.locator('.cash-actions')).to_be_hidden()
+
+
 def test_cube_cashier_shows_pending_usdt_without_cash_conversion(profile_page):
     page, _, _, server = profile_page
     page.goto(server + '/static/profile.html?app=cube#cash')

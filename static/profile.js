@@ -486,6 +486,9 @@
     // The cashier only exists for a player the pilot actually lets in. History
     // loads independently so a slow game feed cannot hold money controls back.
     await loadCashWallet();
+    showError('cashError', '');
+    document.querySelector('.cash-wallet-grid').hidden = false;
+    document.querySelector('.cash-actions').hidden = false;
     $('cashModeTab').hidden = false;
     // One tab is not a choice: the switch appears only once there are two.
     document.querySelector('.profile-modes').hidden = false;
@@ -505,6 +508,21 @@
     });
   }
 
+  function showCashFailure(error) {
+    if (product !== 'cube') {
+      $('cashModeTab').hidden = true;
+      return;
+    }
+    $('cashModeTab').hidden = false;
+    document.querySelector('.profile-modes').hidden = false;
+    document.querySelector('.profile-modes').selectTab($('cashModeTab'));
+    document.querySelector('.cash-wallet-grid').hidden = true;
+    document.querySelector('.cash-actions').hidden = true;
+    showError('cashError', window.Poker8Auth.needsSignIn(error)
+      ? 'Войдите через Telegram: откройте кассу из бота.'
+      : 'USDT-касса временно недоступна. Попробуйте обновить страницу через минуту.');
+  }
+
   async function load() {
     const session = await window.Poker8Auth.ensureSession();
     // ensureSession publishes the profile when it got there through the
@@ -519,7 +537,7 @@
       loadBlock('/api/profile/stats', 'statsGrid', renderStats, 'Не удалось загрузить статистику. Обновите страницу.', 'statsError'),
       loadBlock('/api/profile/achievements', 'achievementList', renderAchievements, 'Не удалось загрузить достижения. Обновите страницу.', 'achievementsError'),
     ] : [];
-    await Promise.all([...pokerBlocks, openCashier().catch(() => { $('cashModeTab').hidden = true; })]);
+    await Promise.all([...pokerBlocks, openCashier().catch(showCashFailure)]);
   }
 
   applyProduct();
@@ -527,6 +545,11 @@
   load().catch(error => {
     console.error(error);
     $('profileLoading').hidden = true;
+    if (product === 'cube') {
+      showCashFailure(error);
+      document.querySelectorAll('[aria-busy]').forEach(node => node.setAttribute('aria-busy', 'false'));
+      return;
+    }
     const signIn = window.Poker8Auth.needsSignIn(error);
     showError('profileError', signIn
       ? 'Войдите через Telegram: откройте профиль из бота.'
