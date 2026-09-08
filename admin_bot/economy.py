@@ -19,6 +19,12 @@ def _share_percent(bps):
     return str(whole) if not fraction else f"{whole}.{fraction:02d}".rstrip("0")
 
 
+def _split_label(partner_bps):
+    partner = int(partner_bps or 0)
+    owner = 10_000 - partner
+    return f"{_share_percent(owner)}/{_share_percent(partner)}"
+
+
 def _referral_totals_micros(report):
     totals = {"pending": 0, "available": 0, "reversed": 0}
     # totals_usdt is intentionally the authoritative all-time total from the
@@ -46,24 +52,27 @@ def referral_message(report):
 
     lines = [
         "👥 <b>Реферальная программа</b>",
-        f"На hold: <b>{escape(str(totals.get('pending', '0')))} USDT</b>",
-        f"Доступно реферерам: <b>{escape(str(totals.get('available', '0')))} USDT</b>",
-        f"Отменено / reversed: <b>{escape(str(totals.get('reversed', '0')))} USDT</b>",
         "",
-        f"Последние {len(settlements)} расчётов:",
-        f"• Poker RevShare: {_usdt(poker)} USDT",
-        f"• CUBE RevShare: {_usdt(cube)} USDT",
+        "<b>Выплаты</b>",
+        f"В ожидании: <b>{escape(str(totals.get('pending', '0')))} USDT</b>",
+        f"Доступно к выплате: <b>{escape(str(totals.get('available', '0')))} USDT</b>",
+        f"Отменено: <b>{escape(str(totals.get('reversed', '0')))} USDT</b>",
+        "",
+        f"<b>Начислено по играм · последние {len(settlements)} расчётов</b>",
+        f"♠️ POKER: <b>{_usdt(poker)} USDT</b>",
+        f"🎲 CUBE: <b>{_usdt(cube)} USDT</b>",
     ]
 
     groups = report.get("largest_groups") or []
     if groups:
         lines.extend(["", "<b>Крупнейшие реферальные группы</b>"])
         for row in groups[:5]:
+            invited = int(row.get("invited") or 0)
             lines.append(
-                f"• <code>{escape(str(row['referrer_id']))}</code> — {int(row.get('invited') or 0)} приглашённых"
+                f"• <code>{escape(str(row['referrer_id']))}</code> — приглашено {invited}"
             )
     else:
-        lines.extend(["", "Реферальных групп пока нет"])
+        lines.extend(["", "Рефералов пока нет."])
     return "\n".join(lines)
 
 
@@ -72,57 +81,44 @@ def _partner_totals(report):
     posted = [row for row in settlements if row.get("posted")]
     partner = _sum(posted, "amount_micros")
     # net_micros is Cube result after referral cost and agreed Cube
-    # adjustments. Subtracting the posted partner share leaves the owner's
-    # side of the same paying periods without double-counting report-only rows.
+    # adjustments. Subtracting the posted partner share leaves RICK's side of
+    # the same paying periods without double-counting report-only rows.
     owner = _sum(posted, "net_micros") - partner
     return posted, owner, partner
 
 
 def partner_message(report):
-    settlements = report.get("settlements") or []
     shares = report.get("shares") or []
     posted, owner, partner = _partner_totals(report)
     current_bps = int(shares[0].get("share_bps") or 0) if shares else 0
 
-    lines = [
+    return "\n".join([
         "🤝 <b>Партнёр / CUBE</b>",
-        f"Текущая доля партнёра: <b>{_share_percent(current_bps)}%</b>",
-        f"Партнёр заработал по закрытым платёжным периодам: <b>{_usdt(partner)} USDT</b>",
-        f"Твоя сторона CUBE по тем же периодам: <b>{_usdt(owner)} USDT</b>",
+        f"Текущая доля: <b>{_split_label(current_bps)}</b>",
+        f"BOOSTER: <b>{_usdt(partner)} USDT</b>",
+        f"RICK: <b>{_usdt(owner)} USDT</b>",
+        "",
         f"Закрытых платёжных периодов: {len(posted)}",
-    ]
-
-    if settlements:
-        row = settlements[0]
-        owner_period = int(row.get("net_micros") or 0) - int(row.get("amount_micros") or 0)
-        lines.extend([
-            "",
-            f"<b>Последний расчёт · {escape(str(row.get('period_kind') or '—'))}</b>",
-            f"{escape(str(row.get('period_start') or '—'))} → {escape(str(row.get('period_end') or '—'))}",
-            f"Валовый CUBE P&L: {_usdt(row.get('gross_micros'))} USDT",
-            f"Реферальные расходы CUBE: {_usdt(row.get('referral_cost_micros'))} USDT",
-            f"Корректировки CUBE: {_usdt(row.get('adjustment_micros'))} USDT",
-            f"Чистый CUBE: {_usdt(row.get('net_micros'))} USDT",
-            f"Партнёр: {_usdt(row.get('amount_micros'))} USDT · твоя сторона: {_usdt(owner_period)} USDT",
-            f"Carryover: {_usdt(row.get('carryover_after_micros'))} USDT",
-            "Статус: " + ("✅ платёжный период" if row.get("posted") else "ℹ️ отчётный период"),
-        ])
-    return "\n".join(lines)
+    ])
 
 
-def economy_message(referrals, partner):
+def economy_message(referrals, partner, overview=None):
     ref = _referral_totals_micros(referrals)
-    posted, owner, partner_total = _partner_totals(partner)
+    posted, _owner, partner_total = _partner_totals(partner)
     shares = partner.get("shares") or []
     current_bps = int(shares[0].get("share_bps") or 0) if shares else 0
     referral_active = ref["pending"] + ref["available"]
+    overview = overview or {}
+    cube = int(overview.get("cube_house_micros", _sum(posted, "net_micros")) or 0)
+    poker = int(overview.get("poker_house_micros", 0) or 0)
 
     return "\n".join([
         "📊 <b>Экономика проекта</b>",
-        "<i>CUBE — только закрытые платёжные периоды партнёрки.</i>",
         "",
-        f"Твоя сторона CUBE: <b>{_usdt(owner)} USDT</b>",
-        f"Партнёр: <b>{_usdt(partner_total)} USDT</b> ({_share_percent(current_bps)}%)",
+        f"CUBE: <b>{_usdt(cube)} USDT</b>",
+        f"POKER: <b>{_usdt(poker)} USDT</b>",
+        "",
+        f"BOOSTER: <b>{_usdt(partner_total)} USDT</b> ({_share_percent(current_bps)}%)",
         f"Платёжных периодов: {len(posted)}",
         "",
         "<b>Реферальные выплаты · всё время</b>",
@@ -130,6 +126,4 @@ def economy_message(referrals, partner):
         f"• hold: {_usdt(ref['pending'])} USDT",
         f"• available: {_usdt(ref['available'])} USDT",
         f"• reversed: {_usdt(ref['reversed'])} USDT",
-        "",
-        "Подробнее: /partner и /referrals",
     ])
