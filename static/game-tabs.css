@@ -11,13 +11,15 @@
 }
 .game-tab{
   display:grid;grid-auto-flow:column;align-items:center;justify-content:center;
-  gap:8px;min-height:46px;border-radius:13px;color:#81878d;text-decoration:none;
+  gap:8px;min-height:46px;border:1px solid transparent;box-sizing:border-box;border-radius:13px;color:#747985;text-decoration:none;
   font:800 12px/1 Manrope,ui-sans-serif,system-ui,sans-serif;letter-spacing:.08em;
 }
 .game-tab>i{font:15px/1 Georgia,serif;font-style:normal}
-.game-tab.is-active{background:rgba(255,255,255,.07);color:#f1f1f4;box-shadow:inset 0 0 0 1px rgba(255,255,255,.09)}
-.game-tab-poker.is-active{color:#c8b3f6}
-.game-tab-cube.is-active{color:#c8ff31}
+.game-tab.is-active{color:#fff;font-weight:700}
+.game-tab-poker.is-active{background:rgba(181,140,255,.12);border-color:rgba(181,140,255,.45);box-shadow:inset 0 0 12px rgba(181,140,255,.06)}
+.game-tab-poker.is-active>i{color:#b58cff}
+.game-tab-cube.is-active{background:rgba(183,255,38,.11);border-color:rgba(183,255,38,.4);box-shadow:inset 0 0 12px rgba(183,255,38,.05)}
+.game-tab-cube.is-active>i{color:#b7ff26}
 
 /* Room for the bar on each page, so nothing ends up underneath it. */
 .network-shell{padding-bottom:96px}
