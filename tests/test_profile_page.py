@@ -20,6 +20,32 @@ def test_profile_supports_poker_and_cube_contexts():
     assert "Профиль CUBE пока пуст" in HTML
 
 
+def test_referrals_are_a_first_class_accessible_profile_tab():
+    assert 'id="referralModeTab"' in HTML
+    assert 'aria-controls="referralSection"' in HTML
+    assert 'id="referralSection" role="tabpanel" aria-labelledby="referralModeTab"' in HTML
+    referral = HTML[HTML.index('id="referralSection"'):]
+    for element_id in (
+        "referralLink", "referralShare", "referralCopy", "referralInvited",
+        "referralPending", "referralPaid", "referralCarryover",
+        "referralError", "referralRetry", "referralStatus",
+    ):
+        assert f'id="{element_id}"' in referral
+    assert "15% первые 30 дней, затем 5%" in referral
+    assert "Получить награду" not in referral
+
+
+def test_referral_panel_uses_the_existing_profile_tokens_and_phone_layout():
+    for selector in (
+        ".referral-section{", ".referral-hero{", ".referral-link-row{",
+        ".referral-summary{", ".referral-carryover{",
+    ):
+        assert selector in CSS
+    assert "var(--accent)" in CSS[CSS.index(".referral-section{"):]
+    phone = CSS[CSS.index("@media(max-width:580px){"):]
+    assert ".referral-actions{flex-direction:column}" in phone
+
+
 def test_history_belongs_only_to_the_shared_cashier():
     cash_half = HTML[HTML.index('id="cashSection"'):]
     poker_half = HTML[HTML.index('id="pokerProfile"'):HTML.index('id="cashSection"')]

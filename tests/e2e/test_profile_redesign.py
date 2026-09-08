@@ -137,6 +137,12 @@ def profile_data():
             dict(id='deposit-1', scope='c2c', kind='deposit', amount_micros=1000000, created_at='2026-08-31T08:00:00Z'),
             dict(id='payout-1', scope='withdrawal-payout', kind='payout', amount_micros=-500000, created_at='2026-08-31T08:30:00Z'),
         ]),
+        '/api/cash/referral': dict(
+            code='7KQ2', start_payload='r7KQ2', invited=12,
+            pending_micros=8_400_000, paid_micros=31_200_000,
+            carryover_micros=-2_750_000,
+            link='https://t.me/poker8bot?startapp=r7KQ2',
+        ),
     }
 
 
@@ -241,6 +247,24 @@ def test_one_failed_section_does_not_blank_the_profile(profile_page):
     expect(page.locator('#pokerHistory')).to_contain_text('Начисление')
     expect(page.locator('#pokerHistory')).to_contain_text('Расчёт раздачи')
     expect(page.locator('#pokerHistory')).to_contain_text('Не удалось загрузить часть истории POKER')
+
+
+def test_referral_tab_survives_cash_failure_and_hidden_tabs_are_skipped(profile_page):
+    page, data, _, server = profile_page
+    data['/api/cash/wallet'] = None
+    page.goto(server + '/static/profile.html')
+
+    cash = page.locator('#cashModeTab')
+    profile = page.locator('#playModeTab')
+    referral = page.locator('#referralModeTab')
+    expect(cash).to_be_hidden()
+    expect(referral).to_be_visible()
+
+    profile.focus()
+    profile.press('ArrowRight')
+    expect(referral).to_be_focused()
+    expect(referral).to_have_attribute('aria-selected', 'true')
+    expect(page.locator('#referralSection')).to_be_visible()
 
 
 def test_failed_cube_history_does_not_claim_that_cube_is_empty(profile_page):

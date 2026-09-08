@@ -433,8 +433,9 @@
 
   function bindTabs(list) {
     const tabs = [...list.querySelectorAll('[role="tab"]')];
+    const selectable = () => tabs.filter(tab => !tab.hidden && !tab.disabled);
     const selectTab = selected => {
-      if (selected.disabled) return;
+      if (selected.hidden || selected.disabled) return;
       tabs.forEach(tab => {
         const active = tab === selected;
         tab.setAttribute('aria-selected', String(active));
@@ -443,14 +444,16 @@
         $(tab.getAttribute('aria-controls')).hidden = !active;
       });
     };
-    tabs.forEach((tab, index) => {
+    tabs.forEach(tab => {
       tab.addEventListener('click', () => selectTab(tab));
       tab.addEventListener('keydown', event => {
         if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
         event.preventDefault();
+        const choices = selectable();
+        const current = choices.indexOf(tab);
         const step = event.key === 'ArrowLeft' ? -1 : 1;
-        const next = event.key === 'Home' ? tabs[0] : event.key === 'End' ? tabs.at(-1)
-          : tabs[(index + step + tabs.length) % tabs.length];
+        const next = event.key === 'Home' ? choices[0] : event.key === 'End' ? choices.at(-1)
+          : choices[(current + step + choices.length) % choices.length];
         selectTab(next);
         next.focus();
       });
@@ -529,6 +532,8 @@
 
   async function load() {
     const session = await window.Poker8Auth.ensureSession();
+    $('referralModeTab').hidden = false;
+    document.querySelector('.profile-modes').hidden = false;
     // ensureSession publishes the profile when it got there through the
     // session cookie, which is the usual way in; only a fresh login returns an
     // auth receipt instead, and that one has no XP, level or table stack.
