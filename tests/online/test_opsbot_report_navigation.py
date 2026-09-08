@@ -22,9 +22,27 @@ class FakeAdmin:
             "adjustments": [],
         }
 
+    async def overview(self, operator):
+        return {"cube_house_micros": 0}
+
+
+class FakeSession:
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_):
+        return None
+
+    async def scalar(self, statement):
+        return 0
+
+
+def _sessions():
+    return FakeSession()
+
 
 def _bot():
-    return OpsBot(FakeAdmin(), None)
+    return OpsBot(FakeAdmin(), _sessions)
 
 
 def _operator():
@@ -49,5 +67,6 @@ def test_report_buttons_open_the_real_reports():
     partner = asyncio.run(bot.callback(operator, "nav:partner"))
 
     assert "Экономика проекта" in economy[0][1]
+    assert "POKER: <b>0 USDT</b>" in economy[0][1]
     assert "Реферальная программа" in referrals[0][1]
     assert "Партнёр / CUBE" in partner[0][1]
