@@ -89,19 +89,27 @@ def reconciliation_message(report):
         for row in report["mismatches"]
     )
     orders, ledger, balances = report["orders"], report["ledger"], report["balances"]
-    return (
-        ("✅" if report["balanced"] else "❗") + f" <b>Сверка RUB за {escape(report['day'])}</b>\n"
-        f"Заявок зачислено: {orders['count']}\n"
-        f"Принято от пользователей: {escape(orders['charged_rub'])} ₽\n"
-        f"Зачислено: {escape(orders['credited_usdt'])} USDT · "
-        f"по книге {escape(ledger['credited_usdt'])} USDT\n"
-        f"Комиссия: {escape(orders['fee_usdt'])} USDT · "
-        f"по книге {escape(ledger['fee_usdt'])} USDT\n"
-        f"Clearing за день: {escape(ledger['clearing_usdt'])} USDT\n"
-        f"Остатки: clearing {escape(balances['clearing_usdt'])} · "
-        f"комиссия {escape(balances['fee_usdt'])} USDT"
-        + (f"\nРасхождения:\n{mismatches}" if mismatches else "")
-    )
+    lines = [
+        ("✅" if report["balanced"] else "❗") + f" <b>Сверка RUB · {escape(report['day'])}</b>",
+        "",
+        "<b>Заявки</b>",
+        f"Зачислено заявок: <b>{orders['count']}</b>",
+        f"Получено от игроков: <b>{escape(orders['charged_rub'])} ₽</b>",
+        "",
+        "<b>USDT</b>",
+        f"Зачислено игрокам: <b>{escape(orders['credited_usdt'])} USDT</b>",
+        f"По внутренней книге: {escape(ledger['credited_usdt'])} USDT",
+        f"Комиссия: <b>{escape(orders['fee_usdt'])} USDT</b>",
+        f"По внутренней книге комиссии: {escape(ledger['fee_usdt'])} USDT",
+        "",
+        "<b>Баланс</b>",
+        f"Изменение расчётного баланса за день: <b>{escape(ledger['clearing_usdt'])} USDT</b>",
+        f"Расчётный баланс: <b>{escape(balances['clearing_usdt'])} USDT</b>",
+        f"Баланс комиссий: <b>{escape(balances['fee_usdt'])} USDT</b>",
+    ]
+    if mismatches:
+        lines.extend(["", "<b>Расхождения</b>", mismatches])
+    return "\n".join(lines)
 
 
 def user_card(user):
