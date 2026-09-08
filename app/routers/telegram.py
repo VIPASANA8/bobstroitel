@@ -17,8 +17,13 @@ router = APIRouter(prefix="/api/telegram", tags=["telegram"])
 CONFIRM = "login:"
 
 WELCOME = (
-    "Это бот стола. Здесь только вход на сайт — играть можно в браузере "
-    "или в мини-приложении."
+    "<b>Привет! 👋</b>\n\n"
+    "Играйте в <b>POKER</b>, бросайте кубик в <b>CUBE</b> и выводите средства "
+    "в <b>рублях или USDT</b>.\n\n"
+    "♠️ <b>POKER:</b> donbass.win\n\n"
+    "🎲 <b>CUBE:</b> donbass.win/cube\n\n"
+    "Или играйте прямо в Telegram — нажмите кнопку <b>«Играть»</b>.\n\n"
+    "👥 <b>Приглашайте друзей и зарабатывайте от 5 до 15% с их игры!</b>"
 )
 STALE = "Ссылка для входа устарела. Откройте сайт и нажмите «Войти» ещё раз."
 INVITED = (
@@ -135,7 +140,7 @@ async def webhook(
         # An operator is a player too, so the login keeps this command.
         nonce = text[len("/start"):].strip()
         if not nonce:
-            await send_message(token, chat_id, WELCOME)
+            await send_message(token, chat_id, WELCOME, parse_mode="HTML")
             return {"ok": True}
         # A referral link and a login share this one payload slot, so they are
         # told apart by shape: a code is nine characters, a login nonce is
