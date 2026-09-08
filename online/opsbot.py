@@ -18,6 +18,7 @@ from uuid import uuid4
 
 from sqlalchemy import select
 
+from admin_bot.economy import economy_message, partner_message, referral_message
 from admin_bot.formatting import (
     fiat_order_message, queue_messages, reconciliation_message, user_card,
 )
@@ -195,6 +196,12 @@ class OpsBot:
     # --- screens -------------------------------------------------------------
 
     async def _navigate(self, operator: CashOperator, where: str):
+        if where == "economy":
+            return [("edit", await self._economy(operator), [BACK])]
+        if where == "referrals":
+            return [("edit", await self._referrals(operator), [BACK])]
+        if where == "partner":
+            return [("edit", await self._partner(operator), [BACK])]
         if where == "money":
             return [("edit", await self._money(operator), [BACK])]
         if where == "queue":
@@ -222,6 +229,9 @@ class OpsBot:
             + (f"В очереди ждёт решений: <b>{waiting}</b>" if waiting else "Очередь пуста.")
         )
         keyboard = [
+            [{"text": "📊 Экономика", "callback_data": "nav:economy"},
+             {"text": "👥 Рефералы", "callback_data": "nav:referrals"}],
+            [{"text": "🤝 Партнёр", "callback_data": "nav:partner"}],
             [{"text": "💰 Деньги", "callback_data": "nav:money"},
              {"text": f"📋 Очередь ({waiting})", "callback_data": "nav:queue"}],
             [{"text": "👤 Игрок", "callback_data": "ask:user"},
@@ -248,6 +258,28 @@ class OpsBot:
             f"результат {micros_to_usdt(summary['cube_result_day_micros'])} USDT",
             money("Касса кубика", summary["cube_house_micros"]),
         ])
+
+    async def _economy(self, operator: CashOperator) -> str:
+        try:
+            referrals = await self.admin.referral_report(operator, limit=500)
+            partner = await self.admin.partner_report(operator)
+        except OperatorAccessDenied:
+            return "Экономика проекта — только для глобального админа."
+        return economy_message(referrals, partner)
+
+    async def _referrals(self, operator: CashOperator) -> str:
+        try:
+            report = await self.admin.referral_report(operator, limit=500)
+        except OperatorAccessDenied:
+            return "Реферальный отчёт — только для глобального админа."
+        return referral_message(report)
+
+    async def _partner(self, operator: CashOperator) -> str:
+        try:
+            report = await self.admin.partner_report(operator)
+        except OperatorAccessDenied:
+            return "Отчёт партнёра — только для глобального админа."
+        return partner_message(report)
 
     async def _queue(self, operator: CashOperator):
         items = queue_messages(await self.admin.queue(operator))
