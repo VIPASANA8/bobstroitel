@@ -267,6 +267,58 @@ def test_referral_tab_survives_cash_failure_and_hidden_tabs_are_skipped(profile_
     expect(page.locator('#referralSection')).to_be_visible()
 
 
+def test_referral_summary_loads_once_on_first_open(profile_page):
+    page, _, calls, server = profile_page
+    page.goto(server + '/static/profile.html')
+    assert ('GET', '/api/cash/referral') not in calls
+
+    page.get_by_role('tab', name='Рефералы', exact=True).click()
+    expect(page.locator('#referralInvited')).to_have_text('12')
+    expect(page.locator('#referralPending')).to_have_text('8.4 USDT')
+    expect(page.locator('#referralPaid')).to_have_text('31.2 USDT')
+    expect(page.locator('#referralCarryover')).to_contain_text('2.75 USDT')
+    expect(page.locator('#referralCarryover')).to_be_visible()
+    expect(page.locator('.referral-section')).to_have_attribute('aria-busy', 'false')
+
+    page.get_by_role('tab', name='Профиль Poker', exact=True).click()
+    page.get_by_role('tab', name='Рефералы', exact=True).click()
+    assert calls.count(('GET', '/api/cash/referral')) == 1
+
+
+def test_referral_failure_can_be_retried_without_breaking_profile(profile_page):
+    page, data, calls, server = profile_page
+    referral = data['/api/cash/referral']
+    data['/api/cash/referral'] = None
+    page.goto(server + '/static/profile.html')
+    page.get_by_role('tab', name='Рефералы', exact=True).click()
+    expect(page.locator('#referralError')).to_be_visible()
+    expect(page.locator('.referral-section')).to_have_attribute('aria-busy', 'false')
+
+    data['/api/cash/referral'] = referral
+    page.get_by_role('button', name='Повторить', exact=True).click()
+    expect(page.locator('#referralInvited')).to_have_text('12')
+    expect(page.locator('#referralError')).to_be_hidden()
+    assert calls.count(('GET', '/api/cash/referral')) == 2
+
+
+def test_zero_cube_carryover_stays_out_of_the_referral_summary(profile_page):
+    page, data, _, server = profile_page
+    data['/api/cash/referral']['carryover_micros'] = 0
+    page.goto(server + '/static/profile.html')
+    page.get_by_role('tab', name='Рефералы', exact=True).click()
+    expect(page.locator('#referralCarryover')).to_be_hidden()
+
+
+@pytest.mark.parametrize('width', [360, 390, 1280])
+def test_referral_summary_fits_phone_and_desktop_widths(profile_page, width):
+    page, _, _, server = profile_page
+    page.set_viewport_size({'width': width, 'height': 844})
+    page.goto(server + '/static/profile.html')
+    page.get_by_role('tab', name='Рефералы', exact=True).click()
+    expect(page.locator('.referral-summary > div')).to_have_count(3)
+    assert page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1')
+
+
 def test_failed_cube_history_does_not_claim_that_cube_is_empty(profile_page):
     page, data, _, server = profile_page
     data['/api/cube/history'] = None

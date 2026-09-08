@@ -144,6 +144,59 @@
     }
   }
 
+  const referralMoney = micros => usdt(micros).replace(/^\+/, '');
+  let referralLoaded = false;
+  let referralRequest = null;
+
+  function setReferralLoading(loading) {
+    const section = document.querySelector('.referral-section');
+    section.classList.toggle('is-loading', loading);
+    section.setAttribute('aria-busy', String(loading));
+    $('referralLoading').hidden = !loading;
+    $('referralRetry').disabled = loading;
+  }
+
+  function renderReferral(data) {
+    const copyValue = data.link || data.code || '';
+    $('referralLink').value = copyValue;
+    $('referralLink').placeholder = '';
+    $('referralCopy').dataset.value = copyValue;
+    $('referralCopy').disabled = !copyValue;
+    $('referralShare').dataset.link = data.link || '';
+    $('referralShare').disabled = !data.link;
+    $('referralShare').textContent = data.link ? 'Поделиться' : 'Ссылка недоступна';
+    $('referralInvited').textContent = number(data.invited);
+    $('referralPending').textContent = referralMoney(data.pending_micros);
+    $('referralPaid').textContent = referralMoney(data.paid_micros);
+    const carryover = BigInt(data.carryover_micros || 0);
+    $('referralCarryover').hidden = carryover >= 0n;
+    $('referralCarryoverAmount').textContent = referralMoney(
+      carryover < 0n ? -carryover : carryover
+    );
+  }
+
+  async function loadReferral() {
+    if (referralLoaded) return;
+    if (referralRequest) return referralRequest;
+    $('referralError').hidden = true;
+    $('referralStatus').textContent = '';
+    setReferralLoading(true);
+    referralRequest = json('/api/cash/referral')
+      .then(data => {
+        renderReferral(data);
+        referralLoaded = true;
+      })
+      .catch(error => {
+        console.error(error);
+        $('referralError').hidden = false;
+      })
+      .finally(() => {
+        referralRequest = null;
+        setReferralLoading(false);
+      });
+    return referralRequest;
+  }
+
   function setSigned(element, value, format) {
     element.textContent = value == null ? '—' : format(value);
     element.classList.toggle('up', Number(value) > 0);
@@ -395,6 +448,7 @@
     };
     playCard.addEventListener('click', openCube);
     playCard.addEventListener('keydown', openCube);
+    $('referralRetry').addEventListener('click', loadReferral);
     $('missionList').addEventListener('click', event => {
       const button = event.target.closest('[data-reroll]');
       if (button) rerollMission(button.dataset.reroll);
@@ -443,6 +497,7 @@
         tab.tabIndex = active ? 0 : -1;
         $(tab.getAttribute('aria-controls')).hidden = !active;
       });
+      if (selected.id === 'referralModeTab') loadReferral();
     };
     tabs.forEach(tab => {
       tab.addEventListener('click', () => selectTab(tab));
