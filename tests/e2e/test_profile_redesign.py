@@ -267,6 +267,27 @@ def test_referral_tab_survives_cash_failure_and_hidden_tabs_are_skipped(profile_
     expect(page.locator('#referralSection')).to_be_visible()
 
 
+def test_late_cash_wallet_does_not_override_a_player_tab_choice(profile_page):
+    page, _, _, server = profile_page
+    page.add_init_script("""
+      const nativeFetch = window.fetch.bind(window);
+      window.fetch = (url, options) => String(url).includes('/api/cash/wallet')
+        ? new Promise(resolve => setTimeout(
+            () => resolve(nativeFetch(url, options)), 400
+          ))
+        : nativeFetch(url, options);
+    """)
+    page.goto(server + '/static/profile.html')
+    referral = page.get_by_role('tab', name='Рефералы', exact=True)
+    expect(referral).to_be_visible()
+    referral.click()
+    expect(page.locator('#referralSection')).to_be_visible()
+
+    expect(page.locator('#cashModeTab')).to_be_visible()
+    expect(referral).to_have_attribute('aria-selected', 'true')
+    expect(page.locator('#referralSection')).to_be_visible()
+
+
 def test_referral_summary_loads_once_on_first_open(profile_page):
     page, _, calls, server = profile_page
     page.goto(server + '/static/profile.html')

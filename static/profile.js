@@ -559,10 +559,14 @@
       if (selected.id === 'referralModeTab') loadReferral();
     };
     tabs.forEach(tab => {
-      tab.addEventListener('click', () => selectTab(tab));
+      tab.addEventListener('click', () => {
+        list.userSelected = true;
+        selectTab(tab);
+      });
       tab.addEventListener('keydown', event => {
         if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
         event.preventDefault();
+        list.userSelected = true;
         const choices = selectable();
         const current = choices.indexOf(tab);
         const step = event.key === 'ArrowLeft' ? -1 : 1;
@@ -618,7 +622,8 @@
     });
     // The money is what the profile opens on, here and from the lobby's
     // "Открыть CASH-кассу" alike. Profile stays one tap to the right.
-    document.querySelector('.profile-modes').selectTab($('cashModeTab'));
+    const modes = document.querySelector('.profile-modes');
+    if (!modes.userSelected) modes.selectTab($('cashModeTab'));
     loadCashHistory().catch(error => {
       console.error(error);
       fill('allHistory', [], 'Не удалось загрузить историю.');
