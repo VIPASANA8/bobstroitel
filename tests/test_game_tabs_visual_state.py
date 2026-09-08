@@ -39,9 +39,9 @@ def test_game_tabs_use_equal_selected_segment_visuals():
 
 
 def test_pages_keep_the_existing_active_tab_mapping():
-    assert 'class="game-tab game-tab-poker is-active"' in LOBBY
-    assert 'class="game-tab game-tab-cube"' in LOBBY
-    assert 'class="game-tab game-tab-poker"' in CUBE
-    assert 'class="game-tab game-tab-cube is-active"' in CUBE
+    assert '<a class="game-tab game-tab-poker is-active" href="/" aria-current="page">' in LOBBY
+    assert '<a class="game-tab game-tab-cube" href="/cube">' in LOBBY
+    assert '<a class="game-tab game-tab-poker" href="/">' in CUBE
+    assert '<a class="game-tab game-tab-cube is-active" href="/cube" aria-current="page">' in CUBE
     assert LOBBY.count('aria-current="page"') == 1
     assert CUBE.count('aria-current="page"') == 1
