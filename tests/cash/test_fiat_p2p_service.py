@@ -342,6 +342,23 @@ async def test_admin_queue_and_user_view_include_scoped_fiat_state(fiat_db):
 
     assert [row["id"] for row in (await admin.queue(operator))["fiat_orders"]] == [order["id"]]
     assert (await admin.queue(other))["fiat_orders"] == []
+    # A paid order the trader never answered surfaces once the quote is well
+    # past its window; a fresh one does not, the trader may still be at it.
+    async with fiat_db() as session:
+        async with session.begin():
+            await session.execute(cash_fiat_orders.update().where(
+                cash_fiat_orders.c.id == order["id"],
+            ).values(status="waiting_trader", user_confirmed=True,
+                     expires_at=datetime(2026, 9, 11, 23, 3, tzinfo=timezone.utc)))
+    soon = CashAdminService(fiat_db, now=lambda: datetime(2026, 9, 11, 23, 20, tzinfo=timezone.utc))
+    late = CashAdminService(fiat_db, now=lambda: datetime(2026, 9, 11, 23, 40, tzinfo=timezone.utc))
+    assert (await soon.queue(operator))["fiat_orders"] == []
+    assert [row["id"] for row in (await late.queue(operator))["fiat_orders"]] == [order["id"]]
+    async with fiat_db() as session:
+        async with session.begin():
+            await session.execute(cash_fiat_orders.update().where(
+                cash_fiat_orders.c.id == order["id"],
+            ).values(status="clarifying"))
     user = await admin.user(operator, "alice")
     assert user["fiat_orders"][0]["id"] == order["id"]
     assert user["fiat_orders"][0]["status"] == "clarifying"

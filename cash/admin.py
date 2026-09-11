@@ -109,8 +109,13 @@ class CashAdminService:
             event_query = select(cash_payment_events, cash_deposits.c.tenant_id).outerjoin(
                 cash_deposits, cash_deposits.c.id == cash_payment_events.c.deposit_id,
             ).where(cash_payment_events.c.status == "review_required")
+            # A paid order the trader never answered is stuck too: pservice
+            # refuses the user's cancel after "paid", so once the quote is
+            # past its window only an operator can close it.
             fiat_order_query = select(cash_fiat_orders).where(
                 cash_fiat_orders.c.status.in_(("requesting", "clarifying", "review_required"))
+                | ((cash_fiat_orders.c.status == "waiting_trader")
+                   & (cash_fiat_orders.c.expires_at < self.now() - timedelta(minutes=30)))
             )
             fiat_event_query = select(cash_fiat_events, cash_fiat_orders.c.tenant_id).outerjoin(
                 cash_fiat_orders, cash_fiat_orders.c.id == cash_fiat_events.c.fiat_order_id,
@@ -729,7 +734,7 @@ class CashAdminService:
                 if row is None:
                     raise LookupError("fiat order not found")
                 self._require_scope(operator, row["tenant_id"])
-                if row["status"] not in {"requesting", "clarifying", "review_required"}:
+                if row["status"] not in {"requesting", "clarifying", "review_required", "waiting_trader"}:
                     raise ValueError("only a stuck fiat order can be closed by an operator")
                 before = _snapshot(row, FIAT_ORDER_FIELDS)
                 await session.execute(update(cash_fiat_orders).where(
