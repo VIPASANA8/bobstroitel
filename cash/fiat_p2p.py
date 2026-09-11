@@ -100,6 +100,10 @@ class PserviceOrderStatus:
     """What GET /api/v1/payments/{order_id} returns, as much as we use."""
 
     status: int
+    #: What pservice sold the trader, in USDT cents. pservice reuses a user's
+    #: open order on create, so this is how a local order finds out it was
+    #: bound to a quote for some other amount.
+    amount_cents: int | None
     fiat_kopecks: int | None
     requisites: str | None
     trader_username: str | None
@@ -126,8 +130,12 @@ def _order_status_from(raw: dict[str, Any]) -> PserviceOrderStatus:
     fiat = raw.get("fiat_amount_with_commission")
     if fiat is not None and (type(fiat) is not int or fiat < 0):
         raise PartnerProtocolError("pservice fiat amount must be integer roubles")
+    cents = raw.get("amount_usdt")
+    if cents is not None and type(cents) is not int:
+        raise PartnerProtocolError("pservice amount_usdt must be integer cents")
     return PserviceOrderStatus(
         status=status,
+        amount_cents=cents,
         fiat_kopecks=None if fiat is None else fiat * 100,
         requisites=(raw.get("trader_info") or None),
         trader_username=(raw.get("trader_tg") or None),
@@ -266,6 +274,7 @@ class MockPservice:
         found = order["status"] == 3
         return PserviceOrderStatus(
             status=order["status"],
+            amount_cents=order["amount_micros"] // MICROS_PER_USDT_CENT,
             fiat_kopecks=order["fiat_kopecks"],
             requisites=order["requisites"] if found else None,
             trader_username="@mock_trader" if found else None,

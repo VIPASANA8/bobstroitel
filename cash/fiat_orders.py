@@ -2,23 +2,29 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
+import httpx
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 
 from cash.amounts import kopecks_to_rub, micros_to_units, micros_to_usdt, usdt_to_micros
 from cash.antifraud import DepositPolicy, screen_fiat_order
-from cash.fiat_p2p import PserviceOrderStatus, quote_with_fee, usdt_micros_to_case8_amount
+from cash.fiat_p2p import (
+    PartnerProtocolError, PserviceOrderStatus, quote_with_fee, usdt_micros_to_case8_amount,
+)
 from cash.holds import assert_not_frozen
 from cash.ledger import CashLedger, IdempotencyConflict
 from online.schema import cash_accounts, cash_fiat_orders
 
+logger = logging.getLogger(__name__)
+
 # Statuses the poller no longer touches: a credited order is done, and the other
 # three are terminal failures. review_required waits for a person, not a poll.
-TERMINAL_STATES = ("credited", "expired", "cancelled", "review_required")
+TERMINAL_STATES = ("credited", "expired", "cancelled", "review_required", "unavailable")
 
 
 PROVIDER = "case8-p2p"
@@ -103,10 +109,23 @@ class FiatOrderService:
         if row["status"] != "requesting" or row["id"] != order_id:
             return dict(row)
 
-        payment = await self.partner.create_payment(
-            amount_micros=charged, currency="RUB",
-            client_payment_id=order_id, user_id=user_id,
-        )
+        try:
+            payment = await self.partner.create_payment(
+                amount_micros=charged, currency="RUB",
+                client_payment_id=order_id, user_id=user_id,
+            )
+        except httpx.HTTPStatusError as exc:
+            # pservice answered and refused, so there is no order on its side
+            # to wait for. Close the slot now rather than making the user sit
+            # out the lost-answer window before they may try again.
+            async with self.sessions() as session:
+                async with session.begin():
+                    await session.execute(update(cash_fiat_orders).where(
+                        cash_fiat_orders.c.id == order_id,
+                        cash_fiat_orders.c.status == "requesting",
+                    ).values(status="unavailable", updated_at=self.now(),
+                             detail=f"partner refused the order: HTTP {exc.response.status_code}"))
+            raise ValueError("the partner could not take the order right now, try again later") from exc
         async with self.sessions() as session:
             async with session.begin():
                 await session.execute(update(cash_fiat_orders).where(
@@ -186,7 +205,7 @@ class FiatOrderService:
             return row
         if row["status"] != "awaiting_user":
             raise ValueError("fiat order cannot be marked paid in its current state")
-        await self.partner.confirm(row["pservice_order_id"])
+        await self._tell_partner(self.partner.confirm, row)
         # Recorded for the cancel-after-payment signal, and because "the user
         # said they paid" is the fact a dispute turns on.
         return await self._set_user_state(
@@ -201,8 +220,25 @@ class FiatOrderService:
             return row
         if row["status"] not in {"awaiting_user", "waiting_trader", "clarifying"}:
             raise ValueError("fiat order cannot be cancelled in its current state")
-        await self.partner.cancel(row["pservice_order_id"])
+        await self._tell_partner(self.partner.cancel, row)
         return await self._set_user_state(order_id, user_id, row["status"], "cancelled")
+
+    async def _tell_partner(self, call, row):
+        """confirm/cancel on pservice; a 409 means the order moved on without us."""
+        try:
+            await call(row["pservice_order_id"])
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code not in (404, 409):
+                raise
+            # The trader cancelled, or the quote expired, a tick before the
+            # user pressed the button. Take pservice's word so the page shows
+            # the real state, and tell the user in a way the router turns
+            # into a 409 rather than a 500.
+            try:
+                await self._sync(row["id"], await self.partner.order_status(row["pservice_order_id"]))
+            except Exception:
+                pass
+            raise ValueError("the order changed on the partner's side, refresh it") from exc
 
     async def _set_user_state(self, order_id, user_id, previous, status, **extra):
         async with self.sessions() as session:
@@ -233,9 +269,24 @@ class FiatOrderService:
                 cash_fiat_orders.c.status.in_(ACTIVE_STATES),
                 cash_fiat_orders.c.pservice_order_id.is_not(None),
             ))).mappings().all()
+        failures = []
         for row in rows:
-            status = await self.partner.order_status(row["pservice_order_id"])
+            try:
+                status = await self.partner.order_status(row["pservice_order_id"])
+            except Exception as exc:
+                # One order pservice cannot answer for -- a 404 after its
+                # database was rebuilt, a timeout -- must not stop every other
+                # deposit from being credited this round.
+                logger.warning("fiat order %s: pservice status read failed: %r", row["id"], exc)
+                failures.append(exc)
+                continue
             await self._sync(row["id"], status)
+        if failures:
+            # Unreadable data still stops the poller for a person to look at,
+            # and a round where nothing could be read backs off as before.
+            poison = next((exc for exc in failures if isinstance(exc, PartnerProtocolError)), None)
+            if poison is not None or len(failures) == len(rows):
+                raise poison or failures[0]
         return len(rows)
 
     async def _sync(self, order_id: str, status: PserviceOrderStatus):
@@ -270,6 +321,20 @@ class FiatOrderService:
                 # awaiting_user by a lagging TRADER_FOUND read.
                 if order["user_confirmed"] and target == "awaiting_user":
                     target = "waiting_trader"
+                # FAILED before anyone was shown requisites is "no trader took
+                # it": nobody could have paid, so it is closed, not reviewed.
+                if (target == "review_required" and order["requisites"] is None
+                        and status.requisites is None and not order["user_confirmed"]):
+                    target = "unavailable"
+                # pservice hands a user back their open order instead of a new
+                # one. If that order was sold for another amount, crediting
+                # this row's amount would pay out money nobody sent.
+                charged = usdt_micros_to_case8_amount(order["requested_micros"] + order["fee_micros"])
+                if status.amount_cents is not None and status.amount_cents != charged:
+                    target = "review_required"
+                    values["detail"] = (
+                        f"pservice order is for {status.amount_cents} USDT cents, this order for {charged}"
+                    )
                 if target == "credited":
                     await self.ledger.post(
                         session, scope="fiat-deposit", key=f"{PROVIDER}:{order_id}",

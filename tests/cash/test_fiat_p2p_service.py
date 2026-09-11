@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import insert, select
 
 from cash.fiat_orders import ActiveFiatOrderExists, FiatOrderService
-from cash.fiat_p2p import MockPservice, PartnerProtocolError
+from cash.fiat_p2p import MockPservice, PartnerProtocolError, PserviceOrderStatus
 from cash.access import CashOperator
 from cash.admin import CashAdminService
 from cash.ledger import IdempotencyConflict
@@ -94,6 +94,127 @@ async def test_a_completed_order_credits_once_and_a_restart_credits_nothing(fiat
     # The clearing account pays the whole charge: 20 USDT to the user, 0.20 to us.
     assert sorted(ledger.calls[0]["postings"].values()) == [-20_200_000, 200_000, 20_000_000]
     assert ledger.calls[0]["key"] == f"case8-p2p:{order['id']}"
+
+
+async def test_one_unanswerable_order_does_not_block_the_others(fiat_db):
+    """pservice answering 404 for one order (its database was rebuilt, say)
+    must not leave every other paid deposit uncredited until an operator
+    closes that one."""
+    import httpx
+
+    class Partner(MockPservice):
+        lost = None
+
+        async def order_status(self, order_id):
+            if order_id == self.lost:
+                request = httpx.Request("GET", f"http://p2p/api/v1/payments/{order_id}")
+                raise httpx.HTTPStatusError("gone", request=request,
+                                            response=httpx.Response(404, request=request))
+            return await super().order_status(order_id)
+
+    async with fiat_db() as session:
+        async with session.begin():
+            await session.execute(insert(users).values(
+                id="bob", telegram_user_id=2, display_name="Bob", acquisition_tenant_id="tenant",
+            ))
+    ledger = RecordingLedger()
+    partner = Partner()
+    service = FiatOrderService(fiat_db, partner=partner, ledger=ledger)
+    stuck = await service.create(user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="k1")
+    paid = await service.create(user_id="bob", tenant_id="tenant", amount_usdt="20", request_key="k2")
+    await service.mark_paid(paid["id"], "bob")
+    partner.lost = stuck["pservice_order_id"]
+
+    assert await service.poll_once() == 2
+    assert (await service.get(paid["id"], "bob"))["status"] == "credited"
+    assert (await service.get(stuck["id"], "alice"))["status"] == "awaiting_user"
+    # Only the stuck one is left; a round where nothing could be read still
+    # fails, so the poller backs off and the watchdog sees it.
+    with pytest.raises(httpx.HTTPStatusError):
+        await service.poll_once()
+
+
+class ScriptedPservice(MockPservice):
+    """A mock whose status reads come from a script, so a test can say what
+    pservice answered without walking the happy path."""
+
+    def __init__(self, *reads):
+        super().__init__()
+        self.reads = list(reads)
+
+    async def order_status(self, order_id):
+        base = await super().order_status(order_id)
+        if not self.reads:
+            return base
+        override = self.reads.pop(0)
+        return PserviceOrderStatus(**{**base.__dict__, **override})
+
+
+async def test_no_trader_closes_the_order_instead_of_paging_an_operator(fiat_db):
+    """pservice answers FAILED/no_traders_available before anyone saw
+    requisites: nobody could have paid, so the slot frees up and the user
+    sees "try later", not "under review"."""
+    partner = ScriptedPservice({"status": 8, "requisites": None, "trader_username": None,
+                                "detail": "no_traders_available"})
+    service = FiatOrderService(fiat_db, partner=partner, ledger=RecordingLedger())
+    order = await service.create(user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="k1")
+    assert order["status"] == "unavailable" and order["detail"] == "no_traders_available"
+    assert await service.active("alice") is None
+    again = await service.create(user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="k2")
+    assert again["id"] != order["id"]
+
+
+async def test_a_pservice_order_for_another_amount_is_never_credited(fiat_db):
+    """pservice hands a user their open order back on create. Bound to a quote
+    for 20.20 USDT, a 100 USDT order must not credit 100 when it completes."""
+    ledger = RecordingLedger()
+    partner = ScriptedPservice({"amount_cents": 2020}, {"amount_cents": 2020, "status": 7})
+    service = FiatOrderService(fiat_db, partner=partner, ledger=ledger)
+    order = await service.create(user_id="alice", tenant_id="tenant", amount_usdt="100", request_key="k1")
+    assert order["status"] == "review_required"
+    assert "2020 USDT cents" in order["detail"] and "10100" in order["detail"]
+    await service.poll_once()
+    assert (await service.get(order["id"], "alice"))["status"] == "review_required"
+    assert ledger.calls == []
+
+
+async def test_a_partner_refusal_resyncs_instead_of_crashing(fiat_db):
+    """The trader cancelled a tick before the user pressed "paid": pservice
+    answers 409. The user gets a 409 and the real state, not a 500."""
+    import httpx
+
+    class Partner(MockPservice):
+        async def confirm(self, order_id):
+            self._force_status(order_id, 9)
+            request = httpx.Request("POST", f"http://p2p/api/v1/orders/{order_id}/confirm")
+            raise httpx.HTTPStatusError("conflict", request=request,
+                                        response=httpx.Response(409, request=request))
+
+    service = FiatOrderService(fiat_db, partner=Partner(), ledger=RecordingLedger())
+    order = await service.create(user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="k1")
+    with pytest.raises(ValueError, match="partner's side"):
+        await service.mark_paid(order["id"], "alice")
+    assert (await service.get(order["id"], "alice"))["status"] == "cancelled"
+
+
+async def test_a_refused_create_frees_the_slot_at_once(fiat_db):
+    """pservice answering 503 (no traders) must not leave a "requesting" row
+    the user can neither cancel nor replace for five minutes."""
+    import httpx
+
+    class Partner(MockPservice):
+        async def create_payment(self, **kwargs):
+            request = httpx.Request("POST", "http://p2p/api/v1/payments")
+            raise httpx.HTTPStatusError("busy", request=request,
+                                        response=httpx.Response(503, request=request))
+
+    service = FiatOrderService(fiat_db, partner=Partner(), ledger=RecordingLedger())
+    with pytest.raises(ValueError, match="try again later"):
+        await service.create(user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="k1")
+    assert await service.active("alice") is None
+    # And the slot is free: the next attempt reaches the partner again.
+    with pytest.raises(ValueError, match="try again later"):
+        await service.create(user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="k2")
 
 
 async def test_a_cancelled_order_never_credits(fiat_db):
