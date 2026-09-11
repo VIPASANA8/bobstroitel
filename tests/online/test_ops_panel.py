@@ -81,6 +81,7 @@ async def test_the_panel_opens_on_a_menu_of_buttons(anyio_backend):
     assert "Панель оператора" in text
     # Every way on is a button, not a command somebody has to already know.
     assert _data(keyboard) == [
+        "nav:economy", "nav:referrals", "nav:partner",
         "nav:money", "nav:queue", "ask:user", "ask:order", "nav:recon", "nav:audit",
     ]
     assert "Очередь (2)" in " ".join(_labels(keyboard))

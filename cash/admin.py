@@ -14,6 +14,7 @@ from cash.amounts import micros_to_units, micros_to_usdt
 from cash.cube import CUBE_ACCOUNT
 from cash.fiat_orders import fiat_credit_postings
 from cash.fiat_reconciliation import daily_fiat_reconciliation
+from cash.game import RAKE_ACCOUNT
 from cash.ledger import CashLedger, IdempotencyConflict
 from cash.withdrawals import (
     FEE_ACCOUNT, MockPayoutExecutor, P2P_CLEARING, P2P_RUB, TRC20, WithdrawalStateError,
@@ -166,6 +167,10 @@ class CashAdminService:
                 cash_accounts.c.kind == "clearing",
                 cash_accounts.c.reference_id == CUBE_ACCOUNT,
             ))
+            rake = await session.scalar(select(cash_accounts.c.balance_micros).where(
+                cash_accounts.c.kind == "clearing",
+                cash_accounts.c.reference_id == RAKE_ACCOUNT,
+            ))
             rounds, staked, paid = (await session.execute(select(
                 func.count(),
                 func.coalesce(func.sum(cube_rounds.c.stake_micros), 0),
@@ -182,6 +187,7 @@ class CashAdminService:
             "escrow_micros": int(balances.get("escrow", 0)),
             "withdrawal_micros": int(balances.get("withdrawal", 0)),
             "cube_house_micros": int(house or 0),
+            "poker_house_micros": int(rake or 0),
             "cube_rounds_day": int(rounds or 0),
             "cube_result_day_micros": int(staked or 0) - int(paid or 0),
         }

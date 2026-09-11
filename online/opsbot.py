@@ -25,8 +25,7 @@ from admin_bot.formatting import (
 from cash.access import CashOperator
 from cash.admin import OperatorAccessDenied
 from cash.amounts import kopecks_to_rub, micros_to_usdt, usdt_to_micros
-from cash.game import RAKE_ACCOUNT
-from online.schema import cash_accounts, cash_operators
+from online.schema import cash_operators
 
 
 #: What the queue calls each kind, and what an operator calls it.
@@ -265,12 +264,6 @@ class OpsBot:
             referrals = await self.admin.referral_report(operator, limit=500)
             partner = await self.admin.partner_report(operator)
             summary = await self.admin.overview(operator)
-            async with self.sessions() as session:
-                poker_house = await session.scalar(select(cash_accounts.c.balance_micros).where(
-                    cash_accounts.c.kind == "clearing",
-                    cash_accounts.c.reference_id == RAKE_ACCOUNT,
-                ))
-            summary["poker_house_micros"] = int(poker_house or 0)
         except OperatorAccessDenied:
             return "Экономика проекта — только для глобального админа."
         return economy_message(referrals, partner, summary)
