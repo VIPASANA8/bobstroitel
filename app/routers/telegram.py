@@ -4,11 +4,8 @@ import hmac
 
 from fastapi import APIRouter, Header, HTTPException, Request
 
-from sqlalchemy import select
-
 from cash.referrals import code_for, normalise as normalise_referral, start_payload
 from online.auth import AuthenticationError, login_code
-from online.schema import users
 from online.telegram import answer_callback, edit_message, send_message, webhook_secret
 
 
@@ -145,7 +142,7 @@ async def webhook(
         # An operator is a player too, so the login keeps this command.
         nonce = text[len("/start"):].strip()
         if not nonce:
-            link = await _referral_link(request, tenant_slug, sender.get("id"))
+            link = await _referral_link(request, tenant_slug, sender)
             await send_message(
                 token, chat_id,
                 WELCOME + (REFERRAL_LINE.format(link=link) if link else ""),
@@ -187,23 +184,29 @@ async def webhook(
     return {"ok": True}
 
 
-async def _referral_link(request: Request, tenant_slug: str, telegram_user_id) -> str | None:
-    """This person's own invitation, or None before their first login: a code
-    belongs to an account, and all the bot knows here is a chat."""
+async def _referral_link(request: Request, tenant_slug: str, sender: dict) -> str | None:
+    """This person's own invitation. A /start is the first the site hears of
+    most people, so the account the code belongs to is opened right here."""
     username = getattr(request.app.state, "telegram_login_bots", {}).get(
         tenant_slug, {},
     ).get("username")
-    if not username or not telegram_user_id:
+    if not username or not sender.get("id"):
+        return None
+    try:
+        user_id = await request.app.state.auth_service.register(
+            tenant_slug, int(sender["id"]), _display_name(sender),
+        )
+    except AuthenticationError:
         return None
     async with request.app.state.session_factory() as session:
         async with session.begin():
-            user_id = await session.scalar(
-                select(users.c.id).where(users.c.telegram_user_id == int(telegram_user_id))
-            )
-            if not user_id:
-                return None
             code = await code_for(session, user_id)
     return f"https://t.me/{username}?startapp={start_payload(code)}"
+
+
+def _display_name(sender: dict) -> str:
+    first_name = sender.get("first_name")
+    return first_name.strip() if isinstance(first_name, str) and first_name.strip() else "Игрок"
 
 
 async def _is_open(auth, tenant_slug: str, nonce: str) -> bool:
@@ -220,13 +223,9 @@ async def _confirm(auth, token: str, tenant_slug: str, callback: dict) -> None:
     data = callback.get("data") or ""
     callback_id = callback.get("id")
     sender = callback.get("from") or {}
-    first_name = sender.get("first_name")
-    display_name = (
-        first_name.strip() if isinstance(first_name, str) and first_name.strip() else "Игрок"
-    )
     try:
         opened = await auth.bind_login_request(
-            tenant_slug, data[len(CONFIRM):], int(sender.get("id") or 0), display_name,
+            tenant_slug, data[len(CONFIRM):], int(sender.get("id") or 0), _display_name(sender),
         )
     except AuthenticationError:
         opened = False

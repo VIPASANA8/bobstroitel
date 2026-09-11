@@ -326,42 +326,14 @@ class AuthService:
     ) -> AuthResult:
         tenant_slug = tenant_row["slug"]
         now = datetime.fromtimestamp(int(self.now()), tz=timezone.utc)
-        user_row = (
+        user_id, acquisition_tenant_id = await self._ensure_user(
+            session, tenant_row, telegram_user_id, display_name, referral_code, now,
+        )
+        acquisition_slug = tenant_slug if acquisition_tenant_id == tenant_row["id"] else (
             await session.execute(
-                select(users).where(users.c.telegram_user_id == telegram_user_id)
+                select(tenants.c.slug).where(tenants.c.id == acquisition_tenant_id)
             )
-        ).mappings().first()
-        if user_row is None:
-            user_id = uuid.uuid4().hex
-            acquisition_tenant_id = tenant_row["id"]
-            await session.execute(users.insert().values(
-                id=user_id,
-                telegram_user_id=telegram_user_id,
-                display_name=display_name,
-                acquisition_tenant_id=acquisition_tenant_id,
-                internal=telegram_user_id in self.internal_telegram_ids,
-                created_at=now,
-                updated_at=now,
-            ))
-            acquisition_slug = tenant_slug
-            # Only here, and only once: a link followed by an account that
-            # already has a history behind it would let somebody claim a player
-            # after the profitable months, which is what `referrals` refuses by
-            # having the user as its primary key.
-            await bind_referral(session, user_id=user_id, code=referral_code, now=now)
-        else:
-            user_id = user_row["id"]
-            acquisition_tenant_id = user_row["acquisition_tenant_id"]
-            await session.execute(
-                update(users)
-                .where(users.c.id == user_id)
-                .values(display_name=display_name, updated_at=now)
-            )
-            acquisition_slug = (
-                await session.execute(
-                    select(tenants.c.slug).where(tenants.c.id == acquisition_tenant_id)
-                )
-            ).scalar_one()
+        ).scalar_one()
 
         visit = (
             await session.execute(
@@ -407,6 +379,56 @@ class AuthService:
             access_tenant_slug=tenant_slug,
             auth_method=auth_method,
         )
+
+    async def register(self, tenant_slug: str, telegram_user_id: int, display_name: str) -> str:
+        """The account behind this Telegram user, made now if there is none.
+
+        For the bot, which meets people before they ever open the app: a
+        referral link needs an account to be paid into, and a /start is enough
+        proof of who is asking -- Telegram delivered it.
+        """
+        now = datetime.fromtimestamp(int(self.now()), tz=timezone.utc)
+        async with self.session_factory() as session:
+            async with session.begin():
+                tenant_row = await self._tenant(session, tenant_slug)
+                user_id, _ = await self._ensure_user(
+                    session, tenant_row, telegram_user_id, display_name, None, now,
+                )
+        return user_id
+
+    async def _ensure_user(
+        self, session: AsyncSession, tenant_row, telegram_user_id: int, display_name: str,
+        referral_code: str | None, now: datetime,
+    ) -> tuple[str, str]:
+        """(user_id, acquisition_tenant_id), inserting the user on first sight."""
+        user_row = (
+            await session.execute(
+                select(users).where(users.c.telegram_user_id == telegram_user_id)
+            )
+        ).mappings().first()
+        if user_row is not None:
+            await session.execute(
+                update(users)
+                .where(users.c.id == user_row["id"])
+                .values(display_name=display_name, updated_at=now)
+            )
+            return user_row["id"], user_row["acquisition_tenant_id"]
+        user_id = uuid.uuid4().hex
+        await session.execute(users.insert().values(
+            id=user_id,
+            telegram_user_id=telegram_user_id,
+            display_name=display_name,
+            acquisition_tenant_id=tenant_row["id"],
+            internal=telegram_user_id in self.internal_telegram_ids,
+            created_at=now,
+            updated_at=now,
+        ))
+        # Only here, and only once: a link followed by an account that
+        # already has a history behind it would let somebody claim a player
+        # after the profitable months, which is what `referrals` refuses by
+        # having the user as its primary key.
+        await bind_referral(session, user_id=user_id, code=referral_code, now=now)
+        return user_id, tenant_row["id"]
 
     @staticmethod
     def _display_name(user: dict) -> str:
