@@ -120,12 +120,15 @@ def _order_status_from(raw: dict[str, Any]) -> PserviceOrderStatus:
     status = raw.get("status")
     if type(status) is not int:
         raise PartnerProtocolError("pservice status must be an integer")
+    # Whole roubles, not kopecks: the trader network quotes `Amount` in
+    # roubles and pservice stores it as an integer (live order 66947 answered
+    # 2212 for 20.20 USDT). Reading it as kopecks showed the player 22,12 ₽.
     fiat = raw.get("fiat_amount_with_commission")
-    if fiat is not None and type(fiat) is not int:
-        raise PartnerProtocolError("pservice fiat amount must be integer minor units")
+    if fiat is not None and (type(fiat) is not int or fiat < 0):
+        raise PartnerProtocolError("pservice fiat amount must be integer roubles")
     return PserviceOrderStatus(
         status=status,
-        fiat_kopecks=fiat,
+        fiat_kopecks=None if fiat is None else fiat * 100,
         requisites=(raw.get("trader_info") or None),
         trader_username=(raw.get("trader_tg") or None),
         expires_at=_optional_utc(raw.get("expires_at")),

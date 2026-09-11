@@ -69,7 +69,7 @@ async def test_the_client_speaks_api_v1_with_the_service_key():
             "user_id": "u", "payment_intent_id": "i",
             "status": 3, "status_name": "TRADER_FOUND",
             "amount_usdt": 2000, "currency": "RUB",
-            "fiat_amount_with_commission": 181800,
+            "fiat_amount_with_commission": 2212,   # whole roubles, as the live partner quotes
             "trader_info": "4276 0000 0000 1234", "trader_tg": "@trader",
             "created_at": "2026-09-04T11:00:00Z", "expires_at": "2026-09-04T12:00:00Z",
         })
@@ -86,7 +86,7 @@ async def test_the_client_speaks_api_v1_with_the_service_key():
 
     status = await client.order_status(payment.order_id)
     assert status.local_status == "awaiting_user"
-    assert status.fiat_kopecks == 181800
+    assert status.fiat_kopecks == 221_200
     assert status.requisites == "4276 0000 0000 1234" and status.trader_username == "@trader"
     await client.close()
 
