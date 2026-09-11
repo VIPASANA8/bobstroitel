@@ -204,8 +204,9 @@ async def test_real_money_records_the_usdt_the_operator_sent_and_refuses_the_moc
         row["id"], OPERATOR, tx_hash="0xreal", reason="sent from the cold wallet", key="k4",
     )
     assert after["status"] == "submitted" and after["tx_hash"] == "0xreal"
-    # 30 USDT left the reserve: 25 out on chain, 5 kept as the fee.
-    assert await balance(cash_db, "clearing", "c2c-mock") == 25_000_000
+    # 30 USDT left the reserve: 25 out on chain, 5 kept as the fee. The chain
+    # clearing account also absorbed the 50 USDT mock deposit that funded alice.
+    assert await balance(cash_db, "clearing", "c2c-mock") == -50_000_000 + 25_000_000
     assert await balance(cash_db, "clearing", FEE_ACCOUNT) == 5_000_000
     assert await balance(cash_db, "available", "alice") == 20_000_000
     async with cash_db() as session:

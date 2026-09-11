@@ -473,7 +473,10 @@ class CashAdminService:
                 row = await self._withdrawal(session, withdrawal_id)
                 self._require_scope(operator, row["tenant_id"])
                 if row["network"] != network:
-                    raise WithdrawalStateError(f"only a {network} payout is recorded this way")
+                    raise WithdrawalStateError(
+                        "only a P2P payout is settled by hand" if network == P2P_RUB
+                        else "only a TRC20 payout is recorded by its transaction hash"
+                    )
                 if row["status"] != "approved":
                     raise WithdrawalStateError("only an approved payout can be recorded as paid")
                 before = _snapshot(row, WITHDRAWAL_FIELDS)
