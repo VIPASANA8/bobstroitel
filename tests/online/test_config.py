@@ -61,3 +61,19 @@ def test_a_staging_label_is_still_a_real_deployment():
     assert Settings.from_mapping({
         "POKER8_ENV": "development", "POKER8_OPEN_ACCESS": "1",
     }).open_access is True
+
+
+def test_mock_cash_mode_with_a_pservice_endpoint_talks_to_pservice():
+    """The pilot host is mock mode next to a real pservice: the mock must not credit."""
+    from app.online import _fiat_partner
+    from cash.fiat_p2p import MockPservice, PserviceClient
+
+    base = {
+        "POKER8_ENV": "test", "POKER8_CASH_MODE": "mock",
+        "POKER8_DATABASE_URL": "postgresql+psycopg://poker8:poker8@db/poker8",
+    }
+    assert isinstance(_fiat_partner(Settings.from_mapping(base)), MockPservice)
+    wired = Settings.from_mapping({
+        **base, "POKER8_CASH_FIAT_API_URL": "http://p2p-service:8000", "POKER8_CASH_FIAT_TOKEN": "k",
+    })
+    assert isinstance(_fiat_partner(wired), PserviceClient)

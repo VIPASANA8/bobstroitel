@@ -55,9 +55,15 @@ PAYOUT_PROVIDERS: dict[str, object] = {}
 
 
 def _fiat_partner(settings):
-    """The RUB gateway is pservice. A mock never answers for real money."""
-    if settings.cash_mode != "production":
-        return MockPservice()
+    """The RUB gateway is pservice. A mock never answers for real money.
+
+    The pilot host runs POKER8_CASH_MODE=mock with a real pservice next to it,
+    so the mode alone must not pick the mock: MockPservice completes an order
+    on the read after "paid" and credits CASH nobody sent. A configured
+    endpoint is the partner; only its absence leaves the mock in charge.
+    """
+    if not (settings.cash_fiat_api_url and settings.cash_fiat_token):
+        return MockPservice()   # production mode already refused to boot without them
     # POKER8_CASH_FIAT_TOKEN carries the X-Service-Key pservice validates.
     return PserviceClient(settings.cash_fiat_api_url, settings.cash_fiat_token)
 
