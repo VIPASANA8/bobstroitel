@@ -614,7 +614,11 @@
     $('cashModeTab').hidden = false;
     // One tab is not a choice: the switch appears only once there are two.
     document.querySelector('.profile-modes').hidden = false;
+    // Off on a host where money is real and the USDT rail is not yet real:
+    // the button would sit in front of a 404 (see self_top_up_enabled).
+    const config = await json('/api/config').catch(() => ({}));
     window.Poker8Cashier.mount({
+      trc20: config.trc20_deposits_enabled !== false,
       onSettled: () => {
         loadCashWallet().catch(console.error);
         loadCashHistory().catch(console.error);

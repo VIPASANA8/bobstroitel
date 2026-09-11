@@ -143,7 +143,9 @@ window.Poker8Cashier = (() => {
       const response = await fetch(`/api/cash/fiat-orders/${encodeURIComponent(order.id)}`);
       if (!response.ok) return;
       const fresh = await response.json();
-      if (fresh.status !== order.status) renderFiatOrder(fresh);
+      // Not only the status: the amount or the requisites can be corrected
+      // under the same status, and a card number nobody sees is not paid.
+      if (JSON.stringify(fresh) !== JSON.stringify(order)) renderFiatOrder(fresh);
     }, 1000);
   }
 
@@ -158,7 +160,7 @@ window.Poker8Cashier = (() => {
     $("fiatDepositDialog").showModal();
   }
 
-  function mount({ onSettled }) {
+  function mount({ onSettled, trc20 = true }) {
     settled = onSettled || (() => {});
     bindConversion("depositUsdt", "depositCash");
     bindConversion("fiatDepositUsdt", "fiatDepositCash");
@@ -169,9 +171,12 @@ window.Poker8Cashier = (() => {
     // on a wallet screen. On a desktop there is room to just show both, and
     // an extra modal in the way is only an extra click.
     const phone = window.matchMedia("(max-width: 640px)");
+    // With one rail there is nothing to choose: the ₽ button is the deposit.
+    $("cashDeposit").hidden = !trc20;
+    document.querySelector('[data-method="crypto"]').hidden = !trc20;
     const syncDepositFlow = () => {
       $("cashDeposit").textContent = phone.matches ? "Пополнить" : "Пополнить TRC20";
-      $("cashFiatDeposit").hidden = phone.matches;
+      $("cashFiatDeposit").hidden = phone.matches && trc20;
       // A sheet left open across a resize would be a centred dialog pinned to
       // the bottom edge, or the reverse.
       if ($("depositMethodDialog").open && !phone.matches) $("depositMethodDialog").close("cancel");

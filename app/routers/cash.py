@@ -107,6 +107,8 @@ async def referral(request: Request, user: AuthenticatedUser = Depends(get_curre
 @router.post("/deposits", status_code=201)
 async def create_deposit(body: DepositRequest, request: Request,
                          user: AuthenticatedUser = Depends(get_cash_user)):
+    if not request.app.state.settings.trc20_deposits_enabled:
+        raise HTTPException(status_code=404, detail="USDT TRC20 deposits are not available yet")
     try:
         row = await request.app.state.cash_deposits.create(
             user_id=user.user_id, tenant_id=user.tenant_id,
@@ -149,6 +151,8 @@ async def simulate_deposit_transfer(
     user: AuthenticatedUser = Depends(get_cash_user),
 ):
     """Inject the deterministic provider event for the development/test pilot."""
+    if not request.app.state.settings.cash_mock_rails:
+        raise HTTPException(status_code=404, detail="not found")
     row = _not_found(await request.app.state.cash_deposits.get(deposit_id, user.user_id))
     if row["status"] == "credited":
         return request.app.state.cash_deposits.public(row)

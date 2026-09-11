@@ -53,6 +53,22 @@ class Settings:
     dev_profiles: dict[int, str]
     tenant_configs: dict[str, dict[str, object]] = field(default_factory=dict)
 
+    @property
+    def cash_mock_rails(self) -> bool:
+        """Mock money rails exist only where no rail is real.
+
+        The pilot host runs cash_mode=mock next to a real RUB partner, so the
+        mode does not say whether CASH there is real; a configured endpoint
+        does. Where one is, the mock TRC20 address and its one-click
+        "transfer" hand out real CASH for nothing, so they are off.
+        """
+        return not (self.cash_fiat_api_url or self.cash_trc20_api_url)
+
+    @property
+    def trc20_deposits_enabled(self) -> bool:
+        """A real watcher brings a real rail; otherwise only a fully mock host has one."""
+        return bool(self.cash_trc20_api_url) or self.cash_mock_rails
+
     @classmethod
     def from_mapping(cls, source: Mapping[str, str]) -> "Settings":
         environment = source.get("POKER8_ENV", "development").strip().lower()

@@ -30,6 +30,7 @@ async def public_config(request: Request):
         # it (the exact trap v022-balance-topup.js was written to avoid).
         "self_top_up_enabled": settings.self_top_up_enabled,
         "cash_mode": settings.cash_mode,
+        "trc20_deposits_enabled": settings.trc20_deposits_enabled,
         "play_room_creation_enabled": settings.legacy_play_rooms_enabled,
         "tenant": {
             "slug": tenant_slug,

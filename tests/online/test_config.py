@@ -77,3 +77,25 @@ def test_mock_cash_mode_with_a_pservice_endpoint_talks_to_pservice():
         **base, "POKER8_CASH_FIAT_API_URL": "http://p2p-service:8000", "POKER8_CASH_FIAT_TOKEN": "k",
     })
     assert isinstance(_fiat_partner(wired), PserviceClient)
+
+
+def test_mock_rails_only_exist_where_no_rail_is_real():
+    """The mock TRC20 address plus "simulate-transfer" is free CASH on a host
+    that also moves real money; a real RUB partner turns it off."""
+    base = {
+        "POKER8_ENV": "test", "POKER8_CASH_MODE": "mock",
+        "POKER8_DATABASE_URL": "postgresql+psycopg://poker8:poker8@db/poker8",
+    }
+    fully_mock = Settings.from_mapping(base)
+    assert fully_mock.cash_mock_rails and fully_mock.trc20_deposits_enabled
+    real_rub = Settings.from_mapping({
+        **base, "POKER8_CASH_FIAT_API_URL": "http://p2p-service:8000", "POKER8_CASH_FIAT_TOKEN": "k",
+    })
+    assert not real_rub.cash_mock_rails and not real_rub.trc20_deposits_enabled
+    real_trc20 = Settings.from_mapping({
+        **base, "POKER8_CASH_FIAT_API_URL": "http://p2p-service:8000", "POKER8_CASH_FIAT_TOKEN": "k",
+        "POKER8_CASH_TRC20_API_URL": "https://api.trongrid.io",
+        "POKER8_CASH_TRC20_ADDRESS": "T" + "1" * 33,
+        "POKER8_CASH_TRC20_CONTRACT": "T" + "2" * 33,
+    })
+    assert not real_trc20.cash_mock_rails and real_trc20.trc20_deposits_enabled
