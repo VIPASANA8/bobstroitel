@@ -53,6 +53,7 @@ ACTIONS = {
     "fiatreject": ("resolve_fiat_event", {"decision": "reject"}),
     "fiatclose": ("close_fiat_order", {}),
     "settle": ("settle_p2p_withdrawal", {}),
+    "txsettle": ("settle_trc20_withdrawal", {}),
     "credit_user": ("adjust_balance", {"sign": 1}),
     "debit_user": ("adjust_balance", {"sign": -1}),
     "freeze": ("freeze_user", {}),
@@ -60,7 +61,8 @@ ACTIONS = {
 }
 #: What has to be asked for before the reason, and how to ask for it.
 EXTRA_STEP = {
-    "confirmed": "tx_hash", "bindcredit": "order_id", "settle": "fiat_kopecks",
+    "confirmed": "tx_hash", "txsettle": "tx_hash", "bindcredit": "order_id",
+    "settle": "fiat_kopecks",
     "credit_user": "amount", "debit_user": "amount",
 }
 PROMPTS = {
@@ -103,7 +105,8 @@ def _usdt_to_micros(text: str) -> int | None:
     return micros or None
 
 
-def _card_buttons(kind: str, target_id: str, status: str, row: dict) -> list | None:
+def _card_buttons(kind: str, target_id: str, status: str, row: dict,
+                  mock_rails: bool = True) -> list | None:
     if kind == "withdrawal" and status == "reserved":
         return [[{"text": "✅ Разрешить", "callback_data": f"approve:{target_id}"},
                  {"text": "🚫 Отклонить", "callback_data": f"reject:{target_id}"}]]
@@ -112,6 +115,11 @@ def _card_buttons(kind: str, target_id: str, status: str, row: dict) -> list | N
         # they sent it, and how much. The mock rail is for the crypto one.
         if row.get("network") == "P2P_RUB":
             return [[{"text": "💸 Записать выплату", "callback_data": f"settle:{target_id}"}]]
+        # Real money, no payout provider: the operator sends the USDT from a
+        # wallet and records the hash. A "Mock success" there would be a fake
+        # hash on a real debit, so it is not offered.
+        if not mock_rails:
+            return [[{"text": "💸 Записать выплату (tx)", "callback_data": f"txsettle:{target_id}"}]]
         return [[{"text": "Mock success", "callback_data": f"success:{target_id}"},
                  {"text": "Mock unknown", "callback_data": f"unknown:{target_id}"},
                  {"text": "Mock failure", "callback_data": f"failure:{target_id}"}]]
@@ -132,9 +140,10 @@ def _card_buttons(kind: str, target_id: str, status: str, row: dict) -> list | N
 
 
 class OpsBot:
-    def __init__(self, admin_service, session_factory) -> None:
+    def __init__(self, admin_service, session_factory, *, mock_rails: bool = True) -> None:
         self.admin = admin_service
         self.sessions = session_factory
+        self.mock_rails = mock_rails
         # ponytail: in-process, so a half-filled decision does not survive a
         # restart and is not shared across workers. The pilot runs one; the day
         # it runs two this belongs in a table beside the audit log.
@@ -309,7 +318,7 @@ class OpsBot:
         # ponytail: the oldest ten. A phone is not a console, and the operator
         # API is where a backlog that does not fit gets worked through.
         for _kind, target, status, body in items[:10]:
-            buttons = (_card_buttons(kind, target, status, rows.get(target, {}))
+            buttons = (_card_buttons(kind, target, status, rows.get(target, {}), self.mock_rails)
                        if operator.can_mutate() else None)
             screen.append(("send", body, buttons))
         return screen
@@ -431,6 +440,9 @@ class OpsBot:
         if pending.action == "settle_p2p_withdrawal":
             return await self.admin.settle_p2p_withdrawal(
                 target, operator, fiat_kopecks=body["fiat_kopecks"], reason=reason, key=key)
+        if pending.action == "settle_trc20_withdrawal":
+            return await self.admin.settle_trc20_withdrawal(
+                target, operator, tx_hash=body["tx_hash"], reason=reason, key=key)
         if pending.action == "adjust_balance":
             return await self.admin.adjust_balance(
                 target, operator, amount_micros=body["amount_micros"], reason=reason, key=key)

@@ -82,10 +82,15 @@ def _mask(value):
 class CashAdminService:
     def __init__(
         self, session_factory, *, ledger=None, executor=None, now=None, settlements=None,
+        mock_rails=True,
     ):
         self.sessions = session_factory
         self.ledger = ledger or CashLedger()
         self.executor = executor or MockPayoutExecutor()
+        # Where money is real (Settings.cash_mock_rails is False) the mock
+        # payout executor is refused: a "Mock success" there is a fake tx hash
+        # on a real debit. An operator who sent USDT by hand records it instead.
+        self.mock_rails = mock_rails
         self.now = now or (lambda: datetime.now(timezone.utc))
         # The settlement job, so an operator can take back a reward that has
         # not been released yet. None where referrals are not wired up.
@@ -373,6 +378,8 @@ class CashAdminService:
 
     async def execute_mock(self, withdrawal_id, operator, *, outcome, reason, key):
         self._require_mutation(operator)
+        if not self.mock_rails:
+            raise ValueError("no mock payouts where money is real: record the payout you sent")
         if outcome not in {"success", "failure", "unknown"}:
             raise ValueError("invalid mock payout outcome")
         async with self.sessions() as session:
@@ -395,21 +402,13 @@ class CashAdminService:
                 result = self.executor.send(row["payout_id"], outcome)
                 now = self.now()
                 if result["status"] == "submitted":
-                    clearing = await self._account(session, "clearing", None, "c2c-mock")
                     # The fee is realised here too. This is the path an operator
                     # actually uses, so leaving it out sent the whole amount to
                     # the chain and kept nothing, however the service was set up.
-                    fee = row["fee_micros"]
-                    postings = {row["reserve_account_id"]: -row["amount_micros"],
-                                clearing: row["amount_micros"] - fee}
-                    if fee:
-                        postings[await self._account(
-                            session, "clearing", None, FEE_ACCOUNT
-                        )] = fee
                     await self.ledger.post(
                         session, scope="withdrawal-payout", key=row["payout_id"], kind="payout",
                         reference_id=withdrawal_id, actor=f"operator:{operator.telegram_user_id}",
-                        postings=postings,
+                        postings=await self._payout_postings(session, row, "c2c-mock"),
                     )
                     values = {"status": "submitted", "tx_hash": result["tx_hash"],
                               "detail": reason, "submitted_at": now, "updated_at": now}
@@ -438,46 +437,72 @@ class CashAdminService:
         fiat. So the money moves here only after a named person says they sent
         it, and the audit row carries both who and how much.
         """
-        self._require_mutation(operator)
         if type(fiat_kopecks) is not int or fiat_kopecks <= 0:
             raise ValueError("a P2P payout must record the RUB actually sent, in kopecks")
+        return await self._settle_by_hand(
+            withdrawal_id, operator, reason=reason, key=key, network=P2P_RUB,
+            clearing=P2P_CLEARING, action="withdrawal.settle_p2p",
+            receipt={"fiat_kopecks": fiat_kopecks},
+        )
+
+    async def settle_trc20_withdrawal(self, withdrawal_id, operator, *, tx_hash, reason, key):
+        """The operator has already sent the USDT from a wallet by hand; this records it.
+
+        The host has no payout provider, so nothing here can send. What it can
+        do is write down the transaction the person made, under their name,
+        and move the reserve out against it -- the same book entry a provider
+        would have produced, with a real hash where the mock put a fake one.
+        """
+        if not tx_hash or len(tx_hash) > 128:
+            raise ValueError("a TRC20 payout must record the transaction hash actually sent")
+        return await self._settle_by_hand(
+            withdrawal_id, operator, reason=reason, key=key, network=TRC20,
+            clearing="c2c-mock", action="withdrawal.settle_trc20", receipt={"tx_hash": tx_hash},
+        )
+
+    async def _settle_by_hand(self, withdrawal_id, operator, *, reason, key, network, clearing,
+                              action, receipt):
+        self._require_mutation(operator)
         async with self.sessions() as session:
             async with session.begin():
                 replay, fingerprint = await self._claim(
-                    session, operator, key, "withdrawal.settle_p2p", withdrawal_id,
-                    reason, {"fiat_kopecks": fiat_kopecks},
+                    session, operator, key, action, withdrawal_id, reason, receipt,
                 )
                 if replay is not None:
                     return replay
                 row = await self._withdrawal(session, withdrawal_id)
                 self._require_scope(operator, row["tenant_id"])
-                if row["network"] != P2P_RUB:
-                    raise WithdrawalStateError("only a P2P payout is settled by hand")
+                if row["network"] != network:
+                    raise WithdrawalStateError(f"only a {network} payout is recorded this way")
                 if row["status"] != "approved":
                     raise WithdrawalStateError("only an approved payout can be recorded as paid")
                 before = _snapshot(row, WITHDRAWAL_FIELDS)
                 now = self.now()
-                fee = row["fee_micros"]
-                clearing = await self._account(session, "clearing", None, P2P_CLEARING)
-                postings = {row["reserve_account_id"]: -row["amount_micros"],
-                            clearing: row["amount_micros"] - fee}
-                if fee:
-                    postings[await self._account(session, "clearing", None, FEE_ACCOUNT)] = fee
                 await self.ledger.post(
                     session, scope="withdrawal-payout", key=row["payout_id"], kind="payout",
                     reference_id=withdrawal_id, actor=f"operator:{operator.telegram_user_id}",
-                    postings=postings,
+                    postings=await self._payout_postings(session, row, clearing),
                 )
-                values = {"status": "submitted", "fiat_kopecks": fiat_kopecks,
+                values = {"status": "submitted", **receipt,
                           "detail": reason, "submitted_at": now, "updated_at": now}
                 await session.execute(update(cash_withdrawals).where(
                     cash_withdrawals.c.id == withdrawal_id
                 ).values(**values))
                 after = before | {name: _json(value) for name, value in values.items()
                                   if name in WITHDRAWAL_FIELDS}
-                await self._audit(session, operator, row["tenant_id"], "withdrawal.settle_p2p",
+                await self._audit(session, operator, row["tenant_id"], action,
                                   "withdrawal", withdrawal_id, reason, key, fingerprint, before, after)
                 return after
+
+    async def _payout_postings(self, session, row, clearing_name):
+        """The reserve leaves; the fee stays with us; the rest goes to the rail's clearing."""
+        fee = row["fee_micros"]
+        clearing = await self._account(session, "clearing", None, clearing_name)
+        postings = {row["reserve_account_id"]: -row["amount_micros"],
+                    clearing: row["amount_micros"] - fee}
+        if fee:
+            postings[await self._account(session, "clearing", None, FEE_ACCOUNT)] = fee
+        return postings
 
     async def resolve_withdrawal(self, withdrawal_id, operator, *, decision, tx_hash, reason, key):
         self._require_mutation(operator)
@@ -501,11 +526,12 @@ class CashAdminService:
                 now = self.now()
                 if decision == "confirmed":
                     if row["status"] == "unknown":
-                        clearing = await self._account(session, "clearing", None, "c2c-mock")
+                        # Same split as a send that answered: the fee is ours
+                        # whichever way the confirmation arrived.
                         await self.ledger.post(
                             session, scope="withdrawal-payout", key=row["payout_id"], kind="payout",
                             reference_id=withdrawal_id, actor=f"operator:{operator.telegram_user_id}",
-                            postings={row["reserve_account_id"]: -row["amount_micros"], clearing: row["amount_micros"]},
+                            postings=await self._payout_postings(session, row, "c2c-mock"),
                         )
                     values = {"status": "confirmed", "tx_hash": tx_hash,
                               "detail": reason, "confirmed_at": now, "updated_at": now}

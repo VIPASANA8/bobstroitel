@@ -208,9 +208,32 @@ class Money(FakeAdmin):
         self.calls.append(("settle", target, fiat_kopecks, reason, key))
         return {"status": "confirmed"}
 
+    async def settle_trc20_withdrawal(self, target, operator, *, tx_hash, reason, key):
+        self.calls.append(("txsettle", target, tx_hash, reason, key))
+        return {"status": "submitted"}
+
     async def adjust_balance(self, identifier, operator, *, amount_micros, reason, key):
         self.calls.append(("adjust", identifier, amount_micros, reason, key))
         return {"status": "начислено" if amount_micros > 0 else "списано"}
+
+
+@pytest.mark.anyio
+async def test_real_money_offers_no_mock_payout_only_the_hash_you_sent(anyio_backend):
+    """On the host where CASH is real and no payout provider exists, the crypto
+    card asks for the transaction the operator made, never "Mock success"."""
+    bot = OpsBot(Money(), None, mock_rails=False)
+    cards = await bot.callback(ADMIN, "q:withdrawal")
+    crypto, rub = cards[1][2], cards[2][2]
+    assert _data(crypto) == ["txsettle:w-crypto"]
+    assert _data(rub) == ["settle:w-rub"]
+
+    assert "reference" in (await bot.callback(ADMIN, "txsettle:w-crypto"))[0][1]
+    await bot.message(ADMIN, "0xabc123")
+    await bot.message(ADMIN, "отправил с холодного кошелька")
+    await bot.callback(ADMIN, "confirm:")
+    action, target, tx_hash, reason, key = bot.admin.calls[0]
+    assert (action, target, tx_hash, reason) == (
+        "txsettle", "w-crypto", "0xabc123", "отправил с холодного кошелька")
 
 
 @pytest.mark.anyio

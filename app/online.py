@@ -245,10 +245,12 @@ def create_app(
         app.state.cash_wallet = WalletService(session_factory)
         app.state.cash_admin = CashAdminService(
             session_factory, settlements=app.state.cash_settlements,
+            mock_rails=settings.cash_mock_rails,
         )
         # The operator panel the bot answers with, on the same service the
         # operator API uses -- so both write the same audit entries.
-        app.state.opsbot = OpsBot(app.state.cash_admin, session_factory)
+        app.state.opsbot = OpsBot(app.state.cash_admin, session_factory,
+                                  mock_rails=settings.cash_mock_rails)
         app.state.cash_game = CashGameService(
             session_factory, daily_loss_micros=settings.cash_daily_loss_micros,
         )

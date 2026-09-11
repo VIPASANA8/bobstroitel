@@ -26,8 +26,9 @@ def test_every_admin_route_uses_backend_operator_dependency():
               and route.path.startswith("/api/cash-admin")]
     # The count is the tripwire: a route added without a thought about who may
     # reach it has to fail here first. 22 since referrals and the partner's
-    # share -- two reports, a reversal, the share itself and a Cube expense.
-    assert len(routes) == 22
+    # share -- two reports, a reversal, the share itself and a Cube expense;
+    # 23 with the by-hand TRC20 payout record, operator-only like the P2P one.
+    assert len(routes) == 23
     assert all(any(dependency.call is get_cash_operator for dependency in route.dependant.dependencies)
                for route in routes)
 

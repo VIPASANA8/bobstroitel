@@ -37,6 +37,12 @@ class P2pSettlement(ReasonRequest):
     fiat_kopecks: int = Field(gt=0, le=10**12)
 
 
+class Trc20Settlement(ReasonRequest):
+    """The hash of the USDT transaction the operator sent by hand."""
+
+    tx_hash: str = Field(min_length=1, max_length=128)
+
+
 class WithdrawalResolution(ReasonRequest):
     decision: Literal["confirmed", "rejected"]
     tx_hash: str | None = Field(default=None, max_length=128)
@@ -196,6 +202,19 @@ async def execute_withdrawal(withdrawal_id: str, body: ExecuteRequest, request: 
     try:
         return await request.app.state.cash_admin.execute_mock(
             withdrawal_id, operator, outcome=body.outcome, reason=body.reason, key=key,
+        )
+    except (ValueError, LookupError) as exc:
+        raise _error(exc) from exc
+
+
+@router.post("/withdrawals/{withdrawal_id}/settle-trc20")
+async def settle_trc20_withdrawal(withdrawal_id: str, body: Trc20Settlement, request: Request,
+                                  key: str = Header(alias="Idempotency-Key"),
+                                  operator: CashOperator = Depends(get_cash_operator)):
+    """Record a USDT payout the operator already sent by hand."""
+    try:
+        return await request.app.state.cash_admin.settle_trc20_withdrawal(
+            withdrawal_id, operator, tx_hash=body.tx_hash, reason=body.reason, key=key,
         )
     except (ValueError, LookupError) as exc:
         raise _error(exc) from exc

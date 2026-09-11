@@ -181,3 +181,39 @@ async def test_an_unknown_rail_is_refused_before_any_money_moves(cash_db):
             destination_address=CARD, request_key="bad-rail", rail="SWIFT",
         )
     assert await balance(cash_db, "available", "alice") == 50_000_000
+
+
+async def test_real_money_records_the_usdt_the_operator_sent_and_refuses_the_mock(cash_db):
+    """The pilot host has real CASH and no payout provider. A TRC20 payout
+    there is sent by a person from a wallet and recorded with its hash; the
+    mock executor, which mints a fake hash on a real debit, is refused."""
+    await fund(cash_db, key="fund-real")
+    service = WithdrawalService(cash_db, fee_micros=5_000_000)
+    admin = CashAdminService(cash_db, mock_rails=False)
+    row = await service.create(
+        user_id="alice", tenant_id="tenant", amount_usdt="30",
+        destination_address="TDestination", request_key="trc20-real", rail=TRC20,
+    )
+    await admin.approve_withdrawal(row["id"], OPERATOR, reason="checked", key="k1")
+    with pytest.raises(ValueError, match="record the payout you sent"):
+        await admin.execute_mock(row["id"], OPERATOR, outcome="success", reason="mock", key="k2")
+    with pytest.raises(ValueError, match="transaction hash"):
+        await admin.settle_trc20_withdrawal(row["id"], OPERATOR, tx_hash="", reason="sent", key="k3")
+
+    after = await admin.settle_trc20_withdrawal(
+        row["id"], OPERATOR, tx_hash="0xreal", reason="sent from the cold wallet", key="k4",
+    )
+    assert after["status"] == "submitted" and after["tx_hash"] == "0xreal"
+    # 30 USDT left the reserve: 25 out on chain, 5 kept as the fee.
+    assert await balance(cash_db, "clearing", "c2c-mock") == 25_000_000
+    assert await balance(cash_db, "clearing", FEE_ACCOUNT) == 5_000_000
+    assert await balance(cash_db, "available", "alice") == 20_000_000
+    async with cash_db() as session:
+        action = await session.scalar(select(cash_audit_events.c.action).where(
+            cash_audit_events.c.target_id == row["id"],
+            cash_audit_events.c.idempotency_key == "k4",
+        ))
+    assert action == "withdrawal.settle_trc20"
+    # The P2P recorder still refuses a crypto row, as before.
+    with pytest.raises(WithdrawalStateError):
+        await admin.settle_p2p_withdrawal(row["id"], OPERATOR, fiat_kopecks=1, reason="x", key="k5")
