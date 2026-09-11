@@ -25,6 +25,19 @@ def test_root_serves_lobby_with_six_card_container(client):
     assert 'id="quickPlay"' in response.text
 
 
+def test_each_lobby_mode_has_its_own_balance_panel(client):
+    """REAL CASH shows what is available and where to top up; the training
+    tab does the same for chips, in the same panel, so switching tabs never
+    drops the balance out of view."""
+    html = client.get("/").text
+    for panel, amount in (("cashPilot", "cashAvailable"), ("playPilot", "playAvailable")):
+        assert f'id="{panel}" class="cash-pilot"' in html
+        assert f'id="{amount}"' in html
+    js = Path("static/lobby.js").read_text(encoding="utf-8")
+    assert '$("playPilot").hidden = asset !== "PLAY"' in js
+    assert '$("playAvailable").textContent' in js
+
+
 def test_public_config_contains_branding_but_no_bot_token(client):
     payload = client.get("/api/config").json()
     assert payload["tenant"]["slug"] == "poker8"

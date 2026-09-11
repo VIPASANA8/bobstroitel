@@ -204,7 +204,10 @@
     // which is a whole round trip spent showing a dash. On play chips the
     // number came back with the session and can go up now; on CASH it lands
     // the moment its own request does, rather than with the slowest sibling.
-    if (asset !== "CASH_USDT") $("wallet").textContent = format(profile.available_units);
+    if (asset !== "CASH_USDT") {
+      $("wallet").textContent = format(profile.available_units);
+      $("playAvailable").textContent = `${format(profile.available_units)} фишек`;
+    }
     const walletPayload = asset === "CASH_USDT"
       ? fetch("/api/cash/wallet").then(response => response.ok ? response.json() : null)
       : Promise.resolve(null);
@@ -394,6 +397,7 @@
 
   function markAsset() {
     $("cashPilot").hidden = asset !== "CASH_USDT";
+    $("playPilot").hidden = asset !== "PLAY";
     document.querySelectorAll("[data-asset]").forEach(tab => {
       const active = tab.dataset.asset === asset;
       tab.classList.toggle("is-active", active);
@@ -431,10 +435,8 @@
     // Real money is what the lobby is for; practice chips are the side the
     // player asks for. Chosen before the first load rather than switched into
     // after it, so opening the lobby is one round trip, not two.
-    if (config.cash_mode !== "off") {
-      asset = "CASH_USDT";
-      markAsset();
-    }
+    if (config.cash_mode !== "off") asset = "CASH_USDT";
+    markAsset();
     try {
       await load();
     } catch (error) {
