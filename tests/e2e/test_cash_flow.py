@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 import pytest
-from playwright.sync_api import BrowserContext, sync_playwright
+from playwright.sync_api import BrowserContext, expect, sync_playwright
 
 
 pytestmark = [pytest.mark.e2e, pytest.mark.postgres]
@@ -30,8 +30,9 @@ def test_two_players_complete_mock_cash_flow(cash_server: str):
         assert alice_auth["user_id"] != bob_auth["user_id"]
 
         page = alice.new_page()
-        page.goto(f"{cash_server}/static/lobby.html#cash", wait_until="networkidle")
-        assert page.get_by_text("USDT TRC20 mock", exact=False).first.is_visible()
+        page.goto(f"{cash_server}/static/profile.html?app=poker#cash", wait_until="networkidle")
+        expect(page.locator("#cashModeTab")).to_have_attribute("aria-selected", "true")
+        expect(page.locator("#cashSection")).to_be_visible()
 
         alice_deposit = _post(alice, cash_server, "/api/cash/deposits", {
             "amount_usdt": "10", "request_id": "alice-deposit",
