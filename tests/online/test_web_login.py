@@ -126,13 +126,37 @@ def test_an_unknown_tenant_has_no_webhook(client):
     ).status_code == 404
 
 
-def test_a_bare_start_is_a_greeting_not_a_login(client):
-    response = client.post(
+def _greet(client, user_id):
+    return client.post(
         "/api/telegram/webhook/poker8",
         headers={"X-Telegram-Bot-Api-Secret-Token": SECRET},
-        json={"message": {"chat": {"id": 900}, "from": {"id": 1, "first_name": "Х"}, "text": "/start"}},
+        json={"message": {"chat": {"id": 900}, "from": {"id": user_id, "first_name": "Х"},
+                          "text": "/start"}},
     )
-    assert response.status_code == 200
+
+
+def test_a_bare_start_is_a_greeting_not_a_login(client, monkeypatch):
+    """A stranger gets the greeting alone; a player gets their own invitation
+    under it -- the same code the profile shows."""
+    sent = []
+
+    async def record(token, chat_id, text, reply_markup=None, parse_mode=None):
+        sent.append(text)
+
+    monkeypatch.setattr("app.routers.telegram.send_message", record)
+    assert _greet(client, 1).status_code == 200
+    assert "Ваша ссылка" not in sent[-1]
+
+    opened = client.post("/api/auth/telegram/request").json()
+    _start(client, opened["nonce"])
+    _confirm(client, opened["nonce"])
+    client.post("/api/auth/telegram/claim", json={"nonce": opened["nonce"]})
+    payload = client.get("/api/cash/referral").json()["start_payload"]
+    # Startup's background lookup has answered by now and replaced the
+    # fixture's stand-in with what a test network has: nothing.
+    client.app.state.telegram_login_bots = {"poker8": {"username": "TestBot"}}
+    assert _greet(client, 5150).status_code == 200
+    assert sent[-1].endswith(f"Ваша ссылка: https://t.me/TestBot?startapp={payload}")
 
 
 def test_updates_that_are_not_a_start_are_shrugged_off(client):

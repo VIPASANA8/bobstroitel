@@ -4,8 +4,11 @@ import hmac
 
 from fastapi import APIRouter, Header, HTTPException, Request
 
-from cash.referrals import normalise as normalise_referral, start_payload
+from sqlalchemy import select
+
+from cash.referrals import code_for, normalise as normalise_referral, start_payload
 from online.auth import AuthenticationError, login_code
+from online.schema import users
 from online.telegram import answer_callback, edit_message, send_message, webhook_secret
 
 
@@ -25,6 +28,8 @@ WELCOME = (
     "Или играйте прямо в Telegram — нажмите кнопку <b>«Играть»</b>.\n\n"
     "👥 <b>Приглашайте друзей и зарабатывайте от 5 до 15% с их игры!</b>"
 )
+#: Under the welcome, once the player has an account for the link to pay into.
+REFERRAL_LINE = "\n\nВаша ссылка: {link}"
 STALE = "Ссылка для входа устарела. Откройте сайт и нажмите «Войти» ещё раз."
 INVITED = (
     "Вас пригласили в Poker8. Откройте приложение — приглашение закрепится "
@@ -140,7 +145,12 @@ async def webhook(
         # An operator is a player too, so the login keeps this command.
         nonce = text[len("/start"):].strip()
         if not nonce:
-            await send_message(token, chat_id, WELCOME, parse_mode="HTML")
+            link = await _referral_link(request, tenant_slug, sender.get("id"))
+            await send_message(
+                token, chat_id,
+                WELCOME + (REFERRAL_LINE.format(link=link) if link else ""),
+                parse_mode="HTML",
+            )
             return {"ok": True}
         # A referral link and a login share this one payload slot, so they are
         # told apart by shape: a code is nine characters, a login nonce is
@@ -175,6 +185,25 @@ async def webhook(
         return {"ok": True}
 
     return {"ok": True}
+
+
+async def _referral_link(request: Request, tenant_slug: str, telegram_user_id) -> str | None:
+    """This person's own invitation, or None before their first login: a code
+    belongs to an account, and all the bot knows here is a chat."""
+    username = getattr(request.app.state, "telegram_login_bots", {}).get(
+        tenant_slug, {},
+    ).get("username")
+    if not username or not telegram_user_id:
+        return None
+    async with request.app.state.session_factory() as session:
+        async with session.begin():
+            user_id = await session.scalar(
+                select(users.c.id).where(users.c.telegram_user_id == int(telegram_user_id))
+            )
+            if not user_id:
+                return None
+            code = await code_for(session, user_id)
+    return f"https://t.me/{username}?startapp={start_payload(code)}"
 
 
 async def _is_open(auth, tenant_slug: str, nonce: str) -> bool:

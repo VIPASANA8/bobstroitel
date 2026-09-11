@@ -17,4 +17,5 @@ EXPECTED = (
 def test_player_bot_welcome_copy_and_html_mode():
     assert WELCOME == EXPECTED
     source = Path("app/routers/telegram.py").read_text(encoding="utf-8")
-    assert 'await send_message(token, chat_id, WELCOME, parse_mode="HTML")' in source
+    assert 'WELCOME + (REFERRAL_LINE.format(link=link) if link else "")' in source
+    assert 'parse_mode="HTML"' in source
