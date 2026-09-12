@@ -43,6 +43,8 @@ def table(db_session_factory):
     clock = _Clock(datetime(2026, 1, 1, tzinfo=timezone.utc))
     runtime = TableRuntimeManager(db_session_factory, ledger, now=clock)
     seating = SeatingService(db_session_factory, ledger)
+    # Four bots, pinned: seat 5 below has to stay free for the latecomer.
+    seating._bot_lineup["t1"] = (4, clock.current + timedelta(days=1))
     coordinator = OnlineCoordinator(runtime, seating, Catalogue(db_session_factory), interval_seconds=0)
     return coordinator, runtime, seating, clock, db_session_factory
 

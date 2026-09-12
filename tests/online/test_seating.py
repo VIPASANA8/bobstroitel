@@ -458,6 +458,8 @@ async def test_bots_rotate_off_the_table_each_on_its_own_clock(seating, db_sessi
     moment inside the band, which is what keeps them from standing up together."""
     from online.seating import BOT_ROTATE_BAND, MIN_SYSTEM_BOTS
 
+    # Pinned, so a lineup redraw inside the band is not mistaken for rotation.
+    seating._bot_lineup[table_id] = (MAX_SYSTEM_BOTS, datetime.now(timezone.utc) + timedelta(days=1))
     # First boundary seats the bots; the next one is where they are first seen
     # and given their moment, since rotation runs ahead of the leave pipeline.
     await seating.process_boundary(table_id)

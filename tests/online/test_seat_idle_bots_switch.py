@@ -15,17 +15,17 @@ this point.
 """
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
 from sqlalchemy import insert, select
 
-from online.catalogue import IDLE_BOT_COUNTS, Catalogue
+from online.catalogue import DEFAULT_TABLES, Catalogue
 from online.config import Settings
 from online.ledger import PlayLedger
 from online.schema import table_seats, tenants, users
-from online.seating import SeatingService
+from online.seating import BOT_LINEUP_RANGE, SeatingService
 
 START = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
@@ -112,7 +112,7 @@ async def test_a_lone_player_gets_someone_to_play_against(lobby):
     ledger, session_factory = lobby
     await _seat_user(session_factory, "micro-a", seat_no=0)
     await SeatingService(session_factory, ledger).process_boundary("micro-a", now=START)
-    assert await _bots(session_factory, "micro-a") == IDLE_BOT_COUNTS["micro-a"]
+    assert await _bots(session_factory, "micro-a") >= BOT_LINEUP_RANGE[0]
 
 
 @pytest.mark.anyio
@@ -122,9 +122,9 @@ async def test_an_empty_room_still_fills_to_its_own_count(lobby):
     every player count from one to six."""
     ledger, session_factory = lobby
     off = SeatingService(session_factory, ledger, seat_idle_bots=False)
-    for table_id, expected in IDLE_BOT_COUNTS.items():
+    for table_id, *_ in DEFAULT_TABLES:
         await off.process_boundary(table_id, now=START)
-        assert await _bots(session_factory, table_id) == expected, table_id
+        assert await _bots(session_factory, table_id) == off._bot_lineup[table_id][0], table_id
 
 
 @pytest.mark.anyio
@@ -132,10 +132,14 @@ async def test_bots_already_seated_are_left_alone(lobby):
     """The switch stops arrivals; it must not evict anyone. Seated first with
     the switch on, then a boundary runs with it off."""
     ledger, session_factory = lobby
-    await SeatingService(session_factory, ledger).process_boundary("mid-b", now=START)
+    on = SeatingService(session_factory, ledger)
+    on._bot_lineup["mid-b"] = (6, START + timedelta(days=1))
+    await on.process_boundary("mid-b", now=START)
     assert await _bots(session_factory, "mid-b") == 6
 
-    await SeatingService(session_factory, ledger, seat_idle_bots=False).process_boundary("mid-b", now=START)
+    off = SeatingService(session_factory, ledger, seat_idle_bots=False)
+    off._bot_lineup["mid-b"] = (6, START + timedelta(days=1))
+    await off.process_boundary("mid-b", now=START)
     assert await _bots(session_factory, "mid-b") == 6
 
 
@@ -144,11 +148,13 @@ async def test_a_table_over_its_count_still_sheds_bots(lobby):
     """Removals run before the switch is consulted, so a table that should
     hold fewer bots still lets them go."""
     ledger, session_factory = lobby
-    await SeatingService(session_factory, ledger).process_boundary("mid-b", now=START)
+    full = SeatingService(session_factory, ledger)
+    full._bot_lineup["mid-b"] = (6, START + timedelta(days=1))
+    await full.process_boundary("mid-b", now=START)
     assert await _bots(session_factory, "mid-b") == 6
 
-    # micro-a's own count is 1; seat it full first, then let it rebalance.
+    # The switched-off service drew two for the same table; it sheds to that.
     off = SeatingService(session_factory, ledger, seat_idle_bots=False)
-    await SeatingService(session_factory, ledger).process_boundary("micro-a", now=START)
-    await off.process_boundary("micro-a", now=START)
-    assert await _bots(session_factory, "micro-a") == 1
+    off._bot_lineup["mid-b"] = (2, START + timedelta(days=1))
+    await off.process_boundary("mid-b", now=START)
+    assert await _bots(session_factory, "mid-b") == 2

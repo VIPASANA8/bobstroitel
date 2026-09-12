@@ -187,9 +187,9 @@ def create_app(
         catalogue = Catalogue(session_factory)
         await catalogue.seed_defaults()
         if settings.cash_mode == "mock":
-            # Deliberately mock-only: the seeded table is `cash-micro-test`, a
-            # test table by name and by stakes. Production needs its own table,
-            # which is a decision about limits, not a rename.
+            # Deliberately mock-only: the seeded tables are at the pilot's test
+            # stakes. Production needs its own tables, which is a decision
+            # about limits, not a rename.
             await catalogue.seed_cash_mock()
         app.state.ledger = ledger
         app.state.catalogue = catalogue

@@ -1,21 +1,20 @@
-"""Each lobby table shows its own number of bots while nobody is there.
+"""Each lobby table draws its own bot count and redraws it on its own clock.
 
-Was two named tables against a shared default. Every seat count now has a
-table, 1 through 6, so the layouts, the ready gate and the spectator
-hexagon can each be looked at without editing anything -- only two of the
-six counts were reachable before.
+Was one fixed count per table, 1 through 6 -- a fixture. Now a lineup that
+changes size on its own, so the six tables read as rooms people drift in and
+out of rather than as six test rigs.
 """
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy import insert, select
 
-from online.catalogue import IDLE_BOT_COUNTS, Catalogue
+from online.catalogue import DEFAULT_TABLES, Catalogue
 from online.ledger import PlayLedger
 from online.schema import system_players, table_seats, tenants, users
-from online.seating import MAX_SYSTEM_BOTS, MIN_SYSTEM_BOTS, SeatingService
+from online.seating import BOT_LINEUP_BAND, BOT_LINEUP_RANGE, MAX_SYSTEM_BOTS, MIN_SYSTEM_BOTS, SeatingService
 
 START = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
@@ -57,35 +56,66 @@ async def _sit(session_factory, table_id, user_id, seat_no):
         await session.commit()
 
 
-def test_every_default_table_owns_a_distinct_count():
-    from online.catalogue import DEFAULT_TABLES
-
-    assert sorted(IDLE_BOT_COUNTS.values()) == [1, 2, 3, 4, 5, 6]
-    assert set(IDLE_BOT_COUNTS) == {table[0] for table in DEFAULT_TABLES}
-    # Nothing may exceed the room, and the eviction floor is about yielding a
-    # seat to a person, not a minimum to seed -- so 1 and 2 are legitimate.
-    assert max(IDLE_BOT_COUNTS.values()) <= 6
+def _pin(seating, table_id, count):
+    seating._bot_lineup[table_id] = (count, START + timedelta(days=1))
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("table_id,expected", sorted(IDLE_BOT_COUNTS.items()))
-async def test_an_empty_table_shows_its_own_number(lobby, table_id, expected):
+async def test_an_empty_table_fills_to_a_drawn_count(lobby):
     seating, session_factory = lobby
-    await seating.process_boundary(table_id, now=START)
-    assert await _bots(session_factory, table_id) == expected
+    low, high = BOT_LINEUP_RANGE
+    for table_id, *_ in DEFAULT_TABLES:
+        await seating.process_boundary(table_id, now=START)
+        count, due = seating._bot_lineup[table_id]
+        assert low <= count <= high
+        assert await _bots(session_factory, table_id) == count
+        assert BOT_LINEUP_BAND[0] <= due - START <= BOT_LINEUP_BAND[1]
+
+
+@pytest.mark.anyio
+async def test_the_count_changes_once_the_draw_is_due(lobby):
+    """A redraw never lands on the same number, so the change is visible, and
+    the table follows it either way -- extras leave, gaps are filled."""
+    seating, session_factory = lobby
+    _pin(seating, "low-a", 6)
+    await seating.process_boundary("low-a", now=START)
+    assert await _bots(session_factory, "low-a") == 6
+
+    seen = set()
+    now = START
+    for _ in range(4):
+        _, due = seating._bot_lineup["low-a"]
+        now = due
+        before = seating._bot_lineup["low-a"][0]
+        await seating.process_boundary("low-a", now=now)
+        count = seating._bot_lineup["low-a"][0]
+        assert count != before
+        seen.add(count)
+        # Removal is one boundary; a leaving bot's seat is cleared on the same
+        # pass, so the count is exact right away.
+        assert await _bots(session_factory, "low-a") == count
+    assert len(seen) > 1
+
+
+@pytest.mark.anyio
+async def test_the_draw_holds_until_it_is_due(lobby):
+    seating, session_factory = lobby
+    await seating.process_boundary("micro-a", now=START)
+    count, due = seating._bot_lineup["micro-a"]
+    await seating.process_boundary("micro-a", now=due - timedelta(seconds=1))
+    assert seating._bot_lineup["micro-a"] == (count, due)
 
 
 @pytest.mark.anyio
 async def test_the_five_bot_table_is_full_once_you_join(lobby):
     """Five bots plus you is six. Nobody has to leave for that to happen.
 
-    The five-bot table is mid-a now that every count has one of its own.
-
     The first version clamped this to four the moment anyone sat down, so
     taking the one free seat made a bot leave and opened another -- the table
     could never actually be full, which is the entire point of it.
     """
     seating, session_factory = lobby
+    _pin(seating, "mid-a", 5)
     await seating.process_boundary("mid-a", now=START)
     assert await _bots(session_factory, "mid-a") == 5
 
@@ -98,6 +128,7 @@ async def test_the_five_bot_table_is_full_once_you_join(lobby):
 async def test_a_full_table_gives_a_seat_back_when_somebody_sits_down(lobby):
     """Six bots is a game to watch, not a table you are locked out of."""
     seating, session_factory = lobby
+    _pin(seating, "mid-b", 6)
     await seating.process_boundary("mid-b", now=START)
     assert await _bots(session_factory, "mid-b") == 6
 
@@ -117,6 +148,7 @@ async def test_a_full_table_gives_a_seat_back_when_somebody_sits_down(lobby):
 @pytest.mark.anyio
 async def test_a_second_person_costs_exactly_one_more_bot(lobby):
     seating, session_factory = lobby
+    _pin(seating, "low-b", 6)
     await seating.process_boundary("low-b", now=START)
     async with session_factory() as session:
         for seat_no in (0, 1):

@@ -23,7 +23,7 @@ DEFAULT_TABLES = (
 
 CASH_MOCK_TABLE = {
     "id": "cash-micro-test",
-    "name": "CASH Micro",
+    "name": "CASH 1",
     # Compatibility chip counts for the current table client. Money remains
     # authoritative only in the exact *_micros columns below.
     "small_blind_units": 5,
@@ -41,31 +41,22 @@ CASH_MOCK_TABLE = {
     "rake_bps": 1_000,
 }
 
+# Six money tables, all at the one proven set of stakes above: the escrow,
+# rake and chip size are checked against exactly those numbers, so a second
+# level is a decision about limits, not another row here. The first keeps its
+# historical id -- hands, settlements and the stakes migration all name it.
+CASH_TABLES = (
+    ("cash-micro-test", "CASH 1"),
+    ("cash-micro-2", "CASH 2"),
+    ("cash-micro-3", "CASH 3"),
+    ("cash-micro-4", "CASH 4"),
+    ("cash-micro-5", "CASH 5"),
+    ("cash-micro-6", "CASH 6"),
+)
+
 PLAY = "PLAY"
 CASH_USDT = "CASH_USDT"
 TABLE_ASSETS = {PLAY, CASH_USDT}
-
-
-#: How many bots a lobby table shows while nobody is sitting at it. Everything
-#: not named here uses the usual four.
-#:
-#: Low B keeps five, so there is always one open seat visible -- a table you
-#: can join on sight. Mid B keeps six, a full game to watch; a person joining
-#: that one queues and takes a bot's seat at the next hand boundary, which
-#: _choose_seat already does whenever more than the minimum three are sitting.
-#: Both drop back to the normal count as soon as people arrive.
-# One count per table, 1 through 6, so every seat count is reachable for
-# testing without editing anything: the layouts, the ready gate and the
-# spectator hexagon all behave differently at each, and only two of the six
-# were exercised before.
-IDLE_BOT_COUNTS = {
-    "micro-a": 1,
-    "micro-b": 2,
-    "low-a": 3,
-    "low-b": 4,
-    "mid-a": 5,
-    "mid-b": 6,
-}
 
 
 # What a player may pick when opening a room. Free-form blinds would let anyone
@@ -204,33 +195,32 @@ class Catalogue:
                     )
 
     async def seed_cash_mock(self) -> None:
-        """Create the one human-only table used by the isolated mock pilot."""
+        """Create the human-only money tables used by the isolated mock pilot."""
+        money = {key: value for key, value in CASH_MOCK_TABLE.items() if key not in ("id", "name")}
         async with self.session_factory() as session:
             async with session.begin():
-                existing = (await session.execute(select(poker_tables).where(
-                    poker_tables.c.id == CASH_MOCK_TABLE["id"]
-                ))).mappings().one_or_none()
-                if existing:
-                    expected = {
-                        key: value for key, value in CASH_MOCK_TABLE.items() if key != "name"
-                    }
-                    expected["asset"] = CASH_USDT
-                    if any(existing[key] != value for key, value in expected.items()):
-                        raise RuntimeError("existing mock CASH table has incompatible parameters")
-                    # The name is a label, not a money parameter. Refusing to
-                    # boot over a renamed table would make renaming it a
-                    # migration; adopting the new name costs nothing, and the
-                    # blinds, chip and rake above are still checked exactly.
-                    if existing["name"] != CASH_MOCK_TABLE["name"]:
-                        await session.execute(update(poker_tables).where(
-                            poker_tables.c.id == CASH_MOCK_TABLE["id"]
-                        ).values(name=CASH_MOCK_TABLE["name"]))
-                    return
-                await session.execute(poker_tables.insert().values(
-                    **CASH_MOCK_TABLE,
-                    scope="network", asset=CASH_USDT,
-                    min_buy_in_bb=40, max_buy_in_bb=100, max_seats=6,
-                ))
+                for table_id, name in CASH_TABLES:
+                    existing = (await session.execute(select(poker_tables).where(
+                        poker_tables.c.id == table_id
+                    ))).mappings().one_or_none()
+                    if existing:
+                        expected = {**money, "asset": CASH_USDT}
+                        if any(existing[key] != value for key, value in expected.items()):
+                            raise RuntimeError(f"existing CASH table {table_id} has incompatible parameters")
+                        # The name is a label, not a money parameter. Refusing to
+                        # boot over a renamed table would make renaming it a
+                        # migration; adopting the new name costs nothing, and the
+                        # blinds, chip and rake above are still checked exactly.
+                        if existing["name"] != name:
+                            await session.execute(update(poker_tables).where(
+                                poker_tables.c.id == table_id
+                            ).values(name=name))
+                        continue
+                    await session.execute(poker_tables.insert().values(
+                        id=table_id, name=name, **money,
+                        scope="network", asset=CASH_USDT,
+                        min_buy_in_bb=40, max_buy_in_bb=100, max_seats=6,
+                    ))
 
     async def list_tables(
         self, page: int = 1, per_page: int = 6, viewer_id: str | None = None,
@@ -261,7 +251,9 @@ class Catalogue:
                 await session.execute(
                     select(poker_tables)
                     .where(*conditions)
-                    .order_by(poker_tables.c.big_blind_units, poker_tables.c.id)
+                    # By name before id: the first CASH table keeps its old id,
+                    # which would otherwise sort it after the five numbered ones.
+                    .order_by(poker_tables.c.big_blind_units, poker_tables.c.name, poker_tables.c.id)
                     .offset((page - 1) * per_page)
                     .limit(per_page)
                 )

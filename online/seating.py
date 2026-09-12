@@ -12,7 +12,7 @@ from online.ledger import PlayLedger
 from online.bot_names import BOT_NAMES
 from online.progression import close_play_session
 from online.schema import play_accounts, poker_tables, seat_queue, system_players, table_runtimes, table_seats
-from online.catalogue import IDLE_BOT_COUNTS, PLAY, ROOM_SEATS, hash_room_password
+from online.catalogue import PLAY, ROOM_SEATS, hash_room_password
 
 
 # A ready request has to survive the hand that is running when it is made,
@@ -25,6 +25,12 @@ MAX_SYSTEM_BOTS = 4
 # A band, not a fixed ten minutes: a single interval would rotate the whole
 # table at once, which reads as scripted rather than as people coming and going.
 BOT_ROTATE_BAND = (timedelta(minutes=7), timedelta(minutes=13))
+# How many bots a lobby table keeps, redrawn now and then per table. A fixed
+# count per table (one here, two there, six at Mid B) read as a fixture; a
+# lineup that changes size on its own clock reads as a room people drift in
+# and out of. Two at least, so an empty table is still a game to watch.
+BOT_LINEUP_RANGE = (2, 6)
+BOT_LINEUP_BAND = (timedelta(minutes=10), timedelta(minutes=25))
 # A player's room fills the way a real one does: somebody wanders in a little
 # after you sit down, then the rest over the next few minutes. Seating all four
 # on the boundary the owner sat down on made the room feel pre-populated -- you
@@ -98,6 +104,8 @@ class SeatingService:
         # When each seated bot is due to leave. In memory on purpose: a restart
         # just re-rolls the timers, and rotation has nothing to recover.
         self._bot_rotate_at: dict[str, datetime] = {}
+        # table_id -> (bot count, when to draw a new one)
+        self._bot_lineup: dict[str, tuple[int, datetime]] = {}
         # When each bot may walk into a player's room. In memory: a restart
         # simply staggers them again, which is no worse than the first time.
         self._bot_arrivals: dict[str, list[datetime]] = {}
@@ -687,8 +695,19 @@ class SeatingService:
             self._bot_arrivals[table_id] = schedule
         return sum(1 for when in schedule if when <= now)
 
+    def _lineup_target(self, table_id: str, now: datetime) -> int:
+        """The lobby table's bot count for now; a different one once it is due."""
+        count, due = self._bot_lineup.get(table_id, (0, now))
+        if due <= now:
+            low, high = BOT_LINEUP_RANGE
+            count = random.choice([n for n in range(low, high + 1) if n != count])
+            low, high = BOT_LINEUP_BAND
+            due = now + low + timedelta(seconds=random.uniform(0, (high - low).total_seconds()))
+            self._bot_lineup[table_id] = (count, due)
+        return count
+
     async def _fill_system_seats(self, session: AsyncSession, table, now: datetime) -> list[str]:
-        """Keep a table at three or four bots when capacity permits.
+        """Keep a table at its drawn bot count when capacity permits.
 
         Users are seated first at a hand boundary. Only then are idle system
         seats removed or added, so a person is never displaced merely to keep
@@ -710,7 +729,7 @@ class SeatingService:
         # leave and opened another -- the table could never actually be full.
         # What limits the bots is the seats people are not using.
         target_bot_count = min(
-            IDLE_BOT_COUNTS.get(table["id"], MAX_SYSTEM_BOTS),
+            MAX_SYSTEM_BOTS if table["created_by"] else self._lineup_target(table["id"], now),
             ROOM_SEATS - user_count,
         )
         if user_count > 2:

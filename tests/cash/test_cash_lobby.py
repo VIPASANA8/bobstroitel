@@ -11,7 +11,7 @@ from app.routers.tables import ReadyRequest, leave, ready, ready_up, table_snaps
 from cash.deposits import DepositService
 from cash.game import CashGameService
 from cash.wallet import WalletService
-from online.catalogue import CASH_MOCK_TABLE, CASH_USDT, Catalogue
+from online.catalogue import CASH_MOCK_TABLE, CASH_TABLES, CASH_USDT, Catalogue
 from online.schema import table_seats
 
 
@@ -55,7 +55,7 @@ async def test_public_cash_lobby_never_falls_back_to_play(cash_db):
         assert credited["status"] == "credited"
 
     listing = await list_lobby_tables(request, 1, 6, CASH_USDT, alice)
-    assert [row["id"] for row in listing["tables"]] == [CASH_MOCK_TABLE["id"]]
+    assert [row["id"] for row in listing["tables"]] == [table_id for table_id, _ in CASH_TABLES]
     assert listing["tables"][0]["min_buy_in_micros"] == 4_000_000
 
     chosen = await quick_play(request, alice, CASH_USDT)

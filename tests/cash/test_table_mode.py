@@ -7,7 +7,7 @@ from fastapi.routing import APIRoute
 from sqlalchemy import insert, select
 from types import SimpleNamespace
 
-from online.catalogue import CASH_MOCK_TABLE, CASH_ROOM_LEVEL, CASH_USDT, PLAY, Catalogue, RoomError
+from online.catalogue import CASH_MOCK_TABLE, CASH_TABLES, CASH_ROOM_LEVEL, CASH_USDT, PLAY, Catalogue, RoomError
 from online.integrity import EscrowIntegrityMonitor
 from online.ledger import PlayLedger
 from online.schema import integrity_events, poker_tables, system_players, table_seats, tenants, users
@@ -45,12 +45,13 @@ async def test_default_catalogue_is_exactly_six_play_tables(table_services):
 
 
 @pytest.mark.anyio
-async def test_mock_seed_adds_one_idempotent_cash_table(table_services):
+async def test_mock_seed_adds_six_idempotent_cash_tables(table_services):
     catalogue, _, _ = table_services
     await catalogue.seed_cash_mock()
     await catalogue.seed_cash_mock()
     rows = await catalogue.list_tables(per_page=100, asset=CASH_USDT)
-    assert [row.id for row in rows] == [CASH_MOCK_TABLE["id"]]
+    assert [row.id for row in rows] == [table_id for table_id, _ in CASH_TABLES]
+    assert rows[0].name == "CASH 1"
     # 0.05/0.10 USDT, so 40-100 big blinds is 4.00-10.00 USDT: a 20 USDT
     # deposit -- the floor CASE8 will accept -- is two to five buy-ins.
     assert rows[0].min_buy_in_micros == 4_000_000
