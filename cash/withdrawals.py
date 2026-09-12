@@ -94,10 +94,6 @@ class WithdrawalService:
         if type(fee_micros) is not int or fee_micros < 0:
             raise ValueError("the withdrawal fee must be a nonnegative integer of micros")
         self.fee_micros = fee_micros
-
-    def fee_for(self, rail: str) -> int:
-        """The flat fee pays for a chain transfer. A card payout has no chain: 0."""
-        return 0 if rail == P2P_RUB else self.fee_micros
         # A TRC20 withdrawal at or below this sends itself, no operator. Zero is
         # off. It never applies to P2P (a human pays that), and it refuses to
         # run unless the executor is a real, automatic one -- so the pilot's
@@ -105,6 +101,10 @@ class WithdrawalService:
         if type(auto_micros) is not int or auto_micros < 0:
             raise ValueError("the auto-withdrawal ceiling must be a nonnegative integer of micros")
         self.auto_micros = auto_micros
+
+    def fee_for(self, rail: str) -> int:
+        """The flat fee pays for a chain transfer. A card payout has no chain: 0."""
+        return 0 if rail == P2P_RUB else self.fee_micros
 
     async def create(self, *, user_id: str, tenant_id: str, amount_usdt: str,
                      destination_address: str, request_key: str, rail: str = TRC20):
