@@ -173,3 +173,15 @@ def test_cube_page_chrome_owns_the_tokens_used_by_its_profile_link():
     cube_page_rule = CUBE_CSS[CUBE_CSS.index(".cube-page{"):CUBE_CSS.index("}", CUBE_CSS.index(".cube-page{"))]
     for token in ("--lime:", "--panel:", "--line:"):
         assert token in cube_page_rule
+
+
+def test_the_colour_says_what_kind_of_money_before_which_way_it_went():
+    """Practice chips are purple like the training side, a deposit or a
+    payout is gold; green and red are kept for a real result at a table."""
+    assert "'kind-play'" in JS and "'kind-operation'" in JS
+    assert ".history-row.kind-play .history-amount" in CSS
+    assert "var(--accent)" in CSS.split(".history-row.kind-play .history-amount")[1].split("\n")[0]
+    assert ".history-row.kind-operation .history-amount" in CSS
+    assert "#f4c76b" in CSS.split(".history-row.kind-operation .history-amount")[1].split("\n")[0]
+    # The kind rule comes after the outcome rule, so it wins at equal specificity.
+    assert CSS.index(".history-row.win .history-amount") < CSS.index(".history-row.kind-play .history-amount")

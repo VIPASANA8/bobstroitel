@@ -359,7 +359,11 @@
     const secondary = row.amountKind === 'play'
       ? 'Тренировочные фишки'
       : product === 'cube' ? cashAmount(amount) : usdt(amount);
-    return `<article class="history-row ${outcome}">
+    // Colour says what kind of money it was before it says which way it went:
+    // practice chips purple like the rest of the training side, a deposit or
+    // a payout gold, and only a real result at a table green or red.
+    const kind = row.amountKind === 'play' ? 'kind-play' : row.category === 'operation' ? 'kind-operation' : '';
+    return `<article class="history-row ${outcome} ${kind}">
       <div class="history-what"><span class="history-sign" aria-hidden="true">${signIcon(amount)}</span><div><strong>${escapeHtml(row.title)}</strong><small>${escapeHtml(row.detail)}</small></div></div>
       <span class="history-amount"><b>${escapeHtml(primary)}</b><small>${escapeHtml(secondary)}</small></span>
     </article>`;

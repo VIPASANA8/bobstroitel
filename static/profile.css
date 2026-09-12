@@ -136,6 +136,10 @@
 .history-amount small{margin-top:2px;color:var(--muted);font-size:10px;font-weight:500}
 .history-row.win .history-amount{color:var(--mint)}
 .history-row.loss .history-amount{color:var(--danger)}
+.history-row.kind-play .history-amount,.history-row.kind-play .history-sign{color:var(--accent)}
+.history-row.kind-play .history-sign{background:#c8b3f612}
+.history-row.kind-operation .history-amount,.history-row.kind-operation .history-sign{color:#f4c76b}
+.history-row.kind-operation .history-sign{background:#f4c76b1a}
 .history-empty{margin:0;padding:24px 0 10px;color:var(--muted);font-size:13px}
 .history-error{margin:10px 0 0;padding:11px 12px;border:1px solid color-mix(in srgb,var(--danger) 38%,var(--line));border-radius:10px;color:var(--danger);font-size:12px}
 .history-list:not(.expanded)>.history-row:nth-child(n+6){display:none}
