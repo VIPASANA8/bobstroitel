@@ -2,6 +2,11 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
+  <!-- Telegram opens the Mini App here with its initData in the URL; that first
+       open lands on CUBE. Every later visit to "/" comes from a link inside the
+       app, without the fragment, so this never fires twice. The fragment goes
+       along: telegram-web-app.js on the next page needs it to see initData. -->
+  <script>if(/tgWebAppData=/.test(location.search+location.hash))location.replace("/cube"+location.search+location.hash);</script>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#07100f" />
   <title>Poker — Лобби</title>
