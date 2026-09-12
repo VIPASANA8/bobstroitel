@@ -268,3 +268,19 @@ async def test_a_card_payout_is_quoted_at_the_rate_of_its_moment(cash_db):
     crypto = await service.create(user_id="alice", tenant_id="tenant", amount_usdt="10",
                                   destination_address="TDest", request_key="trc-1", rail=TRC20)
     assert crypto["quote_kopecks"] is None
+
+
+async def test_a_card_payout_under_five_thousand_roubles_is_refused(cash_db):
+    await fund(cash_db, key="fund-min-1")
+    await fund(cash_db, key="fund-min-2")   # 100 USDT: enough for a 65 USDT withdrawal
+    await rate(cash_db, kopecks_per_usdt=8_400)
+    service = WithdrawalService(cash_db, fee_micros=5_000_000)
+    # (64 - 5) * 84 = 4 956 ₽: under the floor. (65 - 5) * 84 = 5 040 ₽: over it.
+    with pytest.raises(ValueError, match="at least 5000,00 RUB"):
+        await service.create(user_id="alice", tenant_id="tenant", amount_usdt="64",
+                             destination_address=CARD, request_key="min-1", rail=P2P_RUB)
+    # Refused before anything was reserved: the wallet is untouched.
+    assert await balance(cash_db, "available", "alice") == 100_000_000
+    row = await service.create(user_id="alice", tenant_id="tenant", amount_usdt="65",
+                               destination_address=CARD, request_key="min-2", rail=P2P_RUB)
+    assert row["quote_kopecks"] == 504_000

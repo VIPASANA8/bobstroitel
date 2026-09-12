@@ -30,6 +30,8 @@ RAILS = (TRC20, P2P_RUB)
 
 #: Where a paid-out P2P payout lands, beside the C2C clearing account.
 P2P_CLEARING = "p2p-payout"
+#: A card transfer costs a person's time; below this it is not worth asking for.
+MIN_RUB_PAYOUT_KOPECKS = 500_000
 
 #: A withdrawal that has not finished one way or the other. One of these per
 #: user at a time, so a queue of payouts cannot be built up faster than the
@@ -182,6 +184,10 @@ class WithdrawalService:
                     if rate is None:
                         raise RubRateUnset("RUB withdrawals open once an operator sets the rate")
                     quote = quote_kopecks(amount - self.fee_micros, rate)
+                    if quote < MIN_RUB_PAYOUT_KOPECKS:
+                        raise ValueError(
+                            f"a card withdrawal pays out at least {kopecks_to_rub(MIN_RUB_PAYOUT_KOPECKS)} RUB"
+                        )
                 withdrawal_id = uuid4().hex
                 reserve_id = await self._account(session, "withdrawal", user_id, withdrawal_id)
                 wallet_id = await self._account(session, "available", user_id, user_id)
