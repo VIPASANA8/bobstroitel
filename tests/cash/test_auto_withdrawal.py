@@ -32,8 +32,12 @@ async def fund(cash_db, amount="200", key="fund", user="alice"):
     ))
 
 
-async def rate(cash_db, kopecks_per_usdt=9_000):
-    """A card withdrawal is quoted in roubles, so a test that opens one needs a rate."""
+async def rate(cash_db, kopecks_per_usdt=100_000):
+    """A card withdrawal is quoted in roubles, so a test that opens one needs a rate.
+
+    1 000 ₽ per USDT by default: absurd as a rate, but it puts every small
+    withdrawal these tests make above the 5 000 ₽ payout floor, which is not
+    what they are about."""
     async with cash_db() as session:
         async with session.begin():
             await set_rub_rate(session, kopecks_per_usdt=kopecks_per_usdt, actor="test")

@@ -40,8 +40,12 @@ async def fund(cash_db, key="fund", user_id="alice"):
     ))
 
 
-async def rate(cash_db, kopecks_per_usdt=9_000):
-    """A card withdrawal is quoted in roubles, so a test that opens one needs a rate."""
+async def rate(cash_db, kopecks_per_usdt=100_000):
+    """A card withdrawal is quoted in roubles, so a test that opens one needs a rate.
+
+    1 000 ₽ per USDT by default: absurd as a rate, but it puts every small
+    withdrawal these tests make above the 5 000 ₽ payout floor, which is not
+    what they are about."""
     async with cash_db() as session:
         async with session.begin():
             await set_rub_rate(session, kopecks_per_usdt=kopecks_per_usdt, actor="test")
@@ -239,6 +243,7 @@ async def test_a_card_payout_is_quoted_at_the_rate_of_its_moment(cash_db):
     operator has set a rate; once there is one, the quote is fixed at the
     moment of asking and a later rate does not move it."""
     await fund(cash_db, key="fund-rate")
+    await fund(cash_db, key="fund-rate-2")   # 100 USDT on the wallet
     service = WithdrawalService(cash_db, fee_micros=5_000_000)
     admin = CashAdminService(cash_db)
     global_admin = CashOperator("global-admin", 1004, None, "admin")
@@ -254,15 +259,15 @@ async def test_a_card_payout_is_quoted_at_the_rate_of_its_moment(cash_db):
     assert await admin.set_rub_rate(global_admin, kopecks_per_usdt=9_250, reason="market", key="r1") == {
         "kopecks_per_usdt": 9_250,
     }
-    row = await service.create(user_id="alice", tenant_id="tenant", amount_usdt="30",
+    row = await service.create(user_id="alice", tenant_id="tenant", amount_usdt="100",
                                destination_address=CARD, request_key="rub-1", rail=P2P_RUB)
-    # 30 USDT minus the 5 USDT fee, at 92.50: 2 312,50 ₽.
-    assert row["quote_kopecks"] == 231_250
-    assert WithdrawalService.public(row)["quote_rub"] == "2312,50"
+    # 100 USDT minus the 5 USDT fee, at 92.50: 8 787,50 ₽.
+    assert row["quote_kopecks"] == 878_750
+    assert WithdrawalService.public(row)["quote_rub"] == "8787,50"
     assert (await admin.overview(global_admin))["rub_rate_kopecks"] == 9_250
 
     await admin.set_rub_rate(global_admin, kopecks_per_usdt=9_000, reason="moved", key="r2")
-    assert (await service.get(row["id"], "alice"))["quote_kopecks"] == 231_250
+    assert (await service.get(row["id"], "alice"))["quote_kopecks"] == 878_750
     # A TRC20 withdrawal is quoted in nothing but itself.
     await service.cancel(row["id"], "alice")
     crypto = await service.create(user_id="alice", tenant_id="tenant", amount_usdt="10",

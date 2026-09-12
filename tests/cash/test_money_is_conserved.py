@@ -120,7 +120,7 @@ async def test_a_whole_account_life_creates_and_destroys_nothing(cash_db):
 
     async with cash_db() as session:
         async with session.begin():
-            await set_rub_rate(session, kopecks_per_usdt=9_000, actor="test")
+            await set_rub_rate(session, kopecks_per_usdt=100_000, actor="test")   # clears the 5 000 ₽ floor
     fiat = await withdrawals.create(
         user_id="bob", tenant_id="tenant", amount_usdt="20",
         destination_address="2200 7007 1234 5678", request_key="w-fiat", rail=P2P_RUB,
