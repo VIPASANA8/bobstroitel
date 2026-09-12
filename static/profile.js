@@ -630,6 +630,7 @@
         loadCashHistory().catch(console.error);
       },
     });
+    window.Poker8Support?.mount();
     // The money is what the profile opens on, here and from the lobby's
     // "Открыть CASH-кассу" alike. Profile stays one tap to the right.
     const modes = document.querySelector('.profile-modes');

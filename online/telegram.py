@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import logging
 
 import httpx
@@ -29,19 +30,90 @@ def webhook_secret(bot_token: str) -> str:
 async def send_message(
     bot_token: str, chat_id: int, text: str,
     reply_markup: dict | None = None, parse_mode: str | None = None,
-) -> None:
+) -> int | None:
     """Best effort: a player who does not get the confirmation in the chat is
-    still signed in, because the browser learns it from the server, not here."""
+    still signed in, because the browser learns it from the server, not here.
+    Returns the message id, for a card whose buttons will be redrawn later."""
     payload = {"chat_id": chat_id, "text": text}
     if reply_markup is not None:
         payload["reply_markup"] = reply_markup
     if parse_mode is not None:
         payload["parse_mode"] = parse_mode
+    sent = await _call(bot_token, "sendMessage", payload)
+    return sent.get("message_id") if sent else None
+
+
+async def send_photo(
+    bot_token: str, chat_id: int, photo: bytes | str, caption: str,
+    reply_markup: dict | None = None, parse_mode: str | None = None,
+    filename: str = "image.jpg",
+) -> tuple[int, str] | None:
+    """A picture with the card as its caption. `photo` is raw bytes the first
+    time and the file_id Telegram gave back for every copy after that -- which
+    is the second thing returned, beside the message id."""
+    payload = {"chat_id": str(chat_id), "caption": caption}
+    if reply_markup is not None:
+        payload["reply_markup"] = json.dumps(reply_markup)
+    if parse_mode is not None:
+        payload["parse_mode"] = parse_mode
+    if isinstance(photo, str):
+        sent = await _call(bot_token, "sendPhoto", {**payload, "photo": photo})
+    else:
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                sent = _result(await client.post(
+                    f"{API}/bot{bot_token}/sendPhoto", data=payload,
+                    files={"photo": (filename, photo)},
+                ))
+        except (httpx.HTTPError, ValueError):
+            logger.warning("poker8_telegram_send_failed", extra={"chat_id": chat_id})
+            sent = None
+    if not sent:
+        return None
+    sizes = sent.get("photo") or [{}]
+    return sent["message_id"], str(sizes[-1].get("file_id") or "")
+
+
+async def edit_reply_markup(
+    bot_token: str, chat_id: int, message_id: int, reply_markup: dict | None,
+) -> None:
+    """Swap the buttons under a message that was already sent."""
+    await _call(bot_token, "editMessageReplyMarkup", {
+        "chat_id": chat_id, "message_id": message_id,
+        "reply_markup": reply_markup or {"inline_keyboard": []},
+    })
+
+
+async def download_file(bot_token: str, file_id: str) -> bytes | None:
+    """The bytes behind a file_id. A file_id is the receiving bot's own: to
+    send a player's photo on through another bot it has to come down first."""
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            info = _result(await client.post(f"{API}/bot{bot_token}/getFile", json={"file_id": file_id}))
+            path = (info or {}).get("file_path")
+            if not path:
+                return None
+            response = await client.get(f"{API}/file/bot{bot_token}/{path}")
+            return response.content if response.status_code == 200 else None
+    except (httpx.HTTPError, ValueError):
+        logger.warning("poker8_telegram_download_failed")
+        return None
+
+
+def _result(response) -> dict | None:
+    """The message Telegram sent, or None when it said no."""
+    body = response.json()
+    result = body.get("result") if body.get("ok") else None
+    return result if isinstance(result, dict) else None
+
+
+async def _call(bot_token: str, method: str, payload: dict) -> dict | None:
     try:
         async with httpx.AsyncClient(timeout=4) as client:
-            await client.post(f"{API}/bot{bot_token}/sendMessage", json=payload)
-    except httpx.HTTPError:
-        logger.warning("poker8_telegram_send_failed", extra={"chat_id": chat_id})
+            return _result(await client.post(f"{API}/bot{bot_token}/{method}", json=payload))
+    except (httpx.HTTPError, ValueError):
+        logger.warning("poker8_telegram_send_failed", extra={"chat_id": payload.get("chat_id")})
+        return None
 
 
 async def edit_message(

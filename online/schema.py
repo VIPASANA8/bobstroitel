@@ -897,3 +897,40 @@ partner_settlements = Table(
         name="ck_partner_settlement_carryover",
     ),
 )
+
+support_tickets = Table(
+    "support_tickets", metadata,
+    Column("id", String(64), primary_key=True),
+    Column("user_id", String(64), ForeignKey("users.id"), nullable=False),
+    Column("tenant_id", String(64), ForeignKey("tenants.id"), nullable=False),
+    Column("topic", String(16), nullable=False),
+    # For a finance ticket: which deposit / ₽ order / withdrawal it is about.
+    Column("reference_kind", String(16)),
+    Column("reference_id", String(64)),
+    # open = waiting on an operator, answered = waiting on the player.
+    Column("status", String(16), nullable=False, server_default=text("'open'")),
+    Column("created_at", timestamp, **created_at),
+    Column("updated_at", timestamp, **created_at),
+    Column("closed_at", timestamp),
+    CheckConstraint("topic IN ('finance', 'support')", name="ck_support_ticket_topic"),
+    CheckConstraint("status IN ('open', 'answered', 'closed')", name="ck_support_ticket_status"),
+)
+Index("ix_support_tickets_user", support_tickets.c.user_id, support_tickets.c.status)
+
+support_messages = Table(
+    "support_messages", metadata,
+    Column("id", String(64), primary_key=True),
+    Column("ticket_id", String(64), ForeignKey("support_tickets.id"), nullable=False),
+    Column("author", String(16), nullable=False),
+    Column("operator_id", String(64), ForeignKey("cash_operators.id")),
+    Column("text", String(2000), nullable=False),
+    # The picture is not kept here: it goes to Telegram once and this is how
+    # it is sent again without re-uploading.
+    Column("photo_file_id", String(200)),
+    # Where the operator copies of this message landed: [{chat_id, message_id}],
+    # so an answer from one operator can flip the buttons on everybody's copy.
+    Column("cards_json", JSON, nullable=False, server_default=text("'[]'")),
+    Column("created_at", timestamp, **created_at),
+    CheckConstraint("author IN ('user', 'operator')", name="ck_support_message_author"),
+)
+Index("ix_support_messages_ticket", support_messages.c.ticket_id, support_messages.c.created_at)

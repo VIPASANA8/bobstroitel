@@ -26,6 +26,7 @@ from cash.access import CashOperator
 from cash.admin import OperatorAccessDenied
 from cash.amounts import kopecks_to_rub, micros_to_usdt, usdt_to_micros
 from online.schema import cash_operators
+from online.support import SupportError
 
 
 #: What the queue calls each kind, and what an operator calls it.
@@ -75,6 +76,7 @@ PROMPTS = {
     "fiat_kopecks": "Пришлите сумму в рублях, которую отправили: например 1815,50",
     "rate": "Пришлите курс: сколько рублей за 1 USDT, например 92,50",
     "amount": "Пришлите сумму в USDT: например 25.50",
+    "treply": "Пришлите ответ игроку одним сообщением (до 2000 символов)",
 }
 
 
@@ -142,10 +144,13 @@ def _card_buttons(kind: str, target_id: str, status: str, row: dict,
 
 
 class OpsBot:
-    def __init__(self, admin_service, session_factory, *, mock_rails: bool = True) -> None:
+    def __init__(self, admin_service, session_factory, *, mock_rails: bool = True,
+                 support=None) -> None:
         self.admin = admin_service
         self.sessions = session_factory
         self.mock_rails = mock_rails
+        #: Support tickets. None on a panel that has no ticket service behind it.
+        self.support = support
         # ponytail: in-process, so a half-filled decision does not survive a
         # restart and is not shared across workers. The pilot runs one; the day
         # it runs two this belongs in a table beside the audit log.
@@ -196,6 +201,11 @@ class OpsBot:
                 return [("edit", "🚫 Роль reviewer только читает", [BACK])]
             self.awaiting[operator.telegram_user_id] = rest
             return [("edit", PROMPTS.get(rest, "Пришлите значение"), [CANCEL])]
+        if head == "tnone":
+            # The status pill on a ticket card. It says something; it does nothing.
+            return []
+        if head in {"treply", "tclose"}:
+            return await self._ticket_action(operator, head, rest)
         if head in ACTIONS:
             return [("edit", *self._begin(operator, head, rest))]
         return []
@@ -220,6 +230,8 @@ class OpsBot:
             return [("edit", await self._money(operator), keyboard)]
         if where == "queue":
             return [("edit", *await self._queue(operator))]
+        if where == "tickets":
+            return await self._tickets(operator)
         if where == "audit":
             rows = await self.admin.audit(operator, limit=20)
             body = "\n".join(
@@ -253,7 +265,42 @@ class OpsBot:
             [{"text": "📊 Сверка за сегодня", "callback_data": "nav:recon"},
              {"text": "🧾 Аудит", "callback_data": "nav:audit"}],
         ]
+        if self.support is not None:
+            keyboard.append([{"text": "🎫 Тикеты", "callback_data": "nav:tickets"}])
         return text, keyboard
+
+    # --- tickets -------------------------------------------------------------
+
+    async def _tickets(self, operator: CashOperator):
+        """Open tickets, oldest first, each as its own card with its buttons --
+        the same card the operator got when the player wrote."""
+        if self.support is None:
+            return [("edit", "Тикеты на этой панели не подключены.", [BACK])]
+        cards = await self.support.open_for_operator(operator)
+        if not cards:
+            return [("edit", "🎫 <b>Тикеты</b>\n\nОткрытых обращений нет.", [BACK])]
+        screen = [("edit", f"🎫 <b>Тикеты</b>: <b>{len(cards)}</b>", [BACK])]
+        for card in cards:
+            buttons = card["keyboard"]["inline_keyboard"] if operator.can_mutate() else None
+            screen.append(("send", card["text"], buttons))
+        return screen
+
+    async def _ticket_action(self, operator: CashOperator, verb: str, ticket_id: str):
+        if self.support is None or not ticket_id:
+            return [("send", "Кнопка устарела — откройте тикеты заново.", [BACK])]
+        if not operator.can_mutate():
+            return [("send", "🚫 Роль reviewer только читает", [BACK])]
+        if verb == "treply":
+            # A new message, not a redraw: the card stays where it is, so what
+            # is being answered is still on the screen while the answer is typed.
+            self.pending.pop(operator.telegram_user_id, None)
+            self.awaiting[operator.telegram_user_id] = f"treply:{ticket_id}"
+            return [("send", PROMPTS["treply"], [CANCEL])]
+        try:
+            await self.support.close(ticket_id, operator=operator)
+        except SupportError as exc:
+            return [("send", f"🚫 {escape(str(exc))}", [BACK])]
+        return [("send", "🔒 Тикет закрыт, игрок уведомлён.", [BACK])]
 
     async def _money(self, operator: CashOperator) -> str:
         try:
@@ -333,7 +380,12 @@ class OpsBot:
         return screen
 
     async def _lookup(self, operator: CashOperator, what: str, value: str):
-        """The id the panel asked for came back."""
+        """The id the panel asked for came back -- or the answer to a ticket."""
+        if what.startswith("treply:"):
+            try:
+                return await self.support.operator_reply(operator, what[len("treply:"):], value), [BACK]
+            except SupportError as exc:
+                return f"🚫 {escape(str(exc))}", [BACK]
         try:
             if what == "user":
                 user = await self.admin.user(operator, value)

@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, text
 
-from app.routers import auth, cash, cash_admin, chat, config, cube, health, lobby, profiles, realtime, tables, telegram
+from app.routers import auth, cash, cash_admin, chat, config, cube, health, lobby, profiles, realtime, support, tables, telegram
 from cash.admin import CashAdminService
 from cash.deposits import DepositService
 from cash.antifraud import DepositPolicy
@@ -34,6 +34,7 @@ from online.coordinator import OnlineCoordinator
 from online.database import create_database
 from online.ledger import PlayLedger
 from online.opsbot import OpsBot
+from online.support import SupportService
 from online.integrity import EscrowIntegrityMonitor
 from online.runtime import TableRuntimeManager
 from online.seating import SeatingService
@@ -44,7 +45,7 @@ from online.schema import cash_operators, metadata, tenant_bots, tenants
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
-EXPECTED_MIGRATION_REVISION = "20260912_0032"
+EXPECTED_MIGRATION_REVISION = "20260912_0033"
 
 #: Payout providers this application knows how to drive. Deliberately empty:
 #: custody and transaction signing live outside Poker8, and until one is
@@ -249,8 +250,16 @@ def create_app(
         )
         # The operator panel the bot answers with, on the same service the
         # operator API uses -- so both write the same audit entries.
+        # Tickets go out on the operator bot and answers come back on each
+        # tenant's own players' bot -- the one the player already talks to.
+        app.state.support = SupportService(
+            session_factory, admin_token=settings.admin_bot_token,
+            player_tokens={slug: str((config or {}).get("token") or "")
+                           for slug, config in settings.tenant_configs.items()},
+        )
         app.state.opsbot = OpsBot(app.state.cash_admin, session_factory,
-                                  mock_rails=settings.cash_mock_rails)
+                                  mock_rails=settings.cash_mock_rails,
+                                  support=app.state.support)
         app.state.cash_game = CashGameService(
             session_factory, daily_loss_micros=settings.cash_daily_loss_micros,
         )
@@ -368,6 +377,7 @@ def create_app(
     app.include_router(cash_admin.router)
     app.include_router(cube.router)
     app.include_router(telegram.router)
+    app.include_router(support.router)
 
     @app.get("/")
     async def index():

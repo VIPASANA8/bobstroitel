@@ -6,7 +6,10 @@ from fastapi import APIRouter, Header, HTTPException, Request
 
 from cash.referrals import code_for, normalise as normalise_referral, start_payload
 from online.auth import AuthenticationError, login_code
-from online.telegram import answer_callback, edit_message, send_message, webhook_secret
+from online.support import SupportError, short_id
+from online.telegram import (
+    answer_callback, download_file, edit_message, send_message, webhook_secret,
+)
 
 
 router = APIRouter(prefix="/api/telegram", tags=["telegram"])
@@ -15,6 +18,8 @@ router = APIRouter(prefix="/api/telegram", tags=["telegram"])
 #: 64 bytes of callback data and the nonce takes most of them. Everything that
 #: does not start with this belongs to the operator panel.
 CONFIRM = "login:"
+#: The buttons under an answer from support: reply, or close the ticket.
+TICKET = "tk:"
 
 WELCOME = (
     "<b>Привет! 👋</b>\n\n"
@@ -127,16 +132,20 @@ async def webhook(
         chat_id = ((callback.get("message") or {}).get("chat") or {}).get("id")
         if isinstance(data, str) and data.startswith(CONFIRM):
             await _confirm(auth, token, tenant_slug, callback)
+        elif isinstance(data, str) and data.startswith(TICKET) and chat_id:
+            await _ticket_button(request, token, chat_id, callback)
         return {"ok": True}
 
     message = update.get("message")
     if not isinstance(message, dict):
         return {"ok": True}
     chat_id = (message.get("chat") or {}).get("id")
+    sender = message.get("from") or {}
+    if chat_id and await _ticket_message(request, token, chat_id, sender, message):
+        return {"ok": True}
     text = message.get("text")
     if not chat_id or not isinstance(text, str):
         return {"ok": True}
-    sender = message.get("from") or {}
 
     if text.startswith("/start"):
         # An operator is a player too, so the login keeps this command.
@@ -182,6 +191,68 @@ async def webhook(
         return {"ok": True}
 
     return {"ok": True}
+
+
+async def _ticket_button(request: Request, token: str, chat_id: int, callback: dict) -> None:
+    """«Ответить на сообщение» arms the next message; «Закрыть» ends the ticket."""
+    support = request.app.state.support
+    sender_id = int((callback.get("from") or {}).get("id") or 0)
+    _, _, rest = (callback.get("data") or "").partition(TICKET)
+    verb, _, ticket_id = rest.partition(":")
+    ticket = await support.ticket_for_telegram(sender_id, ticket_id) if ticket_id else None
+    if callback.get("id"):
+        await answer_callback(token, callback["id"], "")
+    if ticket is None or ticket["status"] == "closed":
+        support.awaiting_reply.pop(sender_id, None)
+        await send_message(token, chat_id, "Это обращение уже закрыто. Новое можно открыть на сайте.")
+        return
+    if verb == "r":
+        support.awaiting_reply[sender_id] = ticket_id
+        await send_message(
+            token, chat_id,
+            f"Напишите ответ по обращению #{short_id(ticket_id)} одним сообщением — "
+            "текст или фото с подписью.",
+        )
+        return
+    if verb == "c":
+        support.awaiting_reply.pop(sender_id, None)
+        try:
+            await support.close(ticket_id, user_id=ticket["user_id"])
+        except SupportError as exc:
+            await send_message(token, chat_id, str(exc))
+            return
+        await send_message(token, chat_id, f"Обращение #{short_id(ticket_id)} закрыто.")
+
+
+async def _ticket_message(request: Request, token: str, chat_id: int, sender: dict,
+                          message: dict) -> bool:
+    """A message while a reply is armed is that reply. True when it was."""
+    support = request.app.state.support
+    sender_id = int(sender.get("id") or 0)
+    ticket_id = support.awaiting_reply.get(sender_id)
+    if not ticket_id:
+        return False
+    text = message.get("text") or message.get("caption") or ""
+    sizes = message.get("photo") or []
+    file_id = (sizes[-1].get("file_id") if sizes and isinstance(sizes[-1], dict) else None)
+    if not isinstance(text, str) or (not text.strip() and not file_id):
+        await send_message(token, chat_id, "Нужен текст или фото. Или откройте сайт и ответьте там.")
+        return True
+    ticket = await support.ticket_for_telegram(sender_id, ticket_id)
+    support.awaiting_reply.pop(sender_id, None)
+    if ticket is None:
+        return False
+    # Telegram compresses every photo to JPEG, and a file_id only works for
+    # the bot that received it -- the operator bot needs the bytes.
+    photo = await download_file(token, file_id) if file_id else None
+    try:
+        await support.user_reply(user_id=ticket["user_id"], ticket_id=ticket_id, text=text,
+                                 photo=photo, photo_type="image/jpeg" if photo else None)
+    except SupportError as exc:
+        await send_message(token, chat_id, str(exc))
+        return True
+    await send_message(token, chat_id, f"Сообщение по обращению #{short_id(ticket_id)} передано поддержке.")
+    return True
 
 
 async def _referral_link(request: Request, tenant_slug: str, sender: dict) -> str | None:

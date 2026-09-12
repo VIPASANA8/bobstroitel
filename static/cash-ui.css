@@ -130,3 +130,31 @@ button.pay-currency{cursor:pointer}
   .cube-context .profile-modes #playModeTab{flex:0 0 0;width:0;min-width:0;max-width:0;padding:0;overflow:hidden;border:0}
   .cube-context .profile-modes #cashModeTab{flex:1 1 auto}
 }
+
+/* Support sits between the wallet and the history: what is open, one row
+   each, and a way to write. The rows are the history's rows on purpose. */
+.support-section{grid-column:1/-1}
+.support-section[hidden]{display:none}
+.support-section .profile-section-heading{align-items:center}
+.support-section .referral-secondary{min-height:38px;padding:8px 14px;font-size:12px}
+.support-list{display:grid}
+.support-list[hidden]{display:none}
+.support-row{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;padding:14px 0;border:0;border-bottom:1px solid #292a31;background:none;color:var(--ink);text-align:left;cursor:pointer}
+.support-row:last-child{border-bottom:0}
+.support-row strong{display:block;font-size:12px;font-weight:600}
+.support-row small{display:block;margin-top:2px;color:var(--muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60vw}
+.support-badge{flex:none;padding:4px 9px;border-radius:99px;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}
+.support-badge.is-waiting{background:#2a2a33;color:var(--muted)}
+.support-badge.is-closed{background:#24262d;color:var(--muted)}
+.buyin-dialog textarea,.buyin-dialog select{width:100%;margin:8px 0;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--panel-2);color:var(--ink);font:inherit;font-size:14px;resize:vertical}
+.buyin-dialog textarea:focus,.buyin-dialog select:focus{outline:none;border-color:var(--accent)}
+.buyin-dialog select[hidden],.buyin-dialog label[hidden]{display:none}
+.support-attach{display:grid;gap:4px;margin-top:14px!important;color:var(--muted);font-size:12px}
+.support-attach small{font-size:10px}
+.support-attach input{width:100%;margin:6px 0 0;padding:8px 0;border:0;background:none;color:var(--muted);font-size:12px}
+.support-thread{display:grid;gap:8px;max-height:40vh;overflow-y:auto;margin:6px 0 14px;padding-right:4px}
+.support-msg{max-width:88%;padding:10px 12px;border-radius:14px;background:var(--panel-2);color:var(--ink);font-size:13px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+.support-msg.is-user{justify-self:end;background:color-mix(in srgb,var(--accent) 16%,var(--panel-2))}
+.support-msg small{display:block;margin-top:4px;color:var(--muted);font-size:10px}
+.support-close{width:100%;margin-top:10px}
+#ticketReply[hidden]{display:none}
