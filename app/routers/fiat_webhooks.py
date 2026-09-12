@@ -14,6 +14,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import logging
 import time
 import uuid
 
@@ -21,6 +22,7 @@ from fastapi import APIRouter, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 router = APIRouter(prefix="/api/payments", tags=["fiat-webhooks"])
+logger = logging.getLogger(__name__)
 
 #: A signed timestamp older than this is replayed or from a clock nobody set.
 MAX_SKEW_SECONDS = 300
@@ -59,11 +61,15 @@ def _order_id_from_intent(value) -> str | None:
         return None
 
 
-async def _refresh(request: Request, order_id: str | None) -> JSONResponse:
+async def _refresh(request: Request, kind: str, order_id: str | None) -> JSONResponse:
     if not order_id or not await request.app.state.cash_fiat_orders.refresh(order_id):
-        # 404 is one pservice does not retry: an order that is not ours will
-        # not become ours by asking again.
-        raise HTTPException(status_code=404, detail="unknown order")
+        # Acknowledged, not refused. pservice's event worker advances its
+        # offset only once a callback is accepted, and it re-polls the same
+        # batch until then -- live, a refused callback for one stale order
+        # held every later partner event, completions included, for a night.
+        # An order we do not know is nothing we can move money on anyway.
+        logger.warning("pservice %s webhook for an order that is not ours: %r", kind, order_id)
+        return JSONResponse({"ok": False, "detail": "unknown order, acknowledged"})
     return JSONResponse({"ok": True})
 
 
@@ -74,7 +80,7 @@ async def approval(request: Request,
     """The trader confirmed: `externalTransactionId` is our order id."""
     payload = await _signed_body(request, signature, timestamp)
     order_id = str(payload.get("externalTransactionId") or "") or _order_id_from_intent(payload.get("paymentIntentId"))
-    return await _refresh(request, order_id)
+    return await _refresh(request, "approval", order_id)
 
 
 @router.post("/webhook/failure")
@@ -83,7 +89,7 @@ async def failure(request: Request,
                   timestamp: str | None = Header(default=None, alias="X-Webhook-Timestamp")):
     """Cancelled or expired on the partner's side: keyed by the intent id."""
     payload = await _signed_body(request, signature, timestamp)
-    return await _refresh(request, _order_id_from_intent(payload.get("paymentIntentId")))
+    return await _refresh(request, "failure", _order_id_from_intent(payload.get("paymentIntentId")))
 
 
 @router.post("/webhook/settlement")

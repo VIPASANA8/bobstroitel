@@ -102,9 +102,12 @@ def test_a_signed_completion_credits_once_and_a_repeat_is_harmless(cash_app):
         # Tampered body under a valid-looking header: refused, nothing read.
         assert client.post("/api/payments/webhook/approval", content=raw.replace(order["id"], "x" * 32),
                            headers=headers).status_code == 401
-        # An order that is not ours: 404, which pservice does not retry.
+        # An order that is not ours is acknowledged, not refused: a refusal
+        # holds pservice's event offset, and with it every later completion.
         raw, headers = signed({"externalTransactionId": "f" * 32, "provider": "Partner"})
-        assert client.post("/api/payments/webhook/approval", content=raw, headers=headers).status_code == 404
+        answer = client.post("/api/payments/webhook/approval", content=raw, headers=headers)
+        assert answer.status_code == 200 and answer.json()["ok"] is False
+        assert len(ledger.calls) == 1
 
 
 def test_a_failure_webhook_is_keyed_by_the_intent_that_is_our_order_id(cash_app):
