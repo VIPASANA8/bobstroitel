@@ -16,7 +16,8 @@ from cash.deposits import DepositService
 from cash.ledger import IdempotencyConflict
 from cash.trc20 import MOCK_ADDRESS, MOCK_NETWORK, TransferEvent
 from cash.withdrawals import (
-    FEE_ACCOUNT, P2P_CLEARING, P2P_RUB, TRC20, WithdrawalService, WithdrawalStateError,
+    FEE_ACCOUNT, P2P_CLEARING, P2P_RUB, TRC20, RubRateUnset, WithdrawalService,
+    WithdrawalStateError,
 )
 from online.schema import cash_accounts, cash_audit_events, cash_withdrawals
 
@@ -218,3 +219,35 @@ async def test_real_money_records_the_usdt_the_operator_sent_and_refuses_the_moc
     # The P2P recorder still refuses a crypto row, as before.
     with pytest.raises(WithdrawalStateError):
         await admin.settle_p2p_withdrawal(row["id"], OPERATOR, fiat_kopecks=1, reason="wrong rail", key="k5")
+
+
+async def test_a_card_payout_is_quoted_at_the_rate_of_its_moment(cash_db):
+    """The player is promised roubles, so there is no card withdrawal until an
+    operator has set a rate; once there is one, the quote is fixed at the
+    moment of asking and a later rate does not move it."""
+    await fund(cash_db, key="fund-rate")
+    service = WithdrawalService(cash_db, fee_micros=5_000_000)
+    admin = CashAdminService(cash_db)
+    with pytest.raises(RubRateUnset):
+        await service.create(user_id="alice", tenant_id="tenant", amount_usdt="30",
+                             destination_address=CARD, request_key="rub-0", rail=P2P_RUB)
+    with pytest.raises(ValueError, match="kopecks per USDT"):
+        await admin.set_rub_rate(OPERATOR, kopecks_per_usdt=0, reason="typo", key="r0")
+
+    assert await admin.set_rub_rate(OPERATOR, kopecks_per_usdt=9_250, reason="market", key="r1") == {
+        "kopecks_per_usdt": 9_250,
+    }
+    row = await service.create(user_id="alice", tenant_id="tenant", amount_usdt="30",
+                               destination_address=CARD, request_key="rub-1", rail=P2P_RUB)
+    # 30 USDT minus the 5 USDT fee, at 92.50: 2 312,50 ₽.
+    assert row["quote_kopecks"] == 231_250
+    assert WithdrawalService.public(row)["quote_rub"] == "2312,50"
+    assert (await admin.overview(CashOperator("global-admin", 1004, None, "admin")))["rub_rate_kopecks"] == 9_250
+
+    await admin.set_rub_rate(OPERATOR, kopecks_per_usdt=9_000, reason="moved", key="r2")
+    assert (await service.get(row["id"], "alice"))["quote_kopecks"] == 231_250
+    # A TRC20 withdrawal is quoted in nothing but itself.
+    await service.cancel(row["id"], "alice")
+    crypto = await service.create(user_id="alice", tenant_id="tenant", amount_usdt="10",
+                                  destination_address="TDest", request_key="trc-1", rail=TRC20)
+    assert crypto["quote_kopecks"] is None

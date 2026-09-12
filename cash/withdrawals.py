@@ -13,6 +13,7 @@ from sqlalchemy.dialects.postgresql import insert
 from cash.holds import assert_not_frozen
 from cash.amounts import kopecks_to_rub, micros_to_units, micros_to_usdt, usdt_to_micros
 from cash.ledger import CashLedger, IdempotencyConflict
+from cash.rates import current_rub_rate, quote_kopecks
 from cash.trc20 import MOCK_NETWORK
 from online.schema import cash_accounts, cash_withdrawals
 
@@ -38,6 +39,10 @@ ACTIVE_STATES = ("requested", "reserved", "approved", "sending", "submitted", "u
 
 class ActiveWithdrawalExists(ValueError):
     """One payout at a time: the database says so, not just this service."""
+
+
+class RubRateUnset(ValueError):
+    """Nobody has said what a USDT is worth in roubles, so nothing can be promised."""
 
 
 class WithdrawalStateError(ValueError):
@@ -169,6 +174,14 @@ class WithdrawalService:
                     if existing["request_hash"] != fingerprint:
                         raise IdempotencyConflict("same withdrawal key with different content")
                     return dict(existing)
+                # A card payout is a promise in roubles: quoted now, at the
+                # rate of this moment, and never moved by a later rate.
+                quote = None
+                if rail == P2P_RUB:
+                    rate = await current_rub_rate(session)
+                    if rate is None:
+                        raise RubRateUnset("RUB withdrawals open once an operator sets the rate")
+                    quote = quote_kopecks(amount - self.fee_micros, rate)
                 withdrawal_id = uuid4().hex
                 reserve_id = await self._account(session, "withdrawal", user_id, withdrawal_id)
                 wallet_id = await self._account(session, "available", user_id, user_id)
@@ -185,7 +198,7 @@ class WithdrawalService:
                     request_key=request_key, request_hash=fingerprint, network=rail,
                     destination_address=destination_address, amount_micros=amount,
                     fee_micros=self.fee_micros, reserve_account_id=reserve_id,
-                    payout_id=uuid4().hex,
+                    payout_id=uuid4().hex, quote_kopecks=quote,
                     status="requested", updated_at=now,
                 ))
                 await self.ledger.post(
@@ -411,4 +424,5 @@ class WithdrawalService:
                 # What actually leaves: the debit minus the fee.
                 "payout_usdt": micros_to_usdt(row["amount_micros"] - row["fee_micros"]),
                 "fiat_rub": kopecks_to_rub(row["fiat_kopecks"]) if row["fiat_kopecks"] else None,
+                "quote_rub": kopecks_to_rub(row["quote_kopecks"]) if row.get("quote_kopecks") else None,
                 "tx_hash": row["tx_hash"]}

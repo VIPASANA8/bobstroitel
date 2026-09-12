@@ -16,6 +16,7 @@ from cash.fiat_orders import fiat_credit_postings
 from cash.fiat_reconciliation import daily_fiat_reconciliation
 from cash.game import RAKE_ACCOUNT
 from cash.ledger import CashLedger, IdempotencyConflict
+from cash.rates import current_rub_rate, set_rub_rate
 from cash.withdrawals import (
     FEE_ACCOUNT, MockPayoutExecutor, P2P_CLEARING, P2P_RUB, TRC20, WithdrawalStateError,
 )
@@ -58,7 +59,7 @@ def _fingerprint(payload):
 WITHDRAWAL_FIELDS = (
     "id", "user_id", "tenant_id", "network", "destination_address", "amount_micros",
     "fee_micros", "reserve_account_id", "payout_id", "tx_hash", "fiat_kopecks",
-    "status", "detail", "submitted_at", "confirmed_at",
+    "quote_kopecks", "status", "detail", "submitted_at", "confirmed_at",
 )
 EVENT_FIELDS = (
     "id", "provider", "external_event_id", "tx_hash", "event_index", "network",
@@ -187,6 +188,7 @@ class CashAdminService:
                 func.coalesce(func.sum(cube_rounds.c.payout_micros), 0),
             ).where(cube_rounds.c.created_at >= day_ago))).one()
             players = await session.scalar(select(func.count()).select_from(users))
+            rub_rate = await current_rub_rate(session)
             frozen = await session.scalar(select(func.count()).select_from(cash_user_holds).where(
                 (cash_user_holds.c.until.is_(None)) | (cash_user_holds.c.until > func.now())
             ))
@@ -198,6 +200,7 @@ class CashAdminService:
             "withdrawal_micros": int(balances.get("withdrawal", 0)),
             "cube_house_micros": int(house or 0),
             "poker_house_micros": int(rake or 0),
+            "rub_rate_kopecks": rub_rate,
             "cube_rounds_day": int(rounds or 0),
             "cube_result_day_micros": int(staked or 0) - int(paid or 0),
         }
@@ -879,6 +882,31 @@ class CashAdminService:
                 for row in adjustments
             ],
         }
+
+    async def set_rub_rate(self, operator, *, kopecks_per_usdt, reason, key):
+        """What a USDT pays in roubles on the card rail, from now on.
+
+        Every P2P withdrawal quotes at the rate of its moment, so changing
+        this never touches a payout already promised; it is written down with
+        who set it, for the quotes that follow to be checked against.
+        """
+        self._require_mutation(operator)
+        self._require_scope(operator, None)
+        async with self.sessions() as session:
+            async with session.begin():
+                replay, fingerprint = await self._claim(
+                    session, operator, key, "rate.rub", "RUB", reason,
+                    {"kopecks_per_usdt": kopecks_per_usdt},
+                )
+                if replay is not None:
+                    return replay
+                before = {"kopecks_per_usdt": await current_rub_rate(session)}
+                await set_rub_rate(session, kopecks_per_usdt=kopecks_per_usdt,
+                                   actor=f"operator:{operator.id}", note=reason.strip())
+                after = {"kopecks_per_usdt": kopecks_per_usdt}
+                await self._audit(session, operator, None, "rate.rub", "rate", "RUB",
+                                  reason, key, fingerprint, before, after)
+                return after
 
     async def set_partner_share(self, operator, *, effective_from, share_bps, note, reason, key):
         """Fix the partner's share from a date. It never rewrites a settled period.

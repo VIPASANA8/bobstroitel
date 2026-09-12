@@ -58,6 +58,11 @@ window.Poker8Cashier = (() => {
   // Whatever the host page uses to redraw the balance once money has moved.
   let settled = () => {};
   const load = async () => { await settled(); };
+  // The last wallet payload the page fetched: the ₽ rate and the payout fee
+  // ride on it, and the withdrawal form quotes from them.
+  let wallet = {};
+  let onWallet = () => {};
+  const setWallet = payload => { wallet = payload || {}; onWallet(); };
 
   function bindConversion(inputId, outputId) {
     const update = () => { $(outputId).textContent = cashFromUsdt($(inputId).value); };
@@ -248,6 +253,43 @@ window.Poker8Cashier = (() => {
       renderFiatOrder(payload);
     });
 
+    // Where the money goes out: USDT to a TRC20 address, or roubles to a
+    // card at the rate an operator set. The ₽ pill only appears once there
+    // is a rate -- without one nothing can be promised, so nothing is asked.
+    let withdrawRail = "TRC20";
+    const rails = { TRC20: { label: "Адрес TRC20", placeholder: "T..." },
+                    P2P_RUB: { label: "Номер карты или телефон СБП", placeholder: "2200 0000 0000 0000" } };
+    const quoteRub = () => {
+      const quote = $("withdrawQuote");
+      if (withdrawRail !== "P2P_RUB" || !wallet.rub_rate) return (quote.textContent = "");
+      const net = Number($("withdrawUsdt").value || 0) - Number(String(wallet.withdrawal_fee_usdt).replace(",", "."));
+      const rub = Math.max(0, net) * Number(String(wallet.rub_rate).replace(",", "."));
+      quote.textContent = ` · ≈ ${rub.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽ по курсу ${wallet.rub_rate} ₽/USDT`;
+    };
+    const selectRail = rail => {
+      withdrawRail = rail;
+      $("withdrawRails").querySelectorAll("[data-rail]").forEach(pill => {
+        const on = pill.dataset.rail === rail;
+        pill.classList.toggle("is-active", on);
+        pill.setAttribute("aria-checked", String(on));
+      });
+      $("withdrawAddressLabel").textContent = rails[rail].label;
+      $("withdrawAddress").placeholder = rails[rail].placeholder;
+      quoteRub();
+    };
+    $("withdrawRails").addEventListener("click", event => {
+      const pill = event.target.closest("[data-rail]");
+      if (pill) selectRail(pill.dataset.rail);
+    });
+    $("withdrawUsdt").addEventListener("input", quoteRub);
+    onWallet = () => {
+      const rub = $("withdrawRails").querySelector('[data-rail="P2P_RUB"]');
+      rub.hidden = !wallet.rub_rate;
+      if (rub.hidden && withdrawRail === "P2P_RUB") selectRail("TRC20");
+      quoteRub();
+    };
+    onWallet();
+
     $("withdrawForm").addEventListener("submit", async event => {
       event.preventDefault();
       const response = await fetch("/api/cash/withdrawals", {
@@ -255,6 +297,7 @@ window.Poker8Cashier = (() => {
         body: JSON.stringify({
           amount_usdt: $("withdrawUsdt").value,
           address: $("withdrawAddress").value,
+          rail: withdrawRail,
           request_id: requestId(),
         }),
       });
@@ -265,7 +308,7 @@ window.Poker8Cashier = (() => {
       // "К выплате" is already the net amount; itemising what was taken off
       // it only invites the arithmetic to be checked.
       details.innerHTML = `<strong>${escape(payload.amount_units)} CASH зарезервировано</strong><br>
-        К выплате: ${escape(payload.payout_usdt)} USDT<br>
+        К выплате: ${payload.quote_rub ? `${escape(payload.quote_rub)} ₽ на карту` : `${escape(payload.payout_usdt)} USDT`}<br>
         Статус: ${escape(payload.status)} · ${escape(payload.network)}`;
       await load();
     });
@@ -273,5 +316,5 @@ window.Poker8Cashier = (() => {
     restore().catch(console.error);
   }
 
-  return { mount };
+  return { mount, wallet: setWallet };
 })();

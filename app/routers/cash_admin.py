@@ -37,6 +37,12 @@ class P2pSettlement(ReasonRequest):
     fiat_kopecks: int = Field(gt=0, le=10**12)
 
 
+class RubRateRequest(ReasonRequest):
+    """Roubles per USDT for card withdrawals, as a decimal string: "92.50"."""
+
+    rub_per_usdt: str = Field(min_length=1, max_length=16)
+
+
 class Trc20Settlement(ReasonRequest):
     """The hash of the USDT transaction the operator sent by hand."""
 
@@ -202,6 +208,22 @@ async def execute_withdrawal(withdrawal_id: str, body: ExecuteRequest, request: 
     try:
         return await request.app.state.cash_admin.execute_mock(
             withdrawal_id, operator, outcome=body.outcome, reason=body.reason, key=key,
+        )
+    except (ValueError, LookupError) as exc:
+        raise _error(exc) from exc
+
+
+@router.post("/rub-rate")
+async def set_rub_rate(body: RubRateRequest, request: Request,
+                       key: str = Header(alias="Idempotency-Key"),
+                       operator: CashOperator = Depends(get_cash_operator)):
+    try:
+        kopecks = usdt_to_micros(body.rub_per_usdt.strip().replace(",", ".")) // 10_000
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="rub_per_usdt must be a decimal amount") from exc
+    try:
+        return await request.app.state.cash_admin.set_rub_rate(
+            operator, kopecks_per_usdt=kopecks, reason=body.reason, key=key,
         )
     except (ValueError, LookupError) as exc:
         raise _error(exc) from exc

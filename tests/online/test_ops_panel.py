@@ -37,8 +37,12 @@ class FakeAdmin:
             "players": 3, "frozen": 1, "available_micros": 10_000_000,
             "escrow_micros": 2_000_000, "withdrawal_micros": 1_000_000,
             "cube_house_micros": 500_000, "cube_rounds_day": 7,
-            "cube_result_day_micros": 250_000,
+            "cube_result_day_micros": 250_000, "rub_rate_kopecks": 9_250,
         }
+
+    async def set_rub_rate(self, operator, *, kopecks_per_usdt, reason, key):
+        self.calls.append(("rate", kopecks_per_usdt, reason, key))
+        return {"kopecks_per_usdt": kopecks_per_usdt}
 
     async def audit(self, operator, limit=100):
         return [{"action": "approve", "target_id": "w-0", "reason": "проверено"}]
@@ -85,6 +89,24 @@ async def test_the_panel_opens_on_a_menu_of_buttons(anyio_backend):
         "nav:money", "nav:queue", "ask:user", "ask:order", "nav:recon", "nav:audit",
     ]
     assert "Очередь (2)" in " ".join(_labels(keyboard))
+
+
+@pytest.mark.anyio
+async def test_the_money_screen_shows_the_rate_and_lets_an_admin_set_it(anyio_backend):
+    """A card withdrawal is quoted in roubles at whatever an operator last set,
+    so the rate lives where the money is looked at, with the button beside it."""
+    bot = _bot()
+    how, text, keyboard = (await bot.callback(ADMIN, "nav:money"))[0]
+    assert "92,50 ₽/USDT" in text and "rate:RUB" in _data(keyboard)
+    assert "рублей за 1 USDT" in (await bot.callback(ADMIN, "rate:RUB"))[0][1]
+    # Not a number is asked for again, never sent as zero.
+    assert "рублей за 1 USDT" in (await bot.message(ADMIN, "по рынку"))[0][1]
+    assert "93,10" in (await bot.message(ADMIN, "93,10"))[0][1]
+    await bot.message(ADMIN, "курс на 12.09")
+    await bot.callback(ADMIN, "confirm:")
+    assert bot.admin.calls == [("rate", 9_310, "курс на 12.09", bot.admin.calls[0][3])]
+    # A reviewer sees the rate but gets no button.
+    assert "rate:RUB" not in _data((await bot.callback(REVIEWER, "nav:money"))[0][2])
 
 
 @pytest.mark.anyio

@@ -63,7 +63,10 @@
 .amount-field input{padding-right:62px!important}
 .amount-suffix{position:absolute;top:50%;right:16px;transform:translateY(-50%);color:var(--muted);font-size:13px;font-weight:700;pointer-events:none}
 .pay-currencies{display:flex;gap:8px;margin:12px 0 4px}
-.pay-currency{display:grid;justify-items:center;gap:1px;padding:8px 14px;border:1px solid var(--accent);border-radius:11px;background:var(--panel-2)}
+.pay-currency{display:grid;justify-items:center;gap:1px;padding:8px 14px;border:1px solid var(--line);border-radius:11px;background:var(--panel-2);font:inherit;cursor:default}
+.pay-currency.is-active{border-color:var(--accent)}
+button.pay-currency{cursor:pointer}
+.pay-currency[hidden]{display:none}
 .pay-currency b{font-size:10px;letter-spacing:.08em;color:var(--muted)}
 .pay-currency small{font-size:12px;font-weight:800;color:var(--ink)}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}

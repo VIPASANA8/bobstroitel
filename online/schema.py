@@ -656,6 +656,9 @@ cash_withdrawals = Table(
     # hand. Null on every TRC20 row and until the payment is recorded: the USDT
     # debit is the authoritative amount, this is the receipt for it.
     Column("fiat_kopecks", BIGINT),
+    # What the player was promised for a P2P payout, at the rate of the moment
+    # they asked. NULL on every TRC20 row. The receipt above may differ.
+    Column("quote_kopecks", BIGINT),
     Column("status", String(32), nullable=False),
     Column("detail", String(500)),
     Column("created_at", timestamp, **created_at),
@@ -678,6 +681,20 @@ Index(
     postgresql_where=_active_withdrawal_states,
     sqlite_where=_active_withdrawal_states,
 )
+
+cash_rub_rates = Table(
+    "cash_rub_rates", metadata,
+    # How many roubles a P2P withdrawal pays per USDT. Set by an operator,
+    # append-only: the latest row is the rate, the older ones are the history
+    # every quote can be checked against.
+    Column("id", String(64), primary_key=True),
+    Column("kopecks_per_usdt", BIGINT, nullable=False),
+    Column("note", String(200)),
+    Column("actor", String(100), nullable=False),
+    Column("created_at", timestamp, **created_at),
+    CheckConstraint("kopecks_per_usdt > 0", name="ck_cash_rub_rate_positive"),
+)
+Index("ix_cash_rub_rates_created", cash_rub_rates.c.created_at)
 
 cash_operators = Table(
     "cash_operators", metadata,

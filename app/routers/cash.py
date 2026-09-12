@@ -12,8 +12,9 @@ from cash.fiat_orders import ActiveFiatOrderExists
 from cash.ledger import IdempotencyConflict, InsufficientCash
 from cash.referrals import summary as referral_summary
 from cash.trc20 import TransferEvent
-from cash.withdrawals import ActiveWithdrawalExists
-from cash.withdrawals import WithdrawalStateError
+from cash.amounts import kopecks_to_rub, micros_to_usdt
+from cash.rates import current_rub_rate
+from cash.withdrawals import ActiveWithdrawalExists, RubRateUnset, WithdrawalStateError
 
 
 router = APIRouter(prefix="/api/cash", tags=["cash"])
@@ -76,7 +77,16 @@ async def take_break(body: BreakRequest, request: Request,
 
 @router.get("/wallet")
 async def wallet(request: Request, user: AuthenticatedUser = Depends(get_cash_user)):
-    return await request.app.state.cash_wallet.get(user.user_id)
+    payload = await request.app.state.cash_wallet.get(user.user_id)
+    # What a card withdrawal would pay, for the form to say before it is asked.
+    async with request.app.state.session_factory() as session:
+        rate = await current_rub_rate(session)
+    withdrawals = request.app.state.cash_withdrawals
+    return {
+        **payload,
+        "rub_rate": None if rate is None else kopecks_to_rub(rate),
+        "withdrawal_fee_usdt": micros_to_usdt(withdrawals.fee_micros),
+    }
 
 
 @router.get("/operations")
@@ -246,6 +256,8 @@ async def create_withdrawal(body: WithdrawalRequest, request: Request,
         raise _guard(exc) from exc
     except (IdempotencyConflict, InsufficientCash, ActiveWithdrawalExists) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except RubRateUnset as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return request.app.state.cash_withdrawals.public(row)

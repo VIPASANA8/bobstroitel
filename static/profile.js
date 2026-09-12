@@ -582,6 +582,8 @@
   async function loadCashWallet() {
     const wallet = await json('/api/cash/wallet');
     renderCashWallet(wallet);
+    // The rate and the fee ride on the wallet; the cashier quotes from them.
+    window.Poker8Cashier?.wallet?.(wallet);
   }
 
   async function loadCashHistory() {

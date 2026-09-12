@@ -19,7 +19,8 @@ def queue_messages(queue):
             f"Статус: <b>{escape(row['status'])}</b>\n"
             f"Пользователь: <code>{escape(row['user_id'])}</code>\n"
             f"Сумма: {_usdt(row['amount_micros'])} USDT\n"
-            f"Адрес: <code>{escape(row['destination_address'])}</code>",
+            + (f"К отправке: <b>{_rub(row['quote_kopecks'])} ₽</b>\n" if row.get("quote_kopecks") else "")
+            + f"Адрес: <code>{escape(row['destination_address'])}</code>",
         ))
     for row in queue.get("payment_reviews", []):
         messages.append((

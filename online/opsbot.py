@@ -54,6 +54,7 @@ ACTIONS = {
     "fiatclose": ("close_fiat_order", {}),
     "settle": ("settle_p2p_withdrawal", {}),
     "txsettle": ("settle_trc20_withdrawal", {}),
+    "rate": ("set_rub_rate", {}),
     "credit_user": ("adjust_balance", {"sign": 1}),
     "debit_user": ("adjust_balance", {"sign": -1}),
     "freeze": ("freeze_user", {}),
@@ -62,7 +63,7 @@ ACTIONS = {
 #: What has to be asked for before the reason, and how to ask for it.
 EXTRA_STEP = {
     "confirmed": "tx_hash", "txsettle": "tx_hash", "bindcredit": "order_id",
-    "settle": "fiat_kopecks",
+    "settle": "fiat_kopecks", "rate": "rate",
     "credit_user": "amount", "debit_user": "amount",
 }
 PROMPTS = {
@@ -72,6 +73,7 @@ PROMPTS = {
     "user": "Пришлите ID игрока или его telegram-номер",
     "order": "Пришлите номер заявки — внутренний или BoostPay",
     "fiat_kopecks": "Пришлите сумму в рублях, которую отправили: например 1815,50",
+    "rate": "Пришлите курс: сколько рублей за 1 USDT, например 92,50",
     "amount": "Пришлите сумму в USDT: например 25.50",
 }
 
@@ -212,7 +214,10 @@ class OpsBot:
         if where == "partner":
             return [("edit", await self._partner(operator), [BACK])]
         if where == "money":
-            return [("edit", await self._money(operator), [BACK])]
+            keyboard = [BACK]
+            if operator.can_mutate():
+                keyboard = [[{"text": "₽ Курс вывода", "callback_data": "rate:RUB"}], BACK]
+            return [("edit", await self._money(operator), keyboard)]
         if where == "queue":
             return [("edit", *await self._queue(operator))]
         if where == "audit":
@@ -260,6 +265,10 @@ class OpsBot:
             "💰 <b>Деньги</b>",
             f"Игроков: <b>{summary['players']}</b> · под холдом: <b>{summary['frozen']}</b>",
             money("На балансах", summary["available_micros"]),
+            "Курс вывода ₽: <b>" + (
+                kopecks_to_rub(summary["rub_rate_kopecks"]) + " ₽/USDT"
+                if summary.get("rub_rate_kopecks") else "не задан — вывод ₽ закрыт"
+            ) + "</b>",
             money("В игре", summary["escrow_micros"]),
             money("Ждёт вывода", summary["withdrawal_micros"]),
             "",
@@ -365,6 +374,13 @@ class OpsBot:
             pending.body["fiat_kopecks"] = kopecks
             pending.step = "reason"
             return f"Записываем {kopecks_to_rub(kopecks)} ₽. " + PROMPTS["reason"], [CANCEL]
+        if pending.step == "rate":
+            kopecks = _rub_to_kopecks(text)
+            if kopecks is None:
+                return PROMPTS["rate"], [CANCEL]
+            pending.body["kopecks_per_usdt"] = kopecks
+            pending.step = "reason"
+            return f"Курс {kopecks_to_rub(kopecks)} ₽ за USDT. " + PROMPTS["reason"], [CANCEL]
         if pending.step == "amount":
             micros = _usdt_to_micros(text)
             if micros is None:
@@ -443,6 +459,9 @@ class OpsBot:
         if pending.action == "settle_trc20_withdrawal":
             return await self.admin.settle_trc20_withdrawal(
                 target, operator, tx_hash=body["tx_hash"], reason=reason, key=key)
+        if pending.action == "set_rub_rate":
+            return await self.admin.set_rub_rate(
+                operator, kopecks_per_usdt=body["kopecks_per_usdt"], reason=reason, key=key)
         if pending.action == "adjust_balance":
             return await self.admin.adjust_balance(
                 target, operator, amount_micros=body["amount_micros"], reason=reason, key=key)
