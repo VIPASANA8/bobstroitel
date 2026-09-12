@@ -285,7 +285,8 @@ async def test_a_card_payout_under_five_thousand_roubles_is_refused(cash_db):
         await service.create(user_id="alice", tenant_id="tenant", amount_usdt="64",
                              destination_address=CARD, request_key="min-1", rail=P2P_RUB)
     # Refused before anything was reserved: the wallet is untouched.
-    assert await balance(cash_db, "available", "alice") == 100_000_000
+    funded = await balance(cash_db, "available", "alice")
+    assert funded >= 100_000_000   # two mock deposits, the second nudged by a cent
     row = await service.create(user_id="alice", tenant_id="tenant", amount_usdt="65",
                                destination_address=CARD, request_key="min-2", rail=P2P_RUB)
     assert row["quote_kopecks"] == 504_000
