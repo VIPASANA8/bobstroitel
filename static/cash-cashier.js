@@ -43,6 +43,16 @@ window.Poker8Cashier = (() => {
     <div class="pay-row"><span>${escape(label)}</span><b>${escape(value)}</b>
     <button type="button" class="pay-copy" data-copy="${escape(copyValue)}">Копировать</button></div>`;
 
+  // What the copy button puts on the clipboard: the number alone. A real
+  // trader_info is a card or a phone wrapped in instructions ("‼️ СТРОГО
+  // Альфа … перевод на другой банк = потеря средств"); pasting all of that
+  // into a bank app is how the transfer does not happen. The text itself
+  // stays on screen, line breaks and all, because those instructions matter.
+  const requisiteNumber = text => {
+    const match = String(text || "").match(/\+?\d[\d ]{8,}\d/);
+    return match ? match[0].trim() : String(text || "");
+  };
+
   // No button on this one: one tap selects the whole id and the phone's own
   // copy handle comes up, which is the gesture people already use on anything
   // that looks like a reference number.
@@ -114,7 +124,7 @@ window.Poker8Cashier = (() => {
       <strong>${escape(stage.title)}</strong>
       ${stage.pay && order.requisites ? `
         ${payRow("К оплате", `${order.fiat_rub} ₽`, order.fiat_rub)}
-        ${payRow("Реквизиты", order.requisites, String(order.requisites).split(" · ")[0])}
+        ${payRow("Реквизиты", order.requisites, requisiteNumber(order.requisites))}
       ` : ""}
       ${order.partner_order_id ? idRow("ID заявки", order.partner_order_id) : ""}
       <p class="pay-note">${escape(stage.note)}</p>

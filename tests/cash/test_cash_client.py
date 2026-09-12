@@ -162,6 +162,9 @@ def test_the_payment_panel_can_be_copied_rather_than_retyped():
     # Telegram's webview does not always hand out the async clipboard, and a
     # copy button that silently does nothing is worse than none.
     assert 'document.execCommand("copy")' in CASHIER_JS
-    # The card reaches the clipboard without the bank and the holder after it.
-    assert 'String(order.requisites).split(" · ")[0]' in CASHIER_JS
+    # The number alone reaches the clipboard: a real trader_info wraps a card
+    # or a phone in bank instructions, on several lines, and those stay on
+    # screen rather than in the paste.
+    assert 'payRow("Реквизиты", order.requisites, requisiteNumber(order.requisites))' in CASHIER_JS
+    assert "white-space:pre-line" in (ROOT / "static" / "cash-ui.css").read_text(encoding="utf-8")
     assert "**** ****" not in (ROOT / "cash" / "fiat_p2p.py").read_text(encoding="utf-8")
