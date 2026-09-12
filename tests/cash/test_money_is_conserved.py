@@ -17,6 +17,7 @@ from sqlalchemy import func, insert, select
 from cash.access import CashOperator
 from cash.admin import CashAdminService
 from cash.deposits import DepositService
+from cash.rates import set_rub_rate
 from cash.game import CashGameService, RAKE_ACCOUNT
 from cash.trc20 import MOCK_ADDRESS, MOCK_NETWORK, TransferEvent
 from cash.withdrawals import (
@@ -117,6 +118,9 @@ async def test_a_whole_account_life_creates_and_destroys_nothing(cash_db):
     await admin.approve_withdrawal(chain["id"], OPERATOR, reason="checked", key="a1")
     await admin.execute_mock(chain["id"], OPERATOR, outcome="success", reason="sent", key="a2")
 
+    async with cash_db() as session:
+        async with session.begin():
+            await set_rub_rate(session, kopecks_per_usdt=9_000, actor="test")
     fiat = await withdrawals.create(
         user_id="bob", tenant_id="tenant", amount_usdt="20",
         destination_address="2200 7007 1234 5678", request_key="w-fiat", rail=P2P_RUB,

@@ -11,9 +11,10 @@ import pytest
 from sqlalchemy import select
 
 from cash.access import CashOperator
-from cash.admin import CashAdminService
+from cash.admin import CashAdminService, OperatorAccessDenied
 from cash.deposits import DepositService
 from cash.ledger import IdempotencyConflict
+from cash.rates import set_rub_rate
 from cash.trc20 import MOCK_ADDRESS, MOCK_NETWORK, TransferEvent
 from cash.withdrawals import (
     FEE_ACCOUNT, P2P_CLEARING, P2P_RUB, TRC20, RubRateUnset, WithdrawalService,
@@ -39,6 +40,13 @@ async def fund(cash_db, key="fund", user_id="alice"):
     ))
 
 
+async def rate(cash_db, kopecks_per_usdt=9_000):
+    """A card withdrawal is quoted in roubles, so a test that opens one needs a rate."""
+    async with cash_db() as session:
+        async with session.begin():
+            await set_rub_rate(session, kopecks_per_usdt=kopecks_per_usdt, actor="test")
+
+
 async def balance(cash_db, kind, reference):
     async with cash_db() as session:
         return await session.scalar(select(cash_accounts.c.balance_micros).where(
@@ -48,6 +56,7 @@ async def balance(cash_db, kind, reference):
 
 async def test_a_p2p_payout_moves_only_when_an_operator_says_they_paid(cash_db):
     await fund(cash_db)
+    await rate(cash_db)
     service = WithdrawalService(cash_db, fee_micros=5_000_000)
     admin = CashAdminService(cash_db)
     row = await service.create(
@@ -84,6 +93,7 @@ async def test_a_p2p_payout_moves_only_when_an_operator_says_they_paid(cash_db):
 
 async def test_the_same_payout_is_never_recorded_twice(cash_db):
     await fund(cash_db)
+    await rate(cash_db)
     service = WithdrawalService(cash_db)
     admin = CashAdminService(cash_db)
     row = await service.create(
@@ -113,6 +123,7 @@ async def test_the_two_rails_never_settle_each_other(cash_db):
     admin = CashAdminService(cash_db)
     # One live withdrawal per user, so the two rails need two people.
     await fund(cash_db, key="fund-bob", user_id="bob")
+    await rate(cash_db)
     chain = await service.create(
         user_id="alice", tenant_id="tenant", amount_usdt="5",
         destination_address="TUserWallet", request_key="chain", rail=TRC20,
@@ -140,6 +151,7 @@ async def test_the_two_rails_never_settle_each_other(cash_db):
 
 async def test_a_rejected_p2p_payout_returns_the_whole_reserve(cash_db):
     await fund(cash_db, key="fund-reject")
+    await rate(cash_db)
     service = WithdrawalService(cash_db, fee_micros=5_000_000)
     admin = CashAdminService(cash_db)
     row = await service.create(
@@ -155,6 +167,7 @@ async def test_a_rejected_p2p_payout_returns_the_whole_reserve(cash_db):
 
 async def test_the_receipt_has_to_be_a_real_amount(cash_db):
     await fund(cash_db, key="fund-bad")
+    await rate(cash_db)
     service = WithdrawalService(cash_db)
     admin = CashAdminService(cash_db)
     row = await service.create(
@@ -228,13 +241,17 @@ async def test_a_card_payout_is_quoted_at_the_rate_of_its_moment(cash_db):
     await fund(cash_db, key="fund-rate")
     service = WithdrawalService(cash_db, fee_micros=5_000_000)
     admin = CashAdminService(cash_db)
+    global_admin = CashOperator("global-admin", 1004, None, "admin")
     with pytest.raises(RubRateUnset):
         await service.create(user_id="alice", tenant_id="tenant", amount_usdt="30",
                              destination_address=CARD, request_key="rub-0", rail=P2P_RUB)
     with pytest.raises(ValueError, match="kopecks per USDT"):
-        await admin.set_rub_rate(OPERATOR, kopecks_per_usdt=0, reason="typo", key="r0")
+        await admin.set_rub_rate(global_admin, kopecks_per_usdt=0, reason="typo", key="r0")
 
-    assert await admin.set_rub_rate(OPERATOR, kopecks_per_usdt=9_250, reason="market", key="r1") == {
+    # The rate is global money policy: a tenant operator may not set it.
+    with pytest.raises(OperatorAccessDenied):
+        await admin.set_rub_rate(OPERATOR, kopecks_per_usdt=9_250, reason="market", key="r1")
+    assert await admin.set_rub_rate(global_admin, kopecks_per_usdt=9_250, reason="market", key="r1") == {
         "kopecks_per_usdt": 9_250,
     }
     row = await service.create(user_id="alice", tenant_id="tenant", amount_usdt="30",
@@ -242,9 +259,9 @@ async def test_a_card_payout_is_quoted_at_the_rate_of_its_moment(cash_db):
     # 30 USDT minus the 5 USDT fee, at 92.50: 2 312,50 ₽.
     assert row["quote_kopecks"] == 231_250
     assert WithdrawalService.public(row)["quote_rub"] == "2312,50"
-    assert (await admin.overview(CashOperator("global-admin", 1004, None, "admin")))["rub_rate_kopecks"] == 9_250
+    assert (await admin.overview(global_admin))["rub_rate_kopecks"] == 9_250
 
-    await admin.set_rub_rate(OPERATOR, kopecks_per_usdt=9_000, reason="moved", key="r2")
+    await admin.set_rub_rate(global_admin, kopecks_per_usdt=9_000, reason="moved", key="r2")
     assert (await service.get(row["id"], "alice"))["quote_kopecks"] == 231_250
     # A TRC20 withdrawal is quoted in nothing but itself.
     await service.cancel(row["id"], "alice")

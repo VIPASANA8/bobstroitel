@@ -11,6 +11,7 @@ import pytest
 from sqlalchemy import select
 
 from cash.deposits import DepositService
+from cash.rates import set_rub_rate
 from cash.trc20 import MOCK_ADDRESS, MOCK_NETWORK, TransferEvent
 from cash.withdrawals import MockPayoutExecutor, P2P_RUB, TRC20, WithdrawalService
 from cash.wallet import WalletService
@@ -29,6 +30,13 @@ async def fund(cash_db, amount="200", key="fund", user="alice"):
         destination_address=MOCK_ADDRESS, amount_micros=row["expected_micros"],
         occurred_at=row["created_at"] + timedelta(seconds=1),
     ))
+
+
+async def rate(cash_db, kopecks_per_usdt=9_000):
+    """A card withdrawal is quoted in roubles, so a test that opens one needs a rate."""
+    async with cash_db() as session:
+        async with session.begin():
+            await set_rub_rate(session, kopecks_per_usdt=kopecks_per_usdt, actor="test")
 
 
 def auto_service(cash_db, **kw):
@@ -71,6 +79,7 @@ async def test_above_the_ceiling_waits_for_an_operator(cash_db):
 
 async def test_the_p2p_rail_is_never_auto(cash_db):
     await fund(cash_db)
+    await rate(cash_db)
     row = await auto_service(cash_db).create(
         user_id="alice", tenant_id="tenant", amount_usdt="30",
         destination_address="2200 7007 1234 5678", request_key="w-fiat", rail=P2P_RUB,
