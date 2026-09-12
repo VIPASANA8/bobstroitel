@@ -300,7 +300,7 @@ class OpsBot:
             await self.support.close(ticket_id, operator=operator)
         except SupportError as exc:
             return [("send", f"🚫 {escape(str(exc))}", [BACK])]
-        return [("send", "🔒 Тикет закрыт, игрок уведомлён.", [BACK])]
+        return [("send", "🔒 Тикет закрыт, игрок уведомлён.", None)]
 
     async def _money(self, operator: CashOperator) -> str:
         try:
@@ -382,8 +382,13 @@ class OpsBot:
     async def _lookup(self, operator: CashOperator, what: str, value: str):
         """The id the panel asked for came back -- or the answer to a ticket."""
         if what.startswith("treply:"):
+            ticket_id = what[len("treply:"):]
             try:
-                return await self.support.operator_reply(operator, what[len("treply:"):], value), [BACK]
+                # The answer is out; the one thing left to do with this
+                # ticket is to end it, so that is the button.
+                return await self.support.operator_reply(operator, ticket_id, value), [
+                    [{"text": "🔒 Закрыть тикет", "callback_data": f"tclose:{ticket_id}"}],
+                ]
             except SupportError as exc:
                 return f"🚫 {escape(str(exc))}", [BACK]
         try:
