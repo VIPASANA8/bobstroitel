@@ -116,7 +116,7 @@ window.Poker8Support = (() => {
     const { references } = await api("/api/support/references").catch(() => ({ references: [] }));
     const row = (value, title, sub) => `<button type="button" class="ref-row" role="radio" aria-checked="false" data-ref="${escape(value)}"><span><strong>${escape(title)}</strong>${sub ? `<small>${escape(sub)}</small>` : ""}</span><i aria-hidden="true">✓</i></button>`;
     $("supportReference").innerHTML = row("", "Без привязки к заявке", "") + references.map(item =>
-      row(`${item.kind}:${item.id}`, `${item.label} · ${item.amount}`, `${item.status_label || item.status} · ${when(item.created_at)}`)).join("");
+      row(`${item.kind}:${item.id}`, `${item.label} · ${item.amount}${item.partner_order_id ? ` · ${item.partner_order_id}` : ""}`, `${item.status_label || item.status} · ${when(item.created_at)}`)).join("");
     selectReference(reference);
   }
 

@@ -54,16 +54,12 @@ def operator_keyboard(ticket_id: str, answered: bool, closed: bool = False) -> d
     """The buttons under an operator's copy of a player's message."""
     if closed:
         return {"inline_keyboard": [[{"text": "🔒 Тикет закрыт", "callback_data": "tnone:"}]]}
-    if answered:
-        return {"inline_keyboard": [
-            [{"text": "✍️ Ответить", "callback_data": f"treply:{ticket_id}"},
-             {"text": "Закрыть тикет", "callback_data": f"tclose:{ticket_id}"}],
-            [{"text": "✅ Сообщение доставлено", "callback_data": "tnone:"}],
-        ]}
-    return {"inline_keyboard": [[
-        {"text": "✍️ Ответить", "callback_data": f"treply:{ticket_id}"},
-        {"text": "❌ Не отвечено", "callback_data": "tnone:"},
-    ]]}
+    return {"inline_keyboard": [
+        [{"text": "✍️ Ответить", "callback_data": f"treply:{ticket_id}"},
+         {"text": "Закрыть тикет", "callback_data": f"tclose:{ticket_id}"}],
+        [{"text": "✅ Сообщение доставлено" if answered else "❌ Не отвечено",
+          "callback_data": "tnone:"}],
+    ]}
 
 
 def player_keyboard(ticket_id: str) -> dict:
@@ -342,7 +338,6 @@ class SupportService:
             "",
             f"👤 <b>Игрок:</b> <a href=\"tg://user?id={tg_id}\">{name}</a> · {handle}",
             f"🆔 <b>Telegram:</b> <code>{tg_id}</code>",
-            f"🔑 <b>ID игрока:</b> <code>{escape(row['user_id'])}</code>",
             f"🕒 <b>Время:</b> {when} UTC",
         ]
         reference = await self._reference_line(session, row)

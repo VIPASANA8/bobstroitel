@@ -86,7 +86,7 @@ def test_ticket_round_trip(service, telegram):
 
     cards = asyncio.run(service.open_for_operator(ADMIN))
     assert len(cards) == 1
-    assert _buttons(cards[0]["keyboard"]) == ["✍️ Ответить", "❌ Не отвечено"]
+    assert _buttons(cards[0]["keyboard"]) == ["✍️ Ответить", "Закрыть тикет", "❌ Не отвечено"]
     # No handle was recorded at login, so the players' bot was asked for it.
     assert telegram.looked_up == ("player-token", 42)
     assert "<code>42</code>" in cards[0]["text"] and "@mclovin" in cards[0]["text"]
