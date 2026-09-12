@@ -35,7 +35,7 @@ async def test_public_cash_lobby_never_falls_back_to_play(cash_db):
     await catalogue.seed_cash_mock()
     state = SimpleNamespace(
         session_factory=cash_db,
-        settings=SimpleNamespace(cash_mode="mock"),
+        settings=SimpleNamespace(cash_mode="mock", cash_mock_rails=True, trc20_deposits_enabled=True),
         catalogue=catalogue,
         cash_game=CashGameService(cash_db),
         cash_deposits=DepositService(cash_db),

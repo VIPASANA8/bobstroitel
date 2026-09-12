@@ -217,4 +217,4 @@ async def test_real_money_records_the_usdt_the_operator_sent_and_refuses_the_moc
     assert action == "withdrawal.settle_trc20"
     # The P2P recorder still refuses a crypto row, as before.
     with pytest.raises(WithdrawalStateError):
-        await admin.settle_p2p_withdrawal(row["id"], OPERATOR, fiat_kopecks=1, reason="x", key="k5")
+        await admin.settle_p2p_withdrawal(row["id"], OPERATOR, fiat_kopecks=1, reason="wrong rail", key="k5")

@@ -33,7 +33,7 @@ BOB = AuthenticatedUser("bob", "tenant", 2, "Bob", "dev")
 def cash_request(cash_db, partner=None):
     state = SimpleNamespace(
         session_factory=cash_db,
-        settings=SimpleNamespace(cash_mode="mock", cash_allowlist=()),
+        settings=SimpleNamespace(cash_mode="mock", cash_allowlist=(), cash_mock_rails=True, trc20_deposits_enabled=True),
         cash_deposits=DepositService(cash_db),
         cash_fiat_orders=FiatOrderService(cash_db, partner=partner or MockPservice()),
         cash_withdrawals=WithdrawalService(cash_db),
