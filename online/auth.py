@@ -75,6 +75,12 @@ def start_param(init_data: str) -> str | None:
     return dict(parse_qsl(init_data, keep_blank_values=True)).get("start_param") or None
 
 
+def telegram_username(user: dict) -> str | None:
+    """The @handle Telegram sent, without the @, or None when there is none."""
+    handle = user.get("username")
+    return handle.strip().lstrip("@")[:64] or None if isinstance(handle, str) else None
+
+
 def app_link(username: str, has_main_web_app: bool) -> str:
     """Where "открыть в Telegram" goes.
 
@@ -169,6 +175,7 @@ class AuthService:
                 self._display_name(telegram_user),
                 "telegram",
                 referral_code=start_param(init_data),
+                username=telegram_username(telegram_user),
             )
 
     async def start_login_request(self, tenant_slug: str) -> str:
@@ -322,12 +329,13 @@ class AuthService:
 
     async def _authenticate_identity(
         self, session: AsyncSession, tenant_row, telegram_user_id: int, display_name: str,
-        auth_method: str, referral_code: str | None = None,
+        auth_method: str, referral_code: str | None = None, username: str | None = None,
     ) -> AuthResult:
         tenant_slug = tenant_row["slug"]
         now = datetime.fromtimestamp(int(self.now()), tz=timezone.utc)
         user_id, acquisition_tenant_id = await self._ensure_user(
             session, tenant_row, telegram_user_id, display_name, referral_code, now,
+            username=username,
         )
         acquisition_slug = tenant_slug if acquisition_tenant_id == tenant_row["id"] else (
             await session.execute(
@@ -380,7 +388,8 @@ class AuthService:
             auth_method=auth_method,
         )
 
-    async def register(self, tenant_slug: str, telegram_user_id: int, display_name: str) -> str:
+    async def register(self, tenant_slug: str, telegram_user_id: int, display_name: str,
+                       username: str | None = None) -> str:
         """The account behind this Telegram user, made now if there is none.
 
         For the bot, which meets people before they ever open the app: a
@@ -393,12 +402,13 @@ class AuthService:
                 tenant_row = await self._tenant(session, tenant_slug)
                 user_id, _ = await self._ensure_user(
                     session, tenant_row, telegram_user_id, display_name, None, now,
+                    username=username,
                 )
         return user_id
 
     async def _ensure_user(
         self, session: AsyncSession, tenant_row, telegram_user_id: int, display_name: str,
-        referral_code: str | None, now: datetime,
+        referral_code: str | None, now: datetime, username: str | None = None,
     ) -> tuple[str, str]:
         """(user_id, acquisition_tenant_id), inserting the user on first sight."""
         user_row = (
@@ -410,7 +420,7 @@ class AuthService:
             await session.execute(
                 update(users)
                 .where(users.c.id == user_row["id"])
-                .values(display_name=display_name, updated_at=now)
+                .values(display_name=display_name, username=username, updated_at=now)
             )
             return user_row["id"], user_row["acquisition_tenant_id"]
         user_id = uuid.uuid4().hex
@@ -418,6 +428,7 @@ class AuthService:
             id=user_id,
             telegram_user_id=telegram_user_id,
             display_name=display_name,
+            username=username,
             acquisition_tenant_id=tenant_row["id"],
             internal=telegram_user_id in self.internal_telegram_ids,
             created_at=now,

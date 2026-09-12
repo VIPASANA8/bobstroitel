@@ -52,14 +52,16 @@ def operator_keyboard(ticket_id: str, answered: bool, closed: bool = False) -> d
     """The buttons under an operator's copy of a player's message."""
     if closed:
         return {"inline_keyboard": [[{"text": "🔒 Тикет закрыт", "callback_data": "tnone:"}]]}
-    rows = [[
-        {"text": "✍️ Ответить", "callback_data": f"treply:{ticket_id}"},
-        {"text": "✅ Сообщение доставлено" if answered else "❌ Не отвечено",
-         "callback_data": "tnone:"},
-    ]]
     if answered:
-        rows.append([{"text": "Закрыть тикет", "callback_data": f"tclose:{ticket_id}"}])
-    return {"inline_keyboard": rows}
+        return {"inline_keyboard": [
+            [{"text": "✍️ Ответить", "callback_data": f"treply:{ticket_id}"},
+             {"text": "Закрыть тикет", "callback_data": f"tclose:{ticket_id}"}],
+            [{"text": "✅ Сообщение доставлено", "callback_data": "tnone:"}],
+        ]}
+    return {"inline_keyboard": [[
+        {"text": "✍️ Ответить", "callback_data": f"treply:{ticket_id}"},
+        {"text": "❌ Не отвечено", "callback_data": "tnone:"},
+    ]]}
 
 
 def player_keyboard(ticket_id: str) -> dict:
@@ -361,53 +363,60 @@ class SupportService:
             await edit_reply_markup(self.admin_token, card["chat_id"], card["message_id"], keyboard)
 
     async def _card_text(self, session, row, text: str) -> str:
-        user = (await session.execute(select(users.c.telegram_user_id, users.c.display_name)
-                                      .where(users.c.id == row["user_id"]))).mappings().first()
+        user = (await session.execute(
+            select(users.c.telegram_user_id, users.c.display_name, users.c.username)
+            .where(users.c.id == row["user_id"]))).mappings().first()
         tg_id = user["telegram_user_id"] if user else "?"
+        name = escape(user["display_name"] if user else "Игрок")
+        handle = f"@{escape(user['username'])}" if user and user["username"] else "без @username"
+        when = row["created_at"].astimezone(timezone.utc).strftime("%d.%m.%Y %H:%M")
         lines = [
-            f"🎫 <b>Обращение #{short_id(row['id'])}</b> · {TOPICS[row['topic']]}",
-            f"👤 <a href=\"tg://user?id={tg_id}\">{escape(user['display_name'] if user else 'Игрок')}</a>"
-            f" · tg <code>{tg_id}</code> · id <code>{escape(row['user_id'])}</code>",
-            f"🕒 {row['created_at'].astimezone(timezone.utc).strftime('%d.%m.%Y %H:%M')} UTC",
+            f"🎫 <b>Обращение #{short_id(row['id'])}</b> — {TOPICS[row['topic']]}",
+            "",
+            f"👤 <b>Игрок:</b> <a href=\"tg://user?id={tg_id}\">{name}</a> · {handle}",
+            f"🆔 <b>Telegram:</b> <code>{tg_id}</code>",
+            f"🔑 <b>ID игрока:</b> <code>{escape(row['user_id'])}</code>",
+            f"🕒 <b>Время:</b> {when} UTC",
         ]
         reference = await self._reference_line(session, row)
         if reference:
-            lines.append(reference)
-        lines.append("")
-        lines.append(escape(text) if text else "<i>(только изображение)</i>")
+            lines += ["", reference]
+        lines += ["", "💬 <b>Сообщение:</b>", escape(text) if text else "<i>(только изображение)</i>"]
         return "\n".join(lines)
 
     async def _reference_line(self, session, row) -> str | None:
+        """The deposit, ₽ order or withdrawal a finance ticket points at."""
         kind, ref_id = row["reference_kind"], row["reference_id"]
         if not kind or not ref_id:
             return None
+        table = {"fiat_order": cash_fiat_orders, "deposit": cash_deposits,
+                 "withdrawal": cash_withdrawals}[kind]
+        item = (await session.execute(select(table).where(table.c.id == ref_id))).mappings().first()
+        if item is None:
+            return f"📎 <b>{REFERENCE_KINDS[kind]}:</b> <code>{escape(ref_id)}</code>"
         if kind == "fiat_order":
-            order = (await session.execute(select(cash_fiat_orders).where(
-                cash_fiat_orders.c.id == ref_id))).mappings().first()
-            if order is None:
-                return f"₽ заявка <code>{escape(ref_id)}</code>"
-            partner = order["pservice_order_id"] or order["partner_order_id"] or "—"
-            amount = (kopecks_to_rub(order["fiat_kopecks"]) + " ₽" if order["fiat_kopecks"]
-                      else micros_to_usdt(order["requested_micros"]) + " USDT")
-            return (f"₽ Пополнение · ордер партнёра <code>{escape(str(partner))}</code>"
-                    f" · {amount} · {escape(order['status'])} · наш id <code>{escape(ref_id)}</code>")
-        if kind == "deposit":
-            deposit = (await session.execute(select(cash_deposits).where(
-                cash_deposits.c.id == ref_id))).mappings().first()
-            if deposit is None:
-                return f"USDT пополнение <code>{escape(ref_id)}</code>"
-            return (f"₮ Пополнение USDT · {micros_to_usdt(deposit['expected_micros'])} USDT"
-                    f" · {escape(deposit['network'])} · <code>{escape(deposit['destination_address'])}</code>"
-                    f" · {escape(deposit['status'])} · id <code>{escape(ref_id)}</code>")
-        withdrawal = (await session.execute(select(cash_withdrawals).where(
-            cash_withdrawals.c.id == ref_id))).mappings().first()
-        if withdrawal is None:
-            return f"Вывод <code>{escape(ref_id)}</code>"
-        payout = (kopecks_to_rub(withdrawal["quote_kopecks"]) + " ₽" if withdrawal["quote_kopecks"]
-                  else micros_to_usdt(withdrawal["amount_micros"]) + " USDT")
-        return (f"💸 Вывод · {payout} · {escape(withdrawal['network'])}"
-                f" · <code>{escape(withdrawal['destination_address'])}</code>"
-                f" · {escape(withdrawal['status'])} · id <code>{escape(ref_id)}</code>")
+            partner = item["pservice_order_id"] or item["partner_order_id"] or "—"
+            amount = (kopecks_to_rub(item["fiat_kopecks"]) + " ₽" if item["fiat_kopecks"]
+                      else micros_to_usdt(item["requested_micros"]) + " USDT")
+            fields = [
+                f"₽ <b>Пополнение картой</b> · {amount} · {escape(item['status'])}",
+                f"🧾 <b>Ордер партнёра:</b> <code>{escape(str(partner))}</code>",
+            ]
+        elif kind == "deposit":
+            fields = [
+                f"₮ <b>Пополнение USDT</b> · {micros_to_usdt(item['expected_micros'])} USDT"
+                f" · {escape(item['status'])}",
+                f"🔗 <b>Адрес {escape(item['network'])}:</b> <code>{escape(item['destination_address'])}</code>",
+            ]
+        else:
+            payout = (kopecks_to_rub(item["quote_kopecks"]) + " ₽" if item["quote_kopecks"]
+                      else micros_to_usdt(item["amount_micros"]) + " USDT")
+            fields = [
+                f"💸 <b>Вывод</b> · {payout} · {escape(item['network'])} · {escape(item['status'])}",
+                f"🔗 <b>Куда:</b> <code>{escape(item['destination_address'])}</code>",
+            ]
+        fields.append(f"🗂 <b>Наш id:</b> <code>{escape(ref_id)}</code>")
+        return "\n".join(fields)
 
     async def _deliver_to_operators(self, ticket_id: str, message_id: str,
                                     photo: bytes | None, photo_type: str | None) -> None:

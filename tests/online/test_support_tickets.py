@@ -52,7 +52,8 @@ def service(db_session_factory):
             async with session.begin():
                 await session.execute(tenants.insert().values(id="t1", slug="poker8", name="Poker8"))
                 await session.execute(users.insert().values(
-                    id="u1", telegram_user_id=42, display_name="Игрок", acquisition_tenant_id="t1"))
+                    id="u1", telegram_user_id=42, display_name="Игрок", username="maktraxer",
+                    acquisition_tenant_id="t1"))
                 await session.execute(cash_operators.insert().values(
                     id="op-1", telegram_user_id=111, role="admin"))
                 await session.execute(cash_operators.insert().values(
@@ -82,13 +83,13 @@ def test_ticket_round_trip(service, telegram):
     cards = asyncio.run(service.open_for_operator(ADMIN))
     assert len(cards) == 1
     assert _buttons(cards[0]["keyboard"]) == ["✍️ Ответить", "❌ Не отвечено"]
-    assert "tg <code>42</code>" in cards[0]["text"]
+    assert "<code>42</code>" in cards[0]["text"] and "@maktraxer" in cards[0]["text"]
 
     asyncio.run(service.operator_reply(ADMIN, ticket["id"], "Проверяем, ответим сегодня"))
     # Every copy of the card flips, and the player hears it on their own bot.
     assert [(chat, _buttons(kb)) for _, chat, _, kb in telegram.edits] == [
-        (111, ["✍️ Ответить", "✅ Сообщение доставлено", "Закрыть тикет"]),
-        (222, ["✍️ Ответить", "✅ Сообщение доставлено", "Закрыть тикет"]),
+        (111, ["✍️ Ответить", "Закрыть тикет", "✅ Сообщение доставлено"]),
+        (222, ["✍️ Ответить", "Закрыть тикет", "✅ Сообщение доставлено"]),
     ]
     token, chat, text, keyboard = telegram.sent[-1]
     assert (token, chat) == ("player-token", 42) and "Проверяем" in text

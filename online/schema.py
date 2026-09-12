@@ -49,6 +49,8 @@ users = Table(
     Column("id", String(64), primary_key=True),
     Column("telegram_user_id", BIGINT, nullable=False, unique=True),
     Column("display_name", String(200), nullable=False),
+    # The @handle, as of the last login. For support cards; never shown at a table.
+    Column("username", String(64)),
     Column("acquisition_tenant_id", String(64), ForeignKey("tenants.id"), nullable=False),
     # Owners, partners and service accounts. They play and they are paid, but
     # never through the players' referral programme: a partner who is also a

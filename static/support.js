@@ -124,7 +124,20 @@ window.Poker8Support = (() => {
       const closed = $("supportClosed");
       closed.hidden = !closed.hidden;
       $("supportHistory").setAttribute("aria-expanded", String(!closed.hidden));
+      $("supportHistory").classList.toggle("is-active", !closed.hidden);
       if (!closed.hidden) await loadClosed().catch(console.error);
+    });
+    // The file control is hidden behind its label; the chosen name is shown
+    // beside the button, and a reset clears it with the form.
+    document.querySelectorAll(".support-file input").forEach(input => {
+      const label = input.closest(".support-file");
+      const sync = () => {
+        const file = input.files?.[0];
+        label.querySelector(".support-file-name").textContent = file ? file.name : "";
+        label.classList.toggle("has-file", Boolean(file));
+      };
+      input.addEventListener("change", sync);
+      input.form?.addEventListener("reset", () => setTimeout(sync));
     });
     $("supportSection").addEventListener("click", event => {
       const target = event.target.closest("[data-ticket]");
@@ -165,6 +178,7 @@ window.Poker8Support = (() => {
         }));
         $("ticketText").value = "";
         $("ticketPhoto").value = "";
+        $("ticketPhoto").dispatchEvent(new Event("change"));
         await refresh();
       } catch (error) {
         fail("ticketFormError", error);

@@ -5,7 +5,7 @@ import hmac
 from fastapi import APIRouter, Header, HTTPException, Request
 
 from cash.referrals import code_for, normalise as normalise_referral, start_payload
-from online.auth import AuthenticationError, login_code
+from online.auth import AuthenticationError, login_code, telegram_username
 from online.support import SupportError, short_id
 from online.telegram import (
     answer_callback, download_file, edit_message, send_message, webhook_secret,
@@ -265,7 +265,7 @@ async def _referral_link(request: Request, tenant_slug: str, sender: dict) -> st
         return None
     try:
         user_id = await request.app.state.auth_service.register(
-            tenant_slug, int(sender["id"]), _display_name(sender),
+            tenant_slug, int(sender["id"]), _display_name(sender), telegram_username(sender),
         )
     except AuthenticationError:
         return None
@@ -300,6 +300,13 @@ async def _confirm(auth, token: str, tenant_slug: str, callback: dict) -> None:
         )
     except AuthenticationError:
         opened = False
+    if opened and sender.get("id"):
+        # The login row carried no handle; the account exists now, so note it.
+        try:
+            await auth.register(tenant_slug, int(sender["id"]), _display_name(sender),
+                                telegram_username(sender))
+        except AuthenticationError:
+            pass
     if callback_id:
         await answer_callback(token, callback_id, SIGNED_IN if opened else STALE)
     chat_id = ((callback.get("message") or {}).get("chat") or {}).get("id")
