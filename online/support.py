@@ -240,7 +240,12 @@ class SupportService:
                     support_tickets.c.id == ticket_id).values(status="answered", updated_at=now))
                 cards = await self._cards(session, ticket_id)
                 player = await self._player(session, row)
+                name = (await session.execute(select(users.c.display_name, users.c.username).where(
+                    users.c.id == row["user_id"]))).mappings().first()
         await self._redraw_cards(cards, operator_keyboard(ticket_id, True))
+        who = escape(name["display_name"]) if name else "игроку"
+        if name and name["username"]:
+            who += f" (@{escape(name['username'])})"
         delivered = False
         if player:
             delivered = await send_message(
@@ -248,8 +253,10 @@ class SupportService:
                 f"<b>Ответ поддержки по обращению #{short_id(ticket_id)}</b>\n\n{escape(text)}",
                 reply_markup=player_keyboard(ticket_id), parse_mode="HTML",
             ) is not None
-        return ("✅ Ответ доставлен игроку в бот и на сайт." if delivered
-                else "✅ Ответ сохранён — игрок увидит его на сайте (в бот доставить не удалось).")
+        return (f"✅ Ответ по обращению <b>#{short_id(ticket_id)}</b> доставлен игроку: <b>{who}</b>."
+                if delivered else
+                f"✅ Ответ по обращению <b>#{short_id(ticket_id)}</b> сохранён для <b>{who}</b> — "
+                "увидит его на сайте, в бот доставить не удалось.")
 
     # --- the players' bot ------------------------------------------------------
 
