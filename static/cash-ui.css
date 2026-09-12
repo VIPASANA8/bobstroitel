@@ -153,9 +153,9 @@ button.pay-currency{cursor:pointer}
 /* The browser's own file control is a grey chip with «Файл не выбран» beside
    it, in the UA's font. It stays for the click and the keyboard; what shows
    is a button of the dialog's own kind and the chosen name. */
-.support-file{display:flex;align-items:center;gap:10px;margin:0!important;cursor:pointer}
+.support-file{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:0!important;cursor:pointer}
 .support-file input{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0 0 0 0)}
-.support-file-button{flex:none;padding:9px 14px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2);color:var(--ink);font-size:12px;font-weight:800;transition:border-color .18s,color .18s}
+.support-file-button{flex:none;white-space:nowrap;line-height:1.2;padding:9px 14px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2);color:var(--ink);font-size:12px;font-weight:800;transition:border-color .18s,color .18s}
 .support-file:hover .support-file-button,.support-file:focus-within .support-file-button{border-color:var(--accent);color:var(--accent)}
 .support-file-name{min-width:0;color:var(--muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .support-file-name:empty::before{content:attr(data-empty)}
@@ -171,3 +171,5 @@ button.pay-currency{cursor:pointer}
 .support-close{width:100%;margin-top:10px}
 #ticketReply[hidden]{display:none}
 .support-section .referral-secondary.is-active{border-color:var(--accent);color:var(--accent)}
+/* A phone's sheet is too narrow for the button and the name side by side. */
+@media(max-width:640px){.support-file-button{width:100%;text-align:center}.support-file-name{width:100%}}
