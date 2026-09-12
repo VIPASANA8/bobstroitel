@@ -157,15 +157,16 @@ async def test_a_whole_account_life_creates_and_destroys_nothing(cash_db):
 
     assert escrow == 0, "nobody is still seated, so no escrow may hold anything"
     assert reserved == 0, "both payouts finished, so nothing may still be reserved"
-    assert house == rake + 2 * 5_000_000
-    # What came in is what is still held plus what left. Both payouts were
-    # 20 USDT less the 5 USDT fee, so 30 USDT reached the outside world.
-    assert went_out == 30_000_000
+    # The flat fee is for the chain transfer: once, on the TRC20 payout.
+    assert house == rake + 5_000_000
+    # What came in is what is still held plus what left. The chain payout was
+    # 20 USDT less the 5 USDT fee, the card payout 20 USDT whole: 35 went out.
+    assert went_out == 35_000_000
     assert wallets + escrow + reserved + house + went_out == banked
 
     # 4. The house money is where it was put, not merely present in the total.
     assert by_reference[RAKE_ACCOUNT] == rake
-    assert by_reference[FEE_ACCOUNT] == 10_000_000
+    assert by_reference[FEE_ACCOUNT] == 5_000_000
 
 
 async def test_an_unknown_payout_keeps_the_money_reserved(cash_db):

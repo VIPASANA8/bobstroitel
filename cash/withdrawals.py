@@ -94,6 +94,10 @@ class WithdrawalService:
         if type(fee_micros) is not int or fee_micros < 0:
             raise ValueError("the withdrawal fee must be a nonnegative integer of micros")
         self.fee_micros = fee_micros
+
+    def fee_for(self, rail: str) -> int:
+        """The flat fee pays for a chain transfer. A card payout has no chain: 0."""
+        return 0 if rail == P2P_RUB else self.fee_micros
         # A TRC20 withdrawal at or below this sends itself, no operator. Zero is
         # off. It never applies to P2P (a human pays that), and it refuses to
         # run unless the executor is a real, automatic one -- so the pilot's
@@ -112,9 +116,10 @@ class WithdrawalService:
         # A payout costs real money to send on chain. Below the fee the request
         # is not a small withdrawal, it is a way to make us pay for a transfer
         # of nothing, so the floor is the fee rather than a second constant.
-        if amount <= self.fee_micros:
+        fee = self.fee_for(rail)
+        if amount <= fee:
             raise ValueError(
-                f"withdrawal must exceed the {micros_to_usdt(self.fee_micros)} USDT payout fee"
+                f"withdrawal must exceed the {micros_to_usdt(fee)} USDT payout fee"
             )
         if not destination_address or len(destination_address) > 128:
             raise ValueError("invalid destination address")
@@ -122,11 +127,11 @@ class WithdrawalService:
             raise ValueError("invalid request key")
         fingerprint = _hash({"amount_micros": amount, "address": destination_address,
                              "network": rail, "tenant_id": tenant_id,
-                             "fee_micros": self.fee_micros})
+                             "fee_micros": fee})
         now = self.now()
         try:
             row = await self._reserve(
-                user_id=user_id, tenant_id=tenant_id, amount=amount, rail=rail,
+                user_id=user_id, tenant_id=tenant_id, amount=amount, rail=rail, fee=fee,
                 destination_address=destination_address, request_key=request_key,
                 fingerprint=fingerprint, now=now,
             )
@@ -156,7 +161,7 @@ class WithdrawalService:
                 return await self.get(row["id"], user_id) or row
         return row
 
-    async def _reserve(self, *, user_id, tenant_id, amount, rail, destination_address,
+    async def _reserve(self, *, user_id, tenant_id, amount, rail, fee, destination_address,
                        request_key, fingerprint, now):
         async with self.sessions() as session:
             async with session.begin():
@@ -183,7 +188,7 @@ class WithdrawalService:
                     rate = await current_rub_rate(session)
                     if rate is None:
                         raise RubRateUnset("RUB withdrawals open once an operator sets the rate")
-                    quote = quote_kopecks(amount - self.fee_micros, rate)
+                    quote = quote_kopecks(amount - fee, rate)
                     if quote < MIN_RUB_PAYOUT_KOPECKS:
                         raise ValueError(
                             f"a card withdrawal pays out at least {kopecks_to_rub(MIN_RUB_PAYOUT_KOPECKS)} RUB"
@@ -203,7 +208,7 @@ class WithdrawalService:
                     id=withdrawal_id, user_id=user_id, tenant_id=tenant_id,
                     request_key=request_key, request_hash=fingerprint, network=rail,
                     destination_address=destination_address, amount_micros=amount,
-                    fee_micros=self.fee_micros, reserve_account_id=reserve_id,
+                    fee_micros=fee, reserve_account_id=reserve_id,
                     payout_id=uuid4().hex, quote_kopecks=quote,
                     status="requested", updated_at=now,
                 ))

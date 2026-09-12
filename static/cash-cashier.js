@@ -262,14 +262,15 @@ window.Poker8Cashier = (() => {
     const quoteRub = () => {
       const quote = $("withdrawQuote");
       if (withdrawRail !== "P2P_RUB" || !wallet.rub_rate) return (quote.textContent = "");
-      const net = Number($("withdrawUsdt").value || 0) - Number(String(wallet.withdrawal_fee_usdt).replace(",", "."));
+      const fee = Number(String(wallet.rub_withdrawal_fee_usdt ?? "0").replace(",", "."));
+      const net = Number($("withdrawUsdt").value || 0) - fee;
       const rate = Number(String(wallet.rub_rate).replace(",", "."));
       const rub = Math.max(0, net) * rate;
       const min = Number(String(wallet.rub_min_payout || "0").replace(",", "."));
       const money = value => value.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       // Under the floor the number is not a quote, it is what would be refused.
       quote.textContent = rub < min
-        ? ` · минимум ${money(min)} ₽ — это от ${money(Math.ceil((min / rate + Number(String(wallet.withdrawal_fee_usdt).replace(",", "."))) * 100) / 100)} USDT`
+        ? ` · минимум ${money(min)} ₽ — это от ${money(Math.ceil((min / rate + fee) * 100) / 100)} USDT`
         : ` · ≈ ${money(rub)} ₽ по курсу ${wallet.rub_rate} ₽/USDT`;
     };
     const selectRail = rail => {

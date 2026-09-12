@@ -15,7 +15,7 @@ from cash.trc20 import TransferEvent
 from cash.amounts import kopecks_to_rub, micros_to_usdt
 from cash.rates import current_rub_rate
 from cash.withdrawals import (
-    MIN_RUB_PAYOUT_KOPECKS, ActiveWithdrawalExists, RubRateUnset, WithdrawalStateError,
+    MIN_RUB_PAYOUT_KOPECKS, P2P_RUB, ActiveWithdrawalExists, RubRateUnset, WithdrawalStateError,
 )
 
 
@@ -89,6 +89,7 @@ async def wallet(request: Request, user: AuthenticatedUser = Depends(get_cash_us
         "rub_rate": None if rate is None else kopecks_to_rub(rate),
         "rub_min_payout": kopecks_to_rub(MIN_RUB_PAYOUT_KOPECKS),
         "withdrawal_fee_usdt": micros_to_usdt(withdrawals.fee_micros),
+        "rub_withdrawal_fee_usdt": micros_to_usdt(withdrawals.fee_for(P2P_RUB)),
     }
 
 

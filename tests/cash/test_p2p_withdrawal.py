@@ -82,9 +82,11 @@ async def test_a_p2p_payout_moves_only_when_an_operator_says_they_paid(cash_db):
         row["id"], OPERATOR, fiat_kopecks=270_050, reason="paid to card", key="k2",
     )
     assert after["status"] == "submitted" and after["fiat_kopecks"] == 270_050
-    # 30 USDT left the reserve: 25 to the payout clearing, 5 kept as the fee.
-    assert await balance(cash_db, "clearing", P2P_CLEARING) == 25_000_000
-    assert await balance(cash_db, "clearing", FEE_ACCOUNT) == 5_000_000
+    # 30 USDT left the reserve, all of it to the payout clearing: the flat fee
+    # pays for a chain transfer, and a card has no chain, so none is kept.
+    assert row["fee_micros"] == 0
+    assert await balance(cash_db, "clearing", P2P_CLEARING) == 30_000_000
+    assert await balance(cash_db, "clearing", FEE_ACCOUNT) == 0
     assert await balance(cash_db, "available", "alice") == 20_000_000
 
     async with cash_db() as session:
@@ -261,13 +263,13 @@ async def test_a_card_payout_is_quoted_at_the_rate_of_its_moment(cash_db):
     }
     row = await service.create(user_id="alice", tenant_id="tenant", amount_usdt="100",
                                destination_address=CARD, request_key="rub-1", rail=P2P_RUB)
-    # 100 USDT minus the 5 USDT fee, at 92.50: 8 787,50 ₽.
-    assert row["quote_kopecks"] == 878_750
-    assert WithdrawalService.public(row)["quote_rub"] == "8787,50"
+    # 100 USDT, no fee on a card, at 92.50: 9 250,00 ₽.
+    assert row["quote_kopecks"] == 925_000
+    assert WithdrawalService.public(row)["quote_rub"] == "9250,00"
     assert (await admin.overview(global_admin))["rub_rate_kopecks"] == 9_250
 
     await admin.set_rub_rate(global_admin, kopecks_per_usdt=9_000, reason="moved", key="r2")
-    assert (await service.get(row["id"], "alice"))["quote_kopecks"] == 878_750
+    assert (await service.get(row["id"], "alice"))["quote_kopecks"] == 925_000
     # A TRC20 withdrawal is quoted in nothing but itself.
     await service.cancel(row["id"], "alice")
     crypto = await service.create(user_id="alice", tenant_id="tenant", amount_usdt="10",
@@ -280,13 +282,13 @@ async def test_a_card_payout_under_five_thousand_roubles_is_refused(cash_db):
     await fund(cash_db, key="fund-min-2")   # 100 USDT: enough for a 65 USDT withdrawal
     await rate(cash_db, kopecks_per_usdt=8_400)
     service = WithdrawalService(cash_db, fee_micros=5_000_000)
-    # (64 - 5) * 84 = 4 956 ₽: under the floor. (65 - 5) * 84 = 5 040 ₽: over it.
+    # 59 * 84 = 4 956 ₽: under the floor. 60 * 84 = 5 040 ₽: over it. No fee.
     with pytest.raises(ValueError, match="at least 5000,00 RUB"):
-        await service.create(user_id="alice", tenant_id="tenant", amount_usdt="64",
+        await service.create(user_id="alice", tenant_id="tenant", amount_usdt="59",
                              destination_address=CARD, request_key="min-1", rail=P2P_RUB)
     # Refused before anything was reserved: the wallet is untouched.
     funded = await balance(cash_db, "available", "alice")
     assert funded >= 100_000_000   # two mock deposits, the second nudged by a cent
-    row = await service.create(user_id="alice", tenant_id="tenant", amount_usdt="65",
+    row = await service.create(user_id="alice", tenant_id="tenant", amount_usdt="60",
                                destination_address=CARD, request_key="min-2", rail=P2P_RUB)
     assert row["quote_kopecks"] == 504_000
