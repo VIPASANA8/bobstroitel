@@ -272,6 +272,51 @@ async def test_a_refused_create_frees_the_slot_at_once(fiat_db):
         await service.create(user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="k2")
 
 
+async def test_a_slow_partner_answer_is_read_back_not_reported_as_failure(fiat_db):
+    """pservice persists a cancel/confirm before it retries a dead backend
+    webhook for half a minute. Live, our 15 s client gave up while the order
+    was already cancelled there -- the user saw "could not cancel"."""
+    import httpx
+
+    class Partner(MockPservice):
+        async def cancel(self, order_id):
+            await super().cancel(order_id)          # applied...
+            raise httpx.ReadTimeout("slow")           # ...but the answer never came
+
+        async def confirm(self, order_id):
+            # Applied, and parked in CLARIFYING so the mock's next read does not
+            # walk it straight to COMPLETED: the point is the read-back, not the credit.
+            self._force_status(order_id, 10)
+            raise httpx.ReadTimeout("slow")
+
+    service = FiatOrderService(fiat_db, partner=Partner(), ledger=RecordingLedger())
+    order = await service.create(user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="k1")
+    paid = await service.mark_paid(order["id"], "alice")
+    assert paid["status"] == "clarifying" and paid["user_confirmed"] is True
+
+    async with fiat_db() as session:
+        async with session.begin():
+            await session.execute(insert(users).values(
+                id="bob", telegram_user_id=2, display_name="Bob", acquisition_tenant_id="tenant",
+            ))
+    other = await service.create(user_id="bob", tenant_id="tenant", amount_usdt="20", request_key="k2")
+    assert (await service.cancel(other["id"], "bob"))["status"] == "cancelled"
+
+
+async def test_a_timeout_on_a_call_that_did_not_land_is_an_error(fiat_db):
+    import httpx
+
+    class Partner(MockPservice):
+        async def cancel(self, order_id):
+            raise httpx.ConnectTimeout("down")        # nothing reached pservice
+
+    service = FiatOrderService(fiat_db, partner=Partner(), ledger=RecordingLedger())
+    order = await service.create(user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="k1")
+    with pytest.raises(ValueError, match="did not answer in time"):
+        await service.cancel(order["id"], "alice")
+    assert (await service.get(order["id"], "alice"))["status"] == "awaiting_user"
+
+
 async def test_a_cancelled_order_never_credits(fiat_db):
     ledger = RecordingLedger()
     service = FiatOrderService(fiat_db, partner=MockPservice(), ledger=ledger)

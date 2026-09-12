@@ -221,12 +221,17 @@ class FiatOrderService:
             return row
         if row["status"] != "awaiting_user":
             raise ValueError("fiat order cannot be marked paid in its current state")
-        await self._tell_partner(self.partner.confirm, row)
+        await self._tell_partner(self.partner.confirm, row, done=("waiting_trader", "credited", "clarifying"))
         # Recorded for the cancel-after-payment signal, and because "the user
-        # said they paid" is the fact a dispute turns on.
-        return await self._set_user_state(
-            order_id, user_id, "awaiting_user", "waiting_trader", user_confirmed=True,
-        )
+        # said they paid" is the fact a dispute turns on -- whatever state
+        # pservice had already moved the order to by the time it answered.
+        async with self.sessions() as session:
+            async with session.begin():
+                await session.execute(update(cash_fiat_orders).where(
+                    cash_fiat_orders.c.id == order_id,
+                    cash_fiat_orders.c.user_id == user_id,
+                ).values(user_confirmed=True, updated_at=self.now()))
+        return await self._set_user_state(order_id, user_id, "awaiting_user", "waiting_trader")
 
     async def cancel(self, order_id: str, user_id: str):
         row = await self.get(order_id, user_id)
@@ -236,13 +241,27 @@ class FiatOrderService:
             return row
         if row["status"] not in {"awaiting_user", "waiting_trader", "clarifying"}:
             raise ValueError("fiat order cannot be cancelled in its current state")
-        await self._tell_partner(self.partner.cancel, row)
+        await self._tell_partner(self.partner.cancel, row, done=("cancelled",))
         return await self._set_user_state(order_id, user_id, row["status"], "cancelled")
 
-    async def _tell_partner(self, call, row):
-        """confirm/cancel on pservice; a 409 means the order moved on without us."""
+    async def _tell_partner(self, call, row, *, done):
+        """confirm/cancel on pservice; a 409 means the order moved on without us.
+
+        `done` names the local states that mean the call took effect, for the
+        case where pservice took it but did not answer in time.
+        """
         try:
             await call(row["pservice_order_id"])
+        except httpx.TimeoutException as exc:
+            # pservice saves the transition first and only then notifies
+            # CASE8's backend -- a dead address on this host, retried for
+            # longer than we wait. So a slow answer usually means "done":
+            # read the order back and believe it, not the clock.
+            status = await self.partner.order_status(row["pservice_order_id"])
+            await self._sync(row["id"], status)
+            if status.local_status not in done:
+                raise ValueError("the partner did not answer in time, refresh and try again") from exc
+            return
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code not in (404, 409):
                 raise
