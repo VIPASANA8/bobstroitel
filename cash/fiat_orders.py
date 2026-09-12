@@ -159,6 +159,18 @@ class FiatOrderService:
                     cash_fiat_orders.c.status == "requesting",
                 ).values(status="unavailable", updated_at=self.now(), detail=detail))
 
+    async def refresh(self, order_id: str) -> bool:
+        """Read one order back from pservice and apply it: what a webhook asks for.
+
+        False for an order that is not ours. A terminal order is read and
+        ignored by _sync, so a late or repeated webhook costs one GET.
+        """
+        row = await self.get(order_id, None)
+        if row is None or not row["pservice_order_id"]:
+            return False
+        await self._sync(order_id, await self.partner.order_status(row["pservice_order_id"]))
+        return True
+
     async def purge_requisites(self, before):
         """Trader requisites are payment data and are not kept past retention."""
         async with self.sessions() as session:
@@ -205,12 +217,13 @@ class FiatOrderService:
             ))).mappings().first()
             return dict(row) if row else None
 
-    async def get(self, order_id: str, user_id: str):
+    async def get(self, order_id: str, user_id: str | None):
+        """user_id None is the system's own view, never a request's."""
+        conditions = [cash_fiat_orders.c.id == order_id]
+        if user_id is not None:
+            conditions.append(cash_fiat_orders.c.user_id == user_id)
         async with self.sessions() as session:
-            row = (await session.execute(select(cash_fiat_orders).where(
-                cash_fiat_orders.c.id == order_id,
-                cash_fiat_orders.c.user_id == user_id,
-            ))).mappings().first()
+            row = (await session.execute(select(cash_fiat_orders).where(*conditions))).mappings().first()
             return dict(row) if row else None
 
     async def mark_paid(self, order_id: str, user_id: str):

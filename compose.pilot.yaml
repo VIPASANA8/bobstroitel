@@ -48,6 +48,9 @@ services:
       # Own pservice instance on this host, reached over the poker8link network.
       POKER8_CASH_FIAT_API_URL: ${POKER8_CASH_FIAT_API_URL:-}
       POKER8_CASH_FIAT_TOKEN: ${POKER8_CASH_FIAT_TOKEN:-}
+      # pservice's INTERNAL_WEBHOOK_SECRET, once its INTERNAL_BACKEND_URL
+      # points at this app; empty leaves the webhook receiver off.
+      POKER8_CASH_FIAT_WEBHOOK_SECRET: ${POKER8_CASH_FIAT_WEBHOOK_SECRET:-}
       POKER8_CASH_PAYOUT_PROVIDER: ${POKER8_CASH_PAYOUT_PROVIDER:-}
       POKER8_CASH_ALLOWLIST: ${POKER8_CASH_ALLOWLIST:-}
       POKER8_CASH_FIAT_FEE_BPS: ${POKER8_CASH_FIAT_FEE_BPS:-100}

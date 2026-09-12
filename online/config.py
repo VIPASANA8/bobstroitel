@@ -48,6 +48,9 @@ class Settings:
     cash_admin_operators: tuple[dict[str, object], ...]
     cash_fiat_api_url: str
     cash_fiat_token: str
+    #: pservice signs its webhooks with this (its INTERNAL_WEBHOOK_SECRET).
+    #: Empty means no receiver: the poller alone moves orders.
+    cash_fiat_webhook_secret: str
     cash_payout_provider: str
     legacy_play_rooms_enabled: bool
     dev_profiles: dict[int, str]
@@ -204,6 +207,7 @@ class Settings:
         # with a trusted certificate is the only thing that will connect.
         cash_fiat_api_url = source.get("POKER8_CASH_FIAT_API_URL", "").strip()
         cash_fiat_token = source.get("POKER8_CASH_FIAT_TOKEN", "").strip()
+        cash_fiat_webhook_secret = source.get("POKER8_CASH_FIAT_WEBHOOK_SECRET", "").strip()
         # Who signs and holds the keys for an outgoing payout. Never this
         # application: it may only queue a payout and read back its status.
         cash_payout_provider = source.get("POKER8_CASH_PAYOUT_PROVIDER", "").strip()
@@ -321,6 +325,7 @@ class Settings:
             cash_admin_operators=cash_admin_operators,
             cash_fiat_api_url=cash_fiat_api_url,
             cash_fiat_token=cash_fiat_token,
+            cash_fiat_webhook_secret=cash_fiat_webhook_secret,
             cash_payout_provider=cash_payout_provider,
             legacy_play_rooms_enabled=(
                 environment in {"development", "test"}

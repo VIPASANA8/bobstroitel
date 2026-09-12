@@ -67,6 +67,14 @@ def _optional_utc(value: Any) -> datetime | None:
 #: Deterministic namespace so one Poker8 user maps to one stable pservice UUID.
 _USER_NS = uuid.UUID("0b7b8d2a-8f4e-5c31-9a20-9b6f0e6d5c44")
 
+
+def intent_id_for(client_payment_id: str) -> uuid.UUID:
+    """The order id itself, as a UUID, so a webhook keyed by intent names the order."""
+    try:
+        return uuid.UUID(hex=client_payment_id)
+    except ValueError:
+        return uuid.uuid5(_USER_NS, client_payment_id)
+
 #: pservice OrderStatus (domain/enums/order_status.py) -> our coarse state.
 #: Every non-terminal status lands in the active set the one-open-order index
 #: guards; FAILED goes to review_required so a person confirms nothing is owed.
@@ -193,7 +201,10 @@ class PserviceClient:
             raise ValueError("the first fiat P2P pilot supports RUB only")
         cents = usdt_micros_to_case8_amount(amount_micros)
         body = {
-            "cases_payment_intent_id": str(uuid.uuid4()),
+            # Our order id, as the UUID pservice wants. It comes back on the
+            # failure webhook as paymentIntentId, so the receiver can name
+            # the order without a lookup table.
+            "cases_payment_intent_id": str(intent_id_for(client_payment_id)),
             "client_payment_id": client_payment_id,
             "user_id": str(uuid.uuid5(_USER_NS, user_id)),
             "amount_usdt": cents,

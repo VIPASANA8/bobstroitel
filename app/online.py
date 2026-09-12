@@ -11,7 +11,10 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, text
 
-from app.routers import auth, cash, cash_admin, chat, config, cube, health, lobby, profiles, realtime, support, tables, telegram
+from app.routers import (
+    auth, cash, cash_admin, chat, config, cube, fiat_webhooks, health, lobby, profiles, realtime,
+    support, tables, telegram,
+)
 from cash.admin import CashAdminService
 from cash.deposits import DepositService
 from cash.antifraud import DepositPolicy
@@ -375,6 +378,7 @@ def create_app(
     app.include_router(config.router)
     app.include_router(cash.router)
     app.include_router(cash_admin.router)
+    app.include_router(fiat_webhooks.router)
     app.include_router(cube.router)
     app.include_router(telegram.router)
     app.include_router(support.router)
