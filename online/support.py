@@ -16,6 +16,7 @@ from sqlalchemy import func, select, update
 
 from cash.access import CashOperator
 from cash.amounts import kopecks_to_rub, micros_to_usdt
+from cash.wallet import WalletService, status_ru
 from online.schema import (
     cash_deposits, cash_fiat_orders, cash_operators, cash_withdrawals, support_messages,
     support_tickets, tenants, users,
@@ -112,46 +113,11 @@ class SupportService:
 
     async def references(self, user_id: str) -> list[dict]:
         """The player's own deposits, ₽ orders and withdrawals, newest first,
-        for the "which one is this about" picker."""
-        async with self.sessions() as session:
-            deposits = (await session.execute(
-                select(cash_deposits.c.id, cash_deposits.c.expected_micros, cash_deposits.c.status,
-                       cash_deposits.c.created_at)
-                .where(cash_deposits.c.user_id == user_id)
-                .order_by(cash_deposits.c.created_at.desc()).limit(20))).mappings().all()
-            orders = (await session.execute(
-                select(cash_fiat_orders.c.id, cash_fiat_orders.c.requested_micros,
-                       cash_fiat_orders.c.fiat_kopecks, cash_fiat_orders.c.status,
-                       cash_fiat_orders.c.pservice_order_id, cash_fiat_orders.c.partner_order_id,
-                       cash_fiat_orders.c.created_at)
-                .where(cash_fiat_orders.c.user_id == user_id)
-                .order_by(cash_fiat_orders.c.created_at.desc()).limit(20))).mappings().all()
-            withdrawals = (await session.execute(
-                select(cash_withdrawals.c.id, cash_withdrawals.c.amount_micros,
-                       cash_withdrawals.c.quote_kopecks, cash_withdrawals.c.network,
-                       cash_withdrawals.c.status, cash_withdrawals.c.created_at)
-                .where(cash_withdrawals.c.user_id == user_id)
-                .order_by(cash_withdrawals.c.created_at.desc()).limit(20))).mappings().all()
-        items = []
-        for row in deposits:
-            items.append({"kind": "deposit", "id": row["id"], "created_at": row["created_at"],
-                          "amount": f"{micros_to_usdt(row['expected_micros'])} USDT",
-                          "status": row["status"]})
-        for row in orders:
-            partner = row["pservice_order_id"] or row["partner_order_id"]
-            amount = (f"{kopecks_to_rub(row['fiat_kopecks'])} ₽" if row["fiat_kopecks"]
-                      else f"{micros_to_usdt(row['requested_micros'])} USDT")
-            items.append({"kind": "fiat_order", "id": row["id"], "created_at": row["created_at"],
-                          "amount": amount, "status": row["status"],
-                          "partner_id": None if partner is None else str(partner)})
-        for row in withdrawals:
-            amount = (f"{kopecks_to_rub(row['quote_kopecks'])} ₽" if row["quote_kopecks"]
-                      else f"{micros_to_usdt(row['amount_micros'])} USDT")
-            items.append({"kind": "withdrawal", "id": row["id"], "created_at": row["created_at"],
-                          "amount": amount, "status": row["status"]})
-        items.sort(key=lambda item: item["created_at"], reverse=True)
-        return [{**item, "label": REFERENCE_KINDS[item["kind"]],
-                 "created_at": item["created_at"].isoformat()} for item in items[:30]]
+        for the "which one is this about" picker -- the history's own rows."""
+        rows = await WalletService(self.sessions).operations(user_id, limit=30)
+        return [{**row, "label": REFERENCE_KINDS[row["kind"]], "amount": (
+            f"{row['fiat_rub']} ₽" if row["fiat_rub"] else f"{row['amount_usdt']} USDT"
+        )} for row in rows]
 
     # --- what the player does --------------------------------------------------
 
@@ -399,20 +365,20 @@ class SupportService:
             amount = (kopecks_to_rub(item["fiat_kopecks"]) + " ₽" if item["fiat_kopecks"]
                       else micros_to_usdt(item["requested_micros"]) + " USDT")
             fields = [
-                f"₽ <b>Пополнение картой</b> · {amount} · {escape(item['status'])}",
+                f"₽ <b>Пополнение картой</b> · {amount} · {status_ru('fiat_order', item['status'])}",
                 f"🧾 <b>Ордер партнёра:</b> <code>{escape(str(partner))}</code>",
             ]
         elif kind == "deposit":
             fields = [
                 f"₮ <b>Пополнение USDT</b> · {micros_to_usdt(item['expected_micros'])} USDT"
-                f" · {escape(item['status'])}",
+                f" · {status_ru('deposit', item['status'])}",
                 f"🔗 <b>Адрес {escape(item['network'])}:</b> <code>{escape(item['destination_address'])}</code>",
             ]
         else:
             payout = (kopecks_to_rub(item["quote_kopecks"]) + " ₽" if item["quote_kopecks"]
                       else micros_to_usdt(item["amount_micros"]) + " USDT")
             fields = [
-                f"💸 <b>Вывод</b> · {payout} · {escape(item['network'])} · {escape(item['status'])}",
+                f"💸 <b>Вывод</b> · {payout} · {escape(item['network'])} · {status_ru('withdrawal', item['status'])}",
                 f"🔗 <b>Куда:</b> <code>{escape(item['destination_address'])}</code>",
             ]
         fields.append(f"🗂 <b>Наш id:</b> <code>{escape(ref_id)}</code>")

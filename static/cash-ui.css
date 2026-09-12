@@ -173,3 +173,12 @@ button.pay-currency{cursor:pointer}
 .support-section .referral-secondary.is-active{border-color:var(--accent);color:var(--accent)}
 /* A phone's sheet is too narrow for the button and the name side by side. */
 @media(max-width:640px){.support-file-button{width:100%;text-align:center}.support-file-name{width:100%}}
+
+/* A row that opens is a row that says so under the pointer. */
+.history-row[data-operation]{cursor:pointer;border-radius:8px;transition:background .15s}
+.history-row[data-operation]:hover,.history-row[data-operation]:focus-visible{background:color-mix(in srgb,var(--accent) 8%,transparent);outline:none}
+.op-fields{display:grid;gap:8px;margin:6px 0 14px}
+.op-field{display:grid;gap:3px;padding:9px 12px;border:1px solid var(--line);border-radius:11px;background:var(--panel-2)}
+.op-field span{color:var(--muted);font-size:10px;letter-spacing:.06em;text-transform:uppercase}
+.op-field b{color:var(--ink);font-size:13px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+#operationSupport[hidden]{display:none}

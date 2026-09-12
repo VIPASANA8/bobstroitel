@@ -134,8 +134,14 @@ def profile_data():
                                      dict(id='payout-1', scope='withdrawal-payout', kind='payout', amount_micros=-500000, created_at='2026-08-31T08:30:00Z'),
                                  ]),
         '/api/cash/operations': dict(entries=[
-            dict(id='deposit-1', scope='c2c', kind='deposit', amount_micros=1000000, created_at='2026-08-31T08:00:00Z'),
-            dict(id='payout-1', scope='withdrawal-payout', kind='payout', amount_micros=-500000, created_at='2026-08-31T08:30:00Z'),
+            dict(id='deposit-1', kind='deposit', status='credited', status_label='зачислено', settled=True,
+                 amount_micros=1000000, amount_usdt='1', fiat_rub=None, network='TRC20', requisites='TX****mnop',
+                 partner_order_id=None, tx_hash=None, detail=None,
+                 created_at='2026-08-31T08:00:00Z', updated_at='2026-08-31T08:00:00Z'),
+            dict(id='payout-1', kind='withdrawal', status='confirmed', status_label='выплачен', settled=True,
+                 amount_micros=-500000, amount_usdt='0.5', fiat_rub=None, network='TRC20', requisites='TX****mnop',
+                 partner_order_id=None, tx_hash='0xabc', detail=None,
+                 created_at='2026-08-31T08:30:00Z', updated_at='2026-08-31T08:30:00Z'),
         ]),
         '/api/cash/referral': dict(
             code='7KQ2', start_payload='r7KQ2', invited=12,
@@ -593,8 +599,8 @@ def test_poker_cashier_puts_pending_usdt_before_cash(profile_page):
 @pytest.mark.parametrize(
     ('start', 'other_product', 'other_label', 'other_href', 'brand_product', 'brand_href'),
     [
-        ('/static/profile.html?app=poker', 'CUBE', 'В CUBE', '/cube', 'poker', '/'),
-        ('/static/profile.html?app=cube#cash', 'POKER', 'В POKER', '/', 'cube', '/cube'),
+        ('/static/profile.html?app=poker', 'CUBE', 'CUBE', '/cube', 'poker', '/'),
+        ('/static/profile.html?app=cube#cash', 'POKER', 'POKER', '/', 'cube', '/cube'),
     ],
 )
 def test_cashier_headers_link_to_the_other_game_and_their_own_brand(
@@ -624,7 +630,7 @@ def test_cube_game_header_links_to_poker_and_its_own_brand(profile_page):
     header = page.locator('.cube-header')
     poker = header.get_by_role('link', name=re.compile('POKER', re.I))
     brand = header.get_by_role('link', name=re.compile('CUBE', re.I))
-    expect(poker).to_contain_text('В POKER')
+    expect(poker).to_contain_text('POKER')
     expect(poker.locator('.ui-arrow')).to_be_visible()
     expect(poker).to_have_attribute('href', '/')
     expect(brand).to_have_attribute('href', '/cube')

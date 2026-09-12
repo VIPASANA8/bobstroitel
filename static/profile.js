@@ -327,19 +327,52 @@
     };
   }
 
+  const OPERATION_TITLES = {deposit: 'Пополнение USDT', fiat_order: 'Пополнение ₽', withdrawal: 'Вывод средств'};
+  //: Every order the player made, by id, for the dialog a tap on a row opens.
+  const operations = new Map();
+
   function operationActivities(operationsPayload) {
-    const unique = new Map();
-    for (const row of operationsPayload.entries || []) {
-      const scope = String(row.scope || '');
-      const deposit = row.kind === 'deposit';
-      const withdrawal = scope.startsWith('withdrawal-') && row.kind === 'payout';
-      if (!deposit && !withdrawal || unique.has(row.id)) continue;
-      unique.set(row.id, {
-        id: `operation:${row.id}`, category: 'operation', amountMicros: Number(row.amount_micros || 0),
-        title: deposit ? 'Пополнение' : 'Вывод средств', detail: dateText(row.created_at), createdAt: row.created_at,
-      });
-    }
-    return [...unique.values()];
+    operations.clear();
+    return (operationsPayload.entries || []).map(row => {
+      operations.set(row.id, row);
+      return {
+        id: `operation:${row.id}`, category: 'operation', operationId: row.id,
+        // Only money that moved is a result; a cancelled or pending order is
+        // listed at its amount, but in neither colour.
+        amountMicros: Number(row.amount_micros || 0), settled: Boolean(row.settled),
+        title: OPERATION_TITLES[row.kind] || row.kind,
+        detail: `${dateText(row.created_at)} · ${row.status_label || row.status}`, createdAt: row.created_at,
+      };
+    });
+  }
+
+  function operationField(label, value) {
+    return value ? `<div class="op-field"><span>${escapeHtml(label)}</span><b>${escapeHtml(value)}</b></div>` : '';
+  }
+
+  function openOperation(id) {
+    const row = operations.get(id);
+    if (!row) return;
+    const rub = row.fiat_rub ? `${row.fiat_rub} ₽` : '';
+    const usdt = `${row.amount_usdt} USDT (${cashAmount(Math.abs(Number(row.amount_micros))).replace(/^\+/, '')})`;
+    $('operationTitle').textContent = OPERATION_TITLES[row.kind] || row.kind;
+    $('operationSub').textContent = `${dateText(row.created_at)} · ${row.status_label || row.status}`;
+    $('operationFields').innerHTML = [
+      operationField('Статус', row.status_label || row.status),
+      operationField(row.kind === 'withdrawal' ? 'К выплате' : 'Сумма', rub || usdt),
+      rub ? operationField('В USDT', usdt) : '',
+      operationField('Сеть', row.network === 'P2P_RUB' ? 'Карта / СБП' : row.network),
+      operationField(row.kind === 'withdrawal' ? 'Куда' : row.kind === 'deposit' ? 'Адрес' : 'Реквизиты', row.requisites),
+      operationField('Номер заявки у партнёра', row.partner_order_id),
+      operationField('Транзакция', row.tx_hash),
+      operationField('Комментарий', row.detail),
+      operationField('Создана', new Date(row.created_at).toLocaleString('ru-RU')),
+      row.updated_at !== row.created_at ? operationField('Обновлена', new Date(row.updated_at).toLocaleString('ru-RU')) : '',
+    ].join('');
+    const ask = $('operationSupport');
+    ask.hidden = !window.Poker8Support;
+    ask.onclick = () => { $('operationDialog').close(); window.Poker8Support.openFor(row.kind, row.id); };
+    $('operationDialog').showModal();
   }
 
   function cashAmount(micros) {
@@ -352,7 +385,7 @@
 
   function cashActivityRow(row) {
     const amount = row.amountKind === 'play' ? row.amountUnits : row.amountMicros;
-    const outcome = amount > 0 ? 'win' : amount < 0 ? 'loss' : 'flat';
+    const outcome = row.category === 'operation' && !row.settled ? 'flat' : amount > 0 ? 'win' : amount < 0 ? 'loss' : 'flat';
     const primary = row.amountKind === 'play'
       ? `${amount > 0 ? '+' : ''}${units(amount)}`
       : product === 'cube' ? usdt(amount) : cashAmount(amount);
@@ -363,7 +396,8 @@
     // practice chips purple like the rest of the training side, a deposit or
     // a payout gold, and only a real result at a table green or red.
     const kind = row.amountKind === 'play' ? 'kind-play' : row.category === 'operation' ? 'kind-operation' : '';
-    return `<article class="history-row ${outcome} ${kind}">
+    const open = row.operationId ? ` role="button" tabindex="0" data-operation="${escapeHtml(row.operationId)}"` : '';
+    return `<article class="history-row ${outcome} ${kind}"${open}>
       <div class="history-what"><span class="history-sign" aria-hidden="true">${signIcon(amount)}</span><div><strong>${escapeHtml(row.title)}</strong><small>${escapeHtml(row.detail)}</small></div></div>
       <span class="history-amount"><b>${escapeHtml(primary)}</b><small>${escapeHtml(secondary)}</small></span>
     </article>`;
@@ -679,6 +713,15 @@
     await Promise.all([...pokerBlocks, openCashier().catch(showCashFailure)]);
   }
 
+  $('cashHistory').addEventListener('click', event => {
+    const row = event.target.closest('[data-operation]');
+    if (row) openOperation(row.dataset.operation);
+  });
+  $('cashHistory').addEventListener('keydown', event => {
+    const row = event.target.closest('[data-operation]');
+    if (row && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); openOperation(row.dataset.operation); }
+  });
+  $('operationDialog').querySelector('.dialog-close').addEventListener('click', () => $('operationDialog').close('cancel'));
   applyProduct();
   bindControls();
   load().catch(error => {

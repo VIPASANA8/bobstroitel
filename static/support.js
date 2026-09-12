@@ -102,7 +102,18 @@ window.Poker8Support = (() => {
   async function loadReferences() {
     const { references } = await api("/api/support/references").catch(() => ({ references: [] }));
     $("supportReference").innerHTML = '<option value="">Без привязки к заявке</option>' + references.map(item =>
-      `<option value="${escape(item.kind)}:${escape(item.id)}">${escape(item.label)} · ${escape(item.amount)} · ${escape(item.status)} · ID ${escape(item.partner_id || item.id.slice(0, 8))}</option>`).join("");
+      `<option value="${escape(item.kind)}:${escape(item.id)}">${escape(item.label)} · ${escape(item.amount)} · ${escape(item.status_label || item.status)} · ${when(item.created_at)}</option>`).join("");
+  }
+
+  // From an order in the history: the form opens on «Финансы» with that
+  // order already chosen.
+  async function openFor(kind, id) {
+    $("supportForm").reset();
+    $("supportFormError").hidden = true;
+    selectTopic("finance");
+    await loadReferences().catch(console.error);
+    $("supportReference").value = `${kind}:${id}`;
+    $("supportDialog").showModal();
   }
 
   function mount() {
@@ -198,5 +209,5 @@ window.Poker8Support = (() => {
     });
   }
 
-  return { mount, refresh };
+  return { mount, refresh, openFor };
 })();
