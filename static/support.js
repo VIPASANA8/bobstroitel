@@ -99,10 +99,25 @@ window.Poker8Support = (() => {
     $("supportReference").hidden = $("supportReferenceLabel").hidden = value !== "finance";
   };
 
+  // Which order the ticket is about: "kind:id", or "" for none. A native
+  // <select> here was a popup Telegram's webview drew outside the dialog;
+  // this list scrolls inside it.
+  let reference = "";
+  const selectReference = value => {
+    reference = value;
+    $("supportReference").querySelectorAll("[data-ref]").forEach(row => {
+      const on = row.dataset.ref === value;
+      row.classList.toggle("is-active", on);
+      row.setAttribute("aria-checked", String(on));
+    });
+  };
+
   async function loadReferences() {
     const { references } = await api("/api/support/references").catch(() => ({ references: [] }));
-    $("supportReference").innerHTML = '<option value="">Без привязки к заявке</option>' + references.map(item =>
-      `<option value="${escape(item.kind)}:${escape(item.id)}">${escape(item.label)} · ${escape(item.amount)} · ${escape(item.status_label || item.status)} · ${when(item.created_at)}</option>`).join("");
+    const row = (value, title, sub) => `<button type="button" class="ref-row" role="radio" aria-checked="false" data-ref="${escape(value)}"><span><strong>${escape(title)}</strong>${sub ? `<small>${escape(sub)}</small>` : ""}</span><i aria-hidden="true">✓</i></button>`;
+    $("supportReference").innerHTML = row("", "Без привязки к заявке", "") + references.map(item =>
+      row(`${item.kind}:${item.id}`, `${item.label} · ${item.amount}`, `${item.status_label || item.status} · ${when(item.created_at)}`)).join("");
+    selectReference(reference);
   }
 
   // From an order in the history: the form opens on «Финансы» with that
@@ -111,8 +126,8 @@ window.Poker8Support = (() => {
     $("supportForm").reset();
     $("supportFormError").hidden = true;
     selectTopic("finance");
+    reference = `${kind}:${id}`;
     await loadReferences().catch(console.error);
-    $("supportReference").value = `${kind}:${id}`;
     $("supportDialog").showModal();
   }
 
@@ -124,8 +139,13 @@ window.Poker8Support = (() => {
       $("supportForm").reset();
       $("supportFormError").hidden = true;
       selectTopic("support");
+      reference = "";
       loadReferences().catch(console.error);
       $("supportDialog").showModal();
+    });
+    $("supportReference").addEventListener("click", event => {
+      const row = event.target.closest("[data-ref]");
+      if (row) selectReference(row.dataset.ref);
     });
     $("supportTopics").addEventListener("click", event => {
       const pill = event.target.closest("[data-topic]");
@@ -163,7 +183,7 @@ window.Poker8Support = (() => {
       const submit = event.submitter || event.target.querySelector('[type="submit"]');
       submit.disabled = true;
       try {
-        const [kind, ...rest] = ($("supportReference").value || "").split(":");
+        const [kind, ...rest] = reference.split(":");
         await api("/api/support/tickets", {
           topic, text: $("supportText").value,
           reference_kind: topic === "finance" && kind ? kind : null,

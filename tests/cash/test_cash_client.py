@@ -102,7 +102,10 @@ def test_the_client_makes_no_claim_about_how_real_the_money_is():
     # the wallet -- neither is gated on which mode CASH happens to run in.
     assert 'cashTab.hidden = config.cash_mode === "off";' in LOBBY_JS
     assert "$('cashModeTab').hidden = false;" in PROFILE_JS
-    assert "cash_mode" not in PROFILE_JS
+    # The profile shows the frame as soon as it knows CASH is on at all, and
+    # never asks which mode it is in.
+    assert PROFILE_JS.count("cash_mode") == 2
+    assert "config.cash_mode && config.cash_mode !== 'off'" in PROFILE_JS
 
 
 def test_wallet_journal_exposes_scope_for_operation_classification():

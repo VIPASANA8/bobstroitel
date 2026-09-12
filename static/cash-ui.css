@@ -149,11 +149,23 @@ button.pay-currency{cursor:pointer}
 .buyin-dialog textarea,.buyin-dialog select{width:100%;margin:8px 0;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--panel-2);color:var(--ink);font:inherit;font-size:14px;resize:vertical}
 .buyin-dialog textarea:focus,.buyin-dialog select:focus{outline:none;border-color:var(--accent)}
 .buyin-dialog select[hidden],.buyin-dialog label[hidden]{display:none}
-.support-attach{margin-top:14px}
+.support-attach{margin:16px 0 4px}
+/* The dialog's own labels sit 22px under the field above; a sheet on a phone
+   has no room for that between five of them. */
+.cash-dialog .support-label,#supportDialog label,#ticketDialog label{margin-top:14px;color:var(--muted);font-size:12px}
+.cash-dialog .support-label[hidden]{display:none}
+.ref-list{display:grid;gap:6px;max-height:186px;margin:8px 0 4px;padding-right:2px;overflow-y:auto;overscroll-behavior:contain}
+.ref-list[hidden]{display:none}
+.ref-row{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:11px;background:var(--panel-2);color:var(--ink);text-align:left;cursor:pointer;transition:border-color .15s}
+.ref-row strong{display:block;font-size:12px;font-weight:700}
+.ref-row small{display:block;margin-top:2px;color:var(--muted);font-size:11px}
+.ref-row i{flex:none;color:var(--accent);font-style:normal;font-weight:800;opacity:0}
+.ref-row.is-active{border-color:var(--accent)}
+.ref-row.is-active i{opacity:1}
 /* The browser's own file control is a grey chip with «Файл не выбран» beside
    it, in the UA's font. It stays for the click and the keyboard; what shows
    is a button of the dialog's own kind and the chosen name. */
-.support-file{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:0!important;cursor:pointer}
+.cash-dialog .support-file{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:0;cursor:pointer}
 .support-file input{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0 0 0 0)}
 .support-file-button{flex:none;white-space:nowrap;line-height:1.2;padding:9px 14px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2);color:var(--ink);font-size:12px;font-weight:800;transition:border-color .18s,color .18s}
 .support-file:hover .support-file-button,.support-file:focus-within .support-file-button{border-color:var(--accent);color:var(--accent)}

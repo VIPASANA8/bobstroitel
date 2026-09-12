@@ -643,10 +643,9 @@
     if (failed.operations) showCashHistoryError('operationsHistory', 'Не удалось загрузить вводы и выводы.');
   }
 
-  async function openCashier() {
-    // The cashier only exists for a player the pilot actually lets in. History
-    // loads independently so a slow game feed cannot hold money controls back.
-    await loadCashWallet();
+  // The frame first, the numbers when they come: a tab that appears only
+  // once the wallet has answered reads as a page that loads twice.
+  function revealCashier() {
     showError('cashError', '');
     document.querySelector('.cash-wallet-grid').hidden = false;
     document.querySelector('.cash-actions').hidden = false;
@@ -654,9 +653,19 @@
     $('cashModeTab').hidden = false;
     // One tab is not a choice: the switch appears only once there are two.
     document.querySelector('.profile-modes').hidden = false;
+    // The money is what the profile opens on, here and from the lobby's
+    // "Открыть CASH-кассу" alike. Profile stays one tap to the right.
+    const modes = document.querySelector('.profile-modes');
+    if (!modes.userSelected) modes.selectTab($('cashModeTab'));
+  }
+
+  async function openCashier(config) {
+    // The cashier only exists for a player the pilot actually lets in. History
+    // loads independently so a slow game feed cannot hold money controls back.
+    await loadCashWallet();
+    revealCashier();
     // Off on a host where money is real and the USDT rail is not yet real:
     // the button would sit in front of a 404 (see self_top_up_enabled).
-    const config = await json('/api/config').catch(() => ({}));
     window.Poker8Cashier.mount({
       trc20: config.trc20_deposits_enabled !== false,
       onSettled: () => {
@@ -665,10 +674,6 @@
       },
     });
     window.Poker8Support?.mount();
-    // The money is what the profile opens on, here and from the lobby's
-    // "Открыть CASH-кассу" alike. Profile stays one tap to the right.
-    const modes = document.querySelector('.profile-modes');
-    if (!modes.userSelected) modes.selectTab($('cashModeTab'));
     loadCashHistory().catch(error => {
       console.error(error);
       fill('allHistory', [], 'Не удалось загрузить историю.');
@@ -695,22 +700,25 @@
   }
 
   async function load() {
-    const session = await window.Poker8Auth.ensureSession();
+    // Public, and needed first: it says whether there is a cashier to show.
+    const configPromise = json('/api/config').catch(() => ({}));
+    await window.Poker8Auth.ensureSession();
     $('referralModeTab').hidden = false;
     document.querySelector('.profile-modes').hidden = false;
+    const config = await configPromise;
+    if (config.cash_mode && config.cash_mode !== 'off') revealCashier();
+    const cashier = openCashier(config).catch(showCashFailure);
     // ensureSession publishes the profile when it got there through the
     // session cookie, which is the usual way in; only a fresh login returns an
     // auth receipt instead, and that one has no XP, level or table stack.
     if (product === 'poker') renderProfile(window.Poker8Profile || await json('/api/profile'));
-    void session;
-    const config = await json('/api/config').catch(() => ({}));
     renderTopUp(product === 'poker' && Boolean(config.self_top_up_enabled));
     const pokerBlocks = product === 'poker' ? [
       loadBlock('/api/profile/missions', 'missionList', renderMissions, 'Не удалось загрузить задания. Обновите страницу.', 'missionsError'),
       loadBlock('/api/profile/stats', 'statsGrid', renderStats, 'Не удалось загрузить статистику. Обновите страницу.', 'statsError'),
       loadBlock('/api/profile/achievements', 'achievementList', renderAchievements, 'Не удалось загрузить достижения. Обновите страницу.', 'achievementsError'),
     ] : [];
-    await Promise.all([...pokerBlocks, openCashier().catch(showCashFailure)]);
+    await Promise.all([...pokerBlocks, cashier]);
   }
 
   $('cashHistory').addEventListener('click', event => {
