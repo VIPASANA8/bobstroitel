@@ -10,7 +10,7 @@ from cash.deposits import DepositUnavailable
 from cash.holds import CashUserFrozen, take_a_break
 from cash.fiat_orders import ActiveFiatOrderExists
 from cash.ledger import IdempotencyConflict, InsufficientCash
-from cash.referrals import summary as referral_summary
+from cash.referrals import summary as referral_summary, web_link
 from cash.trc20 import TransferEvent
 from cash.amounts import kopecks_to_rub, micros_to_usdt
 from cash.rates import current_rub_rate
@@ -115,6 +115,7 @@ async def referral(request: Request, user: AuthenticatedUser = Depends(get_curre
     return {
         **data,
         "link": f"https://t.me/{username}?startapp={data['start_payload']}" if username else None,
+        "web_link": web_link(request.headers.get("host", ""), data["code"]),
     }
 
 

@@ -765,10 +765,14 @@ auth_login_requests = Table(
     # question nobody has answered yet.
     Column("telegram_user_id", BIGINT),
     Column("display_name", String(200)),
+    Column("username", String(64)),
     Column("created_at", timestamp, **created_at),
     Column("expires_at", timestamp, nullable=False),
     # A code buys exactly one session; the second attempt finds it spent.
     Column("consumed_at", timestamp),
+    # The invitation the page was opened through, if any. It rides along
+    # here because the account is only made when the code is claimed.
+    Column("referral_code", String(16)),
 )
 Index("ix_auth_login_requests_expiry", auth_login_requests.c.expires_at)
 

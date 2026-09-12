@@ -49,6 +49,11 @@ def start_payload(code: str) -> str:
     return f"{LINK_PREFIX}{code}"
 
 
+def web_link(host: str, code: str) -> str:
+    """The same invitation as a site address, for people who are not in Telegram."""
+    return f"https://{host}/?ref={start_payload(code)}"
+
+
 async def code_for(session, user_id: str) -> str:
     """This user's own code, made the first time anybody asks for it."""
     existing = await session.scalar(

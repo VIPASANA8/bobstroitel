@@ -62,6 +62,15 @@ window.Poker8TgLogin = (() => {
     <path d="M21.9 4.3 18.9 19c-.2 1-.8 1.3-1.7.8l-4.6-3.4-2.2 2.1c-.3.3-.5.5-1 .5l.3-4.7 8.6-7.8c.4-.3-.1-.5-.6-.2L6.9 12.9 2.4 11.5c-1-.3-1-1 .2-1.4l18-6.9c.8-.3 1.5.2 1.3 1.1z"/>
   </svg>`;
 
+  //: An invitation in the address is kept for the login, wherever on the
+  //: site the player ends up starting it from.
+  const REF_KEY = "poker8.ref";
+  try {
+    const ref = new URLSearchParams(location.search).get("ref");
+    if (ref) sessionStorage.setItem(REF_KEY, ref);
+  } catch (_) { /* no storage: the invitation only survives this page */ }
+  const savedRef = () => { try { return sessionStorage.getItem(REF_KEY) || undefined; } catch (_) { return undefined; } };
+
   const post = (path, body) => fetch(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -98,7 +107,7 @@ window.Poker8TgLogin = (() => {
     note.className = "tg-gate-note";
     note.textContent = "Открываем Telegram…";
 
-    const response = await post("/api/auth/telegram/request");
+    const response = await post("/api/auth/telegram/request", { ref: savedRef() });
     if (!response.ok) {
       button.disabled = false;
       note.textContent = "Вход через Telegram сейчас недоступен.";

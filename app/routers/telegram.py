@@ -4,7 +4,7 @@ import hmac
 
 from fastapi import APIRouter, Header, HTTPException, Request
 
-from cash.referrals import code_for, normalise as normalise_referral, start_payload
+from cash.referrals import code_for, normalise as normalise_referral, start_payload, web_link
 from online.auth import AuthenticationError, login_code, telegram_username
 from online.support import SupportError, short_id
 from online.telegram import (
@@ -31,7 +31,8 @@ WELCOME = (
     "👥 <b>Приглашайте друзей и зарабатывайте от 5 до 15% с их игры!</b>"
 )
 #: Under the welcome, once the player has an account for the link to pay into.
-REFERRAL_LINE = "\n\nВаша ссылка: {link}"
+REFERRAL_LINE = "\n\nTG: {link}"
+WEB_LINE = "\nWEB: {link}"
 STALE = "Ссылка для входа устарела. Откройте сайт и нажмите «Войти» ещё раз."
 INVITED = (
     "Вас пригласили в Poker8. Откройте приложение — приглашение закрепится "
@@ -151,10 +152,12 @@ async def webhook(
         # An operator is a player too, so the login keeps this command.
         nonce = text[len("/start"):].strip()
         if not nonce:
-            link = await _referral_link(request, tenant_slug, sender)
+            links = await _referral_links(request, tenant_slug, sender, tenant.get("hosts", []))
             await send_message(
                 token, chat_id,
-                WELCOME + (REFERRAL_LINE.format(link=link) if link else ""),
+                WELCOME + "".join(
+                    line.format(link=link) for line, link in zip((REFERRAL_LINE, WEB_LINE), links)
+                ),
                 parse_mode="HTML",
             )
             return {"ok": True}
@@ -255,24 +258,28 @@ async def _ticket_message(request: Request, token: str, chat_id: int, sender: di
     return True
 
 
-async def _referral_link(request: Request, tenant_slug: str, sender: dict) -> str | None:
-    """This person's own invitation. A /start is the first the site hears of
-    most people, so the account the code belongs to is opened right here."""
+async def _referral_links(request: Request, tenant_slug: str, sender: dict, hosts: list) -> list[str]:
+    """This person's own invitation, for Telegram and then for the site. A
+    /start is the first the site hears of most people, so the account the
+    code belongs to is opened right here."""
     username = getattr(request.app.state, "telegram_login_bots", {}).get(
         tenant_slug, {},
     ).get("username")
     if not username or not sender.get("id"):
-        return None
+        return []
     try:
         user_id = await request.app.state.auth_service.register(
             tenant_slug, int(sender["id"]), _display_name(sender), telegram_username(sender),
         )
     except AuthenticationError:
-        return None
+        return []
     async with request.app.state.session_factory() as session:
         async with session.begin():
             code = await code_for(session, user_id)
-    return f"https://t.me/{username}?startapp={start_payload(code)}"
+    links = [f"https://t.me/{username}?startapp={start_payload(code)}"]
+    if hosts:
+        links.append(web_link(hosts[0], code))
+    return links
 
 
 def _display_name(sender: dict) -> str:
@@ -295,18 +302,15 @@ async def _confirm(auth, token: str, tenant_slug: str, callback: dict) -> None:
     callback_id = callback.get("id")
     sender = callback.get("from") or {}
     try:
+        # The handle rides on the login row rather than being written to the
+        # account here: there is no account yet, and making one now would make
+        # it without the invitation the page opened this login with.
         opened = await auth.bind_login_request(
             tenant_slug, data[len(CONFIRM):], int(sender.get("id") or 0), _display_name(sender),
+            telegram_username(sender),
         )
     except AuthenticationError:
         opened = False
-    if opened and sender.get("id"):
-        # The login row carried no handle; the account exists now, so note it.
-        try:
-            await auth.register(tenant_slug, int(sender["id"]), _display_name(sender),
-                                telegram_username(sender))
-        except AuthenticationError:
-            pass
     if callback_id:
         await answer_callback(token, callback_id, SIGNED_IN if opened else STALE)
     chat_id = ((callback.get("message") or {}).get("chat") or {}).get("id")

@@ -9,7 +9,7 @@ from sqlalchemy import select
 from app.online import create_app
 from cash.access import ensure_cash_access
 from online.asyncio_runner import run
-from online.schema import auth_sessions
+from online.schema import auth_sessions, users
 from online.auth import app_link, login_code
 from online.config import Settings
 from online.telegram import webhook_secret
@@ -23,7 +23,14 @@ ADMIN_SECRET = webhook_secret(ADMIN_TOKEN)
 
 
 @pytest.fixture
-def client(tmp_path):
+def client(tmp_path, monkeypatch):
+    # Startup asks Telegram for the bot's name in the background; a test
+    # network has no answer, so the lookup is given one -- via the lookup
+    # itself, so it cannot land later and overwrite a stand-in.
+    async def resolved(tokens):
+        return {"poker8": {"username": "TestBot", "app_url": "https://t.me/TestBot?startapp"}}
+
+    monkeypatch.setattr("app.online.resolve_login_bots", resolved)
     settings = Settings.from_mapping({
         "POKER8_ENV": "development",
         "POKER8_DATABASE_URL": f"sqlite+aiosqlite:///{tmp_path / 'login.sqlite3'}",
@@ -36,8 +43,6 @@ def client(tmp_path):
         "POKER8_CASH_ADMIN_API_KEY": "test-admin-key-0123456789abcdef",
     })
     with TestClient(create_app(settings)) as test_client:
-        # Startup asks Telegram for the bot's name in the background and will
-        # not have it here, so the button's own precondition is stood in for.
         test_client.app.state.telegram_login_bots = {
             "poker8": {"username": "TestBot", "app_url": "https://t.me/TestBot?startapp"},
         }
@@ -64,7 +69,7 @@ def _confirm(client, nonce, *, user_id=5150, first_name="Вера", secret=SECRE
         f"/api/telegram/webhook/{tenant}",
         headers=headers,
         json={"callback_query": {
-            "id": "cb1", "from": {"id": user_id, "first_name": first_name},
+            "id": "cb1", "from": {"id": user_id, "first_name": first_name, "username": "vera_v"},
             "message": {"chat": {"id": 900}}, "data": f"login:{nonce}",
         }},
     )
@@ -144,16 +149,51 @@ def test_a_bare_start_is_a_greeting_with_the_players_own_link(client, monkeypatc
         sent.append(text)
 
     monkeypatch.setattr("app.routers.telegram.send_message", record)
+    client.app.state.settings.tenant_configs["poker8"]["hosts"] = ["donbass.test"]
     assert _greet(client, 5150).status_code == 200
-    link = re.search(r"Ваша ссылка: (\S+)$", sent[-1]).group(1)
-    assert link.startswith("https://t.me/TestBot?startapp=r")
+    link = re.search(r"TG: (\S+)\nWEB: (\S+)$", sent[-1])
+    assert link.group(1).startswith("https://t.me/TestBot?startapp=r")
 
     opened = client.post("/api/auth/telegram/request").json()
     _start(client, opened["nonce"])
     _confirm(client, opened["nonce"])
     client.post("/api/auth/telegram/claim", json={"nonce": opened["nonce"]})
-    payload = client.get("/api/cash/referral").json()["start_payload"]
-    assert link == f"https://t.me/TestBot?startapp={payload}"
+    summary = client.get("/api/cash/referral").json()
+    assert link.group(1) == f"https://t.me/TestBot?startapp={summary['start_payload']}"
+    assert link.group(2) == f"https://donbass.test/?ref={summary['start_payload']}"
+    assert summary["web_link"] == f"https://testserver/?ref={summary['start_payload']}"
+
+
+def test_a_site_link_carries_the_invitation_into_the_browser_login(client):
+    """`/?ref=` is the Mini App's `?startapp=` for people at the site: the
+    page hands the code over when it opens the login, and the account made
+    on claim belongs to the inviter's group."""
+    opened = client.post("/api/auth/telegram/request").json()
+    _confirm(client, opened["nonce"], user_id=7001)
+    client.post("/api/auth/telegram/claim", json={"nonce": opened["nonce"]})
+    inviter = client.get("/api/cash/referral").json()
+    assert inviter["invited"] == 0
+
+    invited = client.post("/api/auth/telegram/request", json={"ref": inviter["start_payload"]}).json()
+    _confirm(client, invited["nonce"], user_id=7002, first_name="Гость")
+    assert client.post("/api/auth/telegram/claim", json={"nonce": invited["nonce"]}).status_code == 200
+    client.cookies.clear()
+
+    client.post("/api/auth/telegram/claim", json={"nonce": opened["nonce"]})
+    again = client.post("/api/auth/telegram/request").json()
+    _confirm(client, again["nonce"], user_id=7001)
+    client.post("/api/auth/telegram/claim", json={"nonce": again["nonce"]})
+    assert client.get("/api/cash/referral").json()["invited"] == 1
+    # And the handle the bot saw still reached the account, via the login row.
+    handle = run(stored_username(client.app.state.session_factory, 7002))
+    assert handle == "vera_v"
+
+
+async def stored_username(factory, telegram_user_id):
+    async with factory() as session:
+        return await session.scalar(
+            select(users.c.username).where(users.c.telegram_user_id == telegram_user_id)
+        )
 
 
 def test_updates_that_are_not_a_start_are_shrugged_off(client):

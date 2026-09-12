@@ -178,7 +178,7 @@ class AuthService:
                 username=telegram_username(telegram_user),
             )
 
-    async def start_login_request(self, tenant_slug: str) -> str:
+    async def start_login_request(self, tenant_slug: str, referral_code: str | None = None) -> str:
         """Open a login and return the code the browser sends to the bot."""
         now = datetime.now(timezone.utc)
         nonce = secrets.token_urlsafe(24)
@@ -195,6 +195,7 @@ class AuthService:
                     nonce=nonce,
                     tenant_id=tenant_row["id"],
                     expires_at=now + timedelta(seconds=self.login_request_ttl_seconds),
+                    referral_code=referral_code,
                 ))
         return nonce
 
@@ -220,7 +221,8 @@ class AuthService:
             ))
 
     async def bind_login_request(
-        self, tenant_slug: str, nonce: str, telegram_user_id: int, display_name: str
+        self, tenant_slug: str, nonce: str, telegram_user_id: int, display_name: str,
+        username: str | None = None,
     ) -> bool:
         """Somebody confirmed in the bot. Answer whether that opened a login.
 
@@ -241,7 +243,8 @@ class AuthService:
                         auth_login_requests.c.consumed_at.is_(None),
                         auth_login_requests.c.expires_at > now,
                     )
-                    .values(telegram_user_id=telegram_user_id, display_name=display_name)
+                    .values(telegram_user_id=telegram_user_id, display_name=display_name,
+                            username=username)
                 )
         return bool(result.rowcount)
 
@@ -280,6 +283,8 @@ class AuthService:
                     int(row["telegram_user_id"]),
                     row["display_name"] or "Игрок",
                     "telegram",
+                    referral_code=row["referral_code"],
+                    username=row["username"],
                 )
 
     async def authenticate_dev(

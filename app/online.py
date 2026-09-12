@@ -48,7 +48,7 @@ from online.schema import cash_operators, metadata, tenant_bots, tenants
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
-EXPECTED_MIGRATION_REVISION = "20260912_0034"
+EXPECTED_MIGRATION_REVISION = "20260913_0035"
 
 #: Payout providers this application knows how to drive. Deliberately empty:
 #: custody and transaction signing live outside Poker8, and until one is

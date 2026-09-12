@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 from fastapi.responses import JSONResponse
 
+from cash.referrals import normalise as normalise_referral
 from online.auth import AuthenticationError, login_code
 from online.faucet import WELCOME_UNITS, refill_if_broke
 from online.ratelimit import WindowLimiter, caller
@@ -116,8 +117,13 @@ class LoginRequest(BaseModel):
     nonce: str = Field(min_length=8, max_length=64)
 
 
+class LoginStart(BaseModel):
+    #: The invitation the page was opened through, from `?ref=` in its address.
+    ref: str | None = Field(default=None, max_length=16)
+
+
 @router.post("/telegram/request")
-async def start_telegram_login(request: Request):
+async def start_telegram_login(request: Request, payload: LoginStart | None = None):
     """Open a login: a one-time code, and the link that carries it to the bot.
 
     The browser stays where it is. Telegram's own widget would ask for a phone
@@ -130,7 +136,9 @@ async def start_telegram_login(request: Request):
     if not bot.get("username"):
         raise HTTPException(status_code=503, detail="Вход через Telegram сейчас недоступен")
     try:
-        nonce = await request.app.state.auth_service.start_login_request(slug)
+        nonce = await request.app.state.auth_service.start_login_request(
+            slug, normalise_referral(payload.ref if payload else None),
+        )
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
     return {

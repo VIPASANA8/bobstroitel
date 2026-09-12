@@ -32,7 +32,7 @@ def test_referral_is_available_while_cash_stays_off(client):
     assert referral.status_code == 200
     assert set(referral.json()) == {
         "code", "start_payload", "invited", "pending_micros",
-        "paid_micros", "carryover_micros", "link",
+        "paid_micros", "carryover_micros", "link", "web_link",
     }
 
     # The exception is read-only and route-specific. CASH remains unavailable.
