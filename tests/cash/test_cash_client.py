@@ -67,7 +67,7 @@ def test_cash_ui_exposes_rub_p2p_without_changing_trc20_withdrawals():
     # its own beside it -- and the partner's id is on screen, selectable whole
     # rather than sitting behind a copy button.
     assert "Комиссия" not in CASHIER_JS
-    assert "ID заявки" in CASHIER_JS and "partner_order_id" in CASHIER_JS
+    assert "Номер заявки" in CASHIER_JS and "partner_order_id" in CASHIER_JS
     assert "user-select:all" in (ROOT / "static" / "cash-ui.css").read_text(encoding="utf-8")
     assert "simulate-trader-confirmation" not in CASHIER_JS
     assert 'id="withdrawAddress"' in PROFILE

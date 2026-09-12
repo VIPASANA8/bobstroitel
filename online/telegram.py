@@ -100,6 +100,13 @@ async def download_file(bot_token: str, file_id: str) -> bytes | None:
         return None
 
 
+async def chat_username(bot_token: str, chat_id: int) -> str | None:
+    """The @handle of somebody who has talked to this bot, or None."""
+    chat = await _call(bot_token, "getChat", {"chat_id": chat_id})
+    handle = (chat or {}).get("username")
+    return handle.strip().lstrip("@")[:64] or None if isinstance(handle, str) else None
+
+
 def _result(response) -> dict | None:
     """The message Telegram sent, or None when it said no."""
     body = response.json()

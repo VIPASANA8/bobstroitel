@@ -1,6 +1,7 @@
 from sqlalchemy import select
 
 from cash.amounts import kopecks_to_rub, micros_to_units, micros_to_usdt
+from cash.ids import human_id, partner_number
 from online.schema import (
     cash_accounts, cash_deposits, cash_entries, cash_fiat_orders, cash_transactions,
     cash_withdrawals,
@@ -102,7 +103,8 @@ def mask(value: str | None) -> str | None:
 
 def _deposit_row(row) -> dict:
     return {
-        "id": row["id"], "kind": "deposit", "status": row["status"],
+        "id": row["id"], "number": human_id("deposit", row["id"]),
+        "kind": "deposit", "status": row["status"],
         "status_label": status_ru("deposit", row["status"]),
         "settled": row["status"] in SETTLED,
         "amount_micros": row["expected_micros"], "amount_usdt": micros_to_usdt(row["expected_micros"]),
@@ -114,15 +116,15 @@ def _deposit_row(row) -> dict:
 
 
 def _fiat_order_row(row) -> dict:
-    partner = row["pservice_order_id"] or row["partner_order_id"]
     return {
-        "id": row["id"], "kind": "fiat_order", "status": row["status"],
+        "id": row["id"], "number": human_id("fiat_order", row["id"]),
+        "kind": "fiat_order", "status": row["status"],
         "status_label": status_ru("fiat_order", row["status"]),
         "settled": row["status"] in SETTLED,
         "amount_micros": row["requested_micros"], "amount_usdt": micros_to_usdt(row["requested_micros"]),
         "fiat_rub": kopecks_to_rub(row["fiat_kopecks"]) if row["fiat_kopecks"] else None,
         "network": "P2P_RUB", "requisites": mask(row["requisites"]),
-        "partner_order_id": None if partner is None else str(partner),
+        "partner_order_id": partner_number(row["partner_order_id"]),
         "tx_hash": None, "detail": row["detail"],
         "created_at": row["created_at"], "updated_at": row["updated_at"],
     }
@@ -131,7 +133,8 @@ def _fiat_order_row(row) -> dict:
 def _withdrawal_row(row) -> dict:
     kopecks = row["fiat_kopecks"] or row["quote_kopecks"]
     return {
-        "id": row["id"], "kind": "withdrawal", "status": row["status"],
+        "id": row["id"], "number": human_id("withdrawal", row["id"]),
+        "kind": "withdrawal", "status": row["status"],
         "status_label": status_ru("withdrawal", row["status"]),
         "settled": row["status"] in SETTLED,
         "amount_micros": -row["amount_micros"], "amount_usdt": micros_to_usdt(row["amount_micros"]),

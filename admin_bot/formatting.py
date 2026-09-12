@@ -1,3 +1,4 @@
+from cash.ids import human_id, partner_number
 from html import escape
 
 
@@ -15,7 +16,7 @@ def queue_messages(queue):
     for row in queue.get("withdrawals", []):
         messages.append((
             "withdrawal", row["id"], row["status"],
-            f"💸 <b>Вывод</b> <code>{escape(row['id'])}</code>\n"
+            f"💸 <b>Вывод</b> <code>{human_id('withdrawal', row['id'])}</code>\n"
             f"Статус: <b>{escape(row['status'])}</b>\n"
             f"Пользователь: <code>{escape(row['user_id'])}</code>\n"
             f"Сумма: {_usdt(row['amount_micros'])} USDT\n"
@@ -33,19 +34,19 @@ def queue_messages(queue):
     for row in queue.get("fiat_orders", []):
         messages.append((
             "fiat_order", row["id"], row["status"],
-            f"₽ <b>Fiat P2P</b> <code>{escape(row['id'])}</code>\n"
+            f"₽ <b>Fiat P2P</b> <code>{human_id('fiat_order', row['id'])}</code>\n"
             f"Статус: <b>{escape(row['status'])}</b>\n"
             f"Пользователь: <code>{escape(row['user_id'])}</code>\n"
             f"Сумма: {_usdt(row['requested_micros'])} USDT / "
             f"{_rub(row.get('fiat_kopecks'))} {escape(row['currency'])}\n"
-            f"Partner order: <code>{escape(str(row.get('partner_order_id') or 'не создан'))}</code>\n"
+            f"Ордер партнёра: <code>{escape(partner_number(row.get('partner_order_id')) or 'не создан')}</code>\n"
             f"Детали: {escape(row.get('detail') or '—')}",
         ))
     for row in queue.get("fiat_reviews", []):
         messages.append((
             "fiat_event", str(row["event_id"]), row["status"],
             f"⚠️ <b>Событие P2P на разборе</b> <code>{escape(str(row['event_id']))}</code>\n"
-            f"Partner order: <code>{escape(str(row['partner_order_id']))}</code>\n"
+            f"Ордер партнёра: <code>{escape(partner_number(row['partner_order_id']) or '—')}</code>\n"
             f"Тип: <b>{escape(row['event_type'])}</b>\n"
             f"Детали: {escape(row.get('detail') or '—')}",
         ))
@@ -68,12 +69,13 @@ def fiat_order_message(order):
         for event in order.get("events", [])
     ) or "событий пока нет"
     return (
-        f"\u20bd <b>Fiat P2P</b> <code>{escape(order['id'])}</code>\n"
+        f"\u20bd <b>Fiat P2P</b> <code>{human_id('fiat_order', order['id'])}</code>\n"
         f"Статус: <b>{escape(order['status'])}</b>\n"
         f"Пользователь: <code>{escape(order['user_id'])}</code>\n"
         f"Сумма: {_usdt(order['requested_micros'])} USDT / "
         f"{_rub(order.get('fiat_kopecks'))} {escape(order['currency'])}\n"
-        f"Partner order: <code>{escape(str(order.get('partner_order_id') or 'не создан'))}</code>\n"
+        f"Ордер партнёра: <code>{escape(partner_number(order.get('partner_order_id')) or 'не создан')}</code>\n"
+        f"Полный id: <code>{escape(order['id'])}</code>\n"
         f"Трейдер: {escape(order.get('trader_username') or '—')} · "
         f"реквизиты {escape(order.get('requisites_tail') or '—')}\n"
         f"Истекает: {escape(str(order.get('expires_at') or '—'))}\n"

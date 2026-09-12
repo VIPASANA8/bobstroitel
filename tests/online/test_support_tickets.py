@@ -35,6 +35,10 @@ class FakeTelegram:
     async def edit_reply_markup(self, token, chat_id, message_id, reply_markup):
         self.edits.append((token, chat_id, message_id, reply_markup))
 
+    async def chat_username(self, token, chat_id):
+        self.looked_up = (token, chat_id)
+        return "mclovin"
+
 
 @pytest.fixture
 def telegram(monkeypatch):
@@ -42,6 +46,7 @@ def telegram(monkeypatch):
     monkeypatch.setattr(support_module, "send_message", fake.send_message)
     monkeypatch.setattr(support_module, "send_photo", fake.send_photo)
     monkeypatch.setattr(support_module, "edit_reply_markup", fake.edit_reply_markup)
+    monkeypatch.setattr(support_module, "chat_username", fake.chat_username)
     return fake
 
 
@@ -52,8 +57,7 @@ def service(db_session_factory):
             async with session.begin():
                 await session.execute(tenants.insert().values(id="t1", slug="poker8", name="Poker8"))
                 await session.execute(users.insert().values(
-                    id="u1", telegram_user_id=42, display_name="Игрок", username="maktraxer",
-                    acquisition_tenant_id="t1"))
+                    id="u1", telegram_user_id=42, display_name="Игрок", acquisition_tenant_id="t1"))
                 await session.execute(cash_operators.insert().values(
                     id="op-1", telegram_user_id=111, role="admin"))
                 await session.execute(cash_operators.insert().values(
@@ -83,7 +87,9 @@ def test_ticket_round_trip(service, telegram):
     cards = asyncio.run(service.open_for_operator(ADMIN))
     assert len(cards) == 1
     assert _buttons(cards[0]["keyboard"]) == ["✍️ Ответить", "❌ Не отвечено"]
-    assert "<code>42</code>" in cards[0]["text"] and "@maktraxer" in cards[0]["text"]
+    # No handle was recorded at login, so the players' bot was asked for it.
+    assert telegram.looked_up == ("player-token", 42)
+    assert "<code>42</code>" in cards[0]["text"] and "@mclovin" in cards[0]["text"]
 
     asyncio.run(service.operator_reply(ADMIN, ticket["id"], "Проверяем, ответим сегодня"))
     # Every copy of the card flips, and the player hears it on their own bot.

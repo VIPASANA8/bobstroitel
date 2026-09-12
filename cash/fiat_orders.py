@@ -11,6 +11,7 @@ from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 
+from cash.ids import human_id, partner_number
 from cash.amounts import kopecks_to_rub, micros_to_units, micros_to_usdt, usdt_to_micros
 from cash.antifraud import DepositPolicy, screen_fiat_order
 from cash.fiat_p2p import (
@@ -127,7 +128,7 @@ class FiatOrderService:
                         cash_fiat_orders.c.id == order_id,
                         cash_fiat_orders.c.status == "requesting",
                     ).values(pservice_order_id=payment.order_id, expires_at=payment.expires_at,
-                             updated_at=self.now()))
+                             partner_order_id=payment.order_number, updated_at=self.now()))
         except IntegrityError as exc:
             # pservice hands a user their open order back instead of a new
             # one, and this one already belongs to an earlier local order --
@@ -355,6 +356,8 @@ class FiatOrderService:
                 values = {"updated_at": now}
                 # Requisites and the fiat amount only mean anything once a trader
                 # is on the order; before that pservice has nothing to show.
+                if status.order_number is not None:
+                    values["partner_order_id"] = status.order_number
                 if status.fiat_kopecks is not None:
                     values["fiat_kopecks"] = status.fiat_kopecks
                 if status.requisites is not None:
@@ -417,10 +420,11 @@ class FiatOrderService:
             "charged_usdt": micros_to_usdt(row["requested_micros"] + row["fee_micros"]),
             "fiat_kopecks": row["fiat_kopecks"],
             "fiat_rub": None if row["fiat_kopecks"] is None else kopecks_to_rub(row["fiat_kopecks"]),
-            # The partner's own id for this payment. It is what an operator on
-            # their side searches by, so it is what the player has to be able
-            # to quote when something needs looking up.
-            "partner_order_id": row["pservice_order_id"],
+            # The partner's running number for this payment. It is what an
+            # operator on their side searches by, so it is what the player has
+            # to be able to quote when something needs looking up.
+            "partner_order_id": partner_number(row["partner_order_id"]),
+            "number": human_id("fiat_order", row["id"]),
             "requisites": row["requisites"],
             "trader_username": row["trader_username"], "detail": row["detail"],
             "expires_at": row["expires_at"],

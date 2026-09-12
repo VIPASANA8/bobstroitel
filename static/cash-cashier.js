@@ -126,7 +126,7 @@ window.Poker8Cashier = (() => {
         ${payRow("К оплате", `${order.fiat_rub} ₽`, order.fiat_rub)}
         ${payRow("Реквизиты", order.requisites, requisiteNumber(order.requisites))}
       ` : ""}
-      ${order.partner_order_id ? idRow("ID заявки", order.partner_order_id) : ""}
+      ${order.partner_order_id ? idRow("Номер заявки", order.partner_order_id) : ""}
       <p class="pay-note">${escape(stage.note)}</p>
       <p class="pay-note">Зачисление: ${escape(order.requested_units)} CASH (${escape(order.requested_usdt)} USDT)<br>
       <span id="fiatCountdown">${escape(fiatCountdown(order))}</span></p>

@@ -10,6 +10,7 @@ from sqlalchemy.dialects.postgresql import insert
 
 from cash.access import CashOperator
 from cash.antifraud import cancelled_after_payment
+from cash.ids import id_prefix
 from cash.amounts import micros_to_units, micros_to_usdt
 from cash.cube import CUBE_ACCOUNT
 from cash.fiat_orders import fiat_credit_postings
@@ -620,8 +621,12 @@ class CashAdminService:
             raise ValueError("invalid fiat order identifier")
         async with self.sessions() as session:
             condition = cash_fiat_orders.c.id == identifier
-            if identifier.isdigit():
-                condition = condition | (cash_fiat_orders.c.partner_order_id == int(identifier))
+            number = identifier.lstrip("#")
+            if number.isdigit():
+                condition = condition | (cash_fiat_orders.c.partner_order_id == int(number))
+            prefix = id_prefix(identifier)
+            if prefix:
+                condition = condition | cash_fiat_orders.c.id.like(prefix + "%")
             row = (await session.execute(select(cash_fiat_orders).where(condition))).mappings().first()
             if row is None:
                 raise LookupError("fiat order not found")

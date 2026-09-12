@@ -101,6 +101,8 @@ class PservicePayment:
     order_id: str
     status: int
     expires_at: datetime | None
+    #: The trader network's running number, the one a person quotes («#67191»).
+    order_number: int | None = None
 
 
 @dataclass(frozen=True)
@@ -117,6 +119,8 @@ class PserviceOrderStatus:
     trader_username: str | None
     expires_at: datetime | None
     detail: str | None
+    #: The trader network's running number, the one a person quotes («#67191»).
+    order_number: int | None = None
 
     @property
     def local_status(self) -> str:
@@ -143,6 +147,7 @@ def _order_status_from(raw: dict[str, Any]) -> PserviceOrderStatus:
         raise PartnerProtocolError("pservice amount_usdt must be integer cents")
     return PserviceOrderStatus(
         status=status,
+        order_number=_order_number(raw.get("order_number")),
         amount_cents=cents,
         fiat_kopecks=None if fiat is None else fiat * 100,
         requisites=(raw.get("trader_info") or None),
@@ -150,6 +155,12 @@ def _order_status_from(raw: dict[str, Any]) -> PserviceOrderStatus:
         expires_at=_optional_utc(raw.get("expires_at")),
         detail=(raw.get("error_reason") or None),
     )
+
+
+def _order_number(value) -> int | None:
+    """pservice sends it as a string of digits; anything else is no number."""
+    text = str(value).strip() if value is not None else ""
+    return int(text) if text.isdigit() else None
 
 
 def is_internal_url(url: str) -> bool:
@@ -219,6 +230,7 @@ class PserviceClient:
             order_id=str(raw["order_id"]),
             status=int(raw["status"]),
             expires_at=_optional_utc(raw.get("expires_at")),
+            order_number=_order_number(raw.get("order_number")),
         )
 
     async def order_status(self, order_id: str) -> PserviceOrderStatus:

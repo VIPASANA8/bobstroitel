@@ -16,12 +16,13 @@ from sqlalchemy import func, select, update
 
 from cash.access import CashOperator
 from cash.amounts import kopecks_to_rub, micros_to_usdt
+from cash.ids import human_id, partner_number
 from cash.wallet import WalletService, status_ru
 from online.schema import (
     cash_deposits, cash_fiat_orders, cash_operators, cash_withdrawals, support_messages,
     support_tickets, tenants, users,
 )
-from online.telegram import edit_reply_markup, send_message, send_photo
+from online.telegram import chat_username, edit_reply_markup, send_message, send_photo
 
 
 logger = logging.getLogger("poker8.support")
@@ -359,9 +360,9 @@ class SupportService:
                  "withdrawal": cash_withdrawals}[kind]
         item = (await session.execute(select(table).where(table.c.id == ref_id))).mappings().first()
         if item is None:
-            return f"📎 <b>{REFERENCE_KINDS[kind]}:</b> <code>{escape(ref_id)}</code>"
+            return f"📎 <b>{REFERENCE_KINDS[kind]}:</b> <code>{human_id(kind, ref_id)}</code>"
         if kind == "fiat_order":
-            partner = item["pservice_order_id"] or item["partner_order_id"] or "—"
+            partner = partner_number(item["partner_order_id"]) or "не присвоен"
             amount = (kopecks_to_rub(item["fiat_kopecks"]) + " ₽" if item["fiat_kopecks"]
                       else micros_to_usdt(item["requested_micros"]) + " USDT")
             fields = [
@@ -381,8 +382,30 @@ class SupportService:
                 f"💸 <b>Вывод</b> · {payout} · {escape(item['network'])} · {status_ru('withdrawal', item['status'])}",
                 f"🔗 <b>Куда:</b> <code>{escape(item['destination_address'])}</code>",
             ]
-        fields.append(f"🗂 <b>Наш id:</b> <code>{escape(ref_id)}</code>")
+        fields.append(f"🗂 <b>Покерокуб ID:</b> <code>{human_id(kind, ref_id)}</code>")
         return "\n".join(fields)
+
+    async def _ensure_username(self, ticket_id: str) -> None:
+        """A handle is recorded at login, and a player on an older session has
+        not logged in since that started. Their bot knows it: ask once."""
+        async with self.sessions() as session:
+            row = await self._ticket(session, ticket_id)
+            if row is None:
+                return
+            user = (await session.execute(select(users.c.id, users.c.username).where(
+                users.c.id == row["user_id"]))).mappings().first()
+            if user is None or user["username"]:
+                return
+            player = await self._player(session, row)
+        if not player:
+            return
+        handle = await chat_username(player["token"], player["telegram_user_id"])
+        if not handle:
+            return
+        async with self.sessions() as session:
+            async with session.begin():
+                await session.execute(update(users).where(users.c.id == user["id"])
+                                      .values(username=handle))
 
     async def _deliver_to_operators(self, ticket_id: str, message_id: str,
                                     photo: bytes | None, photo_type: str | None) -> None:
@@ -391,6 +414,7 @@ class SupportService:
         if not self.admin_token:
             logger.warning("poker8_support_no_admin_bot", extra={"ticket_id": ticket_id})
             return
+        await self._ensure_username(ticket_id)
         async with self.sessions() as session:
             row = await self._ticket(session, ticket_id)
             message = (await session.execute(select(support_messages).where(

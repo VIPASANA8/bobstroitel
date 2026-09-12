@@ -29,7 +29,7 @@ async def test_operations_list_every_order_newest_first_and_stay_private(db_sess
                 expires_at=now, created_at=now - timedelta(days=2), updated_at=now - timedelta(days=2)))
             await session.execute(cash_fiat_orders.insert().values(
                 id="ord-1", user_id="alice", tenant_id="tenant", request_key="o1", request_hash="b" * 64,
-                pservice_order_id="psv-777", currency="RUB", requested_micros=20_000_000,
+                pservice_order_id="psv-777", partner_order_id=67191, currency="RUB", requested_micros=20_000_000,
                 fiat_kopecks=181_550, requisites="2200 1234 5678 9012 · Сбербанк · Иван И.",
                 status="cancelled", created_at=now - timedelta(days=1), updated_at=now - timedelta(days=1)))
             await session.execute(cash_withdrawals.insert().values(
@@ -53,7 +53,7 @@ async def test_operations_list_every_order_newest_first_and_stay_private(db_sess
     # a full address anybody could pay into or from.
     assert rows[0]["requisites"] == "+7****4567" and rows[0]["fiat_rub"] == "4600,00"
     assert rows[1]["requisites"] == "22****9012 · Сбербанк · Иван И."
-    assert rows[1]["partner_order_id"] == "psv-777" and rows[1]["fiat_rub"] == "1815,50"
+    assert rows[1]["partner_order_id"] == "#67191" and rows[1]["number"] == "P-ORD-1" and rows[1]["fiat_rub"] == "1815,50"
     assert rows[2]["requisites"] == "TX****mnop" and rows[2]["amount_micros"] == 10_010_000
     assert rows[0]["amount_micros"] == -50_000_000
 
