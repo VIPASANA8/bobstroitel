@@ -91,8 +91,8 @@
     $('brandLogo').href = cube ? '/cube' : '/';
     $('brandLogo').setAttribute('aria-label', cube ? 'CUBE' : 'Poker');
     $('backToProduct').href = cube ? '/' : '/cube';
-    $('backToProduct').setAttribute('aria-label', cube ? 'В POKER' : 'В CUBE');
-    $('backToProductLabel').textContent = cube ? 'В POKER' : 'В CUBE';
+    $('backToProduct').setAttribute('aria-label', cube ? 'POKER' : 'CUBE');
+    $('backToProductLabel').textContent = cube ? 'POKER' : 'CUBE';
     $('cashModeLabel').textContent = cube ? 'USDT-касса' : 'CASH-касса';
     $('cashModeMark').textContent = '$$$';
     $('profileModeLabel').textContent = cube ? '' : 'Профиль Poker';

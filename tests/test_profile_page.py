@@ -152,7 +152,7 @@ def test_product_headers_link_to_the_other_game_and_their_own_brand():
     cube_js = Path("static/cube.js").read_text(encoding="utf-8")
     assert "/static/profile.html?app=poker" in lobby
     assert "/static/profile.html?app=cube#cash" in cube_js
-    assert 'class="cube-back" href="/" aria-label="В POKER"' in cube
+    assert 'class="cube-back" href="/" aria-label="POKER"' in cube
     assert 'class="brand-word" href="/cube" aria-label="CUBE"' in cube
     assert "$('brandLogo').href = cube ? '/cube' : '/';" in JS
     assert "$('backToProduct').href = cube ? '/' : '/cube';" in JS
