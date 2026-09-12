@@ -118,21 +118,28 @@ class FiatOrderService:
             # pservice answered and refused, so there is no order on its side
             # to wait for. Close the slot now rather than making the user sit
             # out the lost-answer window before they may try again.
+            await self._close_unplaced(order_id, f"partner refused the order: HTTP {exc.response.status_code}")
+            raise ValueError("the partner could not take the order right now, try again later") from exc
+        try:
             async with self.sessions() as session:
                 async with session.begin():
                     await session.execute(update(cash_fiat_orders).where(
                         cash_fiat_orders.c.id == order_id,
                         cash_fiat_orders.c.status == "requesting",
-                    ).values(status="unavailable", updated_at=self.now(),
-                             detail=f"partner refused the order: HTTP {exc.response.status_code}"))
-            raise ValueError("the partner could not take the order right now, try again later") from exc
-        async with self.sessions() as session:
-            async with session.begin():
-                await session.execute(update(cash_fiat_orders).where(
-                    cash_fiat_orders.c.id == order_id,
-                    cash_fiat_orders.c.status == "requesting",
-                ).values(pservice_order_id=payment.order_id, expires_at=payment.expires_at,
-                         updated_at=self.now()))
+                    ).values(pservice_order_id=payment.order_id, expires_at=payment.expires_at,
+                             updated_at=self.now()))
+        except IntegrityError as exc:
+            # pservice hands a user their open order back instead of a new
+            # one, and this one already belongs to an earlier local order --
+            # closed here, still alive there (a trader who never answered).
+            # Binding it twice is refused by the database; the user is told
+            # what is in the way rather than shown a 500.
+            await self._close_unplaced(
+                order_id, f"partner still holds the earlier order {payment.order_id}",
+            )
+            raise ValueError(
+                "the partner is still finishing your earlier order; ask support to close it"
+            ) from exc
         # A trader is usually found by the first status read, so one fetch here
         # lets the user see requisites without waiting for the poller's tick.
         try:
@@ -142,6 +149,15 @@ class FiatOrderService:
             # read hiccuped: the poller will advance it. The order already exists.
             pass
         return await self.get(order_id, user_id)
+
+    async def _close_unplaced(self, order_id, detail):
+        """A create that got no order on the partner's side frees the slot at once."""
+        async with self.sessions() as session:
+            async with session.begin():
+                await session.execute(update(cash_fiat_orders).where(
+                    cash_fiat_orders.c.id == order_id,
+                    cash_fiat_orders.c.status == "requesting",
+                ).values(status="unavailable", updated_at=self.now(), detail=detail))
 
     async def purge_requisites(self, before):
         """Trader requisites are payment data and are not kept past retention."""
@@ -321,11 +337,13 @@ class FiatOrderService:
                 # awaiting_user by a lagging TRADER_FOUND read.
                 if order["user_confirmed"] and target == "awaiting_user":
                     target = "waiting_trader"
-                # FAILED before anyone was shown requisites is "no trader took
-                # it": nobody could have paid, so it is closed, not reviewed.
-                if (target == "review_required" and order["requisites"] is None
-                        and status.requisites is None and not order["user_confirmed"]):
-                    target = "unavailable"
+                # FAILED before the user said they paid is nothing anybody is
+                # owed: the trader never took it, or the quote ran out unpaid
+                # (pservice fails a TRADER_FOUND order at its TTL). Closed,
+                # not reviewed -- only a FAILED after "paid" needs a person.
+                if target == "review_required" and not order["user_confirmed"]:
+                    shown = order["requisites"] is not None or status.requisites is not None
+                    target = "expired" if shown else "unavailable"
                 # pservice hands a user back their open order instead of a new
                 # one. If that order was sold for another amount, crediting
                 # this row's amount would pay out money nobody sent.

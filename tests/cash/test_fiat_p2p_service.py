@@ -164,6 +164,61 @@ async def test_no_trader_closes_the_order_instead_of_paging_an_operator(fiat_db)
     assert again["id"] != order["id"]
 
 
+async def test_a_quote_that_ran_out_unpaid_expires_instead_of_paging_an_operator(fiat_db):
+    """pservice fails a TRADER_FOUND order at its TTL (order_expired_ttl). The
+    user saw a card and did not pay: nothing is owed, the slot frees up."""
+    partner = ScriptedPservice({}, {"status": 8, "detail": "order_expired_ttl"})
+    service = FiatOrderService(fiat_db, partner=partner, ledger=RecordingLedger())
+    order = await service.create(user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="k1")
+    assert order["status"] == "awaiting_user" and order["requisites"]
+    await service.poll_once()
+    final = await service.get(order["id"], "alice")
+    assert final["status"] == "expired" and final["detail"] == "order_expired_ttl"
+    assert await service.active("alice") is None
+
+
+async def test_a_failure_after_the_user_paid_waits_for_a_person(fiat_db):
+    partner = ScriptedPservice({}, {"status": 8, "detail": "partner_dispute"})
+    service = FiatOrderService(fiat_db, partner=partner, ledger=RecordingLedger())
+    order = await service.create(user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="k1")
+    await service.mark_paid(order["id"], "alice")
+    await service.poll_once()
+    assert (await service.get(order["id"], "alice"))["status"] == "review_required"
+
+
+async def test_an_earlier_order_the_partner_still_holds_is_named_not_crashed_into(fiat_db):
+    """pservice returns the user's open order on create. If that order is
+    already bound to a local row an operator closed, the second binding is
+    refused by the database -- and the user gets a reason, not a 500."""
+    from cash.fiat_p2p import PservicePayment
+    from datetime import datetime, timezone
+
+    class Partner(MockPservice):
+        async def create_payment(self, **kwargs):
+            payment = await super().create_payment(**kwargs)
+            self.last = payment.order_id
+            return payment
+
+    partner = Partner()
+    service = FiatOrderService(fiat_db, partner=partner, ledger=RecordingLedger())
+    first = await service.create(user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="k1")
+    await service.mark_paid(first["id"], "alice")
+    # An operator closes it locally; pservice still has it in AWAITING_RESULT.
+    async with fiat_db() as session:
+        async with session.begin():
+            await session.execute(cash_fiat_orders.update().where(
+                cash_fiat_orders.c.id == first["id"]).values(status="cancelled"))
+    held = partner.last
+    partner.create_payment = lambda **kw: _reused(held)
+
+    async def _reused(order_id):
+        return PservicePayment(order_id=order_id, status=6, expires_at=datetime.now(timezone.utc))
+
+    with pytest.raises(ValueError, match="earlier order"):
+        await service.create(user_id="alice", tenant_id="tenant", amount_usdt="20", request_key="k2")
+    assert await service.active("alice") is None
+
+
 async def test_a_pservice_order_for_another_amount_is_never_credited(fiat_db):
     """pservice hands a user their open order back on create. Bound to a quote
     for 20.20 USDT, a 100 USDT order must not credit 100 when it completes."""
