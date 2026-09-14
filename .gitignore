@@ -29,3 +29,4 @@ case*.txt
 # Локальные наработки инструментов
 .superpowers/
 .worktrees/
+bots tok.txt
