@@ -60,7 +60,8 @@ window.Poker8TgLogin = (() => {
     box-shadow:0 8px 26px rgba(139,92,246,.35),inset 0 1px 0 rgba(255,255,255,.12)}
   .tg-gate-alt:active{transform:translateY(0)}
   @media (prefers-reduced-motion:reduce){.tg-gate-alt::after{animation:none}}
-  .tg-gate-note{color:#7e8489;font-size:11px;min-height:15px}
+  .tg-gate-note{color:#7e8489;font-size:11px}
+  .tg-gate-note:empty{display:none}
   .tg-gate-wait{color:#c8b3f6}
   .tg-gate-code{display:grid;gap:5px;justify-items:center;width:100%;padding:12px;
     border:1px dashed rgba(255,255,255,.14);border-radius:13px}
