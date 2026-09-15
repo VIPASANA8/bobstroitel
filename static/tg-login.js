@@ -46,7 +46,20 @@ window.Poker8TgLogin = (() => {
     text-decoration:none;font:800 14px Manrope,sans-serif;cursor:pointer}
   .tg-gate-open:hover{filter:brightness(1.06)}
   .tg-gate-open:disabled{opacity:.6;cursor:default}
-  .tg-gate-alt{color:#7e8489;font:600 12px Manrope,sans-serif;text-decoration:underline}
+  .tg-gate-alt{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;gap:9px;
+    width:100%;min-height:50px;border-radius:13px;color:#e9e0ff;text-decoration:none;
+    font:800 14px Manrope,sans-serif;background:linear-gradient(135deg,#3b2470,#241646 55%,#1a1030);
+    border:1px solid rgba(200,179,246,.28);box-shadow:0 0 0 0 rgba(139,92,246,.45),inset 0 1px 0 rgba(255,255,255,.08);
+    transition:transform .15s,box-shadow .25s,border-color .25s}
+  .tg-gate-alt[hidden]{display:none}
+  .tg-gate-alt::after{content:"";position:absolute;inset:0;
+    background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.16) 50%,transparent 65%);
+    transform:translateX(-120%);animation:tg-gate-sheen 3.2s ease-in-out infinite}
+  @keyframes tg-gate-sheen{0%,60%{transform:translateX(-120%)}100%{transform:translateX(120%)}}
+  .tg-gate-alt:hover{transform:translateY(-1px);border-color:rgba(200,179,246,.55);
+    box-shadow:0 8px 26px rgba(139,92,246,.35),inset 0 1px 0 rgba(255,255,255,.12)}
+  .tg-gate-alt:active{transform:translateY(0)}
+  @media (prefers-reduced-motion:reduce){.tg-gate-alt::after{animation:none}}
   .tg-gate-note{color:#7e8489;font-size:11px;min-height:15px}
   .tg-gate-wait{color:#c8b3f6}
   .tg-gate-code{display:grid;gap:5px;justify-items:center;width:100%;padding:12px;
@@ -88,7 +101,7 @@ window.Poker8TgLogin = (() => {
         <button class="tg-gate-open" type="button">${PLANE}Войти через Telegram</button>
         <div class="tg-gate-code" hidden><span>КОД НА ЭКРАНЕ</span><b></b></div>
         <p class="tg-gate-note" role="status"></p>
-        <a class="tg-gate-alt" hidden>Открыть мини-приложение</a>
+        <a class="tg-gate-alt" hidden>${PLANE}Открыть в Telegram</a>
       </section>`;
     const alt = gate.querySelector(".tg-gate-alt");
     if (appUrl) {
