@@ -15,9 +15,10 @@
       font:800 13px Manrope,ui-sans-serif,system-ui,sans-serif;white-space:nowrap;cursor:pointer;transition:filter .16s}
     .header-login:hover{filter:brightness(1.06)}
     .header-login[hidden],.profile-chip[hidden],.guest-cube[hidden]{display:none}
-    /* A guest's lobby: the buttons keep their arrangement on the left, the
-       cube takes the right, at its full height. */
-    .lobby-control.is-guest{grid-template-columns:1fr 1fr;align-items:center}
+    /* A guest's lobby: the balance panel on the left, the cube on the right,
+       half the width each, on either tab. */
+    .pilot-row.is-guest{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:center;margin-bottom:14px}
+    .pilot-row.is-guest .cash-pilot{margin:0}
     .guest-cube{display:grid;justify-items:center;gap:2px}
     .guest-cube canvas{display:block;width:180px;height:180px;cursor:grab;touch-action:none;outline:none}
     .guest-cube canvas:active{cursor:grabbing}
@@ -27,8 +28,7 @@
       .header-login{min-height:38px;padding:0 14px}
       .header-login-full{display:none}
       .header-login-short{display:inline}
-      .lobby-control.is-guest{grid-template-columns:1fr}
-      .guest-cube{order:-1}
+      .pilot-row.is-guest{grid-template-columns:1fr;gap:14px}
     }
   `;
   document.head.appendChild(style);
@@ -229,7 +229,7 @@
     $("headerLogin").hidden = !guest;
     $("profileChip").hidden = guest;
     $("guestCube").hidden = !guest;
-    document.querySelector(".lobby-control").classList.toggle("is-guest", guest);
+    document.querySelector(".pilot-row").classList.toggle("is-guest", guest);
     markAsset();
     // The same cube as on the login card, once: load() runs on every tab
     // switch, and a second cube on the same canvas would fight the first.
@@ -245,6 +245,11 @@
     if (asset !== "CASH_USDT" || guest) {
       $("wallet").textContent = format(profile.available_units);
       $("playAvailable").textContent = `${format(profile.available_units)} фишек`;
+    }
+    if (guest) {
+      // No CASH wallet to show: the panel says what it takes to get one.
+      $("cashAvailable").textContent = "—";
+      $("cashAvailableUsdt").textContent = "войдите через Telegram";
     }
     // A guest has no CASH wallet to ask for -- the cashier would say 403,
     // and the panel already shows the login in its place.
@@ -332,6 +337,12 @@
   });
 
   $("headerLogin").addEventListener("click", loginGate);
+  // A guest has no cashier to open; the link becomes the login instead.
+  document.querySelector("#cashPilot .cash-cashier").addEventListener("click", event => {
+    if (!guest) return;
+    event.preventDefault();
+    loginGate();
+  });
 
   $("quickPlay").addEventListener("click", async () => {
     if (asset === "CASH_USDT" && guest) return loginGate();
@@ -440,7 +451,7 @@
   });
 
   function markAsset() {
-    $("cashPilot").hidden = asset !== "CASH_USDT" || guest;
+    $("cashPilot").hidden = asset !== "CASH_USDT";
     $("playPilot").hidden = asset !== "PLAY";
     document.querySelectorAll("[data-asset]").forEach(tab => {
       const active = tab.dataset.asset === asset;
@@ -476,10 +487,8 @@
     const config = configResponse?.ok ? await configResponse.json() : {cash_mode: "off"};
     const cashTab = document.querySelector('[data-asset="CASH_USDT"]');
     cashTab.hidden = config.cash_mode === "off";
-    // Real money is what the lobby is for; practice chips are the side the
-    // player asks for. Chosen before the first load rather than switched into
-    // after it, so opening the lobby is one round trip, not two.
-    if (config.cash_mode !== "off") asset = "CASH_USDT";
+    // Opens on the training tables for everybody, guest or not; REAL CASH is
+    // one tap to the left.
     markAsset();
     try {
       await load();
