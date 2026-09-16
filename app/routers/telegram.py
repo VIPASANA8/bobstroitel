@@ -4,7 +4,7 @@ import hmac
 
 from fastapi import APIRouter, Header, HTTPException, Request
 
-from cash.referrals import code_for, normalise as normalise_referral, start_payload, web_link
+from cash.referrals import bot_link, code_for, normalise as normalise_referral, start_payload, web_link
 from online.auth import AuthenticationError, login_code, telegram_username
 from online.support import SupportError, short_id
 from online.telegram import (
@@ -284,7 +284,7 @@ async def _referral_links(request: Request, tenant_slug: str, sender: dict, host
     async with request.app.state.session_factory() as session:
         async with session.begin():
             code = await code_for(session, user_id)
-    links = [f"https://t.me/{username}?startapp={start_payload(code)}"]
+    links = [bot_link(username, code)]
     if hosts:
         links.append(web_link(hosts[0], code))
     return links

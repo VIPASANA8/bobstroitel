@@ -49,6 +49,16 @@ def start_payload(code: str) -> str:
     return f"{LINK_PREFIX}{code}"
 
 
+def bot_link(username: str, code: str) -> str:
+    """The invitation as a link into the bot's chat, not the Mini App.
+
+    `?start=` lands on /start, which is where the account is opened and the
+    code bound -- the top of the funnel. `?startapp=` skipped the bot and
+    asked for the app first, which many people never install.
+    """
+    return f"https://t.me/{username}?start={start_payload(code)}"
+
+
 def web_link(host: str, code: str) -> str:
     """The same invitation as a site address, for people who are not in Telegram."""
     return f"https://{host}/?ref={start_payload(code)}"

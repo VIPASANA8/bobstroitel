@@ -152,14 +152,15 @@ def test_a_bare_start_is_a_greeting_with_the_players_own_link(client, monkeypatc
     client.app.state.settings.tenant_configs["poker8"]["hosts"] = ["donbass.test"]
     assert _greet(client, 5150).status_code == 200
     link = re.search(r"TG: (\S+)\nWEB: (\S+)$", sent[-1])
-    assert link.group(1).startswith("https://t.me/TestBot?startapp=r")
+    # Into the bot's chat, not the app: /start is where the code is bound.
+    assert link.group(1).startswith("https://t.me/TestBot?start=r")
 
     opened = client.post("/api/auth/telegram/request").json()
     _start(client, opened["nonce"])
     _confirm(client, opened["nonce"])
     client.post("/api/auth/telegram/claim", json={"nonce": opened["nonce"]})
     summary = client.get("/api/cash/referral").json()
-    assert link.group(1) == f"https://t.me/TestBot?startapp={summary['start_payload']}"
+    assert link.group(1) == f"https://t.me/TestBot?start={summary['start_payload']}"
     assert link.group(2) == f"https://donbass.test/?ref={summary['start_payload']}"
     assert summary["web_link"] == f"https://testserver/?ref={summary['start_payload']}"
 
