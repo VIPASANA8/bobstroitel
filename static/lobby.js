@@ -17,7 +17,7 @@
     .header-login[hidden],.profile-chip[hidden],.guest-cube[hidden]{display:none}
     /* A guest's lobby: the buttons keep their arrangement on the left, the
        cube takes the right, at its full height. */
-    .lobby-control.is-guest{grid-template-columns:minmax(0,1fr) 200px;align-items:center}
+    .lobby-control.is-guest{grid-template-columns:1fr 1fr;align-items:center}
     .guest-cube{display:grid;justify-items:center;gap:2px}
     .guest-cube canvas{display:block;width:180px;height:180px;cursor:grab;touch-action:none;outline:none}
     .guest-cube canvas:active{cursor:grabbing}
