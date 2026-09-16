@@ -11,12 +11,25 @@
     #roomDialog select{width:100%;margin:8px 0;padding:14px;border:1px solid rgba(145,232,186,.32);border-radius:12px;background:var(--panel-2);color:var(--ink);font-size:15px}
     #roomDialog select:focus{outline:none;border-color:var(--mint)}
     #roomDialog input{font-size:15px}
-    .cash-login{display:flex;align-items:center;justify-content:center;width:100%;border:0;cursor:pointer;
-      background:#2aabee;color:#fff;font:800 15px Manrope,sans-serif;min-height:46px;border-radius:13px}
-    .cash-login:hover{filter:brightness(1.06)}
-    #cashGuestBlock .cash-rate{margin-top:10px}
-    .cash-guest-cube{display:block;width:150px;height:150px;margin:-8px auto 0;cursor:grab;touch-action:none;outline:none}
-    .cash-guest-cube:active{cursor:grabbing}
+    .header-login{min-height:42px;padding:0 16px;border:0;border-radius:99px;background:#2aabee;color:#fff;
+      font:800 13px Manrope,ui-sans-serif,system-ui,sans-serif;white-space:nowrap;cursor:pointer;transition:filter .16s}
+    .header-login:hover{filter:brightness(1.06)}
+    .header-login[hidden],.profile-chip[hidden],.guest-cube[hidden]{display:none}
+    /* A guest's lobby: the buttons keep their arrangement on the left, the
+       cube takes the right, at its full height. */
+    .lobby-control.is-guest{grid-template-columns:minmax(0,1fr) 200px;align-items:center}
+    .guest-cube{display:grid;justify-items:center;gap:2px}
+    .guest-cube canvas{display:block;width:180px;height:180px;cursor:grab;touch-action:none;outline:none}
+    .guest-cube canvas:active{cursor:grabbing}
+    .guest-cube p{margin:0;color:var(--muted);font-size:10px;line-height:1.4;text-align:center}
+    .header-login-short{display:none}
+    @media (max-width:760px){
+      .header-login{min-height:38px;padding:0 14px}
+      .header-login-full{display:none}
+      .header-login-short{display:inline}
+      .lobby-control.is-guest{grid-template-columns:1fr}
+      .guest-cube{order:-1}
+    }
   `;
   document.head.appendChild(style);
 
@@ -211,13 +224,18 @@
   async function load() {
     const profile = await window.Poker8Auth.ensureSession();
     guest = Boolean(profile.guest);
-    $("cashWalletBlock").hidden = guest;
-    $("cashGuestBlock").hidden = !guest;
+    // The login takes the profile's corner, the cube takes the buttons'
+    // right-hand side, and the CASH wallet panel has nothing to say.
+    $("headerLogin").hidden = !guest;
+    $("profileChip").hidden = guest;
+    $("guestCube").hidden = !guest;
+    document.querySelector(".lobby-control").classList.toggle("is-guest", guest);
+    markAsset();
     // The same cube as on the login card, once: load() runs on every tab
     // switch, and a second cube on the same canvas would fight the first.
-    if (guest && !$("cashGuestCube").dataset.spinning) {
-      $("cashGuestCube").dataset.spinning = "1";
-      window.Poker8TgLogin?.spinCube?.($("cashGuestCube"));
+    if (guest && !$("guestCubeCanvas").dataset.spinning) {
+      $("guestCubeCanvas").dataset.spinning = "1";
+      window.Poker8TgLogin?.spinCube?.($("guestCubeCanvas"));
     }
     const query = `asset=${asset}`;
     // The balance waited for the table list to arrive before it was drawn,
@@ -313,7 +331,7 @@
     button.addEventListener("click", () => button.closest("dialog")?.close("cancel"));
   });
 
-  $("cashLogin").addEventListener("click", loginGate);
+  $("headerLogin").addEventListener("click", loginGate);
 
   $("quickPlay").addEventListener("click", async () => {
     if (asset === "CASH_USDT" && guest) return loginGate();
@@ -422,7 +440,7 @@
   });
 
   function markAsset() {
-    $("cashPilot").hidden = asset !== "CASH_USDT";
+    $("cashPilot").hidden = asset !== "CASH_USDT" || guest;
     $("playPilot").hidden = asset !== "PLAY";
     document.querySelectorAll("[data-asset]").forEach(tab => {
       const active = tab.dataset.asset === asset;
