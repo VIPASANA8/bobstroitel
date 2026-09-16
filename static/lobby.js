@@ -24,8 +24,8 @@
     .guest-row.is-guest .guest-left{display:block}
     .guest-row.is-guest .lobby-control{border-bottom:0;padding-bottom:0}
     .guest-cube{position:relative;display:grid;justify-items:center;align-content:center;gap:2px;align-self:stretch}
-    /* CUBE's own wordmark, in the corner the cube leaves empty. */
-    .guest-cube-link{position:absolute;top:0;right:0;display:inline-flex;align-items:center;min-height:42px;
+    /* CUBE's own wordmark, under the cube. */
+    .guest-cube-link{display:inline-flex;align-items:center;min-height:42px;margin-top:6px;
       padding:0 16px;border:1px solid var(--line);border-radius:14px;background:var(--panel-2);color:#f5f7f7;
       text-decoration:none;font:700 18px/1 'Unbounded',Manrope,sans-serif;letter-spacing:-1px;
       transition:transform .12s,border-color .18s}
@@ -37,13 +37,24 @@
     /* The Free2Play balance wears the quick-play button's colours. */
     #playPilot .cash-wallet-grid>div{background:var(--violet);border-color:var(--violet)}
     #playPilot .cash-wallet-grid span,#playPilot .cash-wallet-grid small,#playPilot .cash-wallet-grid strong{color:#1c0f33}
+    /* The CASH balance is gold, and a sheen crosses it now and then -- the
+       same gold the table cards breathe. */
+    #cashPilot .cash-wallet-grid>div{position:relative;overflow:hidden;border-color:#b48a2c;
+      background:linear-gradient(135deg,#4a3a15,#6b5322 45%,#2e2410);
+      box-shadow:inset 0 1px 0 rgba(255,228,140,.28),0 0 24px -8px #ffd44766}
+    #cashPilot .cash-wallet-grid>div::after{content:"";position:absolute;inset:0;pointer-events:none;
+      background:linear-gradient(105deg,transparent 35%,rgba(255,232,150,.26) 50%,transparent 65%);
+      transform:translateX(-120%);animation:cash-gold-sheen 3.6s ease-in-out infinite}
+    @keyframes cash-gold-sheen{0%,60%{transform:translateX(-120%)}100%{transform:translateX(120%)}}
+    @media (prefers-reduced-motion:reduce){#cashPilot .cash-wallet-grid>div::after{animation:none}}
+    #cashPilot .cash-wallet-grid span,#cashPilot .cash-wallet-grid small{color:#e9c76a}
+    #cashPilot .cash-wallet-grid strong{color:#ffe9a8}
     .header-login-short{display:none}
     @media (max-width:760px){
       .header-login{min-height:38px;padding:0 14px}
       .header-login-full{display:none}
       .header-login-short{display:inline}
       .guest-row.is-guest{grid-template-columns:1fr;gap:14px}
-      .guest-cube{padding-top:46px}
     }
   `;
   document.head.appendChild(style);
