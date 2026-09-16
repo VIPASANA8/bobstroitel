@@ -67,12 +67,16 @@
       <div class="hr-panel" role="dialog" aria-modal="true" aria-label="Инструкция">
         <div class="hr-head"><strong>Инструкция</strong><button id="handRankingsClose" type="button" aria-label="Закрыть">×</button></div>
         <div class="hr-body">
-          <h4 class="hr-section">Комбинации</h4>
-          <div class="hr-list">${rows}</div>
-          <h4 class="hr-section">Правила</h4>
-          <div class="hr-defs">${defs(TABLE_RULES)}</div>
-          <h4 class="hr-section">Кнопки</h4>
-          <div class="hr-defs">${defs(ACTION_GUIDE, true)}</div>
+          <div class="hr-col">
+            <h4 class="hr-section">Комбинации</h4>
+            <div class="hr-list">${rows}</div>
+          </div>
+          <div class="hr-col">
+            <h4 class="hr-section">Правила</h4>
+            <div class="hr-defs">${defs(TABLE_RULES)}</div>
+            <h4 class="hr-section">Кнопки</h4>
+            <div class="hr-defs">${defs(ACTION_GUIDE, true)}</div>
+          </div>
         </div>
       </div>
     `;
@@ -154,8 +158,12 @@
       }
       .hand-rankings-modal .hr-def strong{color:#eafff6;font-size:12px;}
       @media (min-width:781px){
-        .hand-rankings-modal .hr-panel{width:min(92vw,720px);top:24px;padding:20px 22px;}
+        /* Two columns on a desktop: the ten combinations down the left, the
+           rules and the buttons down the right, so the whole guide is on
+           screen at once instead of a column scrolled through twice. */
+        .hand-rankings-modal .hr-panel{width:min(92vw,1080px);top:24px;padding:20px 26px;}
         .hand-rankings-modal .hr-head{font-size:18px;margin-bottom:14px;}
+        .hand-rankings-modal .hr-body{display:grid;grid-template-columns:1.1fr 1fr;gap:0 40px;align-items:start;}
         /* The card column stays the width it was measured at -- every hand
            still centres on one axis -- so all of the extra goes to the names
            and the explanations, which is what was wrapping. */

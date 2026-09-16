@@ -95,7 +95,7 @@
     $('backToProductLabel').textContent = cube ? 'POKER' : 'CUBE';
     $('cashModeLabel').textContent = cube ? 'USDT-касса' : 'CASH-касса';
     $('cashModeMark').textContent = '$$$';
-    $('profileModeLabel').textContent = cube ? '' : 'Профиль Poker';
+    $('profileModeLabel').textContent = cube ? '' : '👑 Профиль Poker';
     $('playModeTab').disabled = cube;
     $('playModeTab').setAttribute('aria-disabled', String(cube));
     $('cashKicker').textContent = cube ? 'CUBE WALLET' : 'REAL CASH';

@@ -15,12 +15,16 @@
       font:800 13px Manrope,ui-sans-serif,system-ui,sans-serif;white-space:nowrap;cursor:pointer;transition:filter .16s}
     .header-login:hover{filter:brightness(1.06)}
     .header-login[hidden],.profile-chip[hidden],.guest-cube[hidden]{display:none}
-    /* A guest's lobby: the balance panel on the left, the cube on the right,
-       half the width each, on either tab. */
-    .pilot-row.is-guest{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:center;margin-bottom:14px}
-    .pilot-row.is-guest .cash-pilot{margin:0}
+    /* A guest's lobby: the balance panel and the buttons stacked on the
+       left, the cube on the right, half the width each, on either tab. For
+       everybody else the wrappers are not there. */
+    .guest-row,.guest-left{display:contents}
+    .guest-row.is-guest{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:center;
+      padding-bottom:26px;border-bottom:1px solid var(--line)}
+    .guest-row.is-guest .guest-left{display:block}
+    .guest-row.is-guest .lobby-control{border-bottom:0;padding-bottom:0}
     .guest-cube{display:grid;justify-items:center;gap:2px}
-    .guest-cube canvas{display:block;width:180px;height:180px;cursor:grab;touch-action:none;outline:none}
+    .guest-cube canvas{display:block;width:240px;height:240px;cursor:grab;touch-action:none;outline:none}
     .guest-cube canvas:active{cursor:grabbing}
     .guest-cube p{margin:0;color:var(--muted);font-size:10px;line-height:1.4;text-align:center}
     .header-login-short{display:none}
@@ -28,7 +32,7 @@
       .header-login{min-height:38px;padding:0 14px}
       .header-login-full{display:none}
       .header-login-short{display:inline}
-      .pilot-row.is-guest{grid-template-columns:1fr;gap:14px}
+      .guest-row.is-guest{grid-template-columns:1fr;gap:14px}
     }
   `;
   document.head.appendChild(style);
@@ -229,7 +233,7 @@
     $("headerLogin").hidden = !guest;
     $("profileChip").hidden = guest;
     $("guestCube").hidden = !guest;
-    document.querySelector(".pilot-row").classList.toggle("is-guest", guest);
+    document.querySelector(".guest-row").classList.toggle("is-guest", guest);
     markAsset();
     // The same cube as on the login card, once: load() runs on every tab
     // switch, and a second cube on the same canvas would fight the first.

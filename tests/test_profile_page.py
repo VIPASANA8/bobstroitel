@@ -47,8 +47,8 @@ def test_referral_panel_uses_the_existing_profile_tokens_and_phone_layout():
 
 
 def test_referral_tab_uses_an_icon_only_at_the_phone_breakpoint():
-    assert '<span class="referral-tab-label">Рефералы</span>' in HTML
-    assert '<span class="referral-tab-icon" aria-hidden="true">🔗</span>' in HTML
+    assert '<span class="referral-tab-label">⛓️ Рефералы</span>' in HTML
+    assert '<span class="referral-tab-icon" aria-hidden="true">⛓️</span>' in HTML
     desktop = CSS[:CSS.index("@media(max-width:580px){")]
     phone = CSS[CSS.index("@media(max-width:580px){"):]
     assert ".referral-tab-icon{display:none}" in desktop

@@ -192,7 +192,8 @@ def test_the_pot_pile_does_not_outlive_the_width_it_was_measured_at():
 
 
 def test_the_guide_gets_a_desktop_width_and_sections_that_divide():
-    assert "width:min(92vw,720px)" in GUIDE, "380px is a phone's panel"
+    assert "width:min(92vw,1080px)" in GUIDE, "380px is a phone's panel"
+    assert "grid-template-columns:1.1fr 1fr" in GUIDE, "combinations left, rules and buttons right"
     section = GUIDE[GUIDE.index(".hand-rankings-modal .hr-section{"):]
     section = section[:section.index("}")]
     assert "border-top:" in section and "padding-top:" in section
