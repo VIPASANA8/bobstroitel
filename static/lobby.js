@@ -23,7 +23,14 @@
       padding-bottom:26px;border-bottom:1px solid var(--line)}
     .guest-row.is-guest .guest-left{display:block}
     .guest-row.is-guest .lobby-control{border-bottom:0;padding-bottom:0}
-    .guest-cube{display:grid;justify-items:center;gap:2px}
+    .guest-cube{position:relative;display:grid;justify-items:center;align-content:center;gap:2px;align-self:stretch}
+    /* CUBE's own wordmark, in the corner the cube leaves empty. */
+    .guest-cube-link{position:absolute;top:0;right:0;display:inline-flex;align-items:center;min-height:42px;
+      padding:0 16px;border:1px solid var(--line);border-radius:14px;background:var(--panel-2);color:#f5f7f7;
+      text-decoration:none;font:700 18px/1 'Unbounded',Manrope,sans-serif;letter-spacing:-1px;
+      transition:transform .12s,border-color .18s}
+    .guest-cube-link>i{margin-left:4px;font:24px/1 Georgia,serif;font-style:normal;color:#c8ff31}
+    .guest-cube-link:hover{border-color:rgba(200,255,49,.5);transform:translateY(-1px)}
     .guest-cube canvas{display:block;width:240px;height:240px;cursor:grab;touch-action:none;outline:none}
     .guest-cube canvas:active{cursor:grabbing}
     .guest-cube p{margin:0;color:var(--muted);font-size:10px;line-height:1.4;text-align:center}
@@ -33,6 +40,7 @@
       .header-login-full{display:none}
       .header-login-short{display:inline}
       .guest-row.is-guest{grid-template-columns:1fr;gap:14px}
+      .guest-cube{padding-top:46px}
     }
   `;
   document.head.appendChild(style);

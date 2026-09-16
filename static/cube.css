@@ -184,6 +184,25 @@
   padding: 15px 16px 13px;
 }
 
+/* POKER's own wordmark under the bet card: the way back to the tables. */
+.cube-embed .poker-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 56px;
+  margin-top: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: #15171b;
+  color: #f5f7f7;
+  text-decoration: none;
+  font: 700 18px/1 'Unbounded', Manrope, sans-serif;
+  letter-spacing: -1px;
+  transition: transform 120ms ease, border-color 200ms ease;
+}
+.cube-embed .poker-link > i { margin-left: 4px; font: 24px/1 Georgia, serif; font-style: normal; color: #c8b3f6; }
+.cube-embed .poker-link:hover { transform: translateY(-1px); border-color: rgba(200, 179, 246, 0.5); }
+
 .cube-embed .section-heading {
   display: flex;
   align-items: center;
@@ -905,6 +924,8 @@
   }
   .cube-embed .result-line { min-height: 74px; padding: 15px 26px; }
   .cube-embed .control-card { margin-top: 0; padding: 20px 22px 22px; }
+  /* Under the bet card, in its column, not on a new row of the grid. */
+  .cube-embed .poker-link { margin-top: 12px; }
   .cube-embed .face-choice { border-radius: 14px; }
   /* The bar floats over the page, so only the column under it needs the room. */
   .cube-page .cube-embed .screen { padding-bottom: 108px; }
