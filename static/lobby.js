@@ -33,7 +33,10 @@
     .guest-cube-link:hover{border-color:rgba(200,255,49,.5);transform:translateY(-1px)}
     .guest-cube canvas{display:block;width:240px;height:240px;cursor:grab;touch-action:none;outline:none}
     .guest-cube canvas:active{cursor:grabbing}
-    .guest-cube p{margin:0;color:var(--muted);font-size:10px;line-height:1.4;text-align:center}
+    .guest-cube p{margin:0;color:var(--muted);font-size:15px;line-height:1.4;text-align:center;max-width:360px}
+    /* The Free2Play balance wears the quick-play button's colours. */
+    #playPilot .cash-wallet-grid>div{background:var(--violet);border-color:var(--violet)}
+    #playPilot .cash-wallet-grid span,#playPilot .cash-wallet-grid small,#playPilot .cash-wallet-grid strong{color:#1c0f33}
     .header-login-short{display:none}
     @media (max-width:760px){
       .header-login{min-height:38px;padding:0 14px}
