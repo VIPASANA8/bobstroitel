@@ -67,6 +67,11 @@ window.Poker8TgLogin = (() => {
     box-shadow:0 8px 26px rgba(139,92,246,.35),inset 0 1px 0 rgba(255,255,255,.12)}
   .tg-gate-alt:active{transform:translateY(0)}
   @media (prefers-reduced-motion:reduce){.tg-gate-alt::after{animation:none}}
+  .tg-gate-guest{width:100%;min-height:44px;border:1px solid rgba(255,255,255,.14);border-radius:13px;
+    background:none;color:#a2a1ac;font:800 13px Manrope,sans-serif;cursor:pointer}
+  .tg-gate-guest:hover{border-color:rgba(255,255,255,.3);color:#f1f1f4}
+  .tg-gate-guest[hidden]{display:none}
+  .tg-gate-guest:disabled{opacity:.6;cursor:default}
   .tg-gate-note{color:#7e8489;font-size:11px}
   .tg-gate-note:empty{display:none}
   .tg-gate-wait{color:#c8b3f6}
@@ -112,6 +117,7 @@ window.Poker8TgLogin = (() => {
         <div class="tg-gate-code" hidden><span>КОД НА ЭКРАНЕ</span><b></b></div>
         <p class="tg-gate-note" role="status"></p>
         <a class="tg-gate-alt" hidden>${PLANE}Играть в Telegram</a>
+        <button class="tg-gate-guest" type="button" hidden>Войти как гость</button>
       </section>`;
     const alt = gate.querySelector(".tg-gate-alt");
     if (appUrl) {
@@ -122,6 +128,15 @@ window.Poker8TgLogin = (() => {
     return gate;
   }
 
+  //: Play chips, no XP, CASH to watch -- and the page reloads into it.
+  async function enterAsGuest(button) {
+    button.disabled = true;
+    const response = await post("/api/auth/guest").catch(() => null);
+    if (response?.ok) return window.location.reload();
+    button.disabled = false;
+    alert("Гостевой вход сейчас недоступен.");
+  }
+
   //: The CUBE game's own cube, idling on the card with nothing to press: it
   //: drifts, follows a drag, and pulses on a tap. Its three scripts are
   //: fetched only when the card is shown -- every other page load stays as
@@ -130,7 +145,7 @@ window.Poker8TgLogin = (() => {
   const script = src => new Promise((resolve, reject) => {
     if (document.querySelector(`script[src^="/static/${src}"]`)) return resolve();
     const tag = document.createElement("script");
-    tag.src = `/static/${src}?v=guest-tables-1`;
+    tag.src = `/static/${src}?v=guest-tables-2`;
     tag.onload = resolve;
     tag.onerror = reject;
     document.head.appendChild(tag);
@@ -228,6 +243,12 @@ window.Poker8TgLogin = (() => {
         gate.querySelector(".tg-gate-note").textContent = "Не удалось начать вход.";
       });
     });
+    // Only offered to somebody who is not in yet: a guest already is one.
+    const guestButton = gate.querySelector(".tg-gate-guest");
+    if (config.open_access && !dismissable) {
+      guestButton.hidden = false;
+      guestButton.addEventListener("click", () => enterAsGuest(guestButton));
+    }
     document.body.appendChild(gate);
     if (!dismissable) return new Promise(() => {});
     // A guest asked for this card by pressing something; they may also
@@ -255,5 +276,5 @@ window.Poker8TgLogin = (() => {
     return prompt(config, { dismissable: true });
   }
 
-  return { prompt, open };
+  return { prompt, open, spinCube };
 })();

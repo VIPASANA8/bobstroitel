@@ -15,6 +15,8 @@
       background:#2aabee;color:#fff;font:800 15px Manrope,sans-serif;min-height:46px;border-radius:13px}
     .cash-login:hover{filter:brightness(1.06)}
     #cashGuestBlock .cash-rate{margin-top:10px}
+    .cash-guest-cube{display:block;width:150px;height:150px;margin:-8px auto 0;cursor:grab;touch-action:none;outline:none}
+    .cash-guest-cube:active{cursor:grabbing}
   `;
   document.head.appendChild(style);
 
@@ -211,6 +213,12 @@
     guest = Boolean(profile.guest);
     $("cashWalletBlock").hidden = guest;
     $("cashGuestBlock").hidden = !guest;
+    // The same cube as on the login card, once: load() runs on every tab
+    // switch, and a second cube on the same canvas would fight the first.
+    if (guest && !$("cashGuestCube").dataset.spinning) {
+      $("cashGuestCube").dataset.spinning = "1";
+      window.Poker8TgLogin?.spinCube?.($("cashGuestCube"));
+    }
     const query = `asset=${asset}`;
     // The balance waited for the table list to arrive before it was drawn,
     // which is a whole round trip spent showing a dash. On play chips the

@@ -52,7 +52,9 @@ def test_dev_login_returns_same_global_profile_and_six_tables(client):
 def test_guest_login_creates_random_named_session_and_six_tables(client):
     login = client.post("/api/auth/guest")
     assert login.status_code == 200
-    assert login.json()["display_name"].startswith("Guest-")
+    from online.bot_names import BOT_NAMES
+    assert login.json()["display_name"] in BOT_NAMES
+    assert login.json()["guest"] is True
     assert login.json()["available_units"] == 100_000
     assert client.get("/api/lobby/tables").status_code == 200
 

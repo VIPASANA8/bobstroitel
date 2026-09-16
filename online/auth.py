@@ -16,6 +16,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from cash.referrals import bind as bind_referral
+from online.bot_names import BOT_NAMES
 from online.schema import auth_login_requests, auth_sessions, tenants, user_tenant_visits, users
 
 
@@ -309,7 +310,9 @@ class AuthService:
                         session,
                         tenant_row,
                         guest_telegram_id,
-                        f"Guest-{secrets.token_hex(3).upper()}",
+                        # The same pool the bots draw from: a guest at the
+                        # table is one more stranger, not a "Guest-3F2A1C".
+                        secrets.choice(BOT_NAMES),
                         "guest",
                     )
         raise AuthenticationError("could not allocate a guest identity")

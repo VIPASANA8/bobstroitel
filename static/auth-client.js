@@ -83,14 +83,16 @@ window.Poker8Auth = (() => {
       const response = await fetch(`/api/auth/dev/${chosen.telegram_user_id}`, {method:'POST'});
       if (response.ok) return response.json();
     }
-    if (config.open_access) {
+    // Opened at the site rather than inside Telegram. There is a door for that
+    // -- the login card -- and it leads to the same account; with open access
+    // the card also has a guest door. It never resolves: a successful login
+    // reloads the page, and until then there is nothing here to draw.
+    // Only a host with no bot to sign in with (local development) skips the
+    // card and lets a guest straight in.
+    if (config.open_access && !config.telegram_login_bot) {
       const response = await fetch('/api/auth/guest', {method:'POST'});
       if (response.ok) return response.json();
     }
-    // Opened at the site rather than inside Telegram. There is a door for that
-    // -- the login widget -- and it leads to the same account. It never
-    // resolves: a successful login reloads the page, and until then there is
-    // nothing here to draw.
     await window.Poker8TgLogin?.prompt(config);
     throw signIn(new Error('Откройте приложение внутри Telegram'));
   }
