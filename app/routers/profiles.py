@@ -85,6 +85,9 @@ async def _profile(request: Request, user: AuthenticatedUser) -> dict[str, objec
         "user_id": row["id"],
         "telegram_user_id": row["telegram_user_id"],
         "display_name": row["display_name"],
+        # Play chips and no more: the lobby swaps the CASH balance for a login
+        # button, and the table swaps "take a seat" for the same.
+        "guest": user.auth_method == "guest",
         "wins": row["wins"],
         "hands_played": row["hands_played"],
         "xp": xp,

@@ -82,7 +82,7 @@ def telegram_username(user: dict) -> str | None:
 
 
 def app_link(username: str, has_main_web_app: bool) -> str:
-    """Where "открыть в Telegram" goes.
+    """Where "играть в Telegram" goes.
 
     A bot with a main Mini App opens straight into it; without one the link
     lands in the bot's chat, where its menu button is. Both are t.me links
@@ -394,19 +394,22 @@ class AuthService:
         )
 
     async def register(self, tenant_slug: str, telegram_user_id: int, display_name: str,
-                       username: str | None = None) -> str:
+                       username: str | None = None, referral_code: str | None = None) -> str:
         """The account behind this Telegram user, made now if there is none.
 
         For the bot, which meets people before they ever open the app: a
         referral link needs an account to be paid into, and a /start is enough
-        proof of who is asking -- Telegram delivered it.
+        proof of who is asking -- Telegram delivered it. The same goes for the
+        invitation a /start arrives with: it is bound here, at the first
+        contact, rather than waiting for a Mini App open that many never get
+        to. `_ensure_user` still binds only on first sight.
         """
         now = datetime.fromtimestamp(int(self.now()), tz=timezone.utc)
         async with self.session_factory() as session:
             async with session.begin():
                 tenant_row = await self._tenant(session, tenant_slug)
                 user_id, _ = await self._ensure_user(
-                    session, tenant_row, telegram_user_id, display_name, None, now,
+                    session, tenant_row, telegram_user_id, display_name, referral_code, now,
                     username=username,
                 )
         return user_id

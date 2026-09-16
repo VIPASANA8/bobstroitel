@@ -66,6 +66,7 @@ def _public_auth(result, available_units: int) -> dict[str, object]:
         "acquisition_tenant_slug": result.acquisition_tenant_slug,
         "access_tenant_slug": result.access_tenant_slug,
         "available_units": available_units,
+        "guest": result.auth_method == "guest",
     }
 
 

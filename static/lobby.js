@@ -11,6 +11,10 @@
     #roomDialog select{width:100%;margin:8px 0;padding:14px;border:1px solid rgba(145,232,186,.32);border-radius:12px;background:var(--panel-2);color:var(--ink);font-size:15px}
     #roomDialog select:focus{outline:none;border-color:var(--mint)}
     #roomDialog input{font-size:15px}
+    .cash-login{display:flex;align-items:center;justify-content:center;width:100%;border:0;cursor:pointer;
+      background:#2aabee;color:#fff;font:800 15px Manrope,sans-serif;min-height:46px;border-radius:13px}
+    .cash-login:hover{filter:brightness(1.06)}
+    #cashGuestBlock .cash-rate{margin-top:10px}
   `;
   document.head.appendChild(style);
 
@@ -22,6 +26,9 @@
   let roomLevels = {};
   let asset = "PLAY";
   let cashWallet = null;
+  //: A guest watches CASH tables and plays PLAY ones; anything on CASH that
+  //: would need money opens the Telegram login instead.
+  let guest = false;
 
   const format = units => (Number(units || 0) / 100).toFixed(2);
   const decimal = (value, digits) => {
@@ -197,18 +204,25 @@
     $("cashAvailableUsdt").textContent = `${wallet.available_usdt} USDT`;
   }
 
+  const loginGate = () => window.Poker8TgLogin?.open?.();
+
   async function load() {
     const profile = await window.Poker8Auth.ensureSession();
+    guest = Boolean(profile.guest);
+    $("cashWalletBlock").hidden = guest;
+    $("cashGuestBlock").hidden = !guest;
     const query = `asset=${asset}`;
     // The balance waited for the table list to arrive before it was drawn,
     // which is a whole round trip spent showing a dash. On play chips the
     // number came back with the session and can go up now; on CASH it lands
     // the moment its own request does, rather than with the slowest sibling.
-    if (asset !== "CASH_USDT") {
+    if (asset !== "CASH_USDT" || guest) {
       $("wallet").textContent = format(profile.available_units);
       $("playAvailable").textContent = `${format(profile.available_units)} фишек`;
     }
-    const walletPayload = asset === "CASH_USDT"
+    // A guest has no CASH wallet to ask for -- the cashier would say 403,
+    // and the panel already shows the login in its place.
+    const walletPayload = asset === "CASH_USDT" && !guest
       ? fetch("/api/cash/wallet").then(response => response.ok ? response.json() : null)
       : Promise.resolve(null);
     walletPayload.then(paintCashWallet, () => {});
@@ -222,7 +236,7 @@
     const sessionPayload = await sessionResponse.json();
     myRoom = roomResponse?.ok ? (await roomResponse.json()).room : null;
     cashWallet = await walletPayload.catch(() => null);
-    if (asset === "CASH_USDT" && !cashWallet) throw new Error("cash mode is unavailable");
+    if (asset === "CASH_USDT" && !cashWallet && !guest) throw new Error("cash mode is unavailable");
     tables = tablePayload.tables;
     renderTables();
     renderLiveStrip();
@@ -291,7 +305,10 @@
     button.addEventListener("click", () => button.closest("dialog")?.close("cancel"));
   });
 
+  $("cashLogin").addEventListener("click", loginGate);
+
   $("quickPlay").addEventListener("click", async () => {
+    if (asset === "CASH_USDT" && guest) return loginGate();
     const response = await fetch(`/api/lobby/quick-play?asset=${asset}`, { method: "POST" });
     if (response.ok) return openBuyIn((await response.json()).table);
     if (asset === "CASH_USDT") {
@@ -332,6 +349,7 @@
   }
 
   async function openRoomDialog() {
+    if (asset === "CASH_USDT" && guest) return loginGate();
     if (myRoom) {
       // One room at a time, so there is nothing to fill in -- offer the one
       // they already have instead of a form that would be refused.

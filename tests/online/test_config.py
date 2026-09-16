@@ -10,14 +10,18 @@ def test_production_requires_database_and_bot_token():
         Settings.from_mapping({"POKER8_ENV": "production"})
 
 
-def test_open_access_is_not_allowed_in_production():
-    settings = Settings.from_mapping({
-        "POKER8_ENV": "production",
-        "POKER8_DATABASE_URL": "postgresql+psycopg://poker8:poker8@db/poker8",
-        "POKER8_DEFAULT_BOT_TOKEN": "token",
-        "POKER8_OPEN_ACCESS": "1",
-    })
-    assert settings.open_access is False
+def test_open_access_is_a_switch_on_every_deployment():
+    """A guest reaches play chips and a CASH table to watch, nothing else
+    (cash/access.py), so the door may open wherever the switch is set."""
+    for environment in ("production", "test", "development"):
+        values = {"POKER8_ENV": environment, "POKER8_OPEN_ACCESS": "1"}
+        if environment == "production":
+            values.update({
+                "POKER8_DATABASE_URL": "postgresql+psycopg://poker8:poker8@db/poker8",
+                "POKER8_DEFAULT_BOT_TOKEN": "token",
+            })
+        assert Settings.from_mapping(values).open_access is True, environment
+        assert Settings.from_mapping({**values, "POKER8_OPEN_ACCESS": "0"}).open_access is False
 
 
 def test_development_accepts_named_profiles_without_bot_token():
@@ -53,14 +57,9 @@ def test_a_staging_label_is_still_a_real_deployment():
     label instead of the risk left that deployment unprotected.
     """
     for environment in ("test", "staging", "qa"):
-        settings = Settings.from_mapping({
-            "POKER8_ENV": environment, "POKER8_OPEN_ACCESS": "1",
-        })
-        assert settings.open_access is False, environment
+        settings = Settings.from_mapping({"POKER8_ENV": environment})
         assert settings.environment != "development"
-    assert Settings.from_mapping({
-        "POKER8_ENV": "development", "POKER8_OPEN_ACCESS": "1",
-    }).open_access is True
+        assert settings.self_top_up_enabled is False, environment
 
 
 def test_mock_cash_mode_with_a_pservice_endpoint_talks_to_pservice():

@@ -13,7 +13,7 @@ from online.ledger import PlayLedger
 from online.schema import integrity_events, poker_tables, system_players, table_seats, tenants, users
 from online.seating import CashRuntimeUnavailable, SeatingService
 from online.runtime import RuntimeErrorBase, TableRuntimeManager
-from app.dependencies import AuthenticatedUser, require_play_table_user
+from app.dependencies import AuthenticatedUser, require_play_table_user, require_table_viewer
 from app.routers import chat
 from app.routers.lobby import CreateRoomRequest, create_room, current_lobby_session
 from app.routers.profiles import _profile
@@ -116,6 +116,13 @@ async def test_shared_table_routes_gate_cash_direct_ids_by_mode(table_services):
     assert off.value.status_code == 404
     request.app.state.settings.cash_mode = "mock"
     assert await require_play_table_user("cash-test", request, user) == user
+    # A guest watches a CASH table and never plays at one: the snapshot route
+    # lets them in, the seat routes do not.
+    guest = AuthenticatedUser("g1", "tenant", -1, "Guest-AB", "guest")
+    assert await require_table_viewer("cash-test", request, guest) == guest
+    with pytest.raises(HTTPException) as denied:
+        await require_play_table_user("cash-test", request, guest)
+    assert denied.value.status_code == 403
 
 
 @pytest.mark.anyio
@@ -274,12 +281,14 @@ async def test_play_profile_ignores_cash_seat(table_services):
 
 
 def test_chat_routes_use_play_table_access_gate():
-    routes = [route for route in chat.router.routes if isinstance(route, APIRoute)]
-    assert len(routes) == 2
-    assert all(
-        any(dependency.call is require_play_table_user for dependency in route.dependant.dependencies)
-        for route in routes
-    )
+    """Reading the chat is watching the table; writing to it is playing."""
+    routes = {
+        next(iter(route.methods)): route
+        for route in chat.router.routes if isinstance(route, APIRoute)
+    }
+    assert set(routes) == {"GET", "POST"}
+    assert any(d.call is require_table_viewer for d in routes["GET"].dependant.dependencies)
+    assert any(d.call is require_play_table_user for d in routes["POST"].dependant.dependencies)
 
 
 @pytest.mark.anyio

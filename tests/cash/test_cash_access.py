@@ -46,17 +46,28 @@ def test_legacy_play_room_escape_hatch_only_works_locally(environment):
     assert Settings.from_mapping(values).legacy_play_rooms_enabled is False
 
 
-@pytest.mark.parametrize("method", ["telegram", "dev", "guest"])
+@pytest.mark.parametrize("method", ["telegram", "dev"])
 def test_mock_accepts_known_test_identities(method):
     ensure_cash_access("mock", method)
 
 
 @pytest.mark.parametrize("mode,method", [
-    ("off", "telegram"), ("off", "dev"), ("mock", "legacy"), ("mock", "unknown"),
+    ("off", "telegram"), ("off", "dev"), ("mock", "legacy"), ("mock", "unknown"), ("mock", "guest"),
 ])
 def test_off_and_unverifiable_sessions_are_denied(mode, method):
     with pytest.raises(CashAccessDenied):
         ensure_cash_access(mode, method)
+
+
+def test_a_guest_may_watch_a_cash_table_but_never_touch_money():
+    """The guest door is open on production, so a guest is anybody: they get
+    the snapshots (observe) in every live mode and nothing that moves money."""
+    for mode in ("mock", "production"):
+        ensure_cash_access(mode, "guest", -5, observe=True)
+        with pytest.raises(CashAccessDenied):
+            ensure_cash_access(mode, "guest", -5)
+    with pytest.raises(CashAccessDenied):
+        ensure_cash_access("off", "guest", -5, observe=True)
 
 
 @pytest.mark.anyio

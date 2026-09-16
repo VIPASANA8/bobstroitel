@@ -27,13 +27,14 @@ class CreateRoomRequest(BaseModel):
 router = APIRouter(prefix="/api/lobby", tags=["lobby"])
 
 
-def _cash_gate(request: Request, user: AuthenticatedUser, asset: str) -> None:
+def _cash_gate(request: Request, user: AuthenticatedUser, asset: str, *, observe: bool = False) -> None:
     if asset != CASH_USDT:
         return
     try:
         ensure_cash_access(
             request.app.state.settings.cash_mode, user.auth_method,
             user.telegram_user_id, getattr(request.app.state.settings, "cash_allowlist", ()),
+            observe=observe,
         )
     except CashAccessDenied as exc:
         status = 404 if request.app.state.settings.cash_mode == "off" else 403
@@ -48,7 +49,7 @@ async def list_lobby_tables(
     asset: Literal["PLAY", "CASH_USDT"] = PLAY,
     user: AuthenticatedUser = Depends(get_current_user),
 ):
-    _cash_gate(request, user, asset)
+    _cash_gate(request, user, asset, observe=True)
     rows = await request.app.state.catalogue.list_tables(
         page=page, per_page=per_page, viewer_id=user.user_id, asset=asset,
     )
@@ -62,7 +63,7 @@ async def current_lobby_session(
     asset: Literal["PLAY", "CASH_USDT"] = PLAY,
 ):
     """Return the caller's one active seat or queue entry for lobby CTAs."""
-    _cash_gate(request, user, asset)
+    _cash_gate(request, user, asset, observe=True)
     async with request.app.state.session_factory() as session:
         seat = (
             await session.execute(

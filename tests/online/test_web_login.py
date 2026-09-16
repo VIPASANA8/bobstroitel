@@ -358,3 +358,24 @@ def test_the_admin_webhook_answers_nobody_without_an_operator_bot(tmp_path):
     })
     with TestClient(create_app(settings)) as client:
         assert _panel(client, "/admin").status_code == 404
+
+
+def test_a_referral_start_binds_at_the_bot_before_any_app_open(client, monkeypatch):
+    """The invitation is bound on /start itself: that is the top of the
+    funnel, and the Mini App open it used to wait for is a step many people
+    never take."""
+    async def quiet(token, chat_id, text, reply_markup=None, parse_mode=None):
+        pass
+
+    monkeypatch.setattr("app.routers.telegram.send_message", quiet)
+    opened = client.post("/api/auth/telegram/request").json()
+    _confirm(client, opened["nonce"], user_id=7001)
+    client.post("/api/auth/telegram/claim", json={"nonce": opened["nonce"]})
+    inviter = client.get("/api/cash/referral").json()
+    assert inviter["invited"] == 0
+
+    assert _start(client, inviter["start_payload"], user_id=7002, first_name="Новичок").status_code == 200
+    assert client.get("/api/cash/referral").json()["invited"] == 1
+    # Following the link again, or opening the app later, changes nothing.
+    assert _start(client, inviter["start_payload"], user_id=7002).status_code == 200
+    assert client.get("/api/cash/referral").json()["invited"] == 1

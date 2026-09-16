@@ -34,9 +34,16 @@ window.Poker8TgLogin = (() => {
   .tg-gate{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;
     padding:20px;background:rgba(6,8,10,.92);backdrop-filter:blur(8px);
     font-family:Manrope,ui-sans-serif,system-ui,sans-serif;color:#f1f1f4}
-  .tg-gate-card{width:min(360px,100%);display:grid;justify-items:center;gap:14px;
+  .tg-gate-card{position:relative;width:min(360px,100%);display:grid;justify-items:center;gap:14px;
     padding:30px 24px;border:1px solid rgba(255,255,255,.09);border-radius:20px;
     background:#15171b;box-shadow:0 24px 70px rgba(0,0,0,.6);text-align:center}
+  .tg-gate-close{position:absolute;top:10px;right:10px;width:32px;height:32px;border:0;border-radius:50%;
+    background:rgba(255,255,255,.06);color:#a2a1ac;font-size:18px;line-height:1;cursor:pointer}
+  .tg-gate-close:hover{background:rgba(255,255,255,.12);color:#f1f1f4}
+  .tg-gate-close[hidden]{display:none}
+  .tg-gate-cube{width:132px;height:132px;margin:-10px 0 -6px;display:block;cursor:grab;touch-action:none;
+    outline:none;background:none}
+  .tg-gate-cube:active{cursor:grabbing}
   .tg-gate-mark{font:700 22px/1 'Unbounded',Manrope,sans-serif;letter-spacing:-1px}
   .tg-gate-mark>i{margin-left:4px;font:26px/1 Georgia,serif;font-style:normal;color:#c8b3f6}
   .tg-gate-card h2{margin:0;font-size:19px;letter-spacing:-.02em}
@@ -96,20 +103,46 @@ window.Poker8TgLogin = (() => {
     gate.className = "tg-gate";
     gate.innerHTML = `<style>${STYLE}</style>
       <section class="tg-gate-card" role="dialog" aria-modal="true" aria-label="Вход через Telegram">
+        <button class="tg-gate-close" type="button" aria-label="Закрыть" hidden>×</button>
+        <canvas class="tg-gate-cube" role="img" tabindex="0" aria-label="Интерактивный неоновый кубик"></canvas>
         <span class="tg-gate-mark">poker<i aria-hidden="true">♠</i></span>
         <h2>Вход через Telegram</h2>
         <p>Подтвердите вход в чате с ботом — и продолжайте играть здесь, в браузере.</p>
         <button class="tg-gate-open" type="button">${PLANE}Войти через Telegram</button>
         <div class="tg-gate-code" hidden><span>КОД НА ЭКРАНЕ</span><b></b></div>
         <p class="tg-gate-note" role="status"></p>
-        <a class="tg-gate-alt" hidden>${PLANE}Открыть в Telegram</a>
+        <a class="tg-gate-alt" hidden>${PLANE}Играть в Telegram</a>
       </section>`;
     const alt = gate.querySelector(".tg-gate-alt");
     if (appUrl) {
       alt.href = appUrl;
       alt.hidden = false;
     }
+    spinCube(gate.querySelector(".tg-gate-cube"));
     return gate;
+  }
+
+  //: The CUBE game's own cube, idling on the card with nothing to press: it
+  //: drifts, follows a drag, and pulses on a tap. Its three scripts are
+  //: fetched only when the card is shown -- every other page load stays as
+  //: light as it was -- and a failed fetch just leaves the card cube-less.
+  const CUBE_SCRIPTS = ["cube-motion.js", "cube-canvas.js", "neon-cube.js"];
+  const script = src => new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src^="/static/${src}"]`)) return resolve();
+    const tag = document.createElement("script");
+    tag.src = `/static/${src}?v=guest-tables-1`;
+    tag.onload = resolve;
+    tag.onerror = reject;
+    document.head.appendChild(tag);
+  });
+  async function spinCube(canvas) {
+    try {
+      for (const src of CUBE_SCRIPTS) await script(src);
+      if (!canvas.isConnected) return;
+      window.Poker8NeonCube(canvas);
+    } catch (_) {
+      canvas.remove();
+    }
   }
 
   let polling = null;
@@ -184,7 +217,7 @@ window.Poker8TgLogin = (() => {
    * when there is no bot to sign in with, so the caller can fall back to its
    * own message.
    */
-  function prompt(config) {
+  function prompt(config, { dismissable = false } = {}) {
     if (!config?.telegram_login_bot || document.querySelector(".tg-gate")) {
       return Promise.resolve(null);
     }
@@ -196,8 +229,31 @@ window.Poker8TgLogin = (() => {
       });
     });
     document.body.appendChild(gate);
-    return new Promise(() => {});
+    if (!dismissable) return new Promise(() => {});
+    // A guest asked for this card by pressing something; they may also
+    // change their mind and go back to watching.
+    return new Promise(resolve => {
+      const close = gate.querySelector(".tg-gate-close");
+      close.hidden = false;
+      close.addEventListener("click", () => {
+        window.clearInterval(polling);
+        polling = null;
+        gate.remove();
+        resolve(null);
+      });
+    });
   }
 
-  return { prompt };
+  /** The card for a guest who is already in: fetches what it needs itself,
+      and can be closed. Resolves when it is closed; a login reloads. */
+  async function open() {
+    const config = await fetch("/api/config").then(response => response.json()).catch(() => null);
+    if (!config?.telegram_login_bot) {
+      alert("Вход через Telegram сейчас недоступен.");
+      return null;
+    }
+    return prompt(config, { dismissable: true });
+  }
+
+  return { prompt, open };
 })();

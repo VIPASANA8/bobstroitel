@@ -27,6 +27,7 @@ from online.schema import (
     progress_days,
     system_players,
     user_progression,
+    users,
     xp_events,
 )
 
@@ -116,6 +117,14 @@ def rank_for_level(level: int) -> str:
     return next(name for ceiling, name in RANKS if level <= ceiling)
 
 
+async def is_guest(session: AsyncSession, user_id: str) -> bool:
+    """A guest is a user auth.py minted a negative Telegram id for."""
+    telegram_user_id = await session.scalar(
+        select(users.c.telegram_user_id).where(users.c.id == user_id)
+    )
+    return telegram_user_id is not None and telegram_user_id < 0
+
+
 async def record_hand(
     session: AsyncSession,
     *,
@@ -148,6 +157,11 @@ async def record_hand(
     guards on hands.completed_at, which is null until the very transaction
     that calls this commits -- a replayed settlement therefore counts nothing.
     """
+    if owner_kind == "user" and await is_guest(session, owner_id):
+        # A guest is a browser tab, and a tab is free: XP, achievements and
+        # missions counted here would all be farmable by opening more of them.
+        # The hand still settles and the chips still move; only progress stops.
+        return 0
     day = msk_day(now)
     row = await _day_row(session, owner_kind, owner_id, day)
     hands = (row["hands"] if row else 0) + 1

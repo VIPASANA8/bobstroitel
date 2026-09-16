@@ -188,3 +188,26 @@ async def test_a_room_hand_counts_as_played_but_not_as_a_result(db_session_facto
     assert row["result_hands"] == 1, "only one of them may move a rate"
     assert row["net_bb_x100"] == 250, "+2.5 BB from the network table, and nothing else"
     assert row["xp"] == 2, "volume pays the same wherever it is played"
+
+
+@pytest.mark.anyio
+async def test_a_guest_plays_for_chips_and_nothing_else(db_session_factory):
+    """A guest is a browser tab, and a tab is free: no XP, no day row, no
+    missions -- otherwise every one of them is a way to farm progress."""
+    async with db_session_factory() as session:
+        await session.execute(insert(tenants).values(id="tenant", slug="poker8", name="Poker8"))
+        await session.execute(insert(users).values(
+            id="g1", telegram_user_id=-7, display_name="Guest-AB", acquisition_tenant_id="tenant",
+        ))
+        await session.commit()
+    async with db_session_factory() as session:
+        async with session.begin():
+            granted = await record_hand(
+                session, owner_kind="user", owner_id="g1",
+                hand_id="hand-1", net_units=500, big_blind_units=100,
+                counts_results=True, now=datetime(2026, 8, 31, 12, 0, tzinfo=timezone.utc),
+            )
+        assert granted == 0
+        assert (await session.execute(select(progress_days))).first() is None
+        assert (await session.execute(select(xp_events))).first() is None
+        assert (await session.execute(select(user_progression))).first() is None

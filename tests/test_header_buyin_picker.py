@@ -60,6 +60,8 @@ def _run_slider_bounds(min_bb, max_bb):
     const table = { min_buy_in_bb: %s, max_buy_in_bb: %s };
     const calls = [];
     function requestAnimationFrame(fn) { fn(); }
+    // A signed-in player at a play table: the guest gate stays out of the way.
+    function seatNeedsLogin() { return false; }
     function ensureBuyInDialog() {
       const store = {};
       return {

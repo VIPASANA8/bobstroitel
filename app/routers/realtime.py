@@ -168,9 +168,12 @@ async def table_socket(websocket: WebSocket, table_id: str) -> None:
     asset = table["asset"]
     if asset == CASH_USDT:
         try:
+            # A guest gets the snapshots and nothing else: with no seat, every
+            # action they could send is refused by the runtime itself.
             ensure_cash_access(
                 websocket.app.state.settings.cash_mode, user.auth_method,
                 user.telegram_user_id, getattr(websocket.app.state.settings, "cash_allowlist", ()),
+                observe=True,
             )
         except CashAccessDenied:
             await websocket.close(code=4403)

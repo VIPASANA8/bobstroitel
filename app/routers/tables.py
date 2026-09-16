@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from app.dependencies import AuthenticatedUser, require_play_table_user
+from app.dependencies import AuthenticatedUser, require_play_table_user, require_table_viewer
 from cash.amounts import usdt_to_micros
 from cash.game import CashIntegrityError, CashRuntimeError, CashSeatError
 from cash.holds import CashUserFrozen
@@ -110,7 +110,7 @@ def _error(exc: Exception) -> HTTPException:
 async def table_snapshot(
     table_id: str,
     request: Request,
-    user: AuthenticatedUser = Depends(require_play_table_user),
+    user: AuthenticatedUser = Depends(require_table_viewer),
 ):
     row = await _table(request, table_id)
     if row["asset"] == CASH_USDT:

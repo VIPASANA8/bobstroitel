@@ -163,11 +163,19 @@ async def webhook(
             return {"ok": True}
         # A referral link and a login share this one payload slot, so they are
         # told apart by shape: a code is nine characters, a login nonce is
-        # thirty-two. The bot cannot bind anything itself -- it has no account
-        # to bind yet -- so it hands the invitation on to the Mini App, where
-        # the first login carries it in `start_param`.
+        # thirty-two. The account is opened and the invitation bound right
+        # here: this /start is the top of the funnel, and the Mini App open it
+        # used to wait for is a step many people never take.
         code = normalise_referral(nonce)
         if code:
+            if sender.get("id"):
+                try:
+                    await auth.register(
+                        tenant_slug, int(sender["id"]), _display_name(sender),
+                        telegram_username(sender), referral_code=code,
+                    )
+                except AuthenticationError:
+                    pass
             username = getattr(request.app.state, "telegram_login_bots", {}).get(
                 tenant_slug, {},
             ).get("username")

@@ -732,6 +732,7 @@
   // min/max_buy_in_bb come straight off the table row (see catalogue.py) --
   // every table can set its own range, so nothing here is hardcoded.
   function showBuyInDialog(seatNo = null) {
+    if (seatNeedsLogin()) return;
     pendingBuyInSeat = Number.isFinite(seatNo) ? seatNo : null;
     const dialog = ensureBuyInDialog();
     const min = Number(table?.min_buy_in_bb) || 40;
@@ -1317,6 +1318,8 @@
 
   async function ready(seatNo = null, buyInBB = null) {
     if (readyInFlight || viewerState === "seated" || viewerState === "held" || viewerState === "leaving") return;
+    // Every seat click ends up here, whichever button or avatar it came from.
+    if (seatNeedsLogin()) return;
     // Asked up front when the table is known to need one, to skip a request
     // that would only come back asking for it -- the server checks again
     // regardless (table.has_password reflects what it knew at the last
@@ -1655,11 +1658,21 @@
     });
   }
 
+  //: A guest at a CASH table is a spectator: every road to a seat leads to
+  //: the Telegram login instead. Play tables are theirs to sit at.
+  let guest = false;
+  function seatNeedsLogin() {
+    if (!guest || table?.asset !== "CASH_USDT") return false;
+    window.Poker8TgLogin?.open?.();
+    return true;
+  }
+
   async function boot() {
     bindControls();
     // Table pages must authenticate the Telegram Mini App before the first
     // snapshot; otherwise a retained guest cookie masks the real @username.
-    await window.Poker8Auth?.ensureSession?.();
+    const profile = await window.Poker8Auth?.ensureSession?.();
+    guest = Boolean(profile?.guest);
     // Ownership never changes while the page is open, so this is asked once.
     // A failure here only costs the owner their two menu items, so it must not
     // take the rest of the table down with it.

@@ -97,11 +97,9 @@ async def get_cash_operator(
     return CashOperator(row["id"], row["telegram_user_id"], row["tenant_id"], row["role"])
 
 
-async def require_play_table_user(
-    table_id: str, request: Request,
-    user: AuthenticatedUser = Depends(get_current_user),
+async def _table_user(
+    table_id: str, request: Request, user: AuthenticatedUser, *, observe: bool,
 ) -> AuthenticatedUser:
-    """Authenticate a table viewer and apply the CASH mode gate by asset."""
     async with request.app.state.session_factory() as session:
         asset = await session.scalar(select(poker_tables.c.asset).where(poker_tables.c.id == table_id))
     if asset is None:
@@ -111,8 +109,25 @@ async def require_play_table_user(
             ensure_cash_access(
                 request.app.state.settings.cash_mode, user.auth_method,
                 user.telegram_user_id, getattr(request.app.state.settings, "cash_allowlist", ()),
+                observe=observe,
             )
         except CashAccessDenied as exc:
             status = 404 if request.app.state.settings.cash_mode == "off" else 403
             raise HTTPException(status_code=status, detail=str(exc)) from exc
     return user
+
+
+async def require_play_table_user(
+    table_id: str, request: Request,
+    user: AuthenticatedUser = Depends(get_current_user),
+) -> AuthenticatedUser:
+    """Authenticate a table player and apply the CASH mode gate by asset."""
+    return await _table_user(table_id, request, user, observe=False)
+
+
+async def require_table_viewer(
+    table_id: str, request: Request,
+    user: AuthenticatedUser = Depends(get_current_user),
+) -> AuthenticatedUser:
+    """Same, for the read-only routes a guest may watch a CASH table through."""
+    return await _table_user(table_id, request, user, observe=True)
