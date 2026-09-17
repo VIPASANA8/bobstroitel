@@ -11,8 +11,15 @@
     /* Was @media (max-width:780px). The v2 table is the table now, at every
        width; desktop geometry is tuned in v039. */
     @media all{
+      /* A box-shadow, not a filter: drop-shadow on the felt re-rasterised
+         the whole table -- every seat, card and chip inside it -- on each of
+         the ~3 snapshots a second a live hand produces, for the entire length
+         of every turn. The felt is a rounded box, so the shadow follows the
+         same outline and the children are left alone. */
       body.v014.poker8-v2-sixmax.p8-turn-active .felt{
-        filter:drop-shadow(0 0 10px color-mix(in srgb,var(--turn) 20%,transparent))!important;
+        box-shadow:0 0 10px 2px color-mix(in srgb,var(--turn) 20%,transparent),
+          inset 0 0 115px rgba(0,0,0,.72),inset 0 0 36px rgba(55,216,230,.06),
+          0 0 0 4px rgba(89,110,188,.06),0 0 40px rgba(61,205,233,.09),0 30px 80px rgba(0,0,0,.40)!important;
       }
       /* No pulse. It rode on the avatar and the plate, and those elements are
          rebuilt on every render -- twice in five seconds on a live table --

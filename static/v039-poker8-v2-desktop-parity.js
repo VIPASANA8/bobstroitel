@@ -351,7 +351,10 @@
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat-card.folded{opacity:1!important;filter:none!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat-card.folded .player-cards{display:none!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat-card.folded .seat-identity{background:linear-gradient(180deg,rgba(9,10,10,.98),rgba(0,0,0,.995))!important;}
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat-identity{backdrop-filter:blur(5px)!important;}
+      /* No backdrop blur: the plate sits on rgba(0,0,0,.98) of its own, so
+         the blur was invisible and still cost a per-frame pass for each of
+         the six seats whenever anything under them moved (see v041). */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .seat-identity{backdrop-filter:none!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .player-status{
         position:absolute!important;z-index:10!important;left:auto!important;right:5px!important;top:7px!important;
         width:auto!important;height:21px!important;min-height:21px!important;max-height:21px!important;box-sizing:border-box!important;padding:4px 6px!important;

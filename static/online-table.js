@@ -1698,8 +1698,9 @@
     await refreshState();
     clearInterval(pollTimer);
     // The socket now carries coordinator-driven changes too, so this is only a
-    // safety net for a dropped connection.
-    pollTimer = setInterval(() => refreshState().catch(() => {}), 3000);
+    // safety net for a dropped connection -- and every poll that lands is a
+    // render, so it runs at a fraction of the socket's own pace.
+    pollTimer = setInterval(() => refreshState().catch(() => {}), 8000);
     window.Poker8Transport.connect(tableId, {
       onStatus: status => setText("connectionStatus", status),
       onMessage: message => {
