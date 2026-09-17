@@ -51,6 +51,7 @@
     selected: [2, 5],
     stakeInput: DEFAULT_STAKE,
     balanceUnits: null,
+    guest: false,
     error: "",
     isRolling: false,
     currentFace: 1,
@@ -161,9 +162,10 @@
     $("cubeError").hidden = !message;
 
     const play = $("playButton");
-    play.disabled = view.isRolling || count === 0 || !validStake();
+    play.disabled = view.isRolling || (!view.guest && (count === 0 || !validStake()));
     $("playLabel").textContent = view.isRolling
       ? "КУБИК ВРАЩАЕТСЯ"
+      : view.guest ? "ВОЙТИ ЧЕРЕЗ TELEGRAM"
       : insufficient ? "ПОПОЛНИТЬ БАЛАНС" : round ? "ПОВТОРИТЬ БРОСОК" : "БРОСИТЬ КУБИК";
 
     cube.update({
@@ -203,9 +205,19 @@
     }, canvasCube.RESULT_CLEAR_MS);
   }
 
+  //: A guest has no wallet to ask for: the balance chip and the roll button
+  //: both open the Telegram login instead.
+  const loginGate = () => window.Poker8TgLogin?.open?.();
+
   async function refreshBalance() {
     try {
-      await window.Poker8Auth.ensureSession();
+      const profile = await window.Poker8Auth.ensureSession();
+      view.guest = Boolean(profile?.guest);
+      if (view.guest) {
+        view.error = "Войдите через Telegram, чтобы играть на USDT.";
+        render();
+        return;
+      }
       const response = await fetch("/api/cash/wallet");
       // 404 is cash mode off, 403 is this account not being let into it. Both
       // mean there is no USDT to play with, and neither is the player's fault.
@@ -220,6 +232,7 @@
   }
 
   async function play() {
+    if (view.guest) return loginGate();
     const balance = view.balanceUnits;
     const units = stake();
     if (balance !== null && units !== null && units > balance) {
@@ -285,6 +298,7 @@
   $("stakeUp").addEventListener("click", () => stepStake(STAKE_NUDGE));
   $("stakeDown").addEventListener("click", () => stepStake(-STAKE_NUDGE));
   $("stakeBalance").addEventListener("click", () => {
+    if (view.guest) return loginGate();
     window.location.href = "/static/profile.html?app=cube#cash";
   });
   $("playButton").addEventListener("click", play);

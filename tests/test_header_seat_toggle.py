@@ -48,7 +48,10 @@ def _run(queued):
         hidden: false,
         classList: { set: new Set(), toggle(name, on) { on ? this.set.add(name) : this.set.delete(name); } },
       },
-      mobileHeaderReadyUp: { hidden: false },
+      mobileHeaderReadyUp: {
+        hidden: false, disabled: false, textContent: "",
+        classList: { set: new Set(), toggle(name, on) { on ? this.set.add(name) : this.set.delete(name); } },
+      },
       mobileHeaderTakeSeat: {
         textContent: "", disabled: false, title: "",
         classList: { set: new Set(), toggle(name, on) { on ? this.set.add(name) : this.set.delete(name); } },
@@ -114,7 +117,10 @@ def _run_solo_ready_up():
         hidden: false,
         classList: { set: new Set(), toggle(name, on) { on ? this.set.add(name) : this.set.delete(name); } },
       },
-      mobileHeaderReadyUp: { hidden: false },
+      mobileHeaderReadyUp: {
+        hidden: false, disabled: false, textContent: "",
+        classList: { set: new Set(), toggle(name, on) { on ? this.set.add(name) : this.set.delete(name); } },
+      },
       mobileHeaderTakeSeat: {
         textContent: "", disabled: false, title: "",
         classList: { set: new Set(), toggle(name, on) { on ? this.set.add(name) : this.set.delete(name); } },

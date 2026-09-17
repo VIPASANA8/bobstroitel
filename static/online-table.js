@@ -274,6 +274,9 @@
         border-color:rgba(64,237,167,.7);background:#0a3b2b;color:#b8ffda;
         animation:p8HeaderReadyPulse 1.6s ease-in-out infinite;
       }
+      .poker8-online .mobile-header-seat-actions #mobileHeaderReadyUp.is-waiting{
+        animation:none;opacity:1;background:transparent;color:#a2a1ac;border-color:rgba(255,255,255,.14);
+      }
       @keyframes p8HeaderReadyPulse{0%,100%{box-shadow:0 0 0 0 rgba(64,237,167,.35)}50%{box-shadow:0 0 0 4px rgba(64,237,167,0)}}
       @media (prefers-reduced-motion:reduce){
         .poker8-online .mobile-header-seat-actions #mobileHeaderReadyUp{animation:none}
@@ -826,9 +829,19 @@
     // that is only held or leaving too. Falls back to the last REST value
     // for websocket pushes, which do not carry the field.
     const seatNo = viewerState === "seated" ? (state?.viewer_seat_no ?? viewerSeatedSeat) : null;
-    const awaitingReady = viewerState === "seated" && isPreHand() && seatNo != null
-      && !(state?.ready_seats || []).includes(seatNo);
-    if (readyButton) readyButton.hidden = !awaitingReady;
+    const preHandSeat = viewerState === "seated" && isPreHand() && seatNo != null;
+    const isReady = (state?.ready_seats || []).includes(seatNo);
+    const awaitingReady = preHandSeat && !isReady;
+    // Ready, and the deal still not armed: the others have not clicked yet.
+    // In a closed room with one friend that wait is the whole game, and with
+    // nothing on screen saying so the tap read as having done nothing.
+    const waitingOthers = preHandSeat && isReady && !state?.hand_starts_at;
+    if (readyButton) {
+      readyButton.hidden = !(awaitingReady || waitingOthers);
+      readyButton.disabled = waitingOthers;
+      readyButton.textContent = waitingOthers ? "Ждём остальных…" : "Нажмите на аватар";
+      readyButton.classList.toggle("is-waiting", waitingOthers);
+    }
     // Solo mode: with the seat/observe pair hidden, the wrap shrinks to fit
     // this one button and inherits wherever the header's hamburger-vs-utility
     // width imbalance happens to land it -- off-centre, worse the longer this
@@ -836,12 +849,12 @@
     // when it's carrying just this button is safe precisely because it's
     // never sharing the row with the wider pair that overlapping chat/hint
     // in the first place (see the wrap's own flow-layout fix above).
-    wrap.classList.toggle("ready-up-only", awaitingReady);
+    wrap.classList.toggle("ready-up-only", awaitingReady || waitingOthers);
 
     const offer = ["spectator", "waiting"].includes(viewerState);
     if (take) take.hidden = !offer;
     if (observe) observe.hidden = !offer;
-    wrap.hidden = !offer && !awaitingReady;
+    wrap.hidden = !offer && !awaitingReady && !waitingOthers;
     if (!offer) return;
     // The pair reads as "where you are now / what you can switch to", both
     // driven by the server's own answer. The old version highlighted a stored
@@ -1399,7 +1412,12 @@
     // viewerSeatNo applies that same rule, so gating on it means the button
     // is offered exactly when the call behind it can succeed.
     if (readyUpInFlight || viewerState !== "seated" || !isPreHand()) return;
-    if ((latestState?.viewer_seat_no ?? viewerSeatedSeat) == null) return;
+    const seatNo = latestState?.viewer_seat_no ?? viewerSeatedSeat;
+    if (seatNo == null) return;
+    // The endpoint is a toggle. A second tap while waiting for the others --
+    // the natural thing to do when nothing seems to have happened -- used to
+    // take the readiness back, which is why it "sometimes did not work".
+    if ((latestState?.ready_seats || []).includes(seatNo)) return;
     readyUpInFlight = true;
     try {
       await window.Poker8Transport.readyUp();

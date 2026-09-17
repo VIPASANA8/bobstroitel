@@ -182,8 +182,12 @@ def test_the_header_offers_ready_up_for_a_seated_player_with_nothing_dealt():
     # and the ready-up endpoint refuses those.
     assert 'const seatNo = viewerState === "seated" ? (state?.viewer_seat_no ?? viewerSeatedSeat) : null;' in source
     assert "isPreHand()" in source[source.index("function syncHeaderSeatButtons"):]
-    assert "wrap.hidden = !offer && !awaitingReady;" in source
-    assert 'readyButton.hidden = !awaitingReady;' in source
+    assert "wrap.hidden = !offer && !awaitingReady && !waitingOthers;" in source
+    assert "readyButton.hidden = !(awaitingReady || waitingOthers);" in source
+    # Ready and waiting on the others reads as such, and a second tap on the
+    # avatar does not take the readiness back.
+    assert 'readyButton.textContent = waitingOthers ? "Ждём остальных…" : "Нажмите на аватар";' in source
+    assert "if ((latestState?.ready_seats || []).includes(seatNo)) return;" in source
     assert "readyUp().catch(error => alert(error.message));" in source
 
 

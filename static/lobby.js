@@ -50,6 +50,14 @@
     #cashPilot .cash-wallet-grid span,#cashPilot .cash-wallet-grid small{color:#e9c76a}
     #cashPilot .cash-wallet-grid strong{color:#ffe9a8}
     .header-login-short{display:none}
+    @media (min-width:761px){
+      /* The game switch lives in the header on a desktop; the cube page keeps
+         its floating bar. */
+      .network-header .game-tabs{position:static;transform:none;width:min(360px,40%);
+        box-shadow:none;backdrop-filter:none;background:var(--panel-2);border-color:var(--line)}
+      .network-header .game-tab{min-height:40px}
+      .network-shell{padding-bottom:42px}
+    }
     @media (max-width:760px){
       .header-login{min-height:38px;padding:0 14px}
       .header-login-full{display:none}

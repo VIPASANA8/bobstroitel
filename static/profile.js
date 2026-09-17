@@ -695,6 +695,17 @@
     $('cashHistory').hidden = true;
     $('allHistory').replaceChildren();
     $('allHistoryPanel').setAttribute('aria-busy', 'false');
+    if (window.Poker8Profile?.guest) {
+      // A guest has no cashier; the message carries the door to one.
+      showError('cashError', 'Касса открывается после входа через Telegram. ');
+      const login = document.createElement('button');
+      login.type = 'button';
+      login.className = 'referral-secondary';
+      login.textContent = 'Войти через Telegram';
+      login.addEventListener('click', () => window.Poker8TgLogin?.open?.());
+      $('cashError').appendChild(login);
+      return;
+    }
     showError('cashError', window.Poker8Auth.needsSignIn(error)
       ? 'Войдите через Telegram: откройте кассу из бота.'
       : 'USDT-касса временно недоступна. Попробуйте обновить страницу через минуту.');
