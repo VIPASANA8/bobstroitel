@@ -17,7 +17,6 @@ from pathlib import Path
 STATIC = Path("static")
 INDEX = (STATIC / "index.html").read_text(encoding="utf-8")
 COMPONENT_UI = (STATIC / "component-ui.js").read_text(encoding="utf-8")
-V037 = (STATIC / "v037-poker8-v2-reference-table.js").read_text(encoding="utf-8")
 
 #: Each link in the chain: (source, the file it pulls in).
 LOBBY = (STATIC / "lobby.html").read_text(encoding="utf-8")
@@ -27,10 +26,10 @@ CHAIN = [
     (LOBBY, "table-guide.js"),
     (INDEX, "component-ui.js"),
     (INDEX, "online-table.js"),
-    (COMPONENT_UI, "v037-poker8-v2-reference-table.js"),
-    (V037, "v038-poker8-v2-cinematic-table.js"),
-    (V037, "v040-poker8-v2-dynamic-seats.js"),
-    (V037, "v041-poker8-v2-turn-clarity.js"),
+    # The thirteen v0xx layers travel as one file now (tools/bundle_table_layers.py);
+    # the loaders still inside v028 and v037 are dead, kept only so the sources
+    # stay readable, and the bundle's markers are what stand them down.
+    (COMPONENT_UI, "table-layers.js"),
 ]
 
 

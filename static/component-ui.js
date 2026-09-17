@@ -79,73 +79,14 @@
   // on the external telegram-web-app.js round trip -- every extra second
   // there is a second spent showing the old v0.11 table underneath.
   document.addEventListener("DOMContentLoaded", () => {
-    if (!document.querySelector('script[data-v016-fixes]')) {
-      const v016 = document.createElement("script");
-      v016.src = "/static/v016-fixes.js";
-      v016.dataset.v016Fixes = "1";
-      document.body.appendChild(v016);
-    }
-
-    if (!document.querySelector('script[data-v018-fixes]')) {
-      const v018 = document.createElement("script");
-      v018.src = "/static/v018-fixes.js";
-      v018.dataset.v018Fixes = "1";
-      document.body.appendChild(v018);
-    }
-
-    if (!document.querySelector('script[data-v019-fixes]')) {
-      const v019 = document.createElement("script");
-      v019.src = "/static/v019-center-polish.js";
-      v019.dataset.v019Fixes = "1";
-      document.body.appendChild(v019);
-    }
-
-    if (!document.querySelector('script[data-v023-brand-balance-fix]')) {
-      const v023 = document.createElement("script");
-      v023.src = "/static/v023-brand-balance-fix.js";
-      v023.dataset.v023BrandBalanceFix = "1";
-      document.body.appendChild(v023);
-    }
-
-    if (!document.querySelector('script[data-v026-seat-status-layout]')) {
-      const v026 = document.createElement("script");
-      v026.src = "/static/v026-seat-status-layout.js?v=guest-tables-14";
-      v026.dataset.v026SeatStatusLayout = "1";
-      document.body.appendChild(v026);
-    }
-
-    if (!document.querySelector('script[data-v027-compact-seats-controls]')) {
-      const v027 = document.createElement("script");
-      v027.src = "/static/v027-compact-seats-controls.js?v=guest-tables-14";
-      v027.dataset.v027CompactSeatsControls = "1";
-      document.body.appendChild(v027);
-    }
-
-    if (!document.querySelector('script[data-v028-ready-phase]')) {
-      const readyPhase = document.createElement("script");
-      readyPhase.src = "/static/v028-ready-phase.js?v=guest-tables-14";
-      readyPhase.dataset.v028ReadyPhase = "1";
-      document.body.appendChild(readyPhase);
-    }
-
-    if (!document.querySelector('script[data-v032-poker8-v2-sixmax]')) {
-      const v032 = document.createElement("script");
-      v032.src = "/static/v032-poker8-v2-mobile-sixmax.js?v=guest-tables-14";
-      v032.dataset.v032Poker8V2Sixmax = "1";
-      v032.addEventListener("load", () => {
-        if (!document.querySelector('script[data-v037-poker8-v2-reference-table]')) {
-          const finalMobile = document.createElement("script");
-          finalMobile.src = "/static/v037-poker8-v2-reference-table.js?v=guest-tables-14";
-          finalMobile.dataset.v037Poker8V2ReferenceTable = "1";
-          document.body.appendChild(finalMobile);
-        }
-      }, { once:true });
-      document.body.appendChild(v032);
-    } else if (!document.querySelector('script[data-v037-poker8-v2-reference-table]')) {
-      const finalMobile = document.createElement("script");
-      finalMobile.src = "/static/v037-poker8-v2-reference-table.js?v=guest-tables-14";
-      finalMobile.dataset.v037Poker8V2ReferenceTable = "1";
-      document.body.appendChild(finalMobile);
-    }
+    // One file, one request: every v0xx layer, in the order the old loaders
+    // ran them, built by tools/bundle_table_layers.py. It plants each
+    // layer's own marker first, so the loaders still inside the layers
+    // find the next one "already loaded" and stand down.
+    if (document.querySelector("script[data-table-layers]")) return;
+    const layers = document.createElement("script");
+    layers.src = "/static/table-layers.js?v=guest-tables-15";
+    layers.dataset.tableLayers = "1";
+    document.body.appendChild(layers);
   });
 })();

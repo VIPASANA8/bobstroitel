@@ -1,5 +1,7 @@
 import re
 from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 
 from persistence.store import TrainingStore
 from poker.engine import PokerEngine
@@ -37,10 +39,12 @@ def test_v037_reference_table_pass_is_loaded_and_chat_is_decorative():
     # asserting that one passed while proving nothing: nothing ever loaded
     # v036 itself, so its loader never ran. Deleted 2026-08-29 along with
     # v035, which nothing referenced either -- see docs/layer-cleanup.md.
+    # Since the bundle (tools/bundle_table_layers.py) the layer travels inside
+    # table-layers.js, which component-ui.js loads; v037 is one of its parts.
+    import bundle_table_layers
     loader = (root / 'static' / 'component-ui.js').read_text(encoding='utf-8')
-
-    assert '/static/v037-poker8-v2-reference-table.js' in loader
-    assert 'data-v037' in loader
+    assert '/static/table-layers.js' in loader
+    assert 'v037-poker8-v2-reference-table.js' in bundle_table_layers.LAYERS
     assert 'id = "mobileChatButton"' in source
     assert 'setAttribute("aria-label"' in source
     assert 'type = "button"' in source
@@ -94,9 +98,7 @@ def test_v038_uses_full_height_arc_and_viewport_edge_controls():
     # rule that they all match.
     import re as _re
     for source, name in ((index, "component-ui.js"), (index, "online-table.js"),
-                         (component, "v037-poker8-v2-reference-table.js"),
-                         (loader, "v038-poker8-v2-cinematic-table.js"),
-                         (loader, "v040-poker8-v2-dynamic-seats.js")):
+                         (component, "table-layers.js")):
         assert _re.search(_re.escape(name) + r"\?v=[A-Za-z0-9._-]+", source), name
 
 
