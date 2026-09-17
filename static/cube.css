@@ -902,7 +902,7 @@
     grid-template-columns: minmax(0, 1fr) minmax(370px, 430px);
     align-items: start;
     gap: 18px;
-    padding: 4px 20px 108px;
+    padding: 4px 20px 32px;
     min-height: 0;
   }
   .cube-embed .dice-card {
@@ -927,6 +927,6 @@
   /* Under the bet card, in its column, not on a new row of the grid. */
   .cube-embed .poker-link { margin-top: 12px; }
   .cube-embed .face-choice { border-radius: 14px; }
-  /* The bar floats over the page, so only the column under it needs the room. */
-  .cube-page .cube-embed .screen { padding-bottom: 108px; }
+  /* No floating bar any more: nothing needs the room under the column. */
+  .cube-page .cube-embed .screen { padding-bottom: 32px; }
 }

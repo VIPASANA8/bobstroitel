@@ -60,6 +60,8 @@
       .network-shell{padding-bottom:42px}
     }
     @media (max-width:760px){
+      .game-tabs{display:none}
+      .network-shell{padding-bottom:42px}
       .header-login{min-height:38px;padding:0 14px}
       .header-login-full{display:none}
       .header-login-short{display:inline}

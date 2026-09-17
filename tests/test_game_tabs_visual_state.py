@@ -90,7 +90,8 @@ def test_game_tabs_use_equal_selected_segment_visuals():
 def test_pages_keep_the_existing_active_tab_mapping():
     assert '<a class="game-tab game-tab-poker is-active" href="/" aria-current="page">' in LOBBY
     assert '<a class="game-tab game-tab-cube" href="/cube">' in LOBBY
-    assert '<a class="game-tab game-tab-poker" href="/">' in CUBE
-    assert '<a class="game-tab game-tab-cube is-active" href="/cube" aria-current="page">' in CUBE
     assert LOBBY.count('aria-current="page"') == 1
-    assert CUBE.count('aria-current="page"') == 1
+    # The cube page has no bar: "← POKER" in its header and "poker ♠" under
+    # the bet card are the way back.
+    assert "game-tab" not in CUBE
+    assert 'class="poker-link" href="/"' in CUBE
