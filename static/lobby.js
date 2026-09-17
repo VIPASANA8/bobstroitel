@@ -34,6 +34,7 @@
     .guest-cube canvas{display:block;width:240px;height:240px;cursor:grab;touch-action:none;outline:none}
     .guest-cube canvas:active{cursor:grabbing}
     .guest-cube p{margin:0;color:var(--muted);font-size:15px;line-height:1.4;text-align:center;max-width:360px}
+    .guest-cube p[hidden]{display:none}
     /* The Free2Play balance wears the quick-play button's colours. */
     #playPilot .cash-wallet-grid>div{background:var(--violet);border-color:var(--violet)}
     #playPilot .cash-wallet-grid span,#playPilot .cash-wallet-grid small,#playPilot .cash-wallet-grid strong{color:#1c0f33}
@@ -258,16 +259,17 @@
   async function load() {
     const profile = await window.Poker8Auth.ensureSession();
     guest = Boolean(profile.guest);
-    // The login takes the profile's corner, the cube takes the buttons'
-    // right-hand side, and the CASH wallet panel has nothing to say.
+    // For a guest the login takes the profile's corner. The cube on the
+    // right is for everybody; only the note under it is the guest's.
     $("headerLogin").hidden = !guest;
     $("profileChip").hidden = guest;
-    $("guestCube").hidden = !guest;
-    document.querySelector(".guest-row").classList.toggle("is-guest", guest);
+    $("guestCube").hidden = false;
+    $("guestCube").querySelector("p").hidden = !guest;
+    document.querySelector(".guest-row").classList.add("is-guest");
     markAsset();
     // The same cube as on the login card, once: load() runs on every tab
     // switch, and a second cube on the same canvas would fight the first.
-    if (guest && !$("guestCubeCanvas").dataset.spinning) {
+    if (!$("guestCubeCanvas").dataset.spinning) {
       $("guestCubeCanvas").dataset.spinning = "1";
       window.Poker8TgLogin?.spinCube?.($("guestCubeCanvas"));
     }

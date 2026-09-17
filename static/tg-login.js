@@ -145,7 +145,7 @@ window.Poker8TgLogin = (() => {
   const script = src => new Promise((resolve, reject) => {
     if (document.querySelector(`script[src^="/static/${src}"]`)) return resolve();
     const tag = document.createElement("script");
-    tag.src = `/static/${src}?v=guest-tables-10`;
+    tag.src = `/static/${src}?v=guest-tables-11`;
     tag.onload = resolve;
     tag.onerror = reject;
     document.head.appendChild(tag);
