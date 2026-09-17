@@ -35,7 +35,10 @@ def test_each_lobby_mode_has_its_own_balance_panel(client):
         assert f'id="{amount}"' in html
     js = Path("static/lobby.js").read_text(encoding="utf-8")
     assert '$("playPilot").hidden = asset !== "PLAY"' in js
-    assert '$("playAvailable").textContent' in js
+    # The chips roll from the markup's 9999.99 down to the real balance.
+    assert 'rollTo($("playAvailable")' in js and 'rollTo($("cashAvailable")' in js
+    assert '<strong id="playAvailable">9999.99 фишек</strong>' in html
+    assert '<strong id="cashAvailable">999 CASH</strong>' in html
 
 
 def test_public_config_contains_branding_but_no_bot_token(client):

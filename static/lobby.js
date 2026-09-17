@@ -83,6 +83,23 @@
   let guest = false;
 
   const format = units => (Number(units || 0) / 100).toFixed(2);
+
+  //: The balance rolls from the placeholder the markup shows (9999.99 chips,
+  //: 999 CASH) down to what is actually there, rather than jumping.
+  const ROLL_MS = 900;
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function rollTo(element, to, render) {
+    const from = Number(element.dataset.rolled ?? parseFloat(element.textContent)) || 0;
+    element.dataset.rolled = String(to);
+    if (reducedMotion || from === to) { element.textContent = render(to); return; }
+    const startedAt = performance.now();
+    (function frame(now) {
+      const t = Math.min(1, (now - startedAt) / ROLL_MS);
+      const eased = 1 - (1 - t) ** 3;
+      element.textContent = render(from + (to - from) * eased);
+      if (t < 1) requestAnimationFrame(frame);
+    })(startedAt);
+  }
   const decimal = (value, digits) => {
     const amount = BigInt(value || 0);
     const scale = 10n ** BigInt(digits);
@@ -252,7 +269,7 @@
   function paintCashWallet(wallet) {
     if (!wallet) return;
     $("wallet").textContent = `${wallet.available_units} CASH`;
-    $("cashAvailable").textContent = `${wallet.available_units} CASH`;
+    rollTo($("cashAvailable"), Number(wallet.available_units), value => `${Math.round(value)} CASH`);
     $("cashAvailableUsdt").textContent = `${wallet.available_usdt} USDT`;
   }
 
@@ -282,7 +299,7 @@
     // the moment its own request does, rather than with the slowest sibling.
     if (asset !== "CASH_USDT" || guest) {
       $("wallet").textContent = format(profile.available_units);
-      $("playAvailable").textContent = `${format(profile.available_units)} фишек`;
+      rollTo($("playAvailable"), Number(profile.available_units) / 100, value => `${value.toFixed(2)} фишек`);
     }
     if (guest) {
       // No CASH wallet to show: the panel says what it takes to get one.
