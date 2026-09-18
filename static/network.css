@@ -228,10 +228,16 @@ body.f2p{
   --gold:#e8c35a;--gold-ink:#1a2a1f;
   --accent:var(--gold);--violet:var(--gold);--violet-deep:#3a2e10;
   --mint:#9cddbc;--mint-deep:#1b3a2c;--danger:#f39b9f;--orange:#e8c35a;
-  background:radial-gradient(ellipse 120% 70% at 50% -10%,#1f6b49,#0e3b2a 55%,#071d15 100%);
+  background:
+    radial-gradient(ellipse 90% 55% at 50% -8%,rgba(52,150,104,.55),transparent 70%),
+    radial-gradient(ellipse 140% 90% at 50% 20%,#155a3e,#0d3a29 45%,#092a1e 70%,#071d15 100%);
 }
-/* The grain the graphite turned off: felt is cloth, not paint. */
-body.f2p:before{display:block;opacity:.06}
+/* The grain the graphite turned off: felt is cloth, not paint. Not the
+   180px grey tile above -- at its size it reads as blotches on a wide
+   screen. A fine desaturated noise, drawn at twice its tile so it stays
+   crisp on a retina screen, blended soft-light so it dithers the gradient
+   instead of greying it. */
+body.f2p:before{display:block;opacity:.55;mix-blend-mode:soft-light;background-size:160px 160px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
 body.f2p .guest-cube,body.f2p .game-tabs{--ink:#f1f1f4;--muted:#a2a1ac;--line:#303039;--panel:#18191f;--panel-2:#18191f}
 
 /* Balance: a gold chip, with a chip's dashed edge and a spade on it. */
