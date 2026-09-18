@@ -506,6 +506,8 @@
   });
 
   function markAsset() {
+    // The felt is Free2Play's; REAL CASH keeps the profile's graphite.
+    document.body.classList.toggle("f2p", asset === "PLAY");
     $("cashPilot").hidden = asset !== "CASH_USDT";
     $("playPilot").hidden = asset !== "PLAY";
     document.querySelectorAll("[data-asset]").forEach(tab => {

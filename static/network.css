@@ -210,3 +210,89 @@ body:before,body:after{display:none}
 .buyin-dialog input,#roomDialog select{border-color:var(--line);background:var(--panel-2)}
 .buyin-dialog input:focus,#roomDialog select:focus{border-color:var(--accent)}
 .session-report{border-color:var(--line);background:var(--panel-2)}
+
+
+/* ── Free2Play on the felt ──────────────────────────────────────────────────
+   The graphite-and-violet lobby above is the profile's; on the training tab
+   it reads as a settings page, not a card room. body.f2p, set by lobby.js
+   with the mode, puts that one tab on green felt with a gold rail: the
+   tokens the whole page is built from are repointed here, so the cards, the
+   panels, the dialogs and the mode switch all move together.
+
+   The cube and the game switch are CUBE's, not the felt's: their tokens are
+   pinned back to the graphite values below, so nothing of theirs changes. */
+html:has(body.f2p){background:#071d15}
+body.f2p{
+  --ink:#f6efd6;--muted:#a9c2b3;--line:rgba(232,195,90,.28);
+  --panel:#0d2a1f;--panel-2:var(--panel);
+  --gold:#e8c35a;--gold-ink:#1a2a1f;
+  --accent:var(--gold);--violet:var(--gold);--violet-deep:#3a2e10;
+  --mint:#9cddbc;--mint-deep:#1b3a2c;--danger:#f39b9f;--orange:#e8c35a;
+  background:radial-gradient(ellipse 120% 70% at 50% -10%,#1f6b49,#0e3b2a 55%,#071d15 100%);
+}
+/* The grain the graphite turned off: felt is cloth, not paint. */
+body.f2p:before{display:block;opacity:.06}
+body.f2p .guest-cube,body.f2p .game-tabs{--ink:#f1f1f4;--muted:#a2a1ac;--line:#303039;--panel:#18191f;--panel-2:#18191f}
+
+/* Balance: a gold chip, with a chip's dashed edge and a spade on it. */
+body.f2p #playPilot .cash-wallet-grid>div{
+  position:relative;overflow:hidden;
+  background:linear-gradient(135deg,#f3d97e,#d0a237 55%,#ecc75e);border-color:#8a6a1c;
+  outline:2px dashed rgba(26,42,31,.3);outline-offset:-7px;
+  box-shadow:inset 0 1px 0 rgba(255,244,200,.6),0 8px 24px -10px rgba(232,195,90,.6);
+}
+body.f2p #playPilot .cash-wallet-grid>div::after{
+  content:"♠";position:absolute;right:14px;top:50%;transform:translateY(-50%);
+  font:700 44px/1 Georgia,serif;color:rgba(26,42,31,.18);pointer-events:none;
+}
+body.f2p #playPilot .cash-wallet-grid span,body.f2p #playPilot .cash-wallet-grid small,body.f2p #playPilot .cash-wallet-grid strong{color:var(--gold-ink)}
+body.f2p .cash-pilot{background:linear-gradient(160deg,#124a33,#0d2a1f 70%)}
+
+/* Gold for the one way in, a dark rail for the rest. */
+body.f2p .entry-primary,body.f2p .primary-action{background:linear-gradient(180deg,#f3d97e,#d9ac3a);color:var(--gold-ink);box-shadow:0 8px 22px -8px rgba(232,195,90,.7)}
+body.f2p .entry-primary .entry-mark{background:var(--gold-ink);color:var(--gold)}
+body.f2p .entry-secondary{background:rgba(0,0,0,.28)}
+body.f2p .entry-secondary .entry-mark{background:var(--violet-deep);color:var(--gold)}
+body.f2p .entry-guide{background:transparent}
+body.f2p .cash-actions .cash-cashier{background:rgba(0,0,0,.28)}
+body.f2p .header-login{background:#2aabee}
+
+/* The live strip is a strip of the rail: the suits sit in it like an inlay. */
+body.f2p .felt-strip{background:linear-gradient(160deg,#124a33,#0d2a1f 70%);border-color:var(--line)}
+body.f2p .felt-strip::after{
+  display:block;content:"♠ ♥ ♦ ♣";inset:auto 18px auto auto;top:50%;transform:translateY(-50%);
+  background:none;mix-blend-mode:normal;opacity:.14;
+  font:700 30px/1 Georgia,serif;letter-spacing:.25em;color:var(--gold);
+}
+/* On a phone the inlay would sit under the headline. */
+@media (max-width:640px){body.f2p .felt-strip::after{display:none}}
+
+/* A table card is a table: green baize inside a gold rail, seats as chips. */
+body.f2p .table-card{
+  background:radial-gradient(ellipse at 50% 20%,#1c6a48,#124a33 75%);
+  border-color:#b8923a;
+  box-shadow:inset 0 0 0 4px #0b2a1d,inset 0 0 0 5px rgba(232,195,90,.35),0 10px 30px -14px rgba(0,0,0,.6);
+}
+body.f2p .table-card:hover,body.f2p .table-card:active{border-color:#ffd97a;box-shadow:inset 0 0 0 4px #0b2a1d,inset 0 0 0 5px rgba(255,217,122,.6),0 14px 34px -12px rgba(232,195,90,.35)}
+body.f2p .table-index{color:rgba(246,239,214,.5)}
+body.f2p .tier-tag.micro{color:var(--gold);background:rgba(0,0,0,.32)}
+body.f2p .tier-tag.low{color:#ffd97a;background:rgba(0,0,0,.32)}
+body.f2p .tier-tag.mid{color:var(--danger);background:rgba(0,0,0,.32)}
+body.f2p .table-state{color:var(--gold)}
+body.f2p .card-bottom{color:var(--muted)}
+body.f2p .seats{gap:4px}
+body.f2p .seats i{width:9px;height:9px;background:rgba(0,0,0,.35);border:1.5px dashed rgba(246,239,214,.35)}
+body.f2p .seats i.on{background:var(--gold);border-color:rgba(26,42,31,.5)}
+body.f2p .seats.full i.on{background:var(--danger)}
+body.f2p .card-actions,body.f2p .card-action{border-color:var(--line)}
+body.f2p .card-action{color:var(--gold)}
+body.f2p .card-observe:hover{border-color:var(--gold);color:var(--gold)}
+body.f2p .card-mine{border-color:#ffd97a}
+
+body.f2p .eyebrow,body.f2p .status-dot,body.f2p .session-label{color:var(--gold)}
+body.f2p .active-session{background:linear-gradient(160deg,#124a33,#0d2a1f 70%)}
+body.f2p .session-report{background:linear-gradient(160deg,#124a33,#0d2a1f 70%)}
+body.f2p .secondary-action,body.f2p .leave-action{background:rgba(0,0,0,.28)}
+body.f2p .buyin-dialog{background:linear-gradient(160deg,#124a33,#0d2a1f 70%);border-color:#b8923a}
+body.f2p .buyin-dialog input,body.f2p #roomDialog select{background:rgba(0,0,0,.3)}
+body.f2p .payment-details button{color:var(--gold-ink)}
