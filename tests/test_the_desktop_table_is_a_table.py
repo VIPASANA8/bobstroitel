@@ -191,7 +191,10 @@ def test_what_the_table_draws_grows_with_the_table():
     centre = _first_rule(V039, f"{DESKTOP} .table-center")
     assert "scale(calc(var(--p8-center-scale) * var(--p8-ui-scale)))" in centre
     actions = _rule(V039, f"{DESKTOP} #actionButtons .action-slot")
-    assert "width:clamp(128px,18%,176px)!important" in actions
+    # One value for the slot and for every offset built from it, so the
+    # right-hand pair and the sizing dock over it stay aligned at any width.
+    assert "--p8-slot-w:clamp(128px,18%,176px)" in V039
+    assert "width:var(--p8-slot-w)!important" in actions
     # No action row is reserved in any state.
     assert f"{DESKTOP}{{--p8-hud-h:0px!important;}}" in V039
     assert "--p8-hud-h:calc(214px * var(--p8-ui-scale))!important" not in V039
@@ -288,3 +291,24 @@ def test_watching_a_table_never_promotes_somebody_else_to_hero():
     assert seated and watching
     assert int(seated.group(2)) > 60, "the hero sits at the bottom"
     assert int(watching.group(2)) < 40, "watching, the lone player is not in your chair"
+
+
+def test_the_sizing_dock_stands_over_the_right_pair():
+    """The phone's popover is parked over CHECK/CALL and BET/RAISE and is
+    open whenever there is a bet to size -- read off the slot v038 renders,
+    so no second betting state exists. Only the button being sized steps
+    aside; the confirmation takes its place, and FOLD, ALL-IN and CHECK
+    stay pressable. Nothing is shown to a seat that is not in the hand."""
+    assert (f'{DESKTOP}:not(.p8-not-in-hand) .action-panel:has(#actionButtons '
+            f'.action-slot[data-action-key="aggressive"]) #sizingWrap,') in V039
+    hidden = f'{DESKTOP}.v038-sizing-open #actionButtons .action-slot[data-action-key="aggressive"]{{visibility:hidden!important;}}'
+    assert hidden in V039
+    assert f"{DESKTOP}.v038-sizing-open #actionButtons .action-slot{{visibility:hidden" not in V039
+    # The right pair is one row: the inner slot sits one slot and a gap in.
+    inner = _rule(V039, f'{DESKTOP} #actionButtons .action-slot[data-edge="right"][data-slot="top"]')
+    assert "right:calc(var(--p8-hud-inset) + var(--p8-slot-w) + var(--p8-hud-gap))!important" in inner
+    confirm = _rule(V039, f"{DESKTOP} #mobileSizingConfirm")
+    assert "left:calc(50% + var(--p8-hud-gap) / 2)!important" in confirm
+    assert "top:calc(100% + var(--p8-hud-gap))!important" in confirm
+    # The pointer gets the −/+ row the phone hides.
+    assert "display:grid!important" in _rule(V039, f"{DESKTOP} .amount-row")

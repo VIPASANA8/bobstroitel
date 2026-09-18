@@ -53,10 +53,15 @@
          also how its 100vw background-size outlived the frame rule above. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2{
         background:
-          radial-gradient(ellipse at 50% 26%,rgba(15,95,58,.16),transparent 43%),
-          url("/static/assets/room-wood-desktop.webp") center/cover no-repeat fixed,
-          #0c0503!important;
+          radial-gradient(ellipse at 50% 40%,rgba(7,82,52,.10),transparent 52%),
+          url("/static/assets/poker-room-premium-desktop.webp") center/cover no-repeat fixed,
+          #000000!important;
       }
+      /* poker-room-premium-desktop.webp is the room: wood, chairs, side
+         tables, the lamps -- and nothing that plays. No players, cards, pot,
+         buttons, text or neon rim; those are DOM, drawn over it. The file
+         shipped today is a copy of room-wood-desktop.webp so the slot is
+         live; drop the premium render over it under the same name. */
 
       body.v014.poker8-desktop-v2 .mobile-game-header,
       body.v014.poker8-desktop-v2 #mobileDrawer,
@@ -189,7 +194,10 @@
            the load order changed. The border and the radius below win, so
            they stay. */
         min-height:620px!important;
-        border:1px solid rgba(44,255,172,.13)!important;border-radius:28px!important;
+        /* No border: the photo's own floor meets the room's, and a lit
+           1px edge around it is what made the table read as a card laid on
+           a wood texture. The ::before below finishes the blend. */
+        border:0!important;border-radius:28px!important;
         background:
           linear-gradient(90deg,rgba(0,0,0,.58),transparent 17%,transparent 83%,rgba(0,0,0,.58)),
           url("/static/assets/poker8-v2-table-mobile.webp") center/cover no-repeat,
@@ -216,7 +224,21 @@
          against display:block, 10% against 16%. They were the last two
          declarations in this block that a change of load order could have
          woken up. Removed 2026-08-29; docs/layer-cleanup.md. */
-      body.v014.poker8-desktop-v2 .felt::after{display:none!important;}
+      /* The watermark. v038 hides this pseudo and v039 used to as well; it
+         is the one free layer between the photo and the board, so it
+         carries the wordmark at an opacity that is felt rather than read.
+         Sized off the stage height so it neither grows past the board on
+         a 1920 window nor hides under it on a 1280 one. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .felt::after{
+        content:"POKER8"!important;display:block!important;
+        position:absolute!important;inset:auto!important;left:50%!important;top:38%!important;
+        width:auto!important;height:auto!important;transform:translate(-50%,-50%)!important;
+        border:0!important;border-radius:0!important;background:none!important;box-shadow:none!important;
+        mix-blend-mode:normal!important;opacity:1!important;pointer-events:none!important;z-index:0!important;
+        color:rgba(184,255,218,.028)!important;
+        font:900 clamp(64px,calc(var(--p8-stage-h) * .13),112px)/1 Inter,ui-sans-serif,system-ui!important;
+        letter-spacing:.14em!important;white-space:nowrap!important;user-select:none!important;
+      }
 
       /* A fixed seven-point ring used to be stated here, in --seat-N-x/y and
          seven [data-visual-seat$="N"] rules. v040 has placed every seat since
@@ -399,11 +421,19 @@
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .pot-chips{order:1!important;top:auto!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .pot-total{order:2!important;top:auto!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .board-cards{order:3!important;top:auto!important;}
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .pot-total{border-color:rgba(60,225,150,.26)!important;background:rgba(4,31,20,.78)!important;box-shadow:0 5px 13px rgba(0,0,0,.42)!important;}
+      /* The pot is the one number the whole table is about, so it is the
+         one warm thing on the felt: gold on black, the colour the hand-combo
+         card and the all-in button already use for "this matters". */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .pot-total{
+        min-width:120px!important;padding:6px 16px!important;border-radius:11px!important;
+        border-color:rgba(238,180,65,.34)!important;background:linear-gradient(180deg,rgba(0,0,0,.86),rgba(12,9,2,.92))!important;
+        box-shadow:0 6px 16px rgba(0,0,0,.48),inset 0 1px rgba(255,217,138,.10)!important;
+      }
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .pot-total-label{color:#c9a95a!important;letter-spacing:.14em!important;}
       /* v019-center-polish sets display:flex!important on the same selector
          family, so the hide needs !important here to actually win. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2.p8-no-pot .pot-total{display:none!important;}
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .pot-total strong{color:#eafff6!important;font-size:27px!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .pot-total strong{color:#ffe9b0!important;font-size:27px!important;font-weight:900!important;font-variant-numeric:tabular-nums!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .street-badge{border-color:rgba(63,244,173,.30)!important;background:rgba(10,26,18,.82)!important;color:#b8ffda!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .online-state-panel{border-color:rgba(63,244,173,.34)!important;background:rgba(4,31,20,.92)!important;box-shadow:0 0 20px rgba(44,247,169,.14)!important;}
       body.v014.poker8-desktop-v2 .online-connection-status{border-color:rgba(68,231,210,.48)!important;background:rgba(2,19,18,.92)!important;color:#8effd1!important;}
@@ -523,6 +553,20 @@
         background-size:100% 100%!important;
         background-position:center!important;
         background-repeat:no-repeat!important;
+        /* v038's inset shadows and outer glow drew the frame's rectangle; the
+           room is what should be around the table, not a box. */
+        box-shadow:none!important;
+      }
+      /* The photo's floor fades into the room's at the frame's edge, so
+         where one wood ends and the other begins is not a line. style.css
+         draws a blurred blue haze with this pseudo; that blur is a filter
+         pass this table does not need. Painted before .felt in tree order,
+         so everything on the felt stays above it. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .table-frame::before{
+        content:""!important;position:absolute!important;inset:0!important;
+        left:0!important;right:0!important;bottom:0!important;height:auto!important;
+        border-radius:inherit!important;filter:none!important;background:none!important;
+        box-shadow:inset 0 0 64px 18px #000000!important;pointer-events:none!important;
       }
       /* Everyone else's confirmation.
 
@@ -658,6 +702,7 @@
       body.v014.poker8-v2-sixmax.poker8-desktop-v2{--p8-hud-h:0px!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .sidebar{display:none!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .table-frame > .action-panel{
+        --p8-slot-w:clamp(128px,18%,176px);--p8-hud-gap:8px;--p8-hud-inset:16px;
         position:absolute!important;z-index:70!important;inset:0!important;
         width:100%!important;height:100%!important;min-height:0!important;
         margin:0!important;padding:0!important;transform:none!important;
@@ -670,40 +715,119 @@
         display:contents!important;position:static!important;inset:auto!important;
         width:auto!important;height:auto!important;padding:0!important;background:transparent!important;
       }
+      /* The desktop HUD. Leaving is on the left, staying in is on the
+         right, and the right-hand side is a column: the sizing dock over
+         CHECK/CALL and BET/RAISE side by side --
+
+               [MIN][½ POT][POT][⅔ POT][MAX]
+               [ − ]     2.00 ББ      [ + ]
+               ─────────●───────────────────
+           [ ALL-IN ]
+           [  FOLD  ]   [ CHECK ]  [ BET 2.00 ]
+
+         Same buttons, same controller (v038's configureReferenceActions
+         and the amount/preset handlers in app.js); only where they stand.
+         --p8-slot-w (declared on the panel above) is one value for the slot
+         and for the offsets built from it, so the pair and the dock stay
+         aligned at every width. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons .action-slot{
         position:absolute!important;z-index:4!important;
-        width:clamp(128px,18%,176px)!important;max-width:none!important;
+        width:var(--p8-slot-w)!important;max-width:none!important;
         min-height:46px!important;height:46px!important;padding:7px 10px!important;
         border-radius:11px!important;font-size:12px!important;pointer-events:auto!important;
       }
-      /* At the frame's own edges, one pair each side, the hero seat alone in
-         the middle -- the pairs used to hug the seat and read as one clump. */
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons .action-slot[data-edge="left"]{right:auto!important;left:16px!important;}
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons .action-slot[data-edge="right"]{left:auto!important;right:16px!important;}
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons .action-slot[data-slot="top"]{top:auto!important;bottom:70px!important;}
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons .action-slot[data-slot="bottom"]{top:auto!important;bottom:16px!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons .action-slot[data-edge="left"]{right:auto!important;left:var(--p8-hud-inset)!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons .action-slot[data-edge="left"][data-slot="top"]{top:auto!important;bottom:calc(var(--p8-hud-inset) + 46px + var(--p8-hud-gap))!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons .action-slot[data-edge="left"][data-slot="bottom"]{top:auto!important;bottom:var(--p8-hud-inset)!important;}
+      /* The right pair shares one row; "top" is the inner of the two. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons .action-slot[data-edge="right"]{left:auto!important;top:auto!important;bottom:var(--p8-hud-inset)!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons .action-slot[data-edge="right"][data-slot="top"]{right:calc(var(--p8-hud-inset) + var(--p8-slot-w) + var(--p8-hud-gap))!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #actionButtons .action-slot[data-edge="right"][data-slot="bottom"]{right:var(--p8-hud-inset)!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .v038-action-amount{font-size:12px!important;}
 
-      /* Sizing is transient, like the phone: no permanent preset/slider block.
-         It opens over the felt and therefore cannot resize the page. */
+      /* The sizing dock: the phone's popover, parked over the right pair
+         and open whenever there is a BET/RAISE to size -- :has() reads that
+         off the slot v038 renders, so no second betting state is kept.
+         Its amount, presets and slider are the same #amount, .quick-sizes
+         and #amountSlider; the −/+ row the phone hides comes back because a
+         pointer wants steps as well as a slider. Pressing BET still goes
+         through openSizingMode: the confirmation then takes the BET
+         button's own place (below), and × in the corner cancels. */
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 #sizingWrap{
         display:none!important;position:absolute!important;z-index:8!important;
-        left:50%!important;right:auto!important;top:50%!important;bottom:auto!important;
-        width:min(360px,calc(100% - 40px))!important;height:auto!important;
-        transform:translate(-50%,-50%)!important;padding:10px!important;
-        border:1px solid rgba(71,255,190,.42)!important;border-radius:16px!important;
-        background:rgba(0,8,5,.97)!important;box-shadow:0 18px 42px rgba(0,0,0,.60),0 0 28px rgba(44,247,169,.18)!important;
+        left:auto!important;right:var(--p8-hud-inset)!important;top:auto!important;
+        bottom:calc(var(--p8-hud-inset) + 46px + var(--p8-hud-gap))!important;
+        width:calc(var(--p8-slot-w) * 2 + var(--p8-hud-gap))!important;height:auto!important;
+        transform:none!important;padding:7px!important;gap:5px!important;box-sizing:border-box!important;
+        border:1px solid rgba(71,255,190,.22)!important;border-radius:14px!important;
+        background:rgba(0,8,5,.92)!important;box-shadow:0 12px 30px rgba(0,0,0,.50)!important;
         pointer-events:auto!important;
       }
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2.v038-sizing-open #sizingWrap{display:block!important;}
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2.v038-sizing-open #actionButtons .action-slot{visibility:hidden!important;}
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .mobile-sizing-head{display:flex!important;align-items:center!important;justify-content:center!important;min-height:40px!important;margin-bottom:7px!important;position:relative!important;}
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #mobileSizingAmount{font-size:24px!important;}
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #mobileSizingCancel{display:block!important;position:absolute!important;right:0!important;top:0!important;width:40px!important;height:40px!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2:not(.p8-not-in-hand) .action-panel:has(#actionButtons .action-slot[data-action-key="aggressive"]) #sizingWrap,
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2.v038-sizing-open #sizingWrap{display:flex!important;flex-direction:column!important;}
+      /* Presets, then the exact amount, then the slider -- the order the
+         sketch reads in; the DOM has the amount row first. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .mobile-sizing-head{order:0!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .quick-sizes{order:1!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .amount-row{order:2!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .bet-slider-row{order:3!important;}
+      /* Only the button being sized steps aside; FOLD, ALL-IN and
+         CHECK/CALL stay where they are and stay pressable. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2.v038-sizing-open #actionButtons .action-slot[data-action-key="aggressive"]{visibility:hidden!important;}
+      /* The head is only the × here: its readout would say the number the
+         amount field already shows a row below. The × hangs off the dock's
+         top-right corner while a bet is being sized, so the dock keeps one
+         height open or closed. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .mobile-sizing-head{
+        display:none!important;position:absolute!important;z-index:10!important;top:-10px!important;right:-10px!important;
+        width:32px!important;height:32px!important;min-height:0!important;margin:0!important;
+      }
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2.v038-sizing-open .mobile-sizing-head{display:block!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #mobileSizingAmount{display:none!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #mobileSizingCancel{
+        display:grid!important;place-items:center!important;position:static!important;width:32px!important;height:32px!important;
+        border:1px solid rgba(139,184,164,.45)!important;border-radius:50%!important;background:#0a1512!important;color:#cbddd5!important;
+        font-size:20px!important;line-height:1!important;cursor:pointer!important;box-shadow:0 4px 10px rgba(0,0,0,.5)!important;
+      }
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 .quick-sizes{position:static!important;display:grid!important;grid-template-columns:repeat(5,1fr)!important;height:auto!important;margin:0!important;gap:5px!important;}
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .quick-sizes button{height:40px!important;min-height:40px!important;}
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .bet-slider-row{position:static!important;display:block!important;height:30px!important;margin:7px 0 5px!important;}
-      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #mobileSizingConfirm{display:block!important;width:100%!important;min-height:44px!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .quick-sizes button{height:34px!important;min-height:34px!important;padding:2px!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .amount-row{
+        display:grid!important;grid-template-columns:34px minmax(0,1fr) 34px!important;align-items:center!important;gap:5px!important;
+        margin:0!important;padding:0!important;border:0!important;background:transparent!important;
+      }
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .amount-row::before{display:none!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .amount-row > span{display:none!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .amount-row .amount-step{
+        height:34px!important;min-height:34px!important;padding:0!important;border:1px solid rgba(71,255,190,.30)!important;border-radius:9px!important;
+        background:rgba(4,31,20,.72)!important;color:#b8ffda!important;font:900 18px/1 Inter,ui-sans-serif,system-ui!important;cursor:pointer!important;
+      }
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .amount-row input[type=number]{
+        width:100%!important;height:34px!important;box-sizing:border-box!important;padding:0 6px!important;
+        border:1px solid rgba(71,255,190,.16)!important;border-radius:9px!important;background:rgba(0,0,0,.6)!important;
+        color:#ffffff!important;text-align:center!important;font:900 20px/1 Inter,ui-sans-serif,system-ui!important;font-variant-numeric:tabular-nums!important;
+        -moz-appearance:textfield!important;appearance:textfield!important;
+      }
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .amount-row input[type=number]::-webkit-outer-spin-button,
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .amount-row input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none!important;margin:0!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 .bet-slider-row{position:static!important;display:block!important;height:22px!important;margin:0!important;}
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #amountSlider{height:22px!important;}
+      /* The confirmation stands where BET stood: absolutely placed off the
+         dock's own box, over the right-hand slot the dock is aligned with.
+         Half the dock plus half the gap, not the slot width: --p8-slot-w's
+         18% resolves against whatever box uses it, and inside the dock
+         that is the dock, not the frame. */
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2 #mobileSizingConfirm{
+        display:none!important;position:absolute!important;z-index:9!important;
+        left:calc(50% + var(--p8-hud-gap) / 2)!important;right:0!important;top:calc(100% + var(--p8-hud-gap))!important;
+        width:auto!important;height:46px!important;min-height:46px!important;padding:0 8px!important;
+        border-radius:11px!important;font-size:12px!important;font-weight:900!important;letter-spacing:.04em!important;
+        /* The raise's own colour, since it stands in for the raise button. */
+        border:1px solid var(--act-raise,#47e6a8)!important;color:#ffffff!important;
+        background:linear-gradient(180deg,color-mix(in srgb,var(--act-raise,#47e6a8) 34%,#07100f),#000000)!important;
+        box-shadow:0 0 0 1px color-mix(in srgb,var(--act-raise,#47e6a8) 50%,transparent),0 0 14px color-mix(in srgb,var(--act-raise,#47e6a8) 40%,transparent)!important;
+        cursor:pointer!important;
+      }
+      body.v014.poker8-v2-sixmax.poker8-desktop-v2.v038-sizing-open #mobileSizingConfirm{display:block!important;}
       body.v014.poker8-v2-sixmax.poker8-desktop-v2 #mobileBetRail{display:none!important;}
 
       /* Nothing to press: the hand is running and this seat is not in it. */

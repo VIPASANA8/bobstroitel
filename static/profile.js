@@ -654,10 +654,12 @@
     $('cashModeTab').hidden = false;
     // One tab is not a choice: the switch appears only once there are two.
     document.querySelector('.profile-modes').hidden = false;
-    // The money is what the profile opens on, here and from the lobby's
-    // "Открыть CASH-кассу" alike. Profile stays one tap to the right.
+    // The lobby's "Открыть CASH-кассу" says #cash and lands on the money;
+    // its "Открыть профиль" (#topup) and a plain open land on the profile.
+    // The cashier used to be the default for every link, so a guest who
+    // asked for the profile got the cash desk instead.
     const modes = document.querySelector('.profile-modes');
-    if (!modes.userSelected) modes.selectTab($('cashModeTab'));
+    if (!modes.userSelected && location.hash === '#cash') modes.selectTab($('cashModeTab'));
   }
 
   async function openCashier(config) {

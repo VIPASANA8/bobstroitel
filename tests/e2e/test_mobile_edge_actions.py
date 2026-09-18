@@ -548,7 +548,17 @@ def test_desktop_actions_live_inside_the_table_without_a_layout_row(online_serve
             assert sizing_box["x"] + sizing_box["width"] <= measured["frame"]["right"]
             assert sizing_box["y"] >= measured["frame"]["top"]
             assert sizing_box["y"] + sizing_box["height"] <= measured["frame"]["bottom"]
-            assert not page.locator('#actionButtons [data-edge="left"]').first.is_visible()
+            # Only the button being sized steps aside; the rest stay pressable
+            # and the confirmation stands where BET stood.
+            assert not page.locator('#actionButtons [data-action-key="aggressive"]').is_visible()
+            assert page.locator('#actionButtons [data-edge="left"]').first.is_visible()
+            assert page.locator('#actionButtons [data-edge="right"][data-slot="top"]').is_visible()
+            bet = page.locator('#actionButtons [data-action-key="aggressive"]').bounding_box()
+            confirm = page.locator("#mobileSizingConfirm").bounding_box()
+            assert bet and confirm
+            assert confirm["x"] == pytest.approx(bet["x"], abs=2)
+            assert confirm["y"] == pytest.approx(bet["y"], abs=2)
+            assert confirm["x"] + confirm["width"] == pytest.approx(bet["x"] + bet["width"], abs=2)
             page.locator("#mobileSizingCancel").click()
             page.wait_for_function("!document.body.classList.contains('v038-sizing-open')")
 

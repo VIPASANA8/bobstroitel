@@ -1375,7 +1375,7 @@
 
   if (!document.querySelector('script[data-v031-pot-cluster-mobile-fix]')) {
     const v031 = document.createElement("script");
-    v031.src = "/static/v031-pot-cluster-mobile-fix.js?v=guest-tables-15";
+    v031.src = "/static/v031-pot-cluster-mobile-fix.js?v=desktop-hud-16";
     v031.dataset.v031PotClusterMobileFix = "1";
     document.body.appendChild(v031);
   }
@@ -1933,7 +1933,7 @@
   function ensureTurnClarityPatch() {
     if (document.querySelector("script[data-v041-poker8-v2-turn-clarity]")) return;
     const v041 = document.createElement("script");
-    v041.src = "/static/v041-poker8-v2-turn-clarity.js?v=guest-tables-15";
+    v041.src = "/static/v041-poker8-v2-turn-clarity.js?v=desktop-hud-16";
     v041.setAttribute("data-v041-poker8-v2-turn-clarity", "");
     document.body.appendChild(v041);
   }
@@ -1944,7 +1944,7 @@
       return;
     }
     const v040 = document.createElement("script");
-    v040.src = "/static/v040-poker8-v2-dynamic-seats.js?v=guest-tables-15";
+    v040.src = "/static/v040-poker8-v2-dynamic-seats.js?v=desktop-hud-16";
     v040.setAttribute("data-v040-poker8-v2-dynamic-seats", "");
     v040.addEventListener("load", ensureTurnClarityPatch, { once:true });
     document.body.appendChild(v040);
@@ -1952,7 +1952,7 @@
 
   if (!document.querySelector('script[data-v038-poker8-v2-cinematic-table]')) {
     const v038 = document.createElement("script");
-    v038.src = "/static/v038-poker8-v2-cinematic-table.js?v=guest-tables-15";
+    v038.src = "/static/v038-poker8-v2-cinematic-table.js?v=desktop-hud-16";
     v038.setAttribute("data-v038-poker8-v2-cinematic-table", "");
     v038.addEventListener("load", ensureDynamicSeatLayout, { once: true });
     document.body.appendChild(v038);
@@ -3971,10 +3971,15 @@
   const DESKTOP_LAYOUTS = {
     1: [[50, 86]],
     2: [[50, 86], [50, 12]],
-    3: [[50, 86], [18, 30], [82, 30]],
-    4: [[50, 86], [16, 62], [50, 12], [84, 62]],
-    5: [[50, 86], [15, 62], [26, 18], [74, 18], [85, 62]],
-    6: [[50, 86], [16, 68], [16, 26], [50, 12], [84, 26], [84, 68]],
+    // Three-handed the pair sits at the oval's widest point, level with the
+    // board, not up in the top corners with the whole lower half empty.
+    3: [[50, 86], [17, 48], [83, 48]],
+    // The lower wings stop at 58: v039's sizing dock stands over the right
+    // pair of action buttons, 186px tall from the frame's bottom edge, and
+    // at 62 or 68 the wing's plate was under it on a 720p window.
+    4: [[50, 86], [16, 58], [50, 12], [84, 58]],
+    5: [[50, 86], [15, 58], [26, 18], [74, 18], [85, 58]],
+    6: [[50, 86], [16, 58], [16, 26], [50, 12], [84, 26], [84, 58]],
   };
 
   // Watching, so nobody owns the near chair: the ring closes over the bottom

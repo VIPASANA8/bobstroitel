@@ -214,7 +214,7 @@ def test_profile_has_one_summary_and_fits_the_viewport(profile_page, width):
 
 def test_history_and_collection_expand_without_losing_their_data(profile_page):
     page, _, calls, server = profile_page
-    page.goto(server + '/static/profile.html')
+    page.goto(server + '/static/profile.html#cash')
     expect(page.locator('#allHistory .history-row:visible')).to_have_count(5)
     page.get_by_role('button', name='Вся история').click()
     expect(page.locator('#allHistory .history-row:visible')).to_have_count(14)
@@ -271,6 +271,26 @@ def test_referral_tab_survives_cash_failure_and_hidden_tabs_are_skipped(profile_
     expect(referral).to_be_focused()
     expect(referral).to_have_attribute('aria-selected', 'true')
     expect(page.locator('#referralSection')).to_be_visible()
+
+
+def test_the_profile_link_lands_on_the_profile_not_the_cashier(profile_page):
+    """The lobby's "Открыть профиль" (#topup) opened on the CASH tab -- the
+    cashier was the default for every link, #cash or not. Reported by a
+    guest who asked for the profile and got the cash desk."""
+    page, _, _, server = profile_page
+    # about:blank between them: a hash-only goto is a same-document
+    # navigation and the page would not load again.
+    for suffix in ('?app=poker#topup', '?app=poker'):
+        page.goto('about:blank')
+        page.goto(server + '/static/profile.html' + suffix)
+        expect(page.locator('#cashModeTab')).to_be_visible()
+        expect(page.locator('#playModeTab')).to_have_attribute('aria-selected', 'true')
+        expect(page.locator('#playSection')).to_be_visible()
+        expect(page.locator('#cashSection')).to_be_hidden()
+    page.goto('about:blank')
+    page.goto(server + '/static/profile.html?app=poker#cash')
+    expect(page.locator('#cashModeTab')).to_have_attribute('aria-selected', 'true')
+    expect(page.locator('#cashSection')).to_be_visible()
 
 
 def test_late_cash_wallet_does_not_override_a_player_tab_choice(profile_page):
@@ -443,7 +463,7 @@ def test_referral_action_failures_are_announced(profile_page):
 def test_failed_cube_history_does_not_claim_that_cube_is_empty(profile_page):
     page, data, _, server = profile_page
     data['/api/cube/history'] = None
-    page.goto(server + '/static/profile.html')
+    page.goto(server + '/static/profile.html#cash')
     page.get_by_role('tab', name='CUBE', exact=True).click()
     expect(page.locator('#cubeHistory')).to_contain_text('Не удалось загрузить историю CUBE')
     expect(page.locator('#cubeHistory')).not_to_contain_text('Игр в CUBE пока нет')
@@ -719,7 +739,7 @@ def test_touch_swipes_follow_each_game_cashier_route(
 
 def test_poker_cashier_swipe_uses_the_panel_selected_after_load(profile_page):
     page, _, _, server = profile_page
-    page.goto(server + '/static/profile.html?app=poker')
+    page.goto(server + '/static/profile.html?app=poker#cash')
     expect(page.locator('#cashSection')).to_be_visible()
 
     swipe(page, '#profileMain', direction='right')

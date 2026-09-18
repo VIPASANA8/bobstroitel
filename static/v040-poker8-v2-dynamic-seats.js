@@ -103,10 +103,15 @@
   const DESKTOP_LAYOUTS = {
     1: [[50, 86]],
     2: [[50, 86], [50, 12]],
-    3: [[50, 86], [18, 30], [82, 30]],
-    4: [[50, 86], [16, 62], [50, 12], [84, 62]],
-    5: [[50, 86], [15, 62], [26, 18], [74, 18], [85, 62]],
-    6: [[50, 86], [16, 68], [16, 26], [50, 12], [84, 26], [84, 68]],
+    // Three-handed the pair sits at the oval's widest point, level with the
+    // board, not up in the top corners with the whole lower half empty.
+    3: [[50, 86], [17, 48], [83, 48]],
+    // The lower wings stop at 58: v039's sizing dock stands over the right
+    // pair of action buttons, 186px tall from the frame's bottom edge, and
+    // at 62 or 68 the wing's plate was under it on a 720p window.
+    4: [[50, 86], [16, 58], [50, 12], [84, 58]],
+    5: [[50, 86], [15, 58], [26, 18], [74, 18], [85, 58]],
+    6: [[50, 86], [16, 58], [16, 26], [50, 12], [84, 26], [84, 58]],
   };
 
   // Watching, so nobody owns the near chair: the ring closes over the bottom

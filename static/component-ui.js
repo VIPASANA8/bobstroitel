@@ -85,7 +85,7 @@
     // find the next one "already loaded" and stand down.
     if (document.querySelector("script[data-table-layers]")) return;
     const layers = document.createElement("script");
-    layers.src = "/static/table-layers.js?v=guest-tables-15";
+    layers.src = "/static/table-layers.js?v=desktop-hud-16";
     layers.dataset.tableLayers = "1";
     document.body.appendChild(layers);
   });
